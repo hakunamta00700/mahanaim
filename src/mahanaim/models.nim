@@ -4,7 +4,7 @@
 ## Validation, serialization, forms, admin, and OpenAPI can all consume the
 ## same metadata while SQLite/PostgreSQL adapters remain replaceable layers.
 
-import std/[algorithm, options, tables]
+import std/[algorithm, options, strutils, tables]
 
 type
   ModelValueKind* = enum
@@ -102,6 +102,38 @@ proc newModelField*(name: string, kind: ModelValueKind,
     sensitive: sensitive,
     nestedModel: nestedModel,
     enumValues: @[])
+
+proc newModelIndex*(name: string, fields: openArray[string],
+                    unique = false): ModelIndex =
+  ## Index declarations are values so a macro or a runtime registry can use
+  ## the same validation and deterministic representation.
+  if name.strip().len == 0 or fields.len == 0:
+    raise newException(ValueError, "Model index requires a name and fields")
+  result = ModelIndex(name: name, fields: @fields, unique: unique)
+
+proc newModelConstraint*(name, expression: string): ModelConstraint =
+  ## Keep opaque constraint expressions explicit; SQL dialects decide later
+  ## whether the expression is compilable for their backend.
+  if name.strip().len == 0 or expression.strip().len == 0:
+    raise newException(ValueError,
+      "Model constraint requires a name and expression")
+  result = ModelConstraint(name: name, expression: expression)
+
+proc newModelRelation*(name: string, kind: ModelRelationKind,
+                       targetModel, localField, foreignField: string,
+                       throughTable = "", throughLocalField = "",
+                       throughForeignField = ""): ModelRelation =
+  ## Relation join columns are never inferred from field names. Explicit
+  ## values keep one-to-many and through-table semantics portable across
+  ## database adapters and safe for schema checks.
+  if name.strip().len == 0 or targetModel.strip().len == 0 or
+      localField.strip().len == 0 or foreignField.strip().len == 0:
+    raise newException(ValueError,
+      "Model relation requires name, target, and join fields")
+  result = ModelRelation(name: name, kind: kind, targetModel: targetModel,
+    localField: localField, foreignField: foreignField,
+    throughTable: throughTable, throughLocalField: throughLocalField,
+    throughForeignField: throughForeignField)
 
 proc newEnumModelField*(name: string, values: openArray[string],
                        columnName = "", jsonName = "", nullable = false,

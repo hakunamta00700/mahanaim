@@ -138,11 +138,11 @@
 
 ### 데이터와 모델
 
-- [x] backend-neutral field/index/constraint/relation metadata와 model registry를 제공한다.
+- [x] backend-neutral field/index/constraint/relation metadata와 model registry를 제공하고, model macro에서 명시적 index/constraint/relation 선언을 함께 생성한다.
 - [x] metadata 기반 JSON serializer와 sensitive/nullable/rename 정책 및 string-backed enum 검증을 제공한다.
 - [x] metadata 기반 patch projection과 partial update serializer를 제공한다.
 - [x] registry 기반 nested DTO serializer를 제공한다.
-- [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공하고, `Option[T]`를 nullable metadata와 optional input schema로 매핑한다.
+- [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공하고, `Option[T]`를 nullable metadata와 optional input schema로 매핑하며 명시적 index/constraint/relation 선언을 추가한다.
 - [x] 표준 serialization adapter 확장점과 DateTime·UUID·file metadata 정규화/검증을 제공한다.
 - [x] model metadata를 validation/form/OpenAPI 공통 `FieldSpec` schema로 변환하고 float/boolean/JSON 입력 타입, string-backed enum, 교체 가능한 widget registry와 model formset을 연결했다.
 - [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩·복원하고 JSON/MessagePack `Accept` negotiation과 chunked stream response를 제공하며 truncated/trailing payload를 거부한다. custom adapter와 DateTime·UUID·enum·file normalization을 포함한다.

@@ -70,9 +70,20 @@ proc recordFields(node: NimNode): seq[(string, NimNode)] =
   else:
     error("Unsupported object declaration in modelMetadata", node)
 
+proc metadataDeclarationName(node: NimNode): string =
+  ## Declarations are intentionally limited to constructors whose result type
+  ## is known by the runtime metadata contract. Rejecting arbitrary AST here
+  ## prevents a macro from silently accepting an expression it cannot inspect.
+  if node.kind != nnkCall or node.len == 0:
+    error("Model metadata declarations must call a supported constructor", node)
+  result = $node[0]
+  if result notin ["newModelIndex", "newModelConstraint", "newModelRelation"]:
+    error("Unsupported model metadata declaration: " & result, node)
+
 macro modelMetadata*(modelType: typedesc,
                      modelName: static[string] = "",
-                     tableName: static[string] = ""): untyped =
+                     tableName: static[string] = "",
+                     declarations: varargs[untyped]): untyped =
   ## Generate deterministic metadata in source field order.
   let typeNode = if modelType.kind == nnkBracketExpr: modelType[1] else: modelType
   let typeDesc = getTypeInst(modelType)
@@ -91,6 +102,19 @@ macro modelMetadata*(modelType: typedesc,
     result.add quote do:
       `generated`.addField(newModelField(`fieldLiteral`, `kindNode`,
         nullable = `optionalLiteral`))
+  for declaration in declarations:
+    case metadataDeclarationName(declaration)
+    of "newModelIndex":
+      result.add quote do:
+        `generated`.addIndex(`declaration`)
+    of "newModelConstraint":
+      result.add quote do:
+        `generated`.addConstraint(`declaration`)
+    of "newModelRelation":
+      result.add quote do:
+        `generated`.addRelation(`declaration`)
+    else:
+      discard
   result.add generated
 
 proc inputFieldConstructor(typeNode: NimNode): NimNode =

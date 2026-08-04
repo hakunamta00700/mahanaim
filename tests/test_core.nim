@@ -25,6 +25,10 @@ type OptionalMacroUser = object
   displayName: Option[string]
   age: Option[int]
 
+type AnnotatedMacroUser = object
+  id: int
+  email: string
+
 type CreateProfileDto = object
   displayName: string
   age: int
@@ -4215,6 +4219,27 @@ suite "Mahanaim core contracts":
     check schema.len == 2
     check not schema[0].required
     check not schema[1].required
+
+  test "model macro appends explicit index constraint and relation declarations":
+    let generated = modelMetadata(AnnotatedMacroUser, "AnnotatedMacroUser",
+      "annotated_macro_users",
+      newModelIndex("idx_annotated_email", ["email"], unique = true),
+      newModelConstraint("email_not_empty", "email <> ''"),
+      newModelRelation("profile", relationOneToOne, "AnnotatedMacroProfile",
+        "id", "id"))
+    check generated.indexes.len == 1
+    check generated.indexes[0].name == "idx_annotated_email"
+    check generated.indexes[0].unique
+    check generated.constraints.len == 1
+    check generated.constraints[0].expression == "email <> ''"
+    check generated.relations.len == 1
+    check generated.relations[0].targetModel == "AnnotatedMacroProfile"
+    expect ValueError:
+      discard newModelIndex("", [])
+    expect ValueError:
+      discard newModelConstraint("", "email <> ''")
+    expect ValueError:
+      discard newModelRelation("profile", relationOneToOne, "", "id", "id")
 
   test "input schema macro generates ordered FieldSpec values":
     let generated = inputSchema(MacroUser)

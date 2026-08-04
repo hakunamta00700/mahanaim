@@ -177,7 +177,7 @@
 - [x] application-owned model registry와 중복 선언 방지를 추가했다.
 - [x] check report가 model field·index·relation 참조를 검증하도록 연결했다.
 - [x] metadata lookup과 registry·invalid reference 회귀 테스트를 추가했다.
-- [ ] model macro 생성, query/backend adapter, migration compiler와 serializer/form/admin/OpenAPI 소비자는 남아 있다.
+- [-] model macro 생성과 query/backend adapter, migration compiler 및 serializer/form/admin/OpenAPI 소비자 연결을 추가했다. collection·custom type adapter와 PostgreSQL live 증거는 남아 있다.
 
 ### 2026-08-04 — P0 model serializer 1차
 
@@ -318,11 +318,11 @@
 
 ### 2026-08-04 — P1 model metadata macro 1차
 
-- [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
+- [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하고, 명시적 index/constraint/relation constructor를 macro declaration으로 추가하는 기능을 구현했다.
 - [x] string·integer·float·boolean·DateTime·UUID·JsonNode 타입 매핑을 명시적으로 고정했다.
 - [x] 상속 object와 지원하지 않는 field type은 compile-time 오류로 거부한다.
 - [x] 생성 metadata의 이름·table·field order·kind 회귀 테스트를 추가했다.
-- [-] `Option[T]`를 nullable model metadata와 optional input/response `FieldSpec`로 매핑하고 회귀 테스트를 추가했다. relation/index/constraint annotation, collection·custom type adapter는 남아 있다.
+- [-] `Option[T]`를 nullable model metadata와 optional input/response `FieldSpec`로 매핑하고, 명시적 index/constraint/relation declaration과 회귀 테스트를 추가했다. collection·custom type adapter는 남아 있다.
 
 ### 2026-08-04 — P0 handler execution 1차
 
@@ -696,7 +696,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
+| [x] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. macro는 필드를 source order로 읽고 추가 선언은 명시적 constructor로 받아 AST 추측을 피한다. |
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
