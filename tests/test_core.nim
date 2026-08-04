@@ -3714,6 +3714,35 @@ suite "Mahanaim core contracts":
         documentedHandler)
     check registry.operations.len == 1
 
+  test "OpenAPI route collection discovers plain routes and preserves schemas":
+    let app = newApplication()
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("ok")
+    proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("user")
+    app.get("/health", "health", health)
+    app.get("/users/:id<int>", "user.detail", user)
+    app.get("/assets/*path", "", user)
+    let registry = newOpenApiRegistry("Collected API", "1.0.0")
+    registry.registerOperation(OpenApiOperation(
+      httpMethod: "GET", path: "/health", operationId: "health",
+      requestSchema: @[], responseSchema: @[stringField("status", flBody)],
+      successStatus: 200))
+    check registry.collectRoutes(app.router) == 2
+    check registry.collectRoutes(app.router) == 0
+    check registry.operations.len == 3
+    check registry.operations[0].responseSchema.len == 1
+    check registry.operations[1].operationId == "user.detail"
+    let document = registry.document()
+    check document["paths"]["/users/{id}"]["get"][
+      "operationId"].getStr() == "user.detail"
+    check document["paths"]["/users/{id}"]["get"]["parameters"][0][
+      "schema"]["type"].getStr() == "integer"
+    check document["paths"]["/assets/{path}"]["get"]["operationId"].getStr() ==
+      "get.assets.wildcard.path"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

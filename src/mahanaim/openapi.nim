@@ -6,6 +6,7 @@
 import std/[asyncdispatch, json, strutils]
 import ./application
 import ./core
+import ./router
 import ./validation
 
 type
@@ -59,6 +60,82 @@ proc registerOperation*(registry: OpenApiRegistry,
   normalized.successStatus = if operation.successStatus > 0:
     operation.successStatus else: 200
   registry.operations.add(normalized)
+
+proc hasOperation(registry: OpenApiRegistry, httpMethod, path: string): bool =
+  ## Explicit declarations win over generated fallback metadata. This helper
+  ## keeps collection idempotent when a host calls it after plugin discovery.
+  for operation in registry.operations:
+    if normalizeHttpMethod(operation.httpMethod) == httpMethod.toLowerAscii() and
+       operation.path == path:
+      return true
+  false
+
+proc generatedOperationId(route: Route): string =
+  ## Nameless routes still need a stable OpenAPI operationId. The route name is
+  ## preferred, while this deterministic fallback keeps collection useful for
+  ## low-level applications that intentionally omit names.
+  if route.name.strip().len > 0:
+    return route.name
+  var suffix = route.pattern.replace("/", ".")
+  suffix = suffix.replace(":", "param.")
+  suffix = suffix.replace("*", "wildcard.")
+  route.httpMethod.toLowerAscii() & suffix
+
+proc routeOpenApiMetadata(route: Route): (string, seq[FieldSpec]) =
+  ## Translate the router's `:id<int>`/`*path` grammar into OpenAPI's
+  ## `{id}` path syntax and retain the router's scalar constraint as a typed
+  ## path FieldSpec. This keeps generated docs useful without reflecting into
+  ## handler closures or guessing request body schemas.
+  var pathSegments: seq[string] = @[]
+  var parameters: seq[FieldSpec] = @[]
+  for segment in route.pattern.split('/'):
+    if segment.len == 0:
+      continue
+    if segment[0] != ':' and segment[0] != '*':
+      pathSegments.add(segment)
+      continue
+    if segment.len < 2:
+      pathSegments.add(segment)
+      continue
+    let raw = segment[1 .. ^1]
+    let typeStart = raw.find('<')
+    let name = if typeStart < 0: raw else: raw[0 ..< typeStart]
+    let kind = if typeStart < 0 or not raw.endsWith(">"):
+      "" else: raw[typeStart + 1 ..< raw.len - 1].toLowerAscii()
+    if name.len == 0:
+      pathSegments.add(segment)
+      continue
+    pathSegments.add("{" & name & "}")
+    case kind
+    of "int", "uint": parameters.add(integerField(name, flPath))
+    of "float": parameters.add(floatField(name, flPath))
+    of "bool": parameters.add(booleanField(name, flPath))
+    else: parameters.add(stringField(name, flPath))
+  let path = if pathSegments.len == 0: "/" else: "/" & pathSegments.join("/")
+  (path, parameters)
+
+proc collectRoutes*(registry: OpenApiRegistry, router: Router): int =
+  ## Discover plain HTTP routes after application/plugin registration. The
+  ## collector emits operation metadata with empty schemas; callers can still
+  ## use addDocumentedRoute for typed declarations, and those declarations are
+  ## preserved when collection runs later. WebSocket routes stay out of the
+  ## HTTP OpenAPI document because their handshake is a separate contract.
+  if registry.isNil:
+    raise newException(ValueError, "OpenAPI registry is required")
+  for route in router.routes:
+    let routeMethod = route.httpMethod.toLowerAscii()
+    let (path, requestSchema) = routeOpenApiMetadata(route)
+    if registry.hasOperation(routeMethod, path):
+      continue
+    registry.registerOperation(OpenApiOperation(
+      httpMethod: routeMethod,
+      path: path,
+      operationId: generatedOperationId(route),
+      summary: "",
+      requestSchema: requestSchema,
+      responseSchema: @[],
+      successStatus: 200))
+    inc result
 
 proc addDocumentedRoute*(app: Application, registry: OpenApiRegistry,
                          operation: OpenApiOperation, handler: Handler,
