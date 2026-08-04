@@ -46,7 +46,7 @@
 ### P0 — 안전한 기본 경계와 외부 검증
 
 - [x] **P0-01 PostgreSQL live typed contract** — PostgreSQL 16 컨테이너에서 custom field codec, JSONB OID typed result, serializable transaction, repository CRUD/aggregate/relation, migration up/idempotency/rollback을 실행했다. `tests/test_postgres_live.nim`과 운영 문서에 실행 조건·결과를 기록했다.
-- [-] **P0-02 HTTPS deployment boundary** — `Request`의 adapter scheme/peer와 명시적 `trustedProxies`를 통해 forwarded scheme/host를 제한하고, `requireHttps`·secure cookie/header·allowed host 계약과 회귀 테스트·운영 문서를 연결했다. 재현 가능한 Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 `httpsLive` staging client를 추가해 실제 handshake·proxy hop·cookie를 검증했으며, 운영 staging endpoint의 trusted certificate/renewal·redirect 증거는 남아 있다.
+- [-] **P0-02 HTTPS deployment boundary** — `Request`의 adapter scheme/peer와 명시적 `trustedProxies`를 통해 forwarded scheme/host를 제한하고, `requireHttps`·secure cookie/header·allowed host 계약과 회귀 테스트·운영 문서를 연결했다. `checkApplication`은 HTTPS 강제 정책에서 공개 `allowedHosts`가 비어 있으면 warning을 출력한다. 재현 가능한 Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 `httpsLive` staging client를 추가해 실제 handshake·proxy hop·cookie를 검증했으며, 운영 staging endpoint의 trusted certificate/renewal·redirect 증거는 남아 있다.
 
 ### P1 — 핵심 제품 기능의 남은 범위
 
@@ -138,7 +138,7 @@
 - [x] signed session cookie와 교체 가능한 `AuthBackend`, HMAC bearer token adapter를 `AuthContext` 및 required authentication route의 401 정책에 연결하고, `authBackends` provider 목록으로 session과 bearer를 한 route에서 조합하며 SessionPolicy primary/legacy secret rotation을 제공한다. JWT·external introspection adapter는 후속 범위다.
 - [x] role/group permission, object-level policy와 route guard를 독립 `AuthorizationPolicy` 모듈로 제공한다.
 - [-] algorithm-neutral `PasswordHasher` 계약과 `nimcrypto` PBKDF2-HMAC-SHA256 reference adapter, `argon2` C-backed Argon2id adapter, Nim maintained pure bcrypt adapter, per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, Argon2/bcrypt hash·verify benchmark harness와 Windows/Linux CI contract도 추가했으며 실제 production benchmark 결과 확정은 후속 범위다.
-- [-] 기본 `defaultConfig`의 30초 request timeout과 `defaultSecurityPolicy`의 60초당 1000건 bounded rate limit, request size·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 `docs/operations-guide.md`에 문서화하고 contract test 범위를 명시했다. 실제 인증서·proxy hop·TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
+- [-] 기본 `defaultConfig`의 30초 request timeout과 `defaultSecurityPolicy`의 60초당 1000건 bounded rate limit, request size·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 `docs/operations-guide.md`에 문서화하고 contract test 범위를 명시했다. `check`의 공개 host 고정 warning까지 연동했으며, 실제 인증서·proxy hop·TLS wire와 운영 staging 검증은 후속 범위다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
 - [x] Redis/Valkey RESP adapter와 bounded retry, socket timeout, 실패 시 연결 폐기 및 재연결 회귀 검증, TCP coalescing frame buffer, 운영용 snapshot metrics, version·필수 command·maxmemory·eviction compatibility probe와 환경 기반 live contract를 구현했다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9를 검증했다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.

@@ -880,6 +880,20 @@ suite "Mahanaim core contracts":
     check not secureReport.passed
     check secureReport.issues[0].code == "security.csrf-cookie.insecure"
 
+  test "HTTPS pre-flight warns when public hosts are not pinned":
+    var policy = defaultSecurityPolicy()
+    policy.requireHttps = true
+    let report = checkSecurityPolicy(policy)
+    check report.passed
+    check report.issues.len == 1
+    check report.issues[0].severity == checkWarning
+    check report.issues[0].code == "security.https.allowed-hosts.unrestricted"
+
+    policy.allowedHosts = @["public.example"]
+    let pinnedReport = checkSecurityPolicy(policy)
+    check pinnedReport.passed
+    check pinnedReport.issues.len == 0
+
   test "security policy handles CORS and request size limits":
     var policy = defaultSecurityPolicy()
     policy.allowedOrigins = @["https://client.example"]

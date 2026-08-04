@@ -136,6 +136,12 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
   if policy.requireHttps and policy.csrfEnabled and not policy.csrfCookieSecure:
     result.addError("security.csrf-cookie.insecure",
       "HTTPS policy requires CSRF cookies to use Secure")
+  if policy.requireHttps and policy.allowedHosts.len == 0:
+    ## Direct TLS can still be valid without a proxy, so this remains a warning
+    ## rather than a boot blocker. Production ingress should pin public hosts to
+    ## prevent an otherwise valid HTTPS request from accepting arbitrary Host.
+    result.addWarning("security.https.allowed-hosts.unrestricted",
+      "HTTPS policy should pin allowedHosts to the public deployment hosts")
   if policy.session.enabled and policy.session.secret.len < 32:
     result.addError("security.session-secret.weak",
       "enabled session policy requires a secret of at least 32 characters")

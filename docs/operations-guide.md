@@ -133,10 +133,10 @@ ingress가 소유한다. 다음 항목은 배포 전 반드시 확인한다.
 - [ ] TLS termination 이후의 redirect loop, websocket upgrade, SSE streaming,
   chunked response, graceful shutdown을 실제 staging endpoint에서 wire 테스트한다.
 
-현재 저장소의 automated contract test는 secure cookie/header, trusted proxy
-scheme/host, HTTPS rejection, body limit, timeout, health/readiness와 loopback
-HTTP/SSE/WebSocket을 검증한다. 실제 인증서, proxy hop, TLS handshake와 운영
-ingress 설정은 배포 환경에서 수행해야 한다.
+현재 저장소의 automated contract test와 `check`는 secure cookie/header,
+trusted proxy scheme/host, HTTPS rejection, 공개 host 고정 warning, body limit,
+timeout, health/readiness와 loopback HTTP/SSE/WebSocket을 검증한다. 실제
+인증서, proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행해야 한다.
 
 재현 가능한 로컬 wire gate는 Docker nginx와 Linux Nim upstream을 함께
 사용한다. Windows Docker 환경에서 다음 명령은 ephemeral self-signed
