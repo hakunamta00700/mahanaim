@@ -136,6 +136,8 @@ proc scalarText(value: SqlValue): string =
   of sqlFloat: $value.floating
   of sqlBoolean:
     if value.boolean: "true" else: "false"
+  of sqlList:
+    raise newException(ValueError, "List values cannot be mapped as row scalars")
 
 proc jsonValue(field: ModelField, value: SqlValue): JsonNode =
   if value.kind == sqlNull:
@@ -164,6 +166,8 @@ proc jsonValue(value: SqlValue): JsonNode =
   of sqlInteger: newJInt(value.integer)
   of sqlFloat: newJFloat(value.floating)
   of sqlBoolean: newJBool(value.boolean)
+  of sqlList:
+    raise newException(ValueError, "List values cannot be mapped as row scalars")
 
 proc columns(repository: DatabaseRepository): seq[string] =
   for field in repository.metadata.fields:
@@ -434,6 +438,84 @@ proc listManyToManyRelated(repository: DatabaseRepository,
   for values in repository.adapter.execute(compiled):
     result.add(targetRepository.rowFromValues(values))
 
+proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
+                                     relation: ModelRelation,
+                                     target: ModelMetadata,
+                                     query = RelationSelectQuery()): seq[ResourceRow] =
+  ## Execute one target query for all one-to-many parent keys. The previous
+  ## per-parent loop is still useful for paginated relation slices, but an
+  ## unpaged eager load should not turn N parents into N database round trips.
+  if relation.kind != relationOneToMany:
+    raise newException(ValueError,
+      "Batched relation loading currently supports one-to-many relations")
+  if relation.localField.len == 0 or relation.foreignField.len == 0:
+    raise newException(ValueError, "Relation fields are required")
+  if target.tableName.len == 0:
+    raise newException(ValueError, "Relation target table is required")
+  if query.joins.len > 0:
+    raise newException(ValueError,
+      "Batched eager loading accepts one relation without additional joins")
+  let local = repository.fieldFor(relation.localField)
+  let foreign = target.field(relation.foreignField)
+  if local.isNone or foreign.isNone:
+    raise newException(ValueError, "Unknown relation field")
+
+  var baseQuery = SelectQuery(limit: query.limit, offset: query.offset)
+  for column in query.columns:
+    baseQuery.columns.add(relationBaseField(column))
+  for order in query.orderBy:
+    baseQuery.orderBy.add(QueryOrder(field: relationBaseField(order.field),
+      descending: order.descending))
+  baseQuery.filters = query.filters
+  for filter in baseQuery.filters.mitems:
+    filter.field = relationBaseField(filter.field)
+  let baseRows = repository.list(baseQuery)
+  let targetRepository = newDatabaseRepository(target, repository.adapter)
+  let localName = local.get().name
+  let foreignName = foreign.get().name
+  var localValues: seq[SqlValue] = @[]
+  var seen: Table[string, bool] = initTable[string, bool]()
+  for row in baseRows:
+    if row.hasKey(localName) and row[localName].kind != JNull:
+      let value = sqlValue(row[localName])
+      let key = $value.kind & ":" & $row[localName]
+      if not seen.hasKey(key):
+        seen[key] = true
+        localValues.add(value)
+
+  var grouped: Table[string, seq[ResourceRow]] = initTable[string, seq[ResourceRow]]()
+  if localValues.len > 0:
+    var relatedQuery = SelectQuery(columns: query.columns, filters: query.filters,
+      orderBy: query.orderBy)
+    var addedForeign = false
+    if relatedQuery.columns.len > 0 and relation.foreignField notin
+        relatedQuery.columns:
+      relatedQuery.columns.add(relation.foreignField)
+      addedForeign = true
+    relatedQuery.filters.add(QueryFilter(field: relation.foreignField,
+      operator: filterIn, value: listValue(localValues)))
+    for related in targetRepository.list(relatedQuery):
+      if not related.hasKey(foreignName):
+        continue
+      let key = $related[foreignName]
+      if not grouped.hasKey(key):
+        grouped[key] = @[]
+      var projected = related
+      if addedForeign:
+        projected.del(foreignName)
+      grouped[key].add(projected)
+
+  for originalRow in baseRows:
+    var baseRow = originalRow
+    var nested = newJArray()
+    if baseRow.hasKey(localName) and baseRow[localName].kind != JNull:
+      let key = $baseRow[localName]
+      if grouped.hasKey(key):
+        for related in grouped[key]:
+          nested.add(relationRowJson(related))
+    baseRow[relation.name] = nested
+    result.add(baseRow)
+
 proc listRelationWithRelated*(repository: DatabaseRepository,
                               relation: ModelRelation,
                               target: ModelMetadata,
@@ -441,6 +523,9 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
   ## Load one relation as nested JSON without duplicating base rows. This is
   ## intentionally a separate API from listRelation: the latter is a stable
   ## join/base-row contract, while this method owns eager DTO assembly.
+  if relation.kind == relationOneToMany and query.limit == 0 and
+      query.offset == 0 and query.joins.len == 0:
+    return repository.listRelationWithRelatedBatched(relation, target, query)
   if relation.kind == relationManyToMany and
       (relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
        relation.throughForeignField.len == 0):

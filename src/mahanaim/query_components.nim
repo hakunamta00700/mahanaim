@@ -87,6 +87,7 @@ proc encodeCursor*(value: SqlValue, secret = "", ttlSeconds: int64 = 0,
     of sqlFloat: "f:" & $value.floating
     of sqlBoolean: "b:" & (if value.boolean: "1" else: "0")
     of sqlNull: raise newException(ValueError, "Null values cannot be cursors")
+    of sqlList: raise newException(ValueError, "List values cannot be cursors")
   ## Hex encoding avoids delimiters and external codec state, which also keeps
   ## this parser safe to call from the framework's gcsafe async route boundary.
   const digits = "0123456789abcdef"

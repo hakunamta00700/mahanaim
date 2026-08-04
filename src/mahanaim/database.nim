@@ -33,6 +33,9 @@ type
     sqlInteger
     sqlFloat
     sqlBoolean
+    ## A list is query-builder state only; the compiler expands it into bound
+    ## scalar parameters before any adapter receives a CompiledQuery.
+    sqlList
 
   SqlValue* = object
     case kind*: SqlValueKind
@@ -41,6 +44,7 @@ type
     of sqlInteger: integer*: int64
     of sqlFloat: floating*: float
     of sqlBoolean: boolean*: bool
+    of sqlList: values*: seq[SqlValue]
 
   FilterOperator* = enum
     filterEqual
@@ -50,6 +54,7 @@ type
     filterLess
     filterLessOrEqual
     filterLike
+    filterIn
     filterIsNull
     filterIsNotNull
 
@@ -262,6 +267,9 @@ proc integerValue*(value: int64): SqlValue = SqlValue(kind: sqlInteger, integer:
 proc floatValue*(value: float): SqlValue = SqlValue(kind: sqlFloat, floating: value)
 proc booleanValue*(value: bool): SqlValue = SqlValue(kind: sqlBoolean, boolean: value)
 proc nullValue*(): SqlValue = SqlValue(kind: sqlNull)
+proc listValue*(values: openArray[SqlValue]): SqlValue =
+  ## Keep list members typed so every expanded item remains bound safely.
+  SqlValue(kind: sqlList, values: @values)
 
 proc quoteIdentifier(value: string): string =
   ## Strict identifiers make table/column names safe without trusting callers.
@@ -281,6 +289,7 @@ proc operatorSql(operator: FilterOperator): string =
   of filterLess: " < "
   of filterLessOrEqual: " <= "
   of filterLike: " LIKE "
+  of filterIn: " IN "
   of filterIsNull: " IS NULL"
   of filterIsNotNull: " IS NOT NULL"
 
@@ -410,11 +419,25 @@ proc compileSelect*(query: SelectQuery,
     if filter.field.len == 0:
       raise newException(ValueError, "Filter field cannot be empty")
     result.sql.add(if index == 0: " WHERE " else: " AND ")
-    result.sql.add(quoteIdentifier(filter.field) & operatorSql(filter.operator))
-    if filter.operator notin {filterIsNull, filterIsNotNull}:
-      inc parameterIndex
-      result.sql.add(if dialect == dialectPostgres: "$" & $parameterIndex else: "?")
-      result.parameters.add(filter.value)
+    if filter.operator == filterIn:
+      if filter.value.kind != sqlList or filter.value.values.len == 0:
+        raise newException(ValueError, "IN filter requires a non-empty typed list")
+      result.sql.add(quoteIdentifier(filter.field) & " IN (")
+      for itemIndex, item in filter.value.values:
+        if item.kind == sqlList:
+          raise newException(ValueError, "Nested IN lists are not supported")
+        if itemIndex > 0:
+          result.sql.add(", ")
+        inc parameterIndex
+        result.sql.add(if dialect == dialectPostgres: "$" & $parameterIndex else: "?")
+        result.parameters.add(item)
+      result.sql.add(")")
+    else:
+      result.sql.add(quoteIdentifier(filter.field) & operatorSql(filter.operator))
+      if filter.operator notin {filterIsNull, filterIsNotNull}:
+        inc parameterIndex
+        result.sql.add(if dialect == dialectPostgres: "$" & $parameterIndex else: "?")
+        result.parameters.add(filter.value)
   if query.groupBy.len > 0:
     var groups: seq[string] = @[]
     for field in query.groupBy:

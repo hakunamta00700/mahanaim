@@ -2515,6 +2515,11 @@ suite "Mahanaim core contracts":
       discard compile(aggregateLock, dialectPostgres)
     let paged = compileSelect(query.withPagination(newPagination(3, 10, 50)))
     check paged.sql.endsWith("LIMIT 10 OFFSET 20")
+    let batched = compileSelect(SelectQuery(table: "posts", columns: @["id"],
+      filters: @[QueryFilter(field: "user_id", operator: filterIn,
+        value: listValue([integerValue(1), integerValue(2)]))]), dialectPostgres)
+    check batched.sql.contains("\"user_id\" IN ($1, $2)")
+    check batched.parameters.len == 2
     expect ValueError:
       discard newPagination(0, 10)
     expect ValueError:
@@ -3091,8 +3096,14 @@ suite "Mahanaim core contracts":
       "INSERT INTO \"users\" VALUES (?, ?)",
       parameters: @[integerValue(1), textValue("Ada")]))
     discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" VALUES (?, ?)",
+      parameters: @[integerValue(2), textValue("Grace")]))
+    discard adapter.execute(CompiledQuery(sql:
       "INSERT INTO \"posts\" VALUES (?, ?, ?)",
       parameters: @[integerValue(10), integerValue(1), textValue("Nim")]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"posts\" VALUES (?, ?, ?)",
+      parameters: @[integerValue(11), integerValue(2), textValue("Ada")]))
     var user = newModelMetadata("User", "users")
     user.addField(newModelField("id", modelInteger, primaryKey = true))
     user.addField(newModelField("name", modelString))
@@ -3104,16 +3115,19 @@ suite "Mahanaim core contracts":
     let usersWithPosts = userRepository.listRelationWithRelated(
       ModelRelation(name: "posts", kind: relationOneToMany,
         targetModel: "Post", localField: "id", foreignField: "user_id"), posts)
-    check usersWithPosts.len == 1
+    check usersWithPosts.len == 2
     check usersWithPosts[0]["posts"].kind == JArray
     check usersWithPosts[0]["posts"].len == 1
     check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
+    check usersWithPosts[1]["posts"].len == 1
+    check usersWithPosts[1]["posts"][0]["title"].getStr() == "Ada"
     let postRepository = newDatabaseRepository(posts, adapter)
     let postsWithUser = postRepository.listRelationWithRelated(
       ModelRelation(name: "user", kind: relationManyToOne,
         targetModel: "User", localField: "user_id", foreignField: "id"), user)
-    check postsWithUser.len == 1
+    check postsWithUser.len == 2
     check postsWithUser[0]["user"]["name"].getStr() == "Ada"
+    check postsWithUser[1]["user"]["name"].getStr() == "Grace"
 
   test "database repository defers lazy relation queries until load":
     let adapter = newSqliteDatabaseAdapter()

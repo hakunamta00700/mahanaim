@@ -110,6 +110,7 @@ proc comparableSqlValue(value: SqlValue): string =
   of sqlInteger: $value.integer
   of sqlFloat: $value.floating
   of sqlBoolean: $value.boolean
+  of sqlList: raise newException(ValueError, "List values require an IN filter")
 
 proc likeMatch(value, pattern: string): bool =
   ## Support SQL's portable `%` and `_` wildcards without introducing a
@@ -148,6 +149,16 @@ proc compareJsonValues(left, right: JsonNode): int =
     let rightText = if right.kind == JString: right.getStr() else: $right
     cmp(leftText, rightText)
 
+proc jsonValueForFilter(value: SqlValue): JsonNode =
+  ## Convert only the scalar values accepted by the in-memory query contract.
+  case value.kind
+  of sqlNull: newJNull()
+  of sqlText: %value.text
+  of sqlInteger: %value.integer
+  of sqlFloat: %value.floating
+  of sqlBoolean: %value.boolean
+  of sqlList: newJNull()
+
 method list*(store: InMemoryResourceStore,
              query: SelectQuery): seq[ResourceRow] {.gcsafe.} =
   ## The in-memory adapter is also a behavioral reference implementation. It
@@ -162,6 +173,18 @@ method list*(store: InMemoryResourceStore,
         matches = if filter.operator == filterIsNull: isNull else: not isNull
       else:
         let filterValue = filter.value
+        if filter.operator == filterIn:
+          if filterValue.kind != sqlList or filterValue.values.len == 0:
+            matches = false
+          else:
+            matches = false
+            for candidate in filterValue.values:
+              if compareJsonValues(value, jsonValueForFilter(candidate)) == 0:
+                matches = true
+                break
+          if not matches:
+            break
+          continue
         if value.kind == JNull:
           matches = false
         elif filterValue.kind == sqlInteger and

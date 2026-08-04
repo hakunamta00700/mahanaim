@@ -43,6 +43,8 @@ proc valueText(value: SqlValue): string =
   of sqlFloat: $value.floating
   of sqlBoolean:
     if value.boolean: "true" else: "false"
+  of sqlList:
+    raise newException(ValueError, "PostgreSQL bind received an unexpanded list")
 
 proc bindParameters(parameters: seq[SqlValue]):
     tuple[values: cstringArray, allocated: seq[pointer]] =

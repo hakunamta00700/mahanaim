@@ -37,6 +37,7 @@ proc bindValue(statement: SqlPrepared, index: int, value: SqlValue) =
   of sqlInteger: statement.bindParam(index, value.integer)
   of sqlFloat: statement.bindParam(index, value.floating.float64)
   of sqlBoolean: statement.bindParam(index, if value.boolean: 1'i64 else: 0'i64)
+  of sqlList: raise newException(ValueError, "SQLite bind received an unexpanded list")
 
 method execute*(adapter: SqliteDatabaseAdapter,
                 query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
