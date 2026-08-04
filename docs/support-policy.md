@@ -9,6 +9,9 @@
 - 기본 CI OS: Linux와 Windows.
 - 기본 HTTP 의존성: Prologue `0.6.8` 및 lockfile에 기록된 의존성 집합.
 - 기본 데이터 backend: SQLite.
+- Windows runner의 PostgreSQL adapter compile/test surface는 PostgreSQL client
+  runtime(`libpq.dll`)을 CI에서 명시적으로 설치한 뒤 검증한다. live database
+  연결은 별도의 PostgreSQL service gate에서만 수행한다.
 - PostgreSQL, Redis/Valkey, Beast/httpx, HTTPS reverse proxy는 별도 live gate가
   통과된 환경에서만 운영 지원으로 승격한다.
 

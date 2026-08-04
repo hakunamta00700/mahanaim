@@ -101,6 +101,24 @@ jobs:
         with:
           nimble-version: latest
 
+      - name: Install PostgreSQL client runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # db_connector loads libpq.dll when the PostgreSQL adapter module is
+          # linked, even when the core test does not open a live connection.
+          # Install the client runtime explicitly so Windows test and build
+          # jobs exercise the same adapter surface as Linux CI.
+          choco install postgresql --yes --no-progress
+          $pgRoot = Get-ChildItem -LiteralPath 'C:\Program Files\PostgreSQL' -Directory |
+            Sort-Object Name | Select-Object -Last 1
+          if ($null -eq $pgRoot) { throw 'PostgreSQL client runtime was not installed' }
+          $pgBin = Join-Path $pgRoot.FullName 'bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $pgBin 'libpq.dll'))) {
+            throw "libpq.dll was not found under $pgBin"
+          }
+          $pgBin | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Install locked dependencies
         run: nimble install -y --depsOnly
 

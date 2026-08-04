@@ -20,6 +20,8 @@
   trusted proxy hop과 secure cookie live contract를 다시 통과시켰다.
 - HTTPS wire fixture에 HTTP→HTTPS `301 Location` 검증을 추가해 TLS 응답과
   redirect 정책을 별도의 관찰 가능한 계약으로 분리했다.
+- Windows cross-platform CI가 PostgreSQL adapter를 로드할 때 필요한
+  `libpq.dll` client runtime을 명시적으로 설치하고 PATH에 연결하도록 보완했다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.

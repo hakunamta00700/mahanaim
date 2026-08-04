@@ -519,7 +519,7 @@
 
 - [x] Nimble lockfile에 Nim 패키지 버전·VCS revision·checksum을 기록했다.
 - [x] CI에서 lockfile 기반 dependency install과 `test`·`verify`·`check`를 동일하게 실행한다.
-- [-] 지원 OS/Nim 버전 matrix 문서와 `RuntimeSupportMatrix`/release artifact SHA-256 검증을 추가했다. OS별 CI matrix와 artifact 생성 pipeline 연결은 남아 있다.
+- [-] 지원 OS/Nim 버전 matrix 문서와 `RuntimeSupportMatrix`/release artifact SHA-256 검증을 추가했다. Windows cross-platform runner에는 PostgreSQL client runtime(`libpq.dll`) 설치 경계를 추가했으며, OS별 실제 runner 결과와 artifact 생성 pipeline 증거 누적은 남아 있다.
 
 검증 명령:
 
