@@ -1951,17 +1951,27 @@ suite "Mahanaim core contracts":
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
     metadata.addField(newModelField("title", modelString))
     let registry = newAdminRegistry()
+    let adminPolicy = newAuthorizationPolicy()
+    for action in ["list", "create", "read", "update", "delete"]:
+      adminPolicy.grantPermission("admin", "items", action)
+    adminPolicy.assignRole("admin-1", "admin")
     proc authorize(request: Request): bool {.gcsafe.} =
       request.headers.getOrDefault("x-admin") == "yes"
     registry.registerAdminResource("items", "/admin/items", metadata,
-      newInMemoryResourceStore(metadata), authorize)
+      newInMemoryResourceStore(metadata), authorize,
+      defaultSecurityPolicy(), adminPolicy)
     let app = newApplication()
     registerAdminRoutes(app, registry)
 
     let denied = waitFor app.dispatch(newRequest("GET", "/admin/items"))
     check denied.status == Http403
+    var wrongRole = newRequest("GET", "/admin/items/new")
+    wrongRole.headers["x-admin"] = "yes"
+    wrongRole.auth = AuthContext(authenticated: true, subject: "admin-2")
+    check (waitFor app.dispatch(wrongRole)).status == Http403
     var authorized = newRequest("GET", "/admin/items/new")
     authorized.headers["x-admin"] = "yes"
+    authorized.auth = AuthContext(authenticated: true, subject: "admin-1")
     let form = waitFor app.dispatch(authorized)
     check form.status == Http200
     check form.body.contains("name=\"title\"")
@@ -1983,9 +1993,11 @@ suite "Mahanaim core contracts":
     var updateRequest = newRequest("PUT", "/admin/items/" & $id,
       "{\"title\":\"updated\"}")
     updateRequest.headers["x-admin"] = "yes"
+    updateRequest.auth = authorized.auth
     check (waitFor app.dispatch(updateRequest)).status == Http200
     var deleteRequest = newRequest("DELETE", "/admin/items/" & $id)
     deleteRequest.headers["x-admin"] = "yes"
+    deleteRequest.auth = authorized.auth
     check (waitFor app.dispatch(deleteRequest)).status == Http204
     check registry.auditLog.len == 3
     check registry.auditLog[1].action == "update"
@@ -1993,6 +2005,7 @@ suite "Mahanaim core contracts":
 
     var invalidQuery = newRequest("GET", "/admin/items")
     invalidQuery.headers["x-admin"] = "yes"
+    invalidQuery.auth = authorized.auth
     invalidQuery.query["page_size"] = "bad"
     let rejectedQuery = waitFor app.dispatch(invalidQuery)
     check rejectedQuery.status == Http400

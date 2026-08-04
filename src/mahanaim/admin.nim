@@ -8,6 +8,7 @@
 
 import std/[asyncdispatch, httpcore, strutils, tables]
 import ./application
+import ./authorization
 import ./core
 import ./forms
 import ./model_schema
@@ -46,6 +47,8 @@ type
     metadata*: ModelMetadata
     resource*: CrudResource
     authorize: AdminAuthorization
+    authorizationPolicy*: AuthorizationPolicy
+    permissionResource*: string
     formPolicy*: SecurityPolicy
 
   AdminRegistry* = ref object
@@ -99,7 +102,8 @@ proc auditEvents*(registry: AdminRegistry): seq[AdminAuditEvent] =
 proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
                             metadata: ModelMetadata, store: ResourceStore,
                             authorize: AdminAuthorization,
-                            formPolicy = defaultSecurityPolicy()) =
+                            formPolicy = defaultSecurityPolicy(),
+                            authorizationPolicy: AuthorizationPolicy = nil) =
   ## Requiring an authorization callback prevents an accidentally public admin
   ## surface when a developer forgets to configure authentication.
   if registry.isNil or name.strip().len == 0 or prefix.len == 0 or
@@ -111,7 +115,8 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
       raise newException(ValueError, "Duplicate admin resource: " & name)
   registry.resources.add(AdminResource(name: name, prefix: prefix,
     metadata: metadata, resource: newCrudResource(metadata, store),
-    authorize: authorize, formPolicy: formPolicy))
+    authorize: authorize, authorizationPolicy: authorizationPolicy,
+    permissionResource: name, formPolicy: formPolicy))
 
 proc recordAudit(registry: AdminRegistry, resource, action, identifier,
                  actor: string) =
@@ -126,6 +131,15 @@ proc recordAudit(registry: AdminRegistry, resource, action, identifier,
 proc forbiddenResponse(): Response =
   ## Do not reveal whether a protected resource exists to unauthorized callers.
   textResponse("Admin authorization required", Http403)
+
+proc adminAuthorized(resource: AdminResource, request: Request,
+                     action, objectId: string): bool =
+  ## The legacy callback remains a coarse application boundary; when a policy
+  ## is configured, it supplies the composable role/group/object decision too.
+  if not resource.authorize(request):
+    return false
+  resource.authorizationPolicy.isNil or resource.authorizationPolicy.allows(
+    request, resource.permissionResource, action, objectId)
 
 proc adminForm(resource: AdminResource): Response =
   ## Build a minimal create form from the same metadata-derived schema used by
@@ -146,7 +160,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
   let current = resource
   app.get(current.prefix, "admin." & current.name & ".list",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "list", ""):
+        return forbiddenResponse()
       let parsed = request.parseQueryComponent(current.metadata.fields)
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",
@@ -154,23 +169,29 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       return listResponse(current.resource, parsed.query))
   app.get(current.prefix & "/new", "admin." & current.name & ".form",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "create", ""):
+        return forbiddenResponse()
       return adminForm(current))
   app.post(current.prefix, "admin." & current.name & ".create",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "create", ""):
+        return forbiddenResponse()
       let response = createResponse(current.resource, request.body)
       if response.status == Http201:
         registry.recordAudit(current.name, "create", "", request.auth.subject)
       return response)
   app.get(current.prefix & "/:id", "admin." & current.name & ".get",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "read",
+          request.pathParams.getOrDefault("id")):
+        return forbiddenResponse()
       return getResponse(current.resource, request.pathParams.getOrDefault("id")))
   app.addRoute("PUT", current.prefix & "/:id",
     "admin." & current.name & ".update",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "update",
+          request.pathParams.getOrDefault("id")):
+        return forbiddenResponse()
       let identifier = request.pathParams.getOrDefault("id")
       let response = updateResponse(current.resource, identifier, request.body)
       if response.status == Http200:
@@ -180,7 +201,9 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
   app.addRoute("DELETE", current.prefix & "/:id",
     "admin." & current.name & ".delete",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      if not current.authorize(request): return forbiddenResponse()
+      if not adminAuthorized(current, request, "delete",
+          request.pathParams.getOrDefault("id")):
+        return forbiddenResponse()
       let identifier = request.pathParams.getOrDefault("id")
       let response = deleteResponse(current.resource, identifier)
       if response.status == Http204:
