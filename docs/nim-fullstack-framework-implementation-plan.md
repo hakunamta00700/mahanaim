@@ -56,7 +56,9 @@
 - [x] sync handler가 공통 async dispatcher에서 동작하는 contract test를 추가했다.
 - [x] 기본 thread-pool executor와 비차단 Future bridge를 추가했다.
 - [x] worker 예외 복원·sync route offload·실패 전파 회귀 테스트를 추가했다.
-- [ ] executor backend 교체(taskpools 등), timeout/cancellation, blocking 자동 감지는 남아 있다.
+- [x] `AppConfig.requestTimeoutMs`와 환경변수 provider를 추가하고 dispatch timeout을 504로 변환했다.
+- [x] Nim의 비선점 실행 모델에 맞춘 cooperative cancellation token과 회귀 테스트를 추가했다.
+- [ ] taskpools 등 executor backend 교체와 blocking 자동 감지는 남아 있다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 
@@ -149,6 +151,13 @@
 - [x] catch-all Prologue server bridge와 core startup/shutdown lifecycle wrapper를 추가했다.
 - [x] mocking context에서 Prologue response와 core dispatcher integration을 검증했다.
 - [ ] upload/form/WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
+
+### 2026-08-04 — P0 실행 timeout/cancellation 1차
+
+- [x] `AppConfig.requestTimeoutMs`와 환경변수 provider를 추가했다.
+- [x] 공통 dispatch 경계에서 timeout을 감지하고 504 응답으로 변환한다.
+- [x] Nim의 비선점 실행 모델에 맞춰 cooperative cancellation token과 회귀 테스트를 추가했다.
+- [ ] taskpools 등 executor backend 교체와 blocking 자동 감지는 남아 있다.
 
 ### 2026-08-04 — P0 HTTP body parsing 1차
 

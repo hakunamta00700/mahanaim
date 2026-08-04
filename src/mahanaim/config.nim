@@ -13,10 +13,12 @@ type
     debug*: bool
     host*: string
     port*: int
+    requestTimeoutMs*: int
     secrets*: Table[string, string]
 
 proc newConfig(environment, host: string, debug: bool, port: int): AppConfig =
-  result = AppConfig(environment: environment, debug: debug, host: host, port: port)
+  result = AppConfig(environment: environment, debug: debug, host: host,
+    port: port, requestTimeoutMs: 0)
   result.secrets = initTable[string, string]()
 
 proc defaultConfig*(): AppConfig =
@@ -64,6 +66,11 @@ proc applyValue(config: var AppConfig, key, value, source: string) =
       config.port = parseInt(stripQuotes(value))
     except ValueError:
       raise newException(ValueError, "invalid port in " & source)
+  of "request_timeout_ms", "mahanaim_request_timeout_ms":
+    try:
+      config.requestTimeoutMs = parseInt(stripQuotes(value))
+    except ValueError:
+      raise newException(ValueError, "invalid request timeout in " & source)
   else:
     let secretKey = if normalized.startsWith("secret."): normalized[7 .. ^1]
                     elif normalized.startsWith("secrets."): normalized[8 .. ^1]
@@ -120,7 +127,8 @@ proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
   if tomlPath.len > 0:
     result.applyValues(loadTomlConfig(tomlPath), tomlPath)
   var environmentValues = initTable[string, string]()
-  for key in ["MAHANAIM_ENV", "MAHANAIM_DEBUG", "MAHANAIM_HOST", "MAHANAIM_PORT"]:
+  for key in ["MAHANAIM_ENV", "MAHANAIM_DEBUG", "MAHANAIM_HOST", "MAHANAIM_PORT",
+              "MAHANAIM_REQUEST_TIMEOUT_MS"]:
     if existsEnv(key):
       environmentValues[key] = getEnv(key)
   for key, value in envPairs():

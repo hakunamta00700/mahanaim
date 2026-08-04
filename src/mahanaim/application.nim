@@ -56,7 +56,9 @@ proc defaultErrorHandler(request: Request,
   ## Never expose exception text by default; custom handlers can log it safely
   ## after passing through the application's secret redaction policy.
   discard request
-  discard error
+  if error of FrameworkError:
+    let frameworkError = cast[ref FrameworkError](error)
+    return textResponse(frameworkError.msg, frameworkError.status)
   return textResponse("Internal Server Error", Http500)
 
 proc addMiddleware*(app: Application, middleware: Middleware) =
@@ -164,7 +166,20 @@ proc invoke(app: Application, request: Request, handler: Handler): Future[Respon
   ## One guarded invocation path prevents sync, async, and plugin routes from
   ## drifting into different exception behavior.
   try:
-    return await handler(request)
+    let pending = handler(request)
+    if app.config.requestTimeoutMs <= 0:
+      return await pending
+
+    # `withTimeout` races the handler against a timer. Nim does not provide a
+    # safe way to preempt a running async procedure, so the token is cancelled
+    # cooperatively and the client receives a deterministic 504 immediately.
+    if not await pending.withTimeout(app.config.requestTimeoutMs):
+      request.cancellation.cancel()
+      let timeoutError = newException(FrameworkError, "Request timed out")
+      timeoutError.status = Http504
+      timeoutError.code = "request_timeout"
+      return await app.errorHandler(request, timeoutError)
+    return await pending
   except CatchableError as error:
     return await app.errorHandler(request, error)
 

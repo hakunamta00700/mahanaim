@@ -72,6 +72,38 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard waitFor executor.execute(failJob)
 
+  test "request timeout returns 504 and marks cooperative cancellation":
+    var config = defaultConfig()
+    config.requestTimeoutMs = 5
+    let app = newApplication(config)
+    var observedCancellation = false
+    proc slow(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      # The handler remains responsible for observing the token and stopping
+      # its own work; the framework only controls the client-facing deadline.
+      while not request.isCancelled():
+        await sleepAsync(1)
+      observedCancellation = request.isCancelled()
+      return textResponse("late result")
+    app.get("/slow", "slow", slow)
+
+    proc dispatchAndDrain(app: Application): Future[mahanaim.Response] {.async.} =
+      let response = await app.dispatch(newRequest("GET", "/slow"))
+      # Let the cooperative handler observe cancellation before asserting it.
+      await sleepAsync(10)
+      return response
+
+    let response = waitFor dispatchAndDrain(app)
+    check response.status == Http504
+    check response.body == "Request timed out"
+    check observedCancellation
+
+  test "negative request timeout is rejected by pre-flight checks":
+    var config = defaultConfig()
+    config.requestTimeoutMs = -1
+    let report = checkConfig(config)
+    check not report.passed
+    check report.issues[0].code == "config.request-timeout.negative"
+
   test "execution policy can reject synchronous handlers before invocation":
     var policy = defaultExecutionPolicy()
     policy.allowSynchronousHandlers = false
@@ -633,16 +665,19 @@ suite "Mahanaim core contracts":
     let jsonPath = root / "config.json"
     let tomlPath = root / "config.toml"
     writeFile(dotenvPath, "MAHANAIM_HOST=dotenv-host\nSECRET_TOKEN=dotenv-secret\n")
-    writeFile(jsonPath, "{\"port\":9000,\"secrets\":{\"token\":\"json-secret\"}}")
+    writeFile(jsonPath, "{\"port\":9000,\"request_timeout_ms\":25,\"secrets\":{\"token\":\"json-secret\"}}")
     writeFile(tomlPath, "environment = \"staging\"\n[secrets]\ntoken = \"toml-secret\"\n")
     putEnv("MAHANAIM_PORT", "9100")
+    putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
     let config = loadConfig(dotenvPath, jsonPath, tomlPath)
     check config.host == "dotenv-host"
     check config.environment == "staging"
     check config.port == 9100
+    check config.requestTimeoutMs == 35
     check config.secrets["token"] == "toml-secret"
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
     delEnv("MAHANAIM_PORT")
+    delEnv("MAHANAIM_REQUEST_TIMEOUT_MS")
     removeDir(root)
 
   test "default config does not expose secrets":

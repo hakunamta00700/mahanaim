@@ -7,6 +7,11 @@
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 
 type
+  CancellationToken* = ref object
+    ## Async handlers cannot be safely force-killed by Nim. This token gives
+    ## them a cooperative cancellation signal when the request deadline wins.
+    cancelled*: bool
+
   Request* = object
     ## A framework-neutral HTTP request snapshot.
     ##
@@ -20,6 +25,7 @@ type
     cookies*: Table[string, string]
     body*: string
     pathParams*: Table[string, string]
+    cancellation*: CancellationToken
 
   Response* = object
     ## A framework-neutral response that can be rendered by any adapter.
@@ -66,6 +72,20 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   result.headers = emptyTable()
   result.cookies = emptyTable()
   result.pathParams = emptyTable()
+  new(result.cancellation)
+
+proc cancel*(token: CancellationToken) =
+  ## Mark a request as cancelled without invalidating its request snapshot.
+  if token != nil:
+    token.cancelled = true
+
+proc isCancelled*(token: CancellationToken): bool =
+  ## Nil is treated as an active token for manually constructed requests.
+  token != nil and token.cancelled
+
+proc isCancelled*(request: Request): bool =
+  ## Handler-facing convenience keeps cancellation checks readable.
+  request.cancellation.isCancelled()
 
 proc newResponse*(status: HttpCode, body = ""): Response =
   ## Create a response with an initialized header map.

@@ -60,6 +60,9 @@ proc checkConfig*(config: AppConfig): CheckReport =
     result.addError("config.host.empty", "host must not be empty")
   if config.port < 1 or config.port > 65535:
     result.addError("config.port.invalid", "port must be between 1 and 65535")
+  if config.requestTimeoutMs < 0:
+    result.addError("config.request-timeout.negative",
+      "requestTimeoutMs must be zero or greater")
   for key, value in config.secrets:
     if key.strip().len == 0:
       result.addError("config.secret.empty-key", "secret keys must not be empty")
