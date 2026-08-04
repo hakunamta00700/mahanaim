@@ -5,7 +5,12 @@
 ## adapter API so source drift is caught in CI without opening a server.
 
 import mahanaim/postgres_adapter
+import mahanaim/postgres_testing
 
 static:
   doAssert compiles(PostgresDatabaseAdapter)
   doAssert compiles(newPostgresDatabaseAdapter("host", "user", "password", "db"))
+  doAssert compiles(PostgresTestConfiguration)
+  doAssert compiles(postgresTestConfigurationFromEnv())
+  doAssert compiles(newPostgresTestFixture(
+    newPostgresTestConfiguration("127.0.0.1", "user", "password", "db")))

@@ -191,7 +191,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. live integration/isolation fixture와 repository route 연결은 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. SCRAM credentials가 필요한 live integration/isolation 실행과 repository route 연결은 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -588,17 +588,17 @@ flowchart TB
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
-- [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture는 남아 있다.
+- [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
 - [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, grouped aggregate SQL compiler/result mapping을 연결했다. annotate, eager/lazy loading은 후속 범위다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
-- [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현했다. locking capability와 live isolation fixture는 남아 있다.
+- [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
 완료 기준:
 
 - [-] SQLite repository CRUD와 metadata-driven CRUD route가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture와 admin route는 남아 있다.
 - [ ] 관계 query와 migration up/down 테스트가 통과한다.
-- [ ] PostgreSQL live transaction isolation 테스트가 통과한다.
+- [-] 환경 기반 PostgreSQL fixture factory와 compile contract를 추가했다. SCRAM credentials가 제공되는 환경에서 live transaction isolation 테스트를 실행하는 단계는 남아 있다.
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
@@ -621,7 +621,7 @@ flowchart TB
 - [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
 - [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
-- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation을 추가했다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
+- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
 - [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
 - [ ] 보안 회귀 테스트와 HTTPS deployment checklist를 공개한다.
 
@@ -716,7 +716,7 @@ flowchart TB
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [ ] | REQ-OPS-005 | P2 | locale/timezone context와 날짜·시간·숫자 formatter를 template/form/API에 공통 적용한다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
-| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation을 추가했다. PostgreSQL live isolation, WebSocket/SSE, live-server smoke fixture는 남아 있다. |
+| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, WebSocket/SSE, live-server smoke fixture는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [ ] | REQ-DOC-001 | P0 | 기능을 merge할 때 Nim 예제·API reference·migration/security guide·지원 버전 정책을 함께 갱신한다. |
 

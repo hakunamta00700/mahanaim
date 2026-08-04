@@ -49,6 +49,20 @@
   보장하지 않는다. durable queue adapter를 연결하기 전에는 중요한 작업을
   성공으로 간주하지 않는다.
 
+## PostgreSQL live integration fixture
+
+The optional `mahanaim/postgres_testing` module does not open a connection
+unless all required credentials are supplied. Configure the live fixture with
+`MAHANAIM_POSTGRES_HOST`, `MAHANAIM_POSTGRES_PORT`,
+`MAHANAIM_POSTGRES_USER`, `MAHANAIM_POSTGRES_PASSWORD`, and
+`MAHANAIM_POSTGRES_DATABASE`. The port defaults to `5432`; local installations
+using another port must set it explicitly (for example `5433`).
+
+The fixture wraps each operation in a transaction and rolls it back before the
+connection is returned to the pool. `nimble postgresCheck` only compiles this
+optional contract; a live isolation task must run in an environment that owns
+the PostgreSQL credentials and database.
+
 ## Graceful shutdown
 
 1. readiness를 false로 전환해 새 traffic을 차단한다.
