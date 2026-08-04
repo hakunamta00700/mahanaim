@@ -3186,6 +3186,37 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard engine.render("unclosed-items", context)
 
+  test "template render context resolves dynamic nested collection projections":
+    ## A projection is evaluated against the current loop context so an
+    ## adapter can load child rows from the parent identifier without placing
+    ## every possible relation in one global collection table.
+    let engine = newTemplateEngine()
+    engine.registerTemplate("projected-items", "<main>" &
+      "{% for user in users %}<section>{{ user.name }}<ul>" &
+      "{% for post in user.posts %}<li>{{ post.title }}</li>{% endfor %}" &
+      "</ul></section>{% endfor %}</main>")
+    var context = newTemplateRenderContext()
+    context.addCollection("users", @[
+      newTemplateContext([("id", "ada"), ("name", "Ada")]),
+      newTemplateContext([("id", "grace"), ("name", "Grace")])])
+    context.addCollectionProjection("user.posts", proc(
+        values: TemplateContext): seq[TemplateContext] =
+      case values.getOrDefault("user.id")
+      of "ada": @[newTemplateContext([("title", "Nim")]),
+                   newTemplateContext([("title", "SQLite")])]
+      of "grace": @[newTemplateContext([("title", "Ada")])]
+      else: @[])
+    check engine.render("projected-items", context) ==
+      "<main><section>Ada<ul><li>Nim</li><li>SQLite</li></ul></section>" &
+      "<section>Grace<ul><li>Ada</li></ul></section></main>"
+    expect ValueError:
+      context.addCollectionProjection("user.posts", proc(
+          values: TemplateContext): seq[TemplateContext] = @[])
+    engine.registerTemplate("missing-projection", "{% for post in missing.posts %}" &
+      "{{ post.title }}{% endfor %}")
+    expect ValueError:
+      discard engine.render("missing-projection", context)
+
   test "relation query compiler emits safe deterministic joins":
     let query = RelationSelectQuery(
       table: "users", alias: "u", columns: @["u.id", "posts.title"],

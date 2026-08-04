@@ -9,6 +9,8 @@ import std/[algorithm, json, os, strutils, tables]
 
 type
   TemplateContext* = Table[string, string]
+  TemplateCollectionProjection* = proc(
+    context: TemplateContext): seq[TemplateContext]
   TemplateRenderContext* = object
     ## Scalar values and collections are separate so a template cannot turn a
     ## comma-separated string into an implicit data structure. Applications
@@ -16,6 +18,10 @@ type
     ## the template engine's security boundary.
     values*: TemplateContext
     collections*: Table[string, seq[TemplateContext]]
+    ## Dynamic projections are resolved against the current scalar context.
+    ## This keeps nested relation loading outside the parser while allowing a
+    ## loop body to request `parent.children` for the current parent only.
+    projections*: Table[string, TemplateCollectionProjection]
   TemplateFilter* = proc(value: string): string
   TemplateTag* = proc(arguments: seq[string], context: TemplateContext): string
 
@@ -65,6 +71,7 @@ proc newTemplateRenderContext*(): TemplateRenderContext =
   ## A fresh render context prevents collection data leaking between renders.
   result.values = initTable[string, string]()
   result.collections = initTable[string, seq[TemplateContext]]()
+  result.projections = initTable[string, TemplateCollectionProjection]()
 
 proc addCollection*(context: var TemplateRenderContext, name: string,
                     values: openArray[TemplateContext]) =
@@ -75,6 +82,19 @@ proc addCollection*(context: var TemplateRenderContext, name: string,
   if context.collections.hasKey(name):
     raise newException(ValueError, "Duplicate template collection: " & name)
   context.collections[name] = @values
+
+proc addCollectionProjection*(context: var TemplateRenderContext, name: string,
+                              projection: TemplateCollectionProjection) =
+  ## Register one dynamic relation resolver. The resolver is called only when
+  ## a template loop references its name, and receives the current context so
+  ## it can use a parent identifier or any other explicitly projected value.
+  if name.strip().len == 0 or projection.isNil:
+    raise newException(ValueError,
+      "Template collection projection name and callback are required")
+  if context.collections.hasKey(name) or context.projections.hasKey(name):
+    raise newException(ValueError,
+      "Duplicate template collection projection: " & name)
+  context.projections[name] = projection
 
 proc registerTemplate*(engine: TemplateEngine, name, source: string) =
   ## Duplicate names are rejected so plugin load order cannot silently replace
@@ -258,16 +278,19 @@ proc extendsName(source: string): string =
 proc renderConditionals(engine: TemplateEngine, source: string,
                         context: TemplateContext,
                         collections: Table[string, seq[TemplateContext]],
+                        projections: Table[string, TemplateCollectionProjection],
                         depth: int): string
 
 proc renderFragment(engine: TemplateEngine, source: string,
                     context: TemplateContext,
                     collections: Table[string, seq[TemplateContext]],
+                    projections: Table[string, TemplateCollectionProjection],
                     depth: int): string
 
 proc renderLoops(engine: TemplateEngine, source: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]],
+                 projections: Table[string, TemplateCollectionProjection],
                  depth: int): string =
   ## Expand `{% for item in collection %}` with a marker scanner. Matching end
   ## markers are counted instead of found with a greedy search, so nested loops
@@ -294,7 +317,8 @@ proc renderLoops(engine: TemplateEngine, source: string,
         "Template for directive must use: for item in collection")
     let variableName = parts[0]
     let collectionName = parts[2]
-    if not collections.hasKey(collectionName):
+    if not collections.hasKey(collectionName) and
+        not projections.hasKey(collectionName):
       raise newException(ValueError,
         "Template collection not found: " & collectionName)
     var scan = openEnd + 2
@@ -319,14 +343,18 @@ proc renderLoops(engine: TemplateEngine, source: string,
     if endStart < 0:
       raise newException(ValueError, "Template for block has no endfor")
     let body = source[openEnd + 2 ..< endStart]
-    for item in collections[collectionName]:
+    let items = if collections.hasKey(collectionName):
+      collections[collectionName]
+    else:
+      projections[collectionName](context)
+    for item in items:
       var itemContext = context
       for key, value in item:
         itemContext[variableName & "." & key] = value
       ## Render the complete fragment per item so variable substitution keeps
       ## the item's copied context instead of falling back to the outer row.
       result.add(renderFragment(engine, body, itemContext, collections,
-        depth + 1))
+        projections, depth + 1))
     cursor = endStart + endMarker.len
 
 proc truthy(value: string): bool =
@@ -337,6 +365,7 @@ proc truthy(value: string): bool =
 proc renderConditionals(engine: TemplateEngine, source: string,
                         context: TemplateContext,
                         collections: Table[string, seq[TemplateContext]],
+                        projections: Table[string, TemplateCollectionProjection],
                         depth: int): string =
   ## Resolve nested `{% if %}` blocks with a depth-bounded scanner. A scanner
   ## is used instead of greedy substring replacement so nested endif markers
@@ -394,9 +423,9 @@ proc renderConditionals(engine: TemplateEngine, source: string,
     else:
       ""
     let expanded = renderLoops(engine, selected, context, collections,
-      depth + 1)
+      projections, depth + 1)
     result.add(renderConditionals(engine, expanded, context, collections,
-      depth + 1))
+      projections, depth + 1))
     cursor = endStart + endMarker.len
 
 proc renderTags(engine: TemplateEngine, source: string,
@@ -425,19 +454,22 @@ proc renderTags(engine: TemplateEngine, source: string,
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
+                 projections: Table[string, TemplateCollectionProjection],
                  inherited: BlockMap): string
 
 proc renderFragment(engine: TemplateEngine, source: string,
                     context: TemplateContext,
                     collections: Table[string, seq[TemplateContext]],
+                    projections: Table[string, TemplateCollectionProjection],
                     depth: int): string =
   ## Includes are expanded before variables, allowing partials to use the same
   ## context while keeping the recursion limit centralized.
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template recursion depth exceeded")
-  let loopExpanded = renderLoops(engine, source, context, collections, depth)
+  let loopExpanded = renderLoops(engine, source, context, collections,
+    projections, depth)
   let structured = renderConditionals(engine, loopExpanded, context,
-    collections, depth)
+    collections, projections, depth)
   var cursor = 0
   const includePrefix = "{% include \""
   while true:
@@ -451,7 +483,7 @@ proc renderFragment(engine: TemplateEngine, source: string,
     if nameEnd < 0:
       raise newException(ValueError, "Malformed template include directive")
     result.add(renderNamed(engine, structured[nameStart ..< nameEnd], context,
-      collections, depth + 1, initTable[string, string]()))
+      collections, depth + 1, projections, initTable[string, string]()))
     cursor = nameEnd + 4
   var rendered = renderTags(engine, result, context)
   result = ""
@@ -480,6 +512,7 @@ proc renderFragment(engine: TemplateEngine, source: string,
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
+                 projections: Table[string, TemplateCollectionProjection],
                  inherited: BlockMap): string =
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template inheritance depth exceeded")
@@ -488,9 +521,9 @@ proc renderNamed(engine: TemplateEngine, name: string,
   let parent = extendsName(source)
   if parent.len > 0:
     return renderNamed(engine, parent, context, collections, depth + 1,
-      mergeBlocks(inherited, localBlocks))
+      projections, mergeBlocks(inherited, localBlocks))
   let materialized = applyBlocks(source, mergeBlocks(localBlocks, inherited))
-  renderFragment(engine, materialized, context, collections, depth)
+  renderFragment(engine, materialized, context, collections, projections, depth)
 
 proc render*(engine: TemplateEngine, name: string,
              context: TemplateContext = initTable[string, string]()): string =
@@ -499,6 +532,7 @@ proc render*(engine: TemplateEngine, name: string,
     raise newException(ValueError, "Template engine is required")
   renderNamed(engine, name, context,
     initTable[string, seq[TemplateContext]](), 0,
+    initTable[string, TemplateCollectionProjection](),
     initTable[string, string]())
 
 proc render*(engine: TemplateEngine, name: string,
@@ -508,4 +542,4 @@ proc render*(engine: TemplateEngine, name: string,
   if engine.isNil:
     raise newException(ValueError, "Template engine is required")
   renderNamed(engine, name, context.values, context.collections, 0,
-    initTable[string, string]())
+    context.projections, initTable[string, string]())
