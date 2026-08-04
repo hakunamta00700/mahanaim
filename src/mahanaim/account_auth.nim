@@ -74,6 +74,14 @@ method updatePasswordHash*(store: AccountCredentialStore,
   discard passwordHash
   raise newException(ValueError, "Account password update is not implemented")
 
+method createAccount*(store: AccountCredentialStore,
+                      account: AccountCredential) {.base, gcsafe.} =
+  ## Provisioning is a separate adapter operation so the CLI can use the same
+  ## transaction boundary as application code without learning a schema.
+  discard store
+  discard account
+  raise newException(ValueError, "Account creation is not implemented")
+
 proc newInMemoryAccountCredentialStore*(): InMemoryAccountCredentialStore =
   ## Initialize isolated maps and a lock; tests must never share account state
   ## through a process-global singleton.
@@ -138,6 +146,30 @@ method updatePasswordHash*(store: InMemoryAccountCredentialStore,
   var account = store.accounts[identifier]
   account.passwordHash = passwordHash
   store.accounts[identifier] = account
+
+method createAccount*(store: InMemoryAccountCredentialStore,
+                      account: AccountCredential) {.gcsafe.} =
+  ## The reference adapter shares validation with route authentication and
+  ## rejects duplicates while holding one lock, matching a transactional
+  ## backend's uniqueness boundary.
+  store.addAccount(account)
+
+proc newAdminUserCreator*(store: AccountCredentialStore,
+                          hasher: PasswordHasher): AdminUserCreator =
+  ## Adapt the generic CLI callback to the account contract. Plaintext is
+  ## hashed before it crosses into persistence and is never returned.
+  if store.isNil or hasher.isNil:
+    raise newException(ValueError, "Account store and password hasher are required")
+  let currentStore = store
+  let currentHasher = hasher
+  result = proc(identifier, password, subject: string): string {.gcsafe.} =
+    if identifier.strip().len == 0 or password.len == 0 or subject.strip().len == 0:
+      raise newException(ValueError,
+        "Admin account requires identifier, password, and subject")
+    let account = AccountCredential(subject: subject, identifier: identifier,
+      passwordHash: currentHasher.hashPassword(password), enabled: true)
+    currentStore.createAccount(account)
+    subject
 
 proc newAccountAuthentication*(store: AccountCredentialStore,
                                hasher: PasswordHasher,

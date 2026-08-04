@@ -3960,6 +3960,25 @@ suite "Mahanaim core contracts":
     finally:
       if fileExists(outputPath): removeFile(outputPath)
 
+  test "admin create-user CLI uses an application-owned provisioning callback":
+    let app = newApplication()
+    let store = newInMemoryAccountCredentialStore()
+    let hasher = newPbkdf2PasswordHasher(iterations = 10_000)
+    app.configureAdminUserCreator(newAdminUserCreator(store, hasher))
+    putEnv("MAHANAIM_ADMIN_PASSWORD", "cli-only-password")
+    try:
+      check app.runCli(["admin", "create-user", "admin@example.test",
+        "admin-1"]) == 0
+      let account = store.findByIdentifier("admin@example.test")
+      check account.isSome
+      check account.get().subject == "admin-1"
+      check account.get().passwordHash != "cli-only-password"
+      check hasher.verifyPassword("cli-only-password", account.get().passwordHash)
+      expect ValueError:
+        discard app.runCli(["admin", "create-user", "admin@example.test"])
+    finally:
+      delEnv("MAHANAIM_ADMIN_PASSWORD")
+
   test "OpenAPI route collection discovers plain routes and preserves schemas":
     let app = newApplication()
     proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

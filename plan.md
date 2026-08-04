@@ -164,6 +164,7 @@
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
 - [x] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, bulk delete action, 명시적 inline PATCH route와 안전한 form layout renderer hook을 지원하며 SQLite repository store 통합 회귀를 검증했다.
 - [x] embedding/standalone CLI의 `openapi [PATH]`가 등록 router를 수집해 OpenAPI 3.1 문서를 stdout 또는 파일로 생성하고, 출력 경로·인자 오류와 route `operationId` 보존을 회귀 테스트로 검증한다.
+- [x] Application 소유 `AdminUserCreator`와 account store/password hasher adapter를 연결하고, 비밀번호를 `MAHANAIM_ADMIN_PASSWORD`에서만 읽는 `admin create-user <identifier> [subject]` CLI 및 중복 생성 회귀 테스트를 추가한다.
 
 ## P2 — 운영·확장성
 

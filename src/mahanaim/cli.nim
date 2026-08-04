@@ -5,7 +5,7 @@
 ## separate lets a generated project and an embedding host use the same CLI
 ## behavior without hidden module discovery.
 
-import std/[asyncdispatch, json, options, strutils, tables]
+import std/[asyncdispatch, json, options, os, strutils, tables]
 import ./application
 import ./checks
 import ./migration_commands
@@ -113,6 +113,34 @@ proc runOpenApiCli*(app: Application, arguments: openArray[string]): int =
     echo output
   0
 
+proc runAdminCli*(app: Application, arguments: openArray[string]): int =
+  ## Keep administrative mutations behind an explicitly configured callback.
+  ## A password is intentionally read from MAHANAIM_ADMIN_PASSWORD rather than
+  ## command-line arguments, because process listings commonly expose argv.
+  if app.isNil or app.adminUserCreator.isNil:
+    raise newException(ValueError,
+      "Application admin user creator is required")
+  if arguments.len < 2 or arguments.len > 3 or
+      arguments[0].toLowerAscii() != "create-user":
+    raise newException(ValueError,
+      "admin command must be: admin create-user <identifier> [subject]")
+  let identifier = arguments[1].strip()
+  if identifier.len == 0:
+    raise newException(ValueError, "Admin user identifier cannot be empty")
+  let password = getEnv("MAHANAIM_ADMIN_PASSWORD")
+  if password.len == 0:
+    raise newException(ValueError,
+      "MAHANAIM_ADMIN_PASSWORD must be set for admin create-user")
+  let subject = if arguments.len == 3 and arguments[2].strip().len > 0:
+    arguments[2].strip()
+  else:
+    identifier
+  let createdSubject = app.adminUserCreator(identifier, password, subject)
+  if createdSubject.strip().len == 0:
+    raise newException(ValueError, "Admin user creator returned an empty subject")
+  echo "created admin user " & identifier
+  0
+
 proc runCli*(app: Application, arguments: openArray[string]): int =
   ## Dispatch built-in database commands first, then application-owned
   ## extension commands. Unknown commands fail instead of being ignored.
@@ -125,6 +153,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "  db seed [sqlite-path]  Run application seed providers"
     echo "  jobs run [max]|recover Run or recover durable jobs"
     echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
+    echo "  admin create-user <identifier> [subject]  Create an admin user"
     echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
@@ -152,6 +181,11 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     return runJobsCli(app, copied[1 .. ^1])
   of "openapi":
     return runOpenApiCli(app, copied[1 .. ^1])
+  of "admin":
+    if copied.len == 1:
+      raise newException(ValueError,
+        "admin command must be: admin create-user <identifier> [subject]")
+    return runAdminCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):
       return app.runCommand(copied[0], copied[1 .. ^1])

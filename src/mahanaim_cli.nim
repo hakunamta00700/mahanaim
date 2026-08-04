@@ -1,8 +1,8 @@
 ## Minimal CLI for the first P0 slice.
 ##
-## The command intentionally reports the supported surface instead of pretending
-## that database/admin commands already exist. Each future command can be added
-## without changing the Application API.
+## The command reports the framework-owned surface. Mutating commands require an
+## embedding application to configure their explicit persistence callback, so
+## the frontend cannot silently invent an account or database connection.
 
 import std/[os, osproc, strutils]
 import mahanaim/[application, checks, cli, config, generator]
@@ -12,6 +12,7 @@ proc printUsage() =
   echo "  new NAME [PATH]  Generate a new project"
   echo "  db status|up|rollback [PATH]  Run application migrations"
   echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
+  echo "  admin create-user <identifier> [subject]  Create an admin user"
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"

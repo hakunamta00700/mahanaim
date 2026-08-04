@@ -41,6 +41,9 @@ type
 
   CommandHandler* = proc (arguments: seq[string]): int {.gcsafe.}
 
+  AdminUserCreator* = proc (identifier, password, subject: string): string
+    {.gcsafe.}
+
   CommandDefinition* = object
     ## CLI commands are data so different frontends can discover and invoke
     ## the same application-owned operation.
@@ -75,6 +78,11 @@ type
     plugins*: seq[Plugin]
     pluginManifests*: seq[PluginManifest]
     commands*: Table[string, CommandDefinition]
+    ## User provisioning is an application-owned boundary. The CLI only
+    ## validates arguments and obtains the secret; it never knows whether the
+    ## application uses SQLite, PostgreSQL, an external identity provider, or
+    ## a test double.
+    adminUserCreator*: AdminUserCreator
     adminExtensions*: seq[AdminExtension]
     models*: ModelRegistry
     executionPolicy*: ExecutionPolicy
@@ -201,6 +209,19 @@ proc registerCommand*(app: Application, command: CommandDefinition) =
   if app.commands.hasKey(command.name):
     raise newException(ValueError, "Duplicate command: " & command.name)
   app.commands[command.name] = command
+
+proc configureAdminUserCreator*(app: Application,
+                                creator: AdminUserCreator) =
+  ## Configure provisioning before startup so a standalone command cannot
+  ## accidentally mutate an application with a different runtime policy.
+  if app.isNil or creator.isNil:
+    raise newException(ValueError, "Application and admin user creator are required")
+  if app.started:
+    raise newException(ValueError,
+      "Admin user creator must be configured before application startup")
+  if not app.adminUserCreator.isNil:
+    raise newException(ValueError, "Admin user creator is already configured")
+  app.adminUserCreator = creator
 
 proc runCommand*(app: Application, name: string,
                  arguments: openArray[string]): int =
