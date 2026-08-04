@@ -505,6 +505,33 @@ suite "Mahanaim core contracts":
       discard newBackgroundJobQueue(app.executor,
         JobRetryPolicy(maxAttempts: 0, delayMs: 0))
 
+  test "background jobs honor idempotency claims and release failed keys":
+    let app = newApplication()
+    let idempotency = newInMemoryIdempotencyStore()
+    let queue = newBackgroundJobQueue(app.executor,
+      JobRetryPolicy(maxAttempts: 1, delayMs: 0), idempotency)
+    var executions: Atomic[int]
+    executions.store(0)
+    proc countedJob() {.gcsafe.} =
+      discard executions.fetchAdd(1)
+    let first = waitFor queue.enqueueIdempotent("email:42", countedJob)
+    let duplicate = waitFor queue.enqueueIdempotent("email:42", countedJob)
+    check first.succeeded
+    check not first.deduplicated
+    check duplicate.succeeded
+    check duplicate.deduplicated
+    check duplicate.attempts == 0
+    check executions.load() == 1
+
+    proc failedJob() {.gcsafe.} =
+      raise newException(ValueError, "retryable failure")
+    let failed = waitFor queue.enqueueIdempotent("email:retry", failedJob)
+    let retried = waitFor queue.enqueueIdempotent("email:retry", countedJob)
+    check not failed.succeeded
+    check retried.succeeded
+    expect ValueError:
+      discard waitFor queue.enqueueIdempotent("", countedJob)
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

@@ -172,7 +172,7 @@
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
-- [ ] durable persistence, idempotency key와 외부 queue adapter를 제공한다.
+- [-] background job에 `IdempotencyStore`/in-memory claim-release adapter와 `enqueueIdempotent`를 추가했다. durable persistence, crash recovery와 외부 queue adapter는 남아 있다.
 - [-] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory 및 `newPostgresTestFixtureFromEnv` convenience API를 추가했다. PostgreSQL live fixture에 isolation·repository route·DDL rollback contract를 연결했지만 credential 부재로 local live 실행은 건너뛰며, live-server fixture와 WebSocket/SSE test client 계약도 추가했다.
 
 ## P3 — 선택 확장

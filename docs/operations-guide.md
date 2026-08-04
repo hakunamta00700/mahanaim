@@ -84,6 +84,9 @@ proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행�
 - 현재 queue는 process memory 기반이므로 process crash 이후 job recovery를
   보장하지 않는다. durable queue adapter를 연결하기 전에는 중요한 작업을
   성공으로 간주하지 않는다.
+- `enqueueIdempotent`는 명시적 key를 `IdempotencyStore`에 claim하고 성공 시
+  유지하며, 실패 시 release한다. 기본 in-memory store는 프로세스 재시작 후
+  상태를 보존하지 않으므로 durable persistence의 대체가 아니다.
 
 ## PostgreSQL live integration fixture
 
