@@ -4,7 +4,7 @@
 ## a concrete service type. Application scope is cached; request/task scopes
 ## are factories and are intentionally resolved explicitly by their owner.
 
-import std/[options, strutils, tables]
+import std/[strutils, tables]
 
 type
   DependencyScope* = enum
@@ -61,4 +61,3 @@ proc resolve*(container: ServiceContainer,
 
 proc hasDependency*(container: ServiceContainer, name: string): bool =
   not container.isNil and container.registrations.hasKey(name)
-
