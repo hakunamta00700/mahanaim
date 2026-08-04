@@ -202,6 +202,7 @@
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
 - [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
 - [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. PostgreSQL typed result metadata와 live server fixture는 남아 있다.
+- [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -588,7 +589,7 @@ flowchart TB
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. PostgreSQL live fixture와 capability matrix는 남아 있다.
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
-- [-] transaction/savepoint, backend-neutral connection pool과 request 단위 DB session wiring을 구현했다. unit-of-work, locking capability와 isolation은 남아 있다.
+- [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring과 unit-of-work를 구현했다. locking capability와 isolation은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API, form, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
 완료 기준:
@@ -677,7 +678,7 @@ flowchart TB
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
-| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint와 request context borrow/release를 추가했고 unit-of-work, locking capability, isolation은 남아 있다. |
+| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release와 unit-of-work를 추가했고 locking capability와 isolation은 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter를 추가했고 backend capability matrix와 live compatibility test를 추가한다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 

@@ -1952,6 +1952,36 @@ suite "Mahanaim core contracts":
     app.shutdown()
     check closed == 1
 
+  test "database session provides unit-of-work commit and rollback":
+    let pool = newDatabaseConnectionPool(
+      proc(): DatabaseAdapter = newSqliteDatabaseAdapter(), 1,
+      proc(adapter: DatabaseAdapter) = cast[SqliteDatabaseAdapter](adapter).close())
+    let setup = pool.acquire()
+    discard setup.execute(CompiledQuery(sql:
+      "CREATE TABLE \"events\" (\"id\" INTEGER, \"message\" TEXT)",
+      parameters: @[]))
+    pool.release(setup)
+    var session = newDatabaseSession(pool)
+    discard session.adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"events\" (\"id\", \"message\") VALUES (?, ?)",
+      parameters: @[integerValue(1), textValue("rolled back")]))
+    session.rollback()
+    session.close()
+    let rollbackCheck = pool.acquire()
+    check rollbackCheck.execute(CompiledQuery(sql:
+      "SELECT \"id\" FROM \"events\"", parameters: @[])).len == 0
+    pool.release(rollbackCheck)
+    proc commitEvent(current: DatabaseSession) =
+      discard current.adapter.execute(CompiledQuery(sql:
+        "INSERT INTO \"events\" (\"id\", \"message\") VALUES (?, ?)",
+        parameters: @[integerValue(2), textValue("committed")]))
+    pool.withDatabaseSession(commitEvent)
+    let commitCheck = pool.acquire()
+    check commitCheck.execute(CompiledQuery(sql:
+      "SELECT \"id\" FROM \"events\"", parameters: @[])).len == 1
+    pool.release(commitCheck)
+    pool.close()
+
   test "Redis RESP client encodes atomic counter and parses server TTL":
     let command = encodeFixedWindowCommand("rate:user", 60)
     check command.startsWith("*5\r\n$4\r\nEVAL\r\n")
