@@ -3739,6 +3739,13 @@ suite "Mahanaim core contracts":
       httpMethod: "POST", path: "/users", operationId: "createUser",
       requestSchema: @[stringField("name", flBody)],
       responseSchema: @[integerField("id", flBody)], successStatus: 201))
+    registry.registerOperation(OpenApiOperation(
+      httpMethod: "POST", path: "/negotiated", operationId: "negotiated",
+      requestSchema: @[stringField("name", flBody)],
+      responseSchema: @[stringField("status", flBody)],
+      requestContentTypes: @["application/json", "application/x-www-form-urlencoded"],
+      responseContentTypes: @["application/json", "application/problem+json"],
+      successStatus: 200))
     expect ValueError:
       registry.registerOperation(OpenApiOperation(
         httpMethod: "get", path: "/users/{id}", operationId: "duplicate"))
@@ -3747,6 +3754,14 @@ suite "Mahanaim core contracts":
     check document["paths"]["/users/{id}"]["get"]["operationId"].getStr() == "getUser"
     check document["paths"]["/users"]["post"]["responses"]["201"] != nil
     check document["paths"]["/users/{id}"]["get"]["parameters"][0]["in"].getStr() == "path"
+    check document["paths"]["/negotiated"]["post"]["requestBody"]["content"].hasKey(
+      "application/x-www-form-urlencoded")
+    check document["paths"]["/negotiated"]["post"]["responses"]["200"][
+      "content"].hasKey("application/problem+json")
+    expect ValueError:
+      registry.registerOperation(OpenApiOperation(
+        httpMethod: "GET", path: "/invalid-media", operationId: "invalidMedia",
+        requestContentTypes: @["application/json; charset=utf-8"]))
     check swaggerUiHtml("/schema.json").contains("/schema.json")
     check redocHtml("/schema.json").contains("spec-url=\"/schema.json\"")
 

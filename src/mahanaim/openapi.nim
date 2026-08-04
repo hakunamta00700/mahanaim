@@ -19,6 +19,10 @@ type
     summary*: string
     requestSchema*: seq[FieldSpec]
     responseSchema*: seq[FieldSpec]
+    ## A route may advertise more than JSON while sharing the same validated
+    ## schema. Empty lists retain the historical JSON default.
+    requestContentTypes*: seq[string]
+    responseContentTypes*: seq[string]
     successStatus*: int
 
   OpenApiRegistry* = ref object
@@ -42,6 +46,28 @@ proc normalizeHttpMethod(httpMethod: string): string =
   if result notin ["get", "post", "put", "patch", "delete", "head", "options"]:
     raise newException(ValueError, "Unsupported OpenAPI HTTP method: " & httpMethod)
 
+proc normalizeContentTypes(values: openArray[string]): seq[string] =
+  ## Content types are exact media-type keys in an OpenAPI content map. Reject
+  ## parameters and whitespace here so generated documents never contain an
+  ## ambiguous key such as `application/json; charset=utf-8`.
+  for raw in values:
+    let value = raw.strip().toLowerAscii()
+    let separator = value.find('/')
+    var containsWhitespace = false
+    for character in value:
+      if character in {' ', '\t', '\r', '\n'}:
+        containsWhitespace = true
+        break
+    if separator <= 0 or separator == value.high or containsWhitespace:
+      raise newException(ValueError, "Invalid OpenAPI content type: " & raw)
+    if value notin result:
+      result.add(value)
+
+proc contentTypes(values: seq[string], fallback: string): seq[string] =
+  if values.len == 0:
+    return @[fallback]
+  values
+
 proc registerOperation*(registry: OpenApiRegistry,
                         operation: OpenApiOperation) =
   ## Duplicate method/path pairs are rejected to prevent silently stale docs.
@@ -57,6 +83,10 @@ proc registerOperation*(registry: OpenApiRegistry,
         "Duplicate OpenAPI operation: " & normalizedMethod & " " & operation.path)
   var normalized = operation
   normalized.httpMethod = normalizedMethod
+  normalized.requestContentTypes = normalizeContentTypes(
+    operation.requestContentTypes)
+  normalized.responseContentTypes = normalizeContentTypes(
+    operation.responseContentTypes)
   normalized.successStatus = if operation.successStatus > 0:
     operation.successStatus else: 200
   registry.operations.add(normalized)
@@ -218,17 +248,22 @@ proc operationDocument(operation: OpenApiOperation): JsonNode =
       })
   let body = objectSchema(bodyFields)
   if body["properties"].len > 0:
+    let content = newJObject()
+    for mediaType in contentTypes(operation.requestContentTypes,
+                                   "application/json"):
+      content[mediaType] = %*{"schema": body}
     result["requestBody"] = %*{
-      "required": body.hasKey("required"),
-      "content": {"application/json": {"schema": body}}
-    }
+      "required": body.hasKey("required"), "content": content}
   let status = $operation.successStatus
   result["responses"] = newJObject()
   result["responses"][status] = %*{"description": "Successful response"}
   if operation.responseSchema.len > 0:
-    result["responses"][status]["content"] = %*{
-      "application/json": {"schema": objectSchema(operation.responseSchema)}
-    }
+    let responseObject = objectSchema(operation.responseSchema)
+    let content = newJObject()
+    for mediaType in contentTypes(operation.responseContentTypes,
+                                   "application/json"):
+      content[mediaType] = %*{"schema": responseObject}
+    result["responses"][status]["content"] = content
 
 proc document*(registry: OpenApiRegistry): JsonNode =
   ## Generate a deterministic multi-route OpenAPI 3.1 document.
