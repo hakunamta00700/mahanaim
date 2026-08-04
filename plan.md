@@ -50,7 +50,9 @@
 - [x] JSON, form-urlencoded, multipart body parser와 body-scoped validation error를 제공한다.
 - [x] HTML/JSON/text representation과 `Accept` 기반 406 응답을 제공한다.
 - [x] stream/SSE/WebSocket representation metadata와 core response helper를 추가한다.
-- [ ] 실제 stream/SSE/WebSocket adapter와 content negotiation wire integration을 통합한다.
+- [x] 표준 HTTP adapter에서 SSE representation framing을 TCP wire로 검증한다.
+- [ ] 실제 chunked stream과 WebSocket upgrade adapter 및 content negotiation wire integration을 통합한다.
+- [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 
 ### 설정과 보안

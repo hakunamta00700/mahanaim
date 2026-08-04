@@ -527,6 +527,37 @@ suite "Mahanaim core contracts":
     check response == "hello over http"
     client.close()
     network.close()
+    network.close()
+
+  test "network adapter serves SSE representation framing over TCP":
+    let app = newApplication()
+    proc events(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return sseResponse([SseEvent(event: "tick", id: "1", retryMs: 500,
+        data: "hello")])
+    app.get("/events", "events", events)
+    let network = newNetworkServer(app, "127.0.0.1", 0)
+    asyncCheck network.serve()
+    var attempts = 0
+    while attempts < 50:
+      try:
+        if network.boundPort().uint16 > 0:
+          break
+      except OSError:
+        discard
+      waitFor sleepAsync(10)
+      inc attempts
+    check network.boundPort().uint16 > 0
+
+    let client = hc.newAsyncHttpClient()
+    let wireResponse = waitFor client.get(
+      "http://127.0.0.1:" & $network.boundPort().uint16 & "/events")
+    let body = waitFor wireResponse.body()
+    check wireResponse.code == Http200
+    check wireResponse.headers["content-type"] == "text/event-stream; charset=utf-8"
+    check body == "event: tick\nid: 1\nretry: 500\ndata: hello\n\n"
+    client.close()
+    network.close()
 
   test "Prologue adapter maps request context and response headers":
     var nativeHeaders = newHttpHeaders()

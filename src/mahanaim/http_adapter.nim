@@ -17,6 +17,7 @@ type
     server*: AsyncHttpServer
     host*: string
     port*: Port
+    closed*: bool
 
 proc copyHeaders(headers: HttpHeaders): Table[string, string] =
   ## Normalize header names once at the adapter boundary.
@@ -62,17 +63,27 @@ proc newNetworkServer*(app: Application, host = "127.0.0.1",
                        port = 8000): NetworkServer =
   ## Construct without binding. Tests can choose an ephemeral port later.
   NetworkServer(app: app, server: newAsyncHttpServer(), host: host,
-                port: Port(port))
+                port: Port(port), closed: false)
 
 proc serve*(network: NetworkServer): Future[void] {.async.} =
   ## Bind and serve until close() is called. Startup hooks run after binding.
   network.app.startup()
   let callback = proc(request: asynchttpserver.Request): Future[void] {.async, gcsafe.} =
     await handleRequest(network, request)
-  await network.server.serve(network.port, callback, network.host)
+  try:
+    await network.server.serve(network.port, callback, network.host)
+  except OSError:
+    ## AsyncHttpServer reports socket cancellation as OSError when close()
+    ## interrupts serve().  That is expected during an owned graceful stop;
+    ## unexpected I/O failures still propagate to the embedding application.
+    if not network.closed:
+      raise
 
 proc close*(network: NetworkServer) =
   ## Close the socket and run shutdown hooks exactly once.
+  if network.closed:
+    return
+  network.closed = true
   network.server.close()
   network.app.shutdown()
 

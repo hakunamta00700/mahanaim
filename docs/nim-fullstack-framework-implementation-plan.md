@@ -47,7 +47,9 @@
 
 - [x] buffered, stream, SSE, WebSocket representation metadata를 core Response에 추가했다.
 - [x] SSE event framing과 stream/WebSocket response helper contract 회귀 테스트를 추가했다.
-- [ ] 실제 adapter streaming, WebSocket upgrade, SSE content negotiation wire integration은 남아 있다.
+- [x] 표준 HTTP adapter에서 SSE representation framing을 실제 TCP wire로 검증했다.
+- [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리했다.
+- [ ] 실제 chunked streaming, WebSocket upgrade, SSE content negotiation wire integration은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
