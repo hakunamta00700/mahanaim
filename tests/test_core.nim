@@ -212,6 +212,27 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.header("Content-Type").get() == "text/plain; charset=utf-8"
 
+  test "default application policies activate bounded timeout and rate limit":
+    ## A framework default must provide a finite failure boundary without
+    ## requiring every application to remember a security setting. Explicit
+    ## policies can still override these values for trusted internal traffic.
+    let config = defaultConfig()
+    let policy = defaultSecurityPolicy()
+    check config.requestTimeoutMs > 0
+    check policy.rateLimitRequests > 0
+    check policy.rateLimitWindowSeconds > 0
+    let app = newApplication(config, policy)
+    proc bounded(request: Request): Future[mahanaim.Response]
+        {.async, gcsafe.} =
+      discard request
+      return textResponse("bounded")
+    app.get("/bounded-defaults", "bounded-defaults", bounded)
+    let response = waitFor app.dispatch(newRequest("GET", "/bounded-defaults"))
+    check response.status == Http200
+    check response.header("X-RateLimit-Limit").get().parseInt() ==
+      policy.rateLimitRequests
+    check response.header("X-RateLimit-Remaining").isSome
+
   test "response constructors expose file representation safely":
     let path = getTempDir() / "mahanaim-response-file.txt"
     writeFile(path, "downloaded")

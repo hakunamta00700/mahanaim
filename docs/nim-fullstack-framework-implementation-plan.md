@@ -142,21 +142,21 @@
 - [x] CORS preflight `OPTIONS` 204 응답을 추가했다.
 - [x] request body size limit과 413 응답을 추가했다.
 - [x] CORS 허용·거부·preflight·oversized body 회귀 테스트를 추가했다.
-- [-] configurable rate limit·timeout policy와 회귀 검증을 추가했다. secure-by-default 배포에서의 기본 활성화 정책과 운영용 distributed eviction은 남아 있다.
+- [x] `defaultConfig`의 30초 request timeout과 `defaultSecurityPolicy`의 60초당 1000건 bounded rate limit을 활성화하고 회귀 테스트했다. 명시적 override와 secure cookie 정책은 유지된다.
 
 ### 2026-08-04 — P0 보안 기본값 3차
 
 - [x] HMAC-SHA256 signed CSRF token과 보안 난수 nonce 생성을 추가했다.
 - [x] safe method 응답의 CSRF cookie 발급과 변경 method의 cookie/header 검증을 추가했다.
 - [x] constant-time signature 비교와 위조·누락 토큰 회귀 테스트를 추가했다.
-- [-] signed auth cookie rotation과 configurable rate limit을 추가했고 회귀 테스트했다. 기본 활성화 정책과 운영용 distributed eviction은 남아 있다.
+- [x] signed auth cookie rotation과 `defaultSecurityPolicy`의 bounded rate limit을 추가하고 회귀 테스트했다. 운영용 distributed eviction과 TLS wire 검증은 별도 범위다.
 
 ### 2026-08-04 — P0 보안 기본값 4차
 
 - [x] CSRF와 독립적으로 재사용 가능한 HMAC signed value·signed cookie API를 추가했다.
 - [x] signed cookie의 HttpOnly·Secure 기본값과 secret 누락·위조 검증을 테스트했다.
 - [x] Nimble test task가 lockfile dependency path를 명시해 CI와 로컬 실행을 일치시킨다.
-- [-] signed auth cookie rotation과 configurable rate limit을 추가했고 회귀 테스트했다. 운영용 distributed eviction과 TLS wire 검증은 남아 있다.
+- [x] signed auth cookie rotation과 `defaultSecurityPolicy`의 bounded rate limit을 추가하고 회귀 테스트했다. 운영용 distributed eviction과 TLS wire 검증은 별도 범위다.
 
 ### 2026-08-04 — P0 session binding 1차
 

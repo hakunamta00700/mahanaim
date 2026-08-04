@@ -9,6 +9,13 @@ import std/[asyncdispatch, httpcore, locks, monotimes, options, strutils, sysran
 import nimcrypto
 import ./core
 
+const
+  ## The default limiter is intentionally bounded but generous enough for a
+  ## small application. Hosts with per-user or distributed quotas can replace
+  ## both values and inject a shared RateLimitStore.
+  defaultRateLimitRequests* = 1_000
+  defaultRateLimitWindowSeconds* = 60
+
 type
   RateLimitDecision* = object
     ## A store returns only policy data; middleware owns HTTP status/header
@@ -115,8 +122,8 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     corsMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     corsHeaders: "Content-Type, Authorization",
     maxBodyBytes: 1024 * 1024,
-    rateLimitRequests: 0,
-    rateLimitWindowSeconds: 60,
+    rateLimitRequests: defaultRateLimitRequests,
+    rateLimitWindowSeconds: defaultRateLimitWindowSeconds,
     rateLimitStore: nil,
     rateLimitKey: "mahanaim:application",
     csrfEnabled: false,

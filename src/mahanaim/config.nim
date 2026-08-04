@@ -7,6 +7,8 @@
 import std/[json, os, strutils, tables]
 import parsetoml
 
+const defaultRequestTimeoutMs* = 30_000
+
 type
   AppConfig* = object
     ## Runtime settings plus a separate secret store.
@@ -22,8 +24,12 @@ type
     values*: Table[string, JsonNode]
 
 proc newConfig(environment, host: string, debug: bool, port: int): AppConfig =
+  ## A finite default prevents an accidentally stalled request from owning a
+  ## connection forever. Set zero explicitly when an application has a
+  ## deliberate long-running request contract.
   result = AppConfig(environment: environment, debug: debug, host: host,
-    port: port, requestTimeoutMs: 0, executorMaxConcurrentJobs: 0)
+    port: port, requestTimeoutMs: defaultRequestTimeoutMs,
+    executorMaxConcurrentJobs: 0)
   result.secrets = initTable[string, string]()
   result.values = initTable[string, JsonNode]()
 
