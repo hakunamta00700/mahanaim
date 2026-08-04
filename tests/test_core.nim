@@ -3147,6 +3147,32 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard engine.render("cycle-a", context)
 
+  test "template render context expands nested collections with conditions":
+    let engine = newTemplateEngine()
+    engine.registerTemplate("items", "<ul>{% for item in items %}" &
+      "{% if item.visible %}<li>{{ item.name }}</li>{% endif %}" &
+      "{% endfor %}</ul>")
+    var context = newTemplateRenderContext()
+    context.addCollection("items", @[
+      newTemplateContext([("name", "<Ada>"), ("visible", "true")]),
+      newTemplateContext([("name", "Grace"), ("visible", "false")]),
+      newTemplateContext([("name", "Nim"), ("visible", "true")])])
+    check engine.render("items", context) ==
+      "<ul><li>&lt;Ada&gt;</li><li>Nim</li></ul>"
+    engine.registerTemplate("nested-items", "{% for outer in items %}" &
+      "{% for inner in items %}{{ outer.name }}-{{ inner.name }};" &
+      "{% endfor %}{% endfor %}")
+    check engine.render("nested-items", context).contains(
+      "&lt;Ada&gt;-Grace;")
+    engine.registerTemplate("missing-items", "{% for item in missing %}" &
+      "{{ item.name }}{% endfor %}")
+    expect ValueError:
+      discard engine.render("missing-items", context)
+    engine.registerTemplate("unclosed-items", "{% for item in items %}" &
+      "{{ item.name }}")
+    expect ValueError:
+      discard engine.render("unclosed-items", context)
+
   test "relation query compiler emits safe deterministic joins":
     let query = RelationSelectQuery(
       table: "users", alias: "u", columns: @["u.id", "posts.title"],
