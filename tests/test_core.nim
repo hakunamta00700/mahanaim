@@ -2177,7 +2177,17 @@ suite "Mahanaim core contracts":
     check not capabilitiesForDialect(dialectSqlite).supportsIsolation
     let postgresCapabilities = capabilitiesForDialect(dialectPostgres)
     check postgresCapabilities.supportsIsolation
+    check postgresCapabilities.supportsRowLocks
+    check not capabilitiesForDialect(dialectSqlite).supportsRowLocks
     check isolationSerializable in postgresCapabilities.isolationLevels
+    let locked = newQuerySet("users").selectFields(["id"]).lockRows(lockForUpdate)
+    check compile(locked, dialectPostgres).sql.endsWith(" FOR UPDATE")
+    expect ValueError:
+      discard compile(locked, dialectSqlite)
+    let aggregateLock = newQuerySet("users").selectFields(["id"]).
+      addAggregate(aggregateCount, "*", "total").lockRows(lockForShare)
+    expect ValueError:
+      discard compile(aggregateLock, dialectPostgres)
     let paged = compileSelect(query.withPagination(newPagination(3, 10, 50)))
     check paged.sql.endsWith("LIMIT 10 OFFSET 20")
     expect ValueError:

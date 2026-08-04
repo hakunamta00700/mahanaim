@@ -25,6 +25,7 @@ type
     supportsTypedNulls*: bool
     supportsIsolation*: bool
     isolationLevels*: set[TransactionIsolationLevel]
+    supportsRowLocks*: bool
 
   SqlValueKind* = enum
     sqlNull
@@ -75,6 +76,11 @@ type
     field*: string
     alias*: string
 
+  QueryLockMode* = enum
+    lockNone
+    lockForUpdate
+    lockForShare
+
   SelectQuery* = object
     table*: string
     columns*: seq[string]
@@ -84,6 +90,7 @@ type
     offset*: int
     aggregates*: seq[QueryAggregate]
     groupBy*: seq[string]
+    lockMode*: QueryLockMode
 
   QuerySet* = object
     ## Immutable-style builder around SelectQuery. Every builder operation
@@ -199,7 +206,8 @@ proc capabilitiesForDialect*(dialect: DatabaseDialect): DatabaseCapabilities =
       supportsSavepoints: true,
       supportsTypedNulls: true,
       supportsIsolation: false,
-      isolationLevels: {})
+      isolationLevels: {},
+      supportsRowLocks: false)
   of dialectPostgres:
     DatabaseCapabilities(
       supportsTransactions: true,
@@ -207,7 +215,8 @@ proc capabilitiesForDialect*(dialect: DatabaseDialect): DatabaseCapabilities =
       supportsTypedNulls: true,
       supportsIsolation: true,
       isolationLevels: {isolationReadCommitted, isolationRepeatableRead,
-                        isolationSerializable})
+                        isolationSerializable},
+      supportsRowLocks: true)
 
 method setIsolationLevel*(adapter: DatabaseAdapter,
                           level: TransactionIsolationLevel) {.base, gcsafe.} =
@@ -281,7 +290,7 @@ proc newQuerySet*(table: string): QuerySet =
   if table.len == 0:
     raise newException(ValueError, "QuerySet table is required")
   QuerySet(query: SelectQuery(table: table, columns: @[], filters: @[],
-    orderBy: @[], aggregates: @[], groupBy: @[]))
+    orderBy: @[], aggregates: @[], groupBy: @[], lockMode: lockNone))
 
 proc selectFields*(query: QuerySet, fields: openArray[string]): QuerySet =
   ## Replace the projection while preserving filters and execution controls.
@@ -316,6 +325,12 @@ proc addAggregate*(query: QuerySet, function: QueryAggregateFunction,
   result = query
   result.query.aggregates = query.query.aggregates &
     @[QueryAggregate(function: function, field: field, alias: alias)]
+
+proc lockRows*(query: QuerySet, mode: QueryLockMode): QuerySet =
+  ## Typed locking intent keeps row-lock semantics reviewable and lets each
+  ## backend reject unsupported behavior before a query reaches the driver.
+  result = query
+  result.query.lockMode = mode
 
 proc paginate*(query: QuerySet, pagination: Pagination): QuerySet =
   ## Reuse the bounded pagination contract used by HTTP query components.
@@ -374,6 +389,15 @@ proc compileSelect*(query: SelectQuery,
     result.sql.add(" LIMIT " & $query.limit)
   if query.offset > 0:
       result.sql.add(" OFFSET " & $query.offset)
+  if query.lockMode != lockNone:
+    if dialect == dialectSqlite:
+      raise newException(ValueError,
+        "SQLite does not support row locking clauses")
+    if query.aggregates.len > 0 or query.groupBy.len > 0:
+      raise newException(ValueError,
+        "Row locks cannot be applied to aggregate queries")
+    result.sql.add(if query.lockMode == lockForUpdate:
+      " FOR UPDATE" else: " FOR SHARE")
 
 proc quoteQualifiedIdentifier(value: string): string =
   ## Qualify table/alias columns while applying the same strict identifier
