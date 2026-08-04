@@ -7,6 +7,7 @@
 
 import std/[options, strutils, tables]
 import ./application
+import ./checks
 import ./migration_commands
 import ./sqlite_adapter
 import ./seed_commands
@@ -63,10 +64,21 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "mahanaim <command>"
     echo "  db status|up|rollback [sqlite-path]  Run application migrations"
     echo "  db seed [sqlite-path]  Run application seed providers"
+    echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
     return 0
   case copied[0].toLowerAscii()
+  of "check":
+    if copied.len != 1:
+      raise newException(ValueError, "check command does not accept arguments")
+    ## Keep the embedding frontend on the same pure report contract as the
+    ## standalone executable, so CI and host applications cannot drift apart.
+    let report = checkApplication(app)
+    for issue in report.issues:
+      let severity = if issue.severity == checkError: "ERROR" else: "WARN"
+      echo severity & " [" & issue.code & "] " & issue.message
+    if report.passed: 0 else: 1
   of "db":
     if copied.len == 1:
       raise newException(ValueError,

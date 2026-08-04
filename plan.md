@@ -84,7 +84,7 @@
 
 ### 부팅 전 정합성 검사
 
-- [-] `checkApplication`이 config·route·model·security·execution과 명시적 migration registry의 이름·경로·SQLite operation을 함께 검사한다. CI/deployment 환경의 동일 check wiring은 남아 있다.
+- [x] `checkApplication`이 config·route·model·security·execution과 명시적 migration registry의 이름·경로·SQLite operation을 함께 검사하고 standalone/embedding CLI `check`가 같은 report를 사용한다.
 
 ### 설정과 보안
 

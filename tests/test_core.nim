@@ -2456,6 +2456,7 @@ suite "Mahanaim core contracts":
     registry.registerMigrations(cliMigrationProvider)
     let app = newApplication()
     app.configureMigrations(registry, path)
+    check app.runCli(["check"]) == 0
     check app.runCli(["db", "status"]) == 0
     check app.runCli(["db", "up"]) == 0
     check app.runCli(["db", "status"]) == 0
@@ -2473,6 +2474,10 @@ suite "Mahanaim core contracts":
     check verifyAdapter.execute(CompiledQuery(
       sql: "SELECT \"id\" FROM \"cli_users\"", parameters: @[])).len == 1
     check app.runCli(["db", "rollback"]) == 0
+
+    let invalidApp = newApplication()
+    invalidApp.config.port = 0
+    check invalidApp.runCli(["check"]) == 1
 
   test "database test fixture rolls back each isolated operation":
     let fixture = newDatabaseTestFixture(
