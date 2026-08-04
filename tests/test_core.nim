@@ -1178,6 +1178,22 @@ suite "Mahanaim core contracts":
     check result.stringValue("name").get() == "Ada"
     check result.integerValue("age").get() == 37
 
+  test "form binding reuses validation and escapes rendered values":
+    var request = newRequest("POST", "/profile", "name=%3Cscript%3E&age=bad")
+    request.headers["content-type"] = "application/x-www-form-urlencoded"
+    let form = bindForm(request, [
+      stringField("name", flBody),
+      integerField("age", flBody)])
+    check form.errors.len == 1
+    check form.fields[0].value == "<script>"
+    var policy = defaultSecurityPolicy()
+    policy.csrfEnabled = true
+    policy.csrfSecret = "01234567890123456789012345678901"
+    let html = renderForm(form, "/profile", "POST", policy)
+    check html.contains("&lt;script&gt;")
+    check html.contains("name=\"x-csrf-token\"")
+    check html.contains("class=\"form-error\"")
+
   test "multipart body exposes fields and file metadata without adapter types":
     var request = newRequest("POST", "/upload",
       "--demo\r\n" &

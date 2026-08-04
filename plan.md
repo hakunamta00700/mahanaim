@@ -135,7 +135,8 @@
 - [x] named field extraction, scalar coercion, validation error aggregation을 제공한다.
 - [x] 명시적 input schema에서 OpenAPI 3.1 문서와 제약조건을 생성한다.
 - [ ] macro 기반 schema와 일반 응답 타입, 완전한 content negotiation을 제공한다.
-- [ ] template/render context와 HTML form binding을 제공한다.
+- [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
+- [ ] template inheritance/include/filter와 독립 template engine을 제공한다.
 - [ ] CRUD resource convention과 admin extension point를 제공한다.
 
 ## P2 — 운영·확장성

@@ -210,6 +210,14 @@
 - [x] map ordering과 invalid result 거부 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [ ] MessagePack decode/stream response content negotiation과 schema-level custom extension type은 남아 있다.
 
+### 2026-08-04 — P1 form binding 1차
+
+- [x] 기존 `FieldSpec`/`ValidationResult`를 재사용하는 `FormState` binding contract를 추가했다.
+- [x] field value/error/required 상태를 HTML input context로 변환하고 attribute/text escaping을 적용했다.
+- [x] CSRF enabled policy를 사용할 때 signed hidden input을 생성하도록 연결했다.
+- [x] URL-encoded invalid input, escaped value, CSRF field 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] template inheritance/include/filter/i18n과 model formset은 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
