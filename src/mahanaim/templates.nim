@@ -22,6 +22,34 @@ type
     kind*: TemplateHelperArgumentKind
   TemplateHelper* = proc(arguments: seq[TemplateHelperArgument],
                          context: TemplateContext): string
+  TemplateNodeKind* = enum
+    ## Nodes represent syntax, not rendered text. Keeping control flow
+    ## structural prevents a nested block from accidentally consuming a
+    ## sibling's closing marker during a later string scan.
+    templateText
+    templateVariable
+    templateIf
+    templateFor
+    templateInclude
+    templateHelper
+    templateTag
+    templateBlock
+    templateExtends
+  TemplateNode* = ref object
+    ## Public AST metadata is intentionally small: applications can inspect
+    ## templates for tooling while rendering remains owned by TemplateEngine.
+    kind*: TemplateNodeKind
+    value*: string
+    name*: string
+    variableName*: string
+    collectionName*: string
+    arguments*: seq[TemplateHelperArgument]
+    children*: seq[TemplateNode]
+    elseChildren*: seq[TemplateNode]
+  TemplateAst* = object
+    ## The root owns an ordered node list; all nested block ownership is
+    ## explicit in each node's children/elseChildren fields.
+    nodes*: seq[TemplateNode]
   TemplateRenderContext* = object
     ## Scalar values and collections are separate so a template cannot turn a
     ## comma-separated string into an implicit data structure. Applications
@@ -243,6 +271,7 @@ proc templateSource(engine: TemplateEngine, name: string): string =
   engine.templates[name]
 
 type BlockMap = Table[string, string]
+type AstBlockMap = Table[string, seq[TemplateNode]]
 
 proc collectBlocks(source: string): BlockMap =
   ## Extract direct block bodies while preserving their source text for a later
@@ -547,6 +576,195 @@ proc parseTemplateHelperDirective(source: string): tuple[
         value: rawValue,
         kind: if lexeme.quoted: helperLiteral else: helperContext))
 
+type
+  TemplateParseMode = enum
+    parseRoot
+    parseIf
+    parseFor
+    parseBlock
+  TemplateParseStop = enum
+    parseNoStop
+    parseElse
+    parseEndIf
+    parseEndFor
+    parseEndBlock
+  TemplateParseResult = object
+    nodes: seq[TemplateNode]
+    cursor: int
+    stop: TemplateParseStop
+
+proc quotedTemplateName(source: string): string =
+  ## Includes and extends accept one quoted template name. Keeping this
+  ## validation in the parser prevents path-like control text from being
+  ## interpreted differently by each renderer phase.
+  let lexemes = lexTemplateHelperArguments(source)
+  if lexemes.len != 1 or not lexemes[0].quoted or lexemes[0].value.len == 0:
+    raise newException(ValueError,
+      "Template name must be one quoted argument")
+  lexemes[0].value
+
+proc parseTemplateNodes(source: string, cursor: int,
+                        mode: TemplateParseMode): TemplateParseResult
+
+proc parseTemplateNodes(source: string, cursor: int,
+                        mode: TemplateParseMode): TemplateParseResult =
+  ## Recursive descent over the two delimiter kinds. Each recursive call owns
+  ## one block and returns only its matching close marker, so crossing `endif`,
+  ## `endfor`, or `endblock` directives become deterministic errors.
+  var position = cursor
+  while position < source.len:
+    let variableStart = source.find("{{", position)
+    let directiveStart = source.find("{%", position)
+    var nextStart = -1
+    if variableStart >= 0 and directiveStart >= 0:
+      nextStart = min(variableStart, directiveStart)
+    elif variableStart >= 0:
+      nextStart = variableStart
+    elif directiveStart >= 0:
+      nextStart = directiveStart
+    if nextStart < 0:
+      if position < source.len:
+        result.nodes.add(TemplateNode(kind: templateText,
+          value: source[position .. ^1]))
+      result.cursor = source.len
+      result.stop = parseNoStop
+      return
+    if nextStart > position:
+      result.nodes.add(TemplateNode(kind: templateText,
+        value: source[position ..< nextStart]))
+    if nextStart == variableStart:
+      let close = source.find("}}", nextStart + 2)
+      if close < 0:
+        raise newException(ValueError, "Unclosed template variable")
+      let expression = source[nextStart + 2 ..< close].strip()
+      if expression.len == 0:
+        raise newException(ValueError, "Template variable expression is empty")
+      result.nodes.add(TemplateNode(kind: templateVariable, value: expression))
+      position = close + 2
+      continue
+
+    let close = source.find("%}", nextStart + 2)
+    if close < 0:
+      raise newException(ValueError, "Malformed template control directive")
+    let directive = source[nextStart + 2 ..< close].strip()
+    let after = close + 2
+    if directive == "else":
+      if mode != parseIf:
+        raise newException(ValueError, "Unexpected template else directive")
+      result.cursor = after
+      result.stop = parseElse
+      return
+    if directive == "endif":
+      if mode != parseIf:
+        raise newException(ValueError, "Unexpected template endif directive")
+      result.cursor = after
+      result.stop = parseEndIf
+      return
+    if directive == "endfor":
+      if mode != parseFor:
+        raise newException(ValueError, "Unexpected template endfor directive")
+      result.cursor = after
+      result.stop = parseEndFor
+      return
+    if directive == "endblock":
+      if mode != parseBlock:
+        raise newException(ValueError, "Unexpected template endblock directive")
+      result.cursor = after
+      result.stop = parseEndBlock
+      return
+
+    if directive.startsWith("if "):
+      let condition = directive[3 .. ^1].strip()
+      if condition.len == 0:
+        raise newException(ValueError, "Template if condition cannot be empty")
+      let body = parseTemplateNodes(source, after, parseIf)
+      if body.stop notin {parseElse, parseEndIf}:
+        raise newException(ValueError, "Template if block has no endif")
+      var node = TemplateNode(kind: templateIf, value: condition,
+        children: body.nodes, elseChildren: @[])
+      if body.stop == parseElse:
+        let alternate = parseTemplateNodes(source, body.cursor, parseIf)
+        if alternate.stop != parseEndIf:
+          raise newException(ValueError, "Template if block has no endif")
+        node.elseChildren = alternate.nodes
+        position = alternate.cursor
+      else:
+        position = body.cursor
+      result.nodes.add(node)
+      continue
+
+    if directive.startsWith("for "):
+      let parts = directive[4 .. ^1].strip().splitWhitespace()
+      if parts.len != 3 or parts[1] != "in" or parts[0].len == 0 or
+          parts[2].len == 0:
+        raise newException(ValueError,
+          "Template for directive must use: for item in collection")
+      let body = parseTemplateNodes(source, after, parseFor)
+      if body.stop != parseEndFor:
+        raise newException(ValueError, "Template for block has no endfor")
+      result.nodes.add(TemplateNode(kind: templateFor,
+        variableName: parts[0], collectionName: parts[2],
+        children: body.nodes))
+      position = body.cursor
+      continue
+
+    if directive.startsWith("include "):
+      result.nodes.add(TemplateNode(kind: templateInclude,
+        name: quotedTemplateName(directive[8 .. ^1].strip())))
+      position = after
+      continue
+
+    if directive.startsWith("extends "):
+      result.nodes.add(TemplateNode(kind: templateExtends,
+        name: quotedTemplateName(directive[8 .. ^1].strip())))
+      position = after
+      continue
+
+    if directive.startsWith("block "):
+      let blockName = directive[6 .. ^1].strip()
+      if blockName.len == 0:
+        raise newException(ValueError, "Template block name cannot be empty")
+      let body = parseTemplateNodes(source, after, parseBlock)
+      if body.stop != parseEndBlock:
+        raise newException(ValueError, "Template block has no endblock")
+      result.nodes.add(TemplateNode(kind: templateBlock, name: blockName,
+        children: body.nodes))
+      position = body.cursor
+      continue
+
+    if directive.startsWith("helper "):
+      let parsed = parseTemplateHelperDirective(directive[7 .. ^1].strip())
+      result.nodes.add(TemplateNode(kind: templateHelper, name: parsed.name,
+        arguments: parsed.arguments))
+      position = after
+      continue
+
+    if directive.startsWith("tag "):
+      let lexemes = lexTemplateHelperArguments(directive[4 .. ^1].strip())
+      if lexemes.len == 0 or lexemes[0].value.len == 0:
+        raise newException(ValueError, "Template tag name is required")
+      var arguments: seq[TemplateHelperArgument] = @[]
+      if lexemes.len > 1:
+        for lexeme in lexemes[1 .. ^1]:
+          arguments.add(TemplateHelperArgument(name: "", value: lexeme.value,
+            kind: if lexeme.quoted: helperLiteral else: helperContext))
+      result.nodes.add(TemplateNode(kind: templateTag,
+        name: lexemes[0].value, arguments: arguments))
+      position = after
+      continue
+
+    raise newException(ValueError, "Unknown template directive: " & directive)
+  result.cursor = position
+  result.stop = parseNoStop
+
+proc parseTemplate*(source: string): TemplateAst =
+  ## Parse a complete source into an owned AST. Rendering calls this same
+  ## public contract, so tooling and runtime cannot disagree about nesting.
+  let parsed = parseTemplateNodes(source, 0, parseRoot)
+  if parsed.stop != parseNoStop:
+    raise newException(ValueError, "Unexpected template closing directive")
+  TemplateAst(nodes: parsed.nodes)
+
 proc renderHelpers(engine: TemplateEngine, source: string,
                    context: TemplateContext): string =
   ## Expand AST-aware helpers before legacy tags. Both extension points return
@@ -574,76 +792,168 @@ proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
                  projections: Table[string, TemplateCollectionProjection],
-                 inherited: BlockMap): string
+                 inherited: AstBlockMap): string
+
+proc renderTemplateVariable(engine: TemplateEngine, expression: string,
+                            context: TemplateContext): string =
+  ## Resolve a variable expression only after the AST has selected its node.
+  ## Filters remain ordered and the final escape is applied exactly once.
+  let parts = expression.split('|')
+  var value = context.getOrDefault(parts[0].strip(), "")
+  if parts.len > 1:
+    for index in 1 ..< parts.len:
+      let filterName = parts[index].strip()
+      if not engine.filters.hasKey(filterName):
+        raise newException(ValueError, "Template filter not found: " & filterName)
+      value = engine.filters[filterName](value)
+  escapeHtml(value)
+
+proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
+                    context: TemplateContext,
+                    collections: Table[string, seq[TemplateContext]],
+                    projections: Table[string, TemplateCollectionProjection],
+                    depth: int): string =
+  ## Render typed nodes recursively. This is the single structural rendering
+  ## path; no closing marker is searched in rendered text, so user content can
+  ## never change the control-flow tree.
+  if depth > engine.maxInheritanceDepth:
+    raise newException(ValueError, "Template AST depth exceeded")
+  for node in nodes:
+    if node.isNil:
+      raise newException(ValueError, "Template AST contains a nil node")
+    case node.kind
+    of templateText:
+      result.add(node.value)
+    of templateVariable:
+      result.add(engine.renderTemplateVariable(node.value, context))
+    of templateIf:
+      let selected = if truthy(context.getOrDefault(node.value)):
+        node.children
+      else:
+        node.elseChildren
+      result.add(engine.renderAstNodes(selected, context, collections,
+        projections, depth + 1))
+    of templateFor:
+      if not collections.hasKey(node.collectionName) and
+          not projections.hasKey(node.collectionName):
+        raise newException(ValueError,
+          "Template collection not found: " & node.collectionName)
+      let items = if collections.hasKey(node.collectionName):
+        collections[node.collectionName]
+      else:
+        projections[node.collectionName](context)
+      for item in items:
+        var itemContext = context
+        for key, value in item:
+          itemContext[node.variableName & "." & key] = value
+        result.add(engine.renderAstNodes(node.children, itemContext,
+          collections, projections, depth + 1))
+    of templateInclude:
+      result.add(engine.renderNamed(node.name, context, collections,
+        depth + 1, projections, initTable[string, seq[TemplateNode]]()))
+    of templateHelper:
+      if not engine.helpers.hasKey(node.name):
+        raise newException(ValueError, "Template helper not found: " & node.name)
+      result.add(escapeHtml(engine.helpers[node.name](node.arguments, context)))
+    of templateTag:
+      if not engine.tags.hasKey(node.name):
+        raise newException(ValueError, "Template tag not found: " & node.name)
+      var arguments: seq[string] = @[]
+      for argument in node.arguments:
+        arguments.add(argument.value)
+      result.add(escapeHtml(engine.tags[node.name](arguments, context)))
+    of templateBlock:
+      result.add(engine.renderAstNodes(node.children, context, collections,
+        projections, depth + 1))
+    of templateExtends:
+      ## Extends is consumed by renderNamed before the materialized root is
+      ## rendered. Keeping the node renderable makes parseTemplate useful for
+      ## tooling without duplicating inheritance resolution here.
+      discard
+
+proc collectAstBlocks(nodes: seq[TemplateNode]): AstBlockMap =
+  ## Collect root-level inheritance blocks without returning to source-string
+  ## delimiters. Block contents are already parsed and can therefore be
+  ## passed between parent/child templates without reparsing user text.
+  result = initTable[string, seq[TemplateNode]]()
+  for node in nodes:
+    if node.kind == templateBlock:
+      if result.hasKey(node.name):
+        raise newException(ValueError,
+          "Duplicate template block: " & node.name)
+      result[node.name] = node.children
+
+proc mergeAstBlocks(parent, child: AstBlockMap): AstBlockMap =
+  ## Parent blocks are fallbacks; child blocks are authoritative. This order
+  ## preserves the expected multi-level inheritance override semantics.
+  result = parent
+  for name, nodes in child:
+    result[name] = nodes
+
+proc cloneAstNode(node: TemplateNode): TemplateNode =
+  ## Ref nodes are shared by the parsed AST. Clone before materializing a
+  ## parent so replacing child lists cannot mutate a cached tooling AST.
+  new(result)
+  result[] = node[]
+
+proc materializeAstNodes(nodes: seq[TemplateNode],
+                        overrides: AstBlockMap): seq[TemplateNode] =
+  ## Apply inheritance recursively over node kinds. Extends is metadata and
+  ## never produces output at the root; block nodes become their selected body.
+  for node in nodes:
+    if node.kind == templateExtends:
+      continue
+    if node.kind == templateBlock:
+      let selected = if overrides.hasKey(node.name):
+        overrides[node.name]
+      else:
+        node.children
+      result.add(materializeAstNodes(selected, overrides))
+      continue
+    let copy = cloneAstNode(node)
+    if copy.children.len > 0:
+      copy.children = materializeAstNodes(copy.children, overrides)
+    if copy.elseChildren.len > 0:
+      copy.elseChildren = materializeAstNodes(copy.elseChildren, overrides)
+    result.add(copy)
 
 proc renderFragment(engine: TemplateEngine, source: string,
                     context: TemplateContext,
                     collections: Table[string, seq[TemplateContext]],
                     projections: Table[string, TemplateCollectionProjection],
                     depth: int): string =
-  ## Includes are expanded before variables, allowing partials to use the same
-  ## context while keeping the recursion limit centralized.
+  ## Includes, control blocks, helpers, and variables are parsed together so
+  ## all nesting follows one AST contract. `renderNamed` still owns template
+  ## inheritance, while this procedure owns only a materialized fragment.
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template recursion depth exceeded")
-  let loopExpanded = renderLoops(engine, source, context, collections,
+  let ast = parseTemplate(source)
+  result = engine.renderAstNodes(ast.nodes, context, collections,
     projections, depth)
-  let structured = renderConditionals(engine, loopExpanded, context,
-    collections, projections, depth)
-  var cursor = 0
-  const includePrefix = "{% include \""
-  while true:
-    let includeStart = structured.find(includePrefix, cursor)
-    if includeStart < 0:
-      result.add(structured[cursor .. ^1])
-      break
-    result.add(structured[cursor ..< includeStart])
-    let nameStart = includeStart + includePrefix.len
-    let nameEnd = structured.find("\" %}", nameStart)
-    if nameEnd < 0:
-      raise newException(ValueError, "Malformed template include directive")
-    result.add(renderNamed(engine, structured[nameStart ..< nameEnd], context,
-      collections, depth + 1, projections, initTable[string, string]()))
-    cursor = nameEnd + 4
-  var rendered = renderHelpers(engine, result, context)
-  rendered = renderTags(engine, rendered, context)
-  result = ""
-  cursor = 0
-  while true:
-    let variableStart = rendered.find("{{", cursor)
-    if variableStart < 0:
-      result.add(rendered[cursor .. ^1])
-      break
-    result.add(rendered[cursor ..< variableStart])
-    let variableEnd = rendered.find("}}", variableStart + 2)
-    if variableEnd < 0:
-      raise newException(ValueError, "Unclosed template variable")
-    let expression = rendered[variableStart + 2 ..< variableEnd]
-    let parts = expression.split('|')
-    let key = parts[0].strip()
-    var value = context.getOrDefault(key, "")
-    for index in 1 ..< parts.len:
-      let filterName = parts[index].strip()
-      if not engine.filters.hasKey(filterName):
-        raise newException(ValueError, "Template filter not found: " & filterName)
-      value = engine.filters[filterName](value)
-    result.add(escapeHtml(value))
-    cursor = variableEnd + 2
 
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
                  projections: Table[string, TemplateCollectionProjection],
-                 inherited: BlockMap): string =
+                 inherited: AstBlockMap): string =
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template inheritance depth exceeded")
   let source = engine.templateSource(name)
-  let localBlocks = collectBlocks(source)
-  let parent = extendsName(source)
+  let ast = parseTemplate(source)
+  var parent = ""
+  for node in ast.nodes:
+    if node.kind == templateExtends:
+      if parent.len > 0:
+        raise newException(ValueError,
+          "Template may extend only one parent")
+      parent = node.name
+  let localBlocks = collectAstBlocks(ast.nodes)
   if parent.len > 0:
     return renderNamed(engine, parent, context, collections, depth + 1,
-      projections, mergeBlocks(inherited, localBlocks))
-  let materialized = applyBlocks(source, mergeBlocks(localBlocks, inherited))
-  renderFragment(engine, materialized, context, collections, projections, depth)
+      projections, mergeAstBlocks(localBlocks, inherited))
+  let materialized = materializeAstNodes(ast.nodes,
+    mergeAstBlocks(localBlocks, inherited))
+  engine.renderAstNodes(materialized, context, collections, projections, depth)
 
 proc render*(engine: TemplateEngine, name: string,
              context: TemplateContext = initTable[string, string]()): string =
@@ -653,7 +963,7 @@ proc render*(engine: TemplateEngine, name: string,
   renderNamed(engine, name, context,
     initTable[string, seq[TemplateContext]](), 0,
     initTable[string, TemplateCollectionProjection](),
-    initTable[string, string]())
+    initTable[string, seq[TemplateNode]]())
 
 proc render*(engine: TemplateEngine, name: string,
              context: TemplateRenderContext): string =
@@ -662,4 +972,4 @@ proc render*(engine: TemplateEngine, name: string,
   if engine.isNil:
     raise newException(ValueError, "Template engine is required")
   renderNamed(engine, name, context.values, context.collections, 0,
-    context.projections, initTable[string, string]())
+    context.projections, initTable[string, seq[TemplateNode]]())

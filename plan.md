@@ -11,7 +11,7 @@
 ### Template collection rendering
 
 - [x] `TemplateRenderContext`와 명시적 collection 등록 API를 추가하고 `{% for item in collection %}` loop의 중첩·조건문·자동 escaping을 회귀 테스트한다.
-- [-] 동적 nested collection projection과 AST-aware `TemplateHelperArgument`/`registerHelper`를 추가해 현재 loop context·named argument·quoted literal을 안전하게 렌더링하고 회귀 테스트했다. 전체 구조형 template AST는 후속 범위로 남긴다.
+- [x] 동적 nested collection projection과 AST-aware `TemplateHelperArgument`/`registerHelper`를 추가하고, `TemplateNode` 구조형 AST parser/render 경계로 if/for/include/block/helper/tag/variable의 중첩·quoted literal·named argument를 검증했다.
 
 ## 2026-08-04 transaction contract
 
@@ -50,7 +50,7 @@
 
 ### P1 — 핵심 제품 기능의 남은 범위
 
-- [ ] **P1-01 구조형 template AST** — template source를 구조형 AST로 파싱하고 block/include/helper 인자를 typed node로 검증한다. nested collection projection, quoted literal, named argument의 parser/render regression test와 사용자 문서를 함께 추가한다.
+- [x] **P1-01 구조형 template AST** — `TemplateNode` 구조형 AST parser/render를 추가하고 block/include/helper 인자를 typed node로 검증했다. nested collection projection, quoted literal, named argument, 교차 종료 태그의 parser/render regression test와 사용자 문서를 함께 반영했다.
 - [ ] **P1-02 PostgreSQL migration evidence** — live migration up/down/status와 schema history를 PostgreSQL에서 검증하고 SQLite와 capability/isolation 차이를 contract report로 남긴다. 로컬에서는 compile gate와 credential 없는 skip을 계속 명시한다.
 
 ### P2/P3 — 운영 호환성과 선택적 확장
@@ -197,7 +197,7 @@
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
 - [-] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry와 operation별 다중 content type, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. scalar object에서 `inputSchema`/`responseSchema` macro와 `addTypedDocumentedRoute`로 `FieldSpec`를 생성하고 registry 기반 nested DTO OpenAPI `$ref`/cycle schema, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했으며 type-erased generic handler closure의 무리한 자동 body 추론은 지원하지 않는다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공하고, request-scoped token을 middleware·form renderer 사이에 연결한다.
-- [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry, nested `if/else/endif` block과 `registerTag` custom helper registry, 명시적 `TemplateRenderContext` collection loop를 제공하고 locale catalog 기반 `registerTranslation`/`translate`, JSON `loadTranslationFile` 및 deterministic `loadTranslationDirectory`를 추가했다. `Request.locale`/`Request.timezoneOffsetMinutes`와 `localeMiddleware`의 Accept-Language 협상, 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간과 locale 숫자 formatter도 연결했으며 고급 AST tag/helper와 동적 nested collection projection은 후속 범위다.
+- [x] 독립 template engine의 auto-escaping, `TemplateNode` 구조형 AST 기반 inheritance/block, include, filter registry, nested `if/else/endif`, `for` collection loop와 `registerTag`/`registerHelper` registry를 제공하고 locale catalog 기반 `registerTranslation`/`translate`, JSON `loadTranslationFile` 및 deterministic `loadTranslationDirectory`를 추가했다. `Request.locale`/`Request.timezoneOffsetMinutes`와 `localeMiddleware`의 Accept-Language 협상, 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간과 locale 숫자 formatter도 연결했다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
 - [x] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, bulk delete action, 명시적 inline PATCH route와 안전한 form layout renderer hook을 지원하며 SQLite repository store 통합 회귀를 검증했다.
 - [x] embedding/standalone CLI의 `openapi [PATH]`가 등록 router를 수집해 OpenAPI 3.1 문서를 stdout 또는 파일로 생성하고, 출력 경로·인자 오류와 route `operationId` 보존을 회귀 테스트로 검증한다.

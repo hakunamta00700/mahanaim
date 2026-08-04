@@ -3367,6 +3367,18 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard engine.render("unclosed-items", context)
 
+    let ast = parseTemplate("{% if enabled %}{% for item in items %}" &
+      "{{ item.name }}{% endfor %}{% else %}empty{% endif %}")
+    check ast.nodes.len == 1
+    check ast.nodes[0].kind == templateIf
+    check ast.nodes[0].children.len == 1
+    check ast.nodes[0].children[0].kind == templateFor
+    check ast.nodes[0].elseChildren.len == 1
+    expect ValueError:
+      discard parseTemplate("{% if enabled %}broken{% endfor %}")
+    expect ValueError:
+      discard parseTemplate("{% for item in items %}broken{% endif %}")
+
   test "template render context resolves dynamic nested collection projections":
     ## A projection is evaluated against the current loop context so an
     ## adapter can load child rows from the parent identifier without placing
