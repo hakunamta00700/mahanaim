@@ -234,6 +234,14 @@
 - [x] phase 기록과 duplicate/name validation 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [ ] dependency resolution, DI provider scope, command/admin extension registration은 남아 있다.
 
+### 2026-08-04 — P1 CRUD resource 1차
+
+- [x] `ResourceStore` persistence contract와 deterministic `InMemoryResourceStore` reference adapter를 추가했다.
+- [x] metadata serializer를 재사용하는 list/get/create/update/delete response 경계를 추가했다.
+- [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
+- [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] SQLite/PostgreSQL repository, transaction boundary, filtering/aggregate relation query와 admin UI는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

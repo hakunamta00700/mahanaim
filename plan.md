@@ -138,7 +138,8 @@
 - [ ] macro 기반 schema와 일반 응답 타입, 완전한 content negotiation을 제공한다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [ ] template inheritance/include/filter와 독립 template engine을 제공한다.
-- [ ] CRUD resource convention과 admin extension point를 제공한다.
+- [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
+- [ ] SQLite/PostgreSQL repository 연결과 admin extension point를 제공한다.
 
 ## P2 — 운영·확장성
 

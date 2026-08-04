@@ -1568,6 +1568,34 @@ suite "Mahanaim core contracts":
     check not invalid.valid
     check invalid.errors[0].code == "adapter_error"
 
+  test "metadata CRUD resource convention works with an adapter store":
+    var metadata = newModelMetadata("Item", "items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("title", modelString))
+    let store = newInMemoryResourceStore(metadata)
+    let resource = newCrudResource(metadata, store)
+    let app = newApplication()
+    registerCrudRoutes(app, resource, "/items", "items")
+
+    let created = waitFor app.dispatch(newRequest("POST", "/items",
+      "{\"title\":\"first\"}"))
+    check created.status == Http201
+    let createdDocument = parseJson(created.body)
+    let id = createdDocument["id"].getInt()
+    check createdDocument["title"].getStr() == "first"
+
+    let listed = waitFor app.dispatch(newRequest("GET", "/items"))
+    check listed.status == Http200
+    check parseJson(listed.body).len == 1
+    let updated = waitFor app.dispatch(newRequest("PUT", "/items/" & $id,
+      "{\"title\":\"updated\"}"))
+    check updated.status == Http200
+    check parseJson(updated.body)["title"].getStr() == "updated"
+    let deleted = waitFor app.dispatch(newRequest("DELETE", "/items/" & $id))
+    check deleted.status == Http204
+    check (waitFor app.dispatch(newRequest("GET", "/items/" & $id))).status == Http404
+    check (waitFor app.dispatch(newRequest("POST", "/items", "not-json"))).status == Http400
+
   test "MessagePack encoder is deterministic and preserves serializer validity":
     let document = parseJson("{\"b\":true,\"a\":1,\"items\":[null,\"ok\"]}")
     let encoded = toMessagePack(document)
