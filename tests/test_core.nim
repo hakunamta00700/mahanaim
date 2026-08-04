@@ -701,6 +701,32 @@ suite "Mahanaim core contracts":
     let result = request.validate([stringField("title", flBody)])
     check result.valid
 
+  test "upload storage validates and saves multipart files safely":
+    let root = getTempDir() / "mahanaim_upload_test"
+    if dirExists(root):
+      removeDir(root)
+    let part = BodyPart(name: "avatar", filename: "avatar.txt",
+      contentType: "text/plain", content: "hello")
+    let policy = newUploadPolicy(root, maxBytes = 10,
+      allowedContentTypes = @["text/plain"])
+    let stored = saveUpload(part, policy)
+    check stored.originalFilename == "avatar.txt"
+    check stored.size == 5
+    check readFile(stored.path) == "hello"
+
+    expect UploadValidationError:
+      discard saveUpload(BodyPart(name: "file", filename: "../escape.txt",
+        contentType: "text/plain", content: "x"), policy)
+    expect UploadValidationError:
+      discard saveUpload(part, policy)
+    expect UploadValidationError:
+      discard saveUpload(BodyPart(name: "file", filename: "image.bin",
+        contentType: "application/octet-stream", content: "x"), policy)
+    expect UploadValidationError:
+      discard saveUpload(BodyPart(name: "file", filename: "large.txt",
+        contentType: "text/plain", content: "01234567890"), policy)
+    removeDir(root)
+
   test "malformed multipart body returns a body-scoped validation issue":
     var request = newRequest("POST", "/upload", "name=value")
     request.headers["content-type"] = "multipart/form-data"

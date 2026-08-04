@@ -225,6 +225,13 @@
 - [x] JSON·form·multipart 및 malformed multipart body의 body-scoped 오류 회귀 테스트를 추가했다.
 - [ ] upload storage, MIME/filename/path 보안 정책과 Prologue lifecycle/upload adapter는 남아 있다.
 
+### 2026-08-04 — P0 upload storage security
+
+- [x] multipart BodyPart를 framework-neutral local storage contract로 연결했다.
+- [x] filename traversal, size, MIME allow-list, overwrite 정책을 검증한다.
+- [x] 저장 결과에 원본 파일명과 실제 저장 경로를 분리해 보존하는 회귀 테스트를 추가했다.
+- [ ] Prologue upload adapter와 object-storage backend는 남아 있다.
+
 ### 2026-08-04 — P0 test client 1차
 
 - [x] 격리된 `TestApplication`과 in-process `TestClient`를 추가했다.
