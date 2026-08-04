@@ -96,6 +96,13 @@
 - [x] constant-time signature 비교와 위조·누락 토큰 회귀 테스트를 추가했다.
 - [ ] 기본 활성화 정책, session binding, signed auth cookie와 rate limit은 남아 있다.
 
+### 2026-08-04 — P0 보안 기본값 4차
+
+- [x] CSRF와 독립적으로 재사용 가능한 HMAC signed value·signed cookie API를 추가했다.
+- [x] signed cookie의 HttpOnly·Secure 기본값과 secret 누락·위조 검증을 테스트했다.
+- [x] Nimble test task가 lockfile dependency path를 명시해 CI와 로컬 실행을 일치시킨다.
+- [ ] session binding, signed auth cookie rotation, rate limit은 남아 있다.
+
 ### 2026-08-04 — P0 라우팅 기반 1차
 
 - [x] route name registry와 중복 이름 검증을 추가했다.

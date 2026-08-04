@@ -231,6 +231,27 @@ suite "Mahanaim core contracts":
     let forgedResponse = waitFor app.dispatch(forgedRequest)
     check forgedResponse.status == Http403
 
+  test "signed cookie helpers enforce integrity and secure defaults":
+    let secret = "cookie-signing-secret-that-is-long-enough"
+    let signed = signValue(secret, "user.42")
+    check verifySignedValue(secret, signed).get() == "user.42"
+    check verifySignedValue(secret, signed[0 .. ^2] & "0").isNone
+    check verifySignedValue("wrong-secret", signed).isNone
+    check verifySignedValue("", signed).isNone
+
+    var response = newResponse(Http200)
+    response.setSignedCookie("session", "user.42", secret)
+    let cookie = response.header("set-cookie").get()
+    check cookie.contains("session=" & signed)
+    check cookie.contains("HttpOnly")
+    check cookie.contains("Secure")
+
+    var request = newRequest("GET", "/account")
+    request.cookies["session"] = signed
+    check request.signedCookieValue("session", secret).get() == "user.42"
+    expect ValueError:
+      discard signValue("", "value")
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

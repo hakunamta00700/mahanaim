@@ -102,27 +102,54 @@ proc constantTimeEquals(left, right: string): bool =
     difference = difference or (ord(left[index]) xor ord(right[index]))
   difference == 0
 
-proc csrfSignature(policy: SecurityPolicy, nonce: string): string =
-  ## HMAC-SHA256 prevents clients from minting a valid token after reading the
-  ## public nonce from their own cookie.
-  ($sha256.hmac(policy.csrfSecret, nonce)).toLowerAscii()
+proc signValue*(secret, value: string): string =
+  ## Sign a cookie-safe value without exposing the signing key to adapters.
+  ## Values may contain dots; verification uses the final separator so the
+  ## original value remains intact.
+  if secret.len == 0:
+    raise newException(ValueError, "Signing secret must be configured")
+  value & "." & ($sha256.hmac(secret, value)).toLowerAscii()
+
+proc verifySignedValue*(secret, signedValue: string): Option[string] =
+  ## Return the payload only when the complete signature matches in constant
+  ## time. Invalid input is represented as `none`, not an exception.
+  if secret.len == 0:
+    return none(string)
+  let separator = signedValue.rfind('.')
+  if separator < 0 or separator == signedValue.high:
+    return none(string)
+  let value = signedValue[0 ..< separator]
+  let signature = signedValue[separator + 1 .. ^1]
+  let expected = ($sha256.hmac(secret, value)).toLowerAscii()
+  if constantTimeEquals(signature, expected): some(value)
+  else: none(string)
+
+proc setSignedCookie*(response: var Response, name, value, secret: string,
+                      httpOnly = true, secure = true, sameSite = "Lax",
+                      maxAge = -1) =
+  ## Signed cookies default to HttpOnly and Secure because they commonly carry
+  ## identity or authorization state. Callers must provide an explicit secret.
+  response.setCookie(name, signValue(secret, value), httpOnly, secure,
+    sameSite, maxAge)
+
+proc signedCookieValue*(request: Request, name, secret: string): Option[string] =
+  ## Read and verify one signed cookie without coupling handlers to a server
+  ## cookie-jar implementation.
+  if not request.cookies.hasKey(name):
+    return none(string)
+  verifySignedValue(secret, request.cookies[name])
 
 proc csrfToken*(policy: SecurityPolicy): string =
   ## Create a signed token for server-rendered forms or API clients.
   if policy.csrfSecret.len == 0:
     raise newException(ValueError, "CSRF secret must be configured")
   let nonce = hexEncode(sysrand.urandom(32))
-  nonce & "." & csrfSignature(policy, nonce)
+  signValue(policy.csrfSecret, nonce)
 
 proc verifyCsrfToken*(policy: SecurityPolicy, token: string): bool =
   ## Validate structure and signature independently of where the token came
   ## from; the middleware later enforces the cookie/header equality rule.
-  let separator = token.find('.')
-  if separator <= 0 or separator == token.high:
-    return false
-  let nonce = token[0 ..< separator]
-  let signature = token[separator + 1 .. ^1]
-  constantTimeEquals(signature, csrfSignature(policy, nonce))
+  verifySignedValue(policy.csrfSecret, token).isSome
 
 proc csrfProtectedMethod(httpMethod: string): bool =
   ## Safe methods may obtain a token; state-changing methods must prove it.
