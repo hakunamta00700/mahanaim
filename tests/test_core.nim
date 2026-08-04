@@ -342,6 +342,34 @@ suite "Mahanaim core contracts":
     check not invalidReport.passed
     check invalidReport.issues[0].code == "security.rate-limit.window-required"
 
+  test "shared rate limit store coordinates application instances":
+    let store = newInMemoryRateLimitStore()
+    var policy = defaultSecurityPolicy()
+    policy.rateLimitRequests = 1
+    policy.rateLimitWindowSeconds = 60
+    policy.rateLimitStore = store
+    policy.rateLimitKey = "shared:application"
+    let firstApp = newApplication(defaultConfig(), policy)
+    let secondApp = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("accepted")
+    firstApp.get("/shared", "shared-first", health)
+    secondApp.get("/shared", "shared-second", health)
+
+    check (waitFor firstApp.dispatch(newRequest("GET", "/shared"))).status == Http200
+    let rejected = waitFor secondApp.dispatch(newRequest("GET", "/shared"))
+    check rejected.status == Http429
+    check rejected.header("Retry-After").isSome
+
+    var unavailablePolicy = policy
+    unavailablePolicy.rateLimitStore = RateLimitStore()
+    let unavailableApp = newApplication(defaultConfig(), unavailablePolicy)
+    unavailableApp.get("/shared", "shared-unavailable", health)
+    let unavailable = waitFor unavailableApp.dispatch(newRequest("GET", "/shared"))
+    check unavailable.status == Http503
+    check unavailable.body == "Rate Limit Store Unavailable"
+
   test "security policy issues and validates signed CSRF tokens":
     var policy = defaultSecurityPolicy()
     policy.csrfEnabled = true

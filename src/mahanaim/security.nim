@@ -10,6 +10,21 @@ import nimcrypto
 import ./core
 
 type
+  RateLimitDecision* = object
+    ## A store returns only policy data; middleware owns HTTP status/header
+    ## rendering and therefore remains independent from storage technology.
+    allowed*: bool
+    remaining*: int
+    retryAfter*: int
+
+  RateLimitStore* = ref object of RootObj
+    ## Implementations may use an atomic remote increment, a database row, or
+    ## another shared counter without changing SecurityPolicy semantics.
+
+  InMemoryRateLimitStore* = ref object of RateLimitStore
+    windows: Table[string, tuple[started: MonoTime, count: int]]
+
+type
   SessionPolicy* = object
     ## Bind a verified signed session cookie to the framework request. This is
     ## intentionally a small authentication seam; a database/session store
@@ -37,6 +52,11 @@ type
     ## A zero value disables the process-local application-wide limiter.
     rateLimitRequests*: int
     rateLimitWindowSeconds*: int
+    ## A shared store replaces process-local state when multiple application
+    ## instances must enforce one quota. The store contract is deliberately
+    ## backend-neutral so Redis/Valkey adapters do not leak into middleware.
+    rateLimitStore*: RateLimitStore
+    rateLimitKey*: string
     csrfEnabled*: bool
     csrfSecret*: string
     csrfCookieName*: string
@@ -57,6 +77,8 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     maxBodyBytes: 1024 * 1024,
     rateLimitRequests: 0,
     rateLimitWindowSeconds: 60,
+    rateLimitStore: nil,
+    rateLimitKey: "mahanaim:application",
     csrfEnabled: false,
     csrfSecret: "",
     csrfCookieName: "mahanaim_csrf",
@@ -121,13 +143,59 @@ proc newRateLimitState(): RateLimitState =
   new(result)
   result.windowStarted = getMonoTime()
 
+method consume*(store: RateLimitStore, key: string, limit,
+                windowSeconds: int): RateLimitDecision {.base.} =
+  ## A base store fails explicitly instead of silently allowing requests.
+  discard store
+  discard key
+  discard limit
+  discard windowSeconds
+  raise newException(ValueError, "RateLimitStore.consume is not implemented")
+
+proc newInMemoryRateLimitStore*(): InMemoryRateLimitStore =
+  ## This backend is useful for local multi-application tests and as a
+  ## contract reference; production deployments should use a shared adapter.
+  new(result)
+  result.windows = initTable[string, tuple[started: MonoTime, count: int]]()
+
+method consume*(store: InMemoryRateLimitStore, key: string, limit,
+                windowSeconds: int): RateLimitDecision =
+  let now = getMonoTime()
+  var window = store.windows.getOrDefault(key,
+    (started: now, count: 0))
+  let elapsedSeconds = int((now - window.started).inMilliseconds div 1000)
+  if elapsedSeconds >= windowSeconds:
+    window = (started: now, count: 0)
+  if window.count >= limit:
+    result.allowed = false
+    result.remaining = 0
+    result.retryAfter = max(1, windowSeconds - elapsedSeconds)
+    store.windows[key] = window
+    return
+  result.allowed = true
+  inc window.count
+  result.remaining = max(0, limit - window.count)
+  result.retryAfter = 0
+  store.windows[key] = window
+
 proc consumeRateLimit(state: RateLimitState, policy: SecurityPolicy):
-    tuple[enabled: bool, allowed: bool, remaining: int, retryAfter: int] =
+    tuple[enabled: bool, available: bool, allowed: bool, remaining: int,
+          retryAfter: int] =
   ## Consume one slot from a fixed window. This intentionally uses a simple
   ## fixed-window algorithm so the policy remains deterministic and replaceable
   ## by a distributed store without changing middleware behavior.
   if policy.rateLimitRequests <= 0 or policy.rateLimitWindowSeconds <= 0:
-    return (false, true, 0, 0)
+    return (false, true, true, 0, 0)
+  if policy.rateLimitStore != nil:
+    try:
+      let decision = policy.rateLimitStore.consume(policy.rateLimitKey,
+        policy.rateLimitRequests, policy.rateLimitWindowSeconds)
+      return (true, true, decision.allowed, decision.remaining,
+        decision.retryAfter)
+    except CatchableError:
+      ## A quota backend outage must not silently fail open. The middleware
+      ## converts this unavailable result into a retryable 503 response.
+      return (true, false, false, 0, 1)
   let elapsedSeconds = int((getMonoTime() - state.windowStarted).inMilliseconds div 1000)
   if elapsedSeconds >= policy.rateLimitWindowSeconds:
     state.windowStarted = getMonoTime()
@@ -135,9 +203,9 @@ proc consumeRateLimit(state: RateLimitState, policy: SecurityPolicy):
   let remaining = max(0, policy.rateLimitRequests - state.requestCount - 1)
   if state.requestCount >= policy.rateLimitRequests:
     let retryAfter = max(1, policy.rateLimitWindowSeconds - elapsedSeconds)
-    return (true, false, 0, retryAfter)
+    return (true, true, false, 0, retryAfter)
   inc state.requestCount
-  (true, true, remaining, 0)
+  (true, true, true, remaining, 0)
 
 proc addRateLimitHeaders(response: var Response, policy: SecurityPolicy,
                          remaining: int) =
@@ -313,6 +381,11 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
         addSecurityHeaders(rejected, policy)
         return rejected
     let rateLimit = consumeRateLimit(rateLimitState, policy)
+    if rateLimit.enabled and not rateLimit.available:
+      var rejected = textResponse("Rate Limit Store Unavailable", Http503)
+      rejected.headers["retry-after"] = $rateLimit.retryAfter
+      addSecurityHeaders(rejected, policy)
+      return rejected
     if rateLimit.enabled and not rateLimit.allowed:
       var rejected = textResponse("Too Many Requests", Http429)
       addRateLimitHeaders(rejected, policy, rateLimit.remaining)

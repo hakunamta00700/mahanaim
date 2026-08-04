@@ -221,7 +221,14 @@
 - [x] 앱별 fixed-window rate limit 상태와 비활성화 가능한 `SecurityPolicy` 설정을 추가했다.
 - [x] 초과 요청을 429로 거부하고 `Retry-After` 및 quota headers를 반환한다.
 - [x] 정책 범위와 invalid window pre-flight 검사를 회귀 테스트로 검증했다.
-- [ ] 분산 rate limit 저장소와 retry/backpressure 정책은 남아 있다.
+- [ ] production distributed rate limit adapter와 retry/backpressure 정책은 남아 있다.
+
+### 2026-08-04 — P0 rate limit store contract 1차
+
+- [x] process-local limiter와 분리된 backend-neutral `RateLimitStore` 계약을 추가했다.
+- [x] 여러 `Application`이 공유할 수 있는 `InMemoryRateLimitStore`와 store key 정책을 연결했다.
+- [x] store backend 오류를 fail-open하지 않고 retryable 503으로 변환하는 회귀 경로를 추가했다.
+- [ ] Redis/Valkey 등 원격 atomic counter adapter와 분산 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backend 1차
 

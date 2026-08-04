@@ -111,6 +111,9 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
   if policy.rateLimitRequests > 0 and policy.rateLimitWindowSeconds == 0:
     result.addError("security.rate-limit.window-required",
       "an enabled rate limit requires a positive window")
+  if policy.rateLimitRequests > 0 and policy.rateLimitKey.strip().len == 0:
+    result.addError("security.rate-limit.key.empty",
+      "an enabled rate limit requires a non-empty store key")
   if policy.contentSecurityPolicy.strip().len == 0:
     result.addError("security.csp.empty", "content security policy must not be empty")
   if policy.frameOptions.strip().len == 0:
