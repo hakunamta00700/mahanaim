@@ -91,6 +91,23 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.header("Content-Type").get() == "text/plain; charset=utf-8"
 
+  test "response constructors expose file representation safely":
+    let path = getTempDir() / "mahanaim-response-file.txt"
+    writeFile(path, "downloaded")
+    defer:
+      if fileExists(path):
+        removeFile(path)
+    let response = fileResponse(path, "text/plain", Http201)
+    check response.status == Http201
+    check response.representation == rrFile
+    check response.filePath == path
+    check response.body == "downloaded"
+    check response.header("content-type").get() == "text/plain"
+    expect ValueError:
+      discard fileResponse("")
+    expect IOError:
+      discard fileResponse(path & ".missing")
+
   test "router dispatches exact routes":
     let app = newApplication()
     proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

@@ -147,7 +147,7 @@
 - [x] parameterized query contract에 bounded pagination page/size/offset 정책을 연결한다.
 - [-] 공통 query component로 pagination/filter/sort/field-selection과 query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler/repository mapping/route를 추가했다. cursor pagination과 total metadata는 후속 범위다.
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
-- [-] explicit typed response schema와 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가했다. route 자동 수집과 schema macro는 남아 있다.
+- [-] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가했다. route 자동 수집과 schema macro는 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공한다. i18n과 확장 helper는 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.

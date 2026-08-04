@@ -4,7 +4,7 @@
 ## Keeping the value objects and handler contracts small lets adapters (such as
 ## Prologue) evolve without leaking their types into application code.
 
-import std/[asyncdispatch, httpcore, json, options, strutils, tables]
+import std/[asyncdispatch, httpcore, json, options, os, strutils, tables]
 import std/concurrency/atomics
 import ./database
 import ./tracing
@@ -50,6 +50,7 @@ type
     ## Adapters use this hint to choose buffered HTTP, stream, SSE, or
     ## protocol-upgrade handling without changing the Handler contract.
     rrBuffered
+    rrFile
     rrStream
     rrServerSentEvents
     rrWebSocket
@@ -59,6 +60,9 @@ type
     status*: HttpCode
     headers*: Table[string, string]
     body*: string
+    ## Retain the source path for adapter diagnostics and future zero-copy
+    ## sendfile implementations; current adapters use the deterministic body.
+    filePath*: string
     representation*: ResponseRepresentation
     ## Optional server-preferred alternatives. Adapters negotiate this list
     ## only at the wire boundary, so handlers can offer multiple protocols
@@ -263,6 +267,20 @@ proc streamResponse*(body: string, contentType = "application/octet-stream",
   ## the buffered body with chunked writes while preserving this metadata.
   result = newResponse(status, body)
   result.representation = rrStream
+  result.headers["content-type"] = contentType
+
+proc fileResponse*(path: string, contentType = "application/octet-stream",
+                   status = Http200): Response =
+  ## Validate and snapshot an application-owned file at the response boundary.
+  ## Keeping filesystem interpretation here prevents each adapter from
+  ## inventing different path validation and error behavior.
+  if path.strip().len == 0:
+    raise newException(ValueError, "File response path cannot be empty")
+  if not fileExists(path) or getFileInfo(path).kind != pcFile:
+    raise newException(IOError, "File response path is not a file: " & path)
+  result = newResponse(status, readFile(path))
+  result.filePath = path
+  result.representation = rrFile
   result.headers["content-type"] = contentType
 
 proc sseResponse*(events: openArray[SseEvent], status = Http200): Response =

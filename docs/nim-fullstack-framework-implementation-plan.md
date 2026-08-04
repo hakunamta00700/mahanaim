@@ -659,7 +659,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [-] | REQ-HTTP-001 | P0 | Prologue request를 공통 context로 변환하고 typed extractor를 method별로 구현한다. |
 | [-] | REQ-HTTP-002 | P0 | route tree와 route name registry를 만들고 typed parameter, wildcard, group, URL builder, route middleware를 제공한다. |
-| [ ] | REQ-HTTP-003 | P1 | response enum/trait를 HTML, text, JSON, file, redirect, stream, SSE, WebSocket adapter로 확장한다. |
+| [-] | REQ-HTTP-003 | P1 | 공통 Response 표현과 HTML/text/JSON/file/redirect/stream/SSE/WebSocket helper 및 adapter 경계를 제공했다. 파일 zero-copy와 고급 protocol adapter 정책은 남아 있다. |
 | [x] | REQ-HTTP-004 | P0 | content negotiation과 `application/problem+json` 오류 envelope을 표준 response policy로 만든다. |
 | [-] | REQ-HTTP-005 | P0 | sync/async handler 실행기를 분리하고 blocking 감지·thread-pool 전환 규칙을 문서와 check 명령에 반영한다. |
 
