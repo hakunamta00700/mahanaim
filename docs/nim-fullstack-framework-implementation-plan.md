@@ -160,6 +160,7 @@
 - [x] mocking context에서 Prologue response와 core dispatcher integration을 검증했다.
 - [x] Prologue raw form body와 `Content-Type`을 core body parser로 연결하는 contract test를 추가했다.
 - [x] Prologue multipart upload body를 core parser/storage contract로 연결했다.
+- [x] WebSocket frame kind와 adapter-owned session callback core contract를 추가했다.
 - [ ] WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차

@@ -49,8 +49,37 @@ type
     retryMs*: int
     data*: string
 
+  WebSocketMessageKind* = enum
+    ## The core contract is transport-neutral; adapters map these kinds to
+    ## their library-specific frame/opcode representation.
+    wsmText
+    wsmBinary
+    wsmPing
+    wsmPong
+    wsmClose
+
+  WebSocketMessage* = object
+    ## Close frames carry an optional protocol code while all other frames
+    ## use payload as their application data.
+    kind*: WebSocketMessageKind
+    payload*: string
+    closeCode*: int
+
+  WebSocketSendProc* = proc (message: WebSocketMessage): Future[void] {.gcsafe.}
+  WebSocketReceiveProc* = proc (): Future[WebSocketMessage] {.gcsafe.}
+  WebSocketCloseProc* = proc (code: int, reason: string): Future[void] {.gcsafe.}
+
+  WebSocketSession* = ref object
+    ## Callback ownership belongs to the concrete adapter; core handlers only
+    ## depend on this small send/receive/close boundary.
+    sendMessage*: WebSocketSendProc
+    receiveMessage*: WebSocketReceiveProc
+    closeSession*: WebSocketCloseProc
+
   Handler* = proc (request: Request): Future[Response] {.gcsafe.}
   SyncHandler* = proc (request: Request): Response {.gcsafe.}
+  WebSocketHandler* = proc (request: Request,
+                            session: WebSocketSession): Future[void] {.gcsafe.}
   Middleware* = proc (request: Request, next: Handler): Future[Response] {.gcsafe.}
 
   HandlerExecutionKind* = enum
@@ -109,6 +138,48 @@ proc newResponse*(status: HttpCode, body = ""): Response =
   result.body = body
   result.headers = emptyTable()
   result.representation = rrBuffered
+
+proc newWebSocketSession*(sendMessage: WebSocketSendProc = nil,
+                          receiveMessage: WebSocketReceiveProc = nil,
+                          closeSession: WebSocketCloseProc = nil): WebSocketSession =
+  ## Construct an adapter-owned session without exposing socket internals.
+  WebSocketSession(sendMessage: sendMessage, receiveMessage: receiveMessage,
+    closeSession: closeSession)
+
+proc textWebSocketMessage*(payload: string): WebSocketMessage =
+  WebSocketMessage(kind: wsmText, payload: payload, closeCode: 0)
+
+proc binaryWebSocketMessage*(payload: string): WebSocketMessage =
+  WebSocketMessage(kind: wsmBinary, payload: payload, closeCode: 0)
+
+proc controlWebSocketMessage*(kind: WebSocketMessageKind,
+                              payload = ""): WebSocketMessage =
+  ## Restrict control helper usage to protocol control kinds.
+  if kind notin {wsmPing, wsmPong}:
+    raise newException(ValueError, "Control WebSocket message must be ping or pong")
+  WebSocketMessage(kind: kind, payload: payload, closeCode: 0)
+
+proc closeWebSocketMessage*(code = 1000,
+                            reason = ""): WebSocketMessage =
+  WebSocketMessage(kind: wsmClose, payload: reason, closeCode: code)
+
+proc send*(session: WebSocketSession,
+           message: WebSocketMessage): Future[void] =
+  ## Fail explicitly when an adapter has not supplied a transport callback.
+  if session.isNil or session.sendMessage.isNil:
+    raise newException(ValueError, "WebSocket session cannot send without an adapter")
+  session.sendMessage(message)
+
+proc receive*(session: WebSocketSession): Future[WebSocketMessage] =
+  if session.isNil or session.receiveMessage.isNil:
+    raise newException(ValueError, "WebSocket session cannot receive without an adapter")
+  session.receiveMessage()
+
+proc close*(session: WebSocketSession, code = 1000,
+            reason = ""): Future[void] =
+  if session.isNil or session.closeSession.isNil:
+    raise newException(ValueError, "WebSocket session cannot close without an adapter")
+  session.closeSession(code, reason)
 
 proc asyncHandler*(handler: SyncHandler): Handler =
   ## Adapt a synchronous, non-blocking handler to the async route contract.

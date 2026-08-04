@@ -811,6 +811,23 @@ suite "Mahanaim core contracts":
     check websocket.representation == rrWebSocket
     check websocket.status == Http101
 
+  test "WebSocket core contract preserves frame kinds and adapter boundary":
+    let textFrame = textWebSocketMessage("hello")
+    check textFrame.kind == wsmText
+    check textFrame.payload == "hello"
+    let binaryFrame = binaryWebSocketMessage("bytes")
+    check binaryFrame.kind == wsmBinary
+    let pingFrame = controlWebSocketMessage(wsmPing, "probe")
+    check pingFrame.kind == wsmPing
+    let closeFrame = closeWebSocketMessage(1001, "going away")
+    check closeFrame.kind == wsmClose
+    check closeFrame.closeCode == 1001
+    check closeFrame.payload == "going away"
+    expect ValueError:
+      discard controlWebSocketMessage(wsmText)
+    expect ValueError:
+      discard newWebSocketSession().send(textFrame)
+
   test "response cookie helper applies safe defaults":
     var response = textResponse("ok")
     response.setCookie("session", "a;b", secure = true, maxAge = 3600)
