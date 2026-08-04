@@ -32,8 +32,8 @@ git diff --check
 backend·OS·Nim 버전·외부 서비스가 요구되는 기능은 해당 환경의 별도 gate도
 통과해야 한다.
 
-- [ ] PostgreSQL live contract 또는 명시적인 credential 기반 skip 증거
-- [ ] Redis/Valkey compatibility와 eviction 검증
+- [x] PostgreSQL live contract를 실행하거나, credential 부재에 대한 명시적인 skip 증거를 남겼다.
+- [x] Redis/Valkey compatibility와 eviction 검증 gate를 실행했다.
 - [x] Linux Beast/httpx live socket 및 shutdown wire fixture와 gate를 실행해 handshake, WebSocket frame, ownership handoff, graceful close를 검증했다.
 - [x] Docker nginx와 Nim 2.2.4 upstream을 이용한 로컬 HTTPS reverse-proxy/TLS wire 검증
 - [ ] 실제 staging endpoint의 HTTPS reverse-proxy/TLS wire 및 인증서 갱신 검증
