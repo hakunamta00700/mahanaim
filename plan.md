@@ -100,7 +100,7 @@
 - [x] signed session cookie와 교체 가능한 `AuthBackend`, HMAC bearer token adapter를 `AuthContext` 및 required authentication route의 401 정책에 연결하고 SessionPolicy primary/legacy secret rotation을 제공한다.
 - [x] role/group permission, object-level policy와 route guard를 독립 `AuthorizationPolicy` 모듈로 제공한다.
 - [-] algorithm-neutral `PasswordHasher` 계약과 `nimcrypto` PBKDF2-HMAC-SHA256 reference adapter, per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow를 추가했으며 실제 Argon2id/bcrypt 구현 adapter는 후속 범위다.
-- [ ] rate limit·request size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화했다. 실제 TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
+- [-] rate limit·request size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 `docs/operations-guide.md`에 문서화하고 기존 contract test 범위를 명시했다. 실제 인증서·proxy hop·TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
 - [-] Redis/Valkey RESP adapter와 bounded retry, socket timeout 및 실패 시 연결 폐기 기반을 구현했다. production compatibility, 재연결 관찰·복구 정책과 eviction 운영은 남아 있다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.

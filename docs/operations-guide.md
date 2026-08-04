@@ -34,9 +34,42 @@
 - remote store 오류는 fail-open하지 않고 bounded retry 후 `503`으로 반환한다.
   호출자는 retry storm을 막기 위해 작은 immediate retry 횟수만 사용한다.
 - production Redis/Valkey adapter는 atomic counter, server-side TTL, server clock,
-  eviction 정책을 제공해야 하며, 현재 저장소의 network RESP client는 미완료다.
-  따라서 실제 distributed deployment에서는 해당 조건을 검증하기 전
+  eviction 정책을 제공해야 한다. 현재 저장소는 RESP client, socket timeout,
+  bounded retry와 loopback 검증을 제공하지만 실제 Redis/Valkey compatibility와
+  eviction 운영 검증은 별도 배포 gate다. 해당 조건을 검증하기 전
   `InMemoryRateLimitStore`를 수평 확장 정책으로 사용하지 않는다.
+
+## HTTPS reverse-proxy 배포 점검표
+
+TLS 종료 지점과 애플리케이션의 책임을 분리한다. Mahanaim은 HTTP request를
+처리하는 프레임워크이고, 인증서 발급·갱신과 외부 TLS wire는 reverse proxy 또는
+ingress가 소유한다. 다음 항목은 배포 전 반드시 확인한다.
+
+- [ ] 외부 listener가 HTTP를 HTTPS로 redirect하고, TLS 1.2 이상과 운영 도메인
+  인증서 체인을 사용한다.
+- [ ] reverse proxy가 upstream 연결을 신뢰할 수 있는 private network 또는
+  mTLS로 제한하고, 임의의 `X-Forwarded-*` 헤더를 외부에서 그대로 통과시키지
+  않는다.
+- [ ] proxy가 `Host`를 검증된 public host로 전달하고 애플리케이션의
+  `allowedHosts`를 명시적으로 설정한다.
+- [ ] HTTPS에서 발급되는 session/CSRF cookie의 `Secure`, `HttpOnly`, 적절한
+  `SameSite`, path/domain을 확인한다. 개발용 HTTP에서는 secure cookie를
+  의도적으로 꺼야 하므로 환경별 설정을 분리한다.
+- [ ] proxy가 request body, header, idle/read/write timeout을 애플리케이션의
+  `maxBodyBytes`와 `requestTimeoutMs`보다 느슨하지 않게 설정한다.
+- [ ] `/health`는 liveness, readiness endpoint는 traffic gate로 분리하고,
+  readiness가 실패한 instance로 연결을 보내지 않도록 한다.
+- [ ] 원본 client IP가 필요한 경우 신뢰하는 proxy hop 수와 access-log redaction을
+  명시한다. 애플리케이션이 검증하지 않은 forwarded client IP를 rate limit key나
+  authorization 판단에 직접 사용하지 않는다.
+- [ ] HSTS, CSP, frame/referrer 정책과 CORS allow-list를 실제 public origin에
+  맞춰 검증한다.
+- [ ] TLS termination 이후의 redirect loop, websocket upgrade, SSE streaming,
+  chunked response, graceful shutdown을 실제 staging endpoint에서 wire 테스트한다.
+
+현재 저장소의 automated contract test는 secure cookie/header, body limit,
+timeout, health/readiness와 loopback HTTP/SSE/WebSocket을 검증한다. 실제 인증서,
+proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행해야 한다.
 
 ## Background jobs
 
