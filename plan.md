@@ -146,7 +146,8 @@
 
 - [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
 - [ ] structured logging backend, tracing/span propagation을 제공한다.
-- [ ] rate limit, timeout, retry/backpressure, graceful shutdown을 운영 정책으로 고정한다.
+- [x] 구현된 rate limit/timeout/retry/backpressure/graceful shutdown의 실패·복구 운영 정책을 문서화한다.
+- [ ] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
 - [ ] command/admin extension point와 dependency graph resolution을 제공한다.
@@ -175,5 +176,5 @@
 
 - [ ] P0의 미완료 항목이 없고, 전체 테스트·verify·check가 통과한다.
 - [ ] P1에서 SQLite/PostgreSQL CRUD와 migration 회귀 테스트가 통과한다.
-- [ ] 운영 기능은 실패 시나리오와 복구 절차까지 문서화한다.
+- [x] 구현된 운영 기능은 [운영 정책 문서](docs/operations-guide.md)에 실패 시나리오와 복구 절차를 기록한다.
 - [ ] 각 릴리스가 지원 버전, 의존성 lock, 보안 기본값, 변경 로그를 명시한다.

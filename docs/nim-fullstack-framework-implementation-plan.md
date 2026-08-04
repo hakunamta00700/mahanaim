@@ -264,6 +264,12 @@
 - [x] `q=0`을 명시적 거부로 처리하고 기존 wildcard/406 정책을 보존하는 회귀 테스트를 통과했다.
 - [ ] route schema macro, typed response schema, Swagger/ReDoc UI는 남아 있다.
 
+### 2026-08-04 — P2 operations runbook
+
+- [x] timeout/cancellation, executor overload, rate-limit fail-closed, background retry와 graceful shutdown 정책을 문서화했다.
+- [x] request ID/health/readiness와 현재 미지원인 unsafe thread termination, external DB/queue drain 책임을 명시했다.
+- [ ] distributed rate-limit clock/TTL/eviction, durable queue recovery와 external backend runbook은 adapter 구현 뒤 확장한다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
