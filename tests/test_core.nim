@@ -164,3 +164,34 @@ suite "Mahanaim core contracts":
     check response.header("Content-Type").get() == "application/problem+json"
     check document["errors"][0]["field"].getStr() == "page"
     check document["errors"][0]["location"].getStr() == "query"
+
+  test "named body fields are extracted from JSON":
+    let request = newRequest("POST", "/users", "{\"name\":\"Ada\",\"age\":37}")
+    let result = request.validate([
+      stringField("name", flBody, minLength = 2),
+      integerField("age", flBody, minValue = 18)
+    ])
+    check result.valid
+    check result.stringValue("name").get() == "Ada"
+    check result.integerValue("age").get() == 37
+
+  test "invalid JSON body reports a body-scoped issue":
+    let request = newRequest("POST", "/users", "not-json")
+    let result = request.validate([stringField("name", flBody)])
+    check not result.valid
+    check result.errors.len == 1
+    check result.errors[0].location == "body"
+    check result.errors[0].code == "invalid_json"
+
+  test "problem response honors Accept content negotiation":
+    var textRequest = newRequest("GET", "/invalid")
+    textRequest.headers["accept"] = "text/plain"
+    let textResponse = problemResponseFor(textRequest, Http400, "Bad request", "Invalid input")
+    check textResponse.header("Content-Type").get() == "text/plain; charset=utf-8"
+    check textResponse.body == "Bad request: Invalid input"
+
+    var jsonRequest = newRequest("GET", "/invalid")
+    jsonRequest.headers["accept"] = "application/problem+json"
+    let jsonResponse = problemResponseFor(jsonRequest, Http400, "Bad request", "Invalid input")
+    check jsonResponse.header("Content-Type").get() == "application/problem+json"
+    check parseJson(jsonResponse.body)["title"].getStr() == "Bad request"

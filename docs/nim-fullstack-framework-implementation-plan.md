@@ -33,7 +33,15 @@
 - [x] 문자열·정수 coercion, 기본값, 길이·범위 제약, 다중 오류 수집을 구현했다.
 - [x] `application/problem+json` 응답과 field-level 오류 envelope을 추가했다.
 - [x] API 검증·오류 응답 테스트 3개를 추가했고 전체 테스트가 통과했다.
-- [ ] macro 기반 schema 생성, JSON body field extraction, content negotiation은 남아 있다.
+- [ ] macro 기반 schema 생성과 일반 응답 타입별 content negotiation은 남아 있다.
+
+### 2026-08-04 — P0 API 검증 2차
+
+- [x] JSON object body의 named field extraction과 scalar coercion을 추가했다.
+- [x] malformed JSON body를 body 위치의 `invalid_json` 오류로 보고한다.
+- [x] `Accept` 헤더에 따른 problem JSON/text 응답 선택을 추가했다.
+- [x] JSON body와 content negotiation 테스트 3개를 추가했고 전체 테스트가 통과했다.
+- [ ] 일반 HTML·JSON·stream 응답의 통합 content negotiation 정책은 남아 있다.
 
 검증 명령:
 

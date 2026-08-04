@@ -64,13 +64,25 @@ proc locationName(location: FieldLocation): string =
   of flHeader: "header"
   of flBody: "body"
 
+proc jsonScalar(value: JsonNode): Option[string] =
+  ## Convert only scalar JSON values to input strings.
+  ## Objects/arrays remain JSON text so a future nested DTO layer can take over.
+  case value.kind
+  of JString: some(value.getStr())
+  of JInt: some($value.getInt())
+  of JFloat: some($value.getFloat())
+  of JBool: some($value.getBool())
+  of JNull: none(string)
+  of JObject, JArray: some($value)
+
 proc addIssue(result: var ValidationResult, spec: FieldSpec,
               code, message: string) =
   ## Centralize issue creation to guarantee every error has a location.
   result.errors.add(ValidationIssue(field: spec.name,
     location: locationName(spec.location), code: code, message: message))
 
-proc rawValue(request: Request, spec: FieldSpec): Option[string] =
+proc rawValue(request: Request, spec: FieldSpec,
+              bodyDocument: JsonNode = nil): Option[string] =
   case spec.location
   of flPath:
     if request.pathParams.hasKey(spec.name): some(request.pathParams[spec.name])
@@ -81,15 +93,37 @@ proc rawValue(request: Request, spec: FieldSpec): Option[string] =
   of flHeader:
     request.header(spec.name)
   of flBody:
-    if request.body.len > 0: some(request.body)
-    else: none(string)
+    if spec.name.len == 0:
+      if request.body.len > 0: some(request.body)
+      else: none(string)
+    elif bodyDocument != nil and bodyDocument.kind == JObject and
+         bodyDocument.hasKey(spec.name):
+      jsonScalar(bodyDocument[spec.name])
+    else:
+      none(string)
 
 proc validate*(request: Request, schema: openArray[FieldSpec]): ValidationResult =
   ## Validate all fields and return every issue instead of failing fast.
   result.values = initTable[string, string]()
   result.errors = @[]
+  var bodyDocument: JsonNode = nil
+  var bodyDocumentInvalid = false
+  var hasNamedBodyField = false
   for spec in schema:
-    var value = rawValue(request, spec)
+    if spec.location == flBody and spec.name.len > 0:
+      hasNamedBodyField = true
+      break
+  if hasNamedBodyField and request.body.len > 0:
+    try:
+      bodyDocument = parseJson(request.body)
+    except JsonParsingError:
+      bodyDocumentInvalid = true
+
+  for spec in schema:
+    if bodyDocumentInvalid and spec.location == flBody and spec.name.len > 0:
+      result.addIssue(spec, "invalid_json", "Request body must be valid JSON")
+      continue
+    var value = rawValue(request, spec, bodyDocument)
     if value.isNone and spec.hasDefault:
       value = some(spec.defaultValue)
     if value.isNone or value.get().len == 0:
@@ -155,3 +189,23 @@ proc validationResponse*(validation: ValidationResult): Response =
   ## Standard response for an invalid request schema.
   problemResponse(Http400, "Validation failed",
     "One or more input fields are invalid", validation.errors)
+
+proc acceptsJson*(request: Request): bool =
+  ## Prefer JSON for API clients while honoring an explicit text-only request.
+  let accept = request.header("accept")
+  if accept.isNone:
+    return true
+  let value = accept.get().toLowerAscii()
+  value.contains("application/json") or
+    value.contains("application/problem+json") or value.contains("*/*")
+
+proc problemResponseFor*(request: Request, status: HttpCode, title, detail: string,
+                         issues: openArray[ValidationIssue] = []): Response =
+  ## Content negotiation belongs at the response policy boundary, not in each
+  ## handler, so every validation/error path behaves consistently.
+  if request.acceptsJson:
+    return problemResponse(status, title, detail, issues)
+  var text = title & ": " & detail
+  for issue in issues:
+    text.add("\n" & issue.location & "." & issue.field & ": " & issue.message)
+  textResponse(text, status)
