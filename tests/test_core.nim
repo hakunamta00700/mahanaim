@@ -749,6 +749,15 @@ suite "Mahanaim core contracts":
         discard request
         return textResponse("hello from live prologue")
       app.get("/live", "live-hello", hello)
+      proc variants(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        discard request
+        return responseVariants([
+          textResponse("prologue text"), jsonResponse("{\"backend\":\"prologue\"}")])
+      app.get("/variants", "live-variants", variants)
+      app.websocket("/socket", "live-socket",
+        proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
+          discard request
+          await session.send(await session.receive()))
       let settings = prologueSettings.newSettings(
         address = "127.0.0.1", port = Port(0), debug = false)
       let adapter = newPrologueServer(app, settings)
@@ -769,7 +778,47 @@ suite "Mahanaim core contracts":
       let response = waitFor client.getContent(
         "http://127.0.0.1:" & $adapter.boundPort().uint16 & "/live")
       check response == "hello from live prologue"
+      var acceptHeaders = newHttpHeaders()
+      acceptHeaders["Accept"] = "application/json"
+      let variantResponse = waitFor client.request(
+        "http://127.0.0.1:" & $adapter.boundPort().uint16 & "/variants",
+        HttpGet, headers = acceptHeaders)
+      check variantResponse.code == Http200
+      check variantResponse.headers["content-type"].startsWith("application/json")
+      check (waitFor variantResponse.body()) == "{\"backend\":\"prologue\"}"
       client.close()
+
+      ## A regular HTTP Accept header must not prevent a protocol upgrade.
+      ## This also exercises the Prologue bridge's handled flag after the
+      ## adapter takes ownership of the connection.
+      let socket = newAsyncSocket()
+      waitFor socket.connect("127.0.0.1", adapter.boundPort())
+      let key = "dGhlIHNhbXBsZSBub25jZQ=="
+      waitFor socket.send("GET /socket HTTP/1.1\r\n" &
+        "Host: 127.0.0.1\r\n" &
+        "Upgrade: websocket\r\n" &
+        "Connection: Upgrade\r\n" &
+        "Accept: application/json\r\n" &
+        "Sec-WebSocket-Version: 13\r\n" &
+        "Sec-WebSocket-Key: " & key & "\r\n\r\n")
+      var handshake = ""
+      while not handshake.endsWith("\r\n\r\n"):
+        handshake.add(waitFor socket.recv(1))
+      check handshake.contains("101 Switching Protocols")
+      check handshake.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+      let clearText = "prologue"
+      let mask = [byte(1), byte(2), byte(3), byte(4)]
+      var frame = "\x81" & char(0x80 or clearText.len)
+      for value in mask:
+        frame.add(char(value))
+      for index, value in clearText:
+        frame.add(char(ord(value) xor int(mask[index mod 4])))
+      waitFor socket.send(frame)
+      let responseHeader = waitFor socket.recv(2)
+      check (ord(responseHeader[0]) and 0x0f) == 0x1
+      let echoed = waitFor socket.recv(ord(responseHeader[1]) and 0x7f)
+      check echoed == clearText
+      socket.close()
 
       adapter.close()
       adapter.close()
