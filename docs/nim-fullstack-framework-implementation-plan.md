@@ -191,7 +191,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [ ] PostgreSQL adapter, connection pool/isolation, relation query execution/repository는 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate를 추가했다. connection pool/isolation, live integration, relation query execution/repository는 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -199,7 +199,8 @@
 - [x] compiled query parameter를 SQLite prepared statement에 타입별로 bind하고 결과를 neutral row contract로 변환한다.
 - [x] transaction, savepoint, migration up 경계를 adapter에 연결하고 닫힌 connection을 명시적으로 거부한다.
 - [x] SQLite migration history와 latest down rollback을 제공한다.
-- [ ] PostgreSQL 동일 adapter, connection pooling, typed NULL/result metadata는 남아 있다.
+- [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
+- [ ] PostgreSQL connection pooling, typed result metadata와 live server fixture는 남아 있다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -583,7 +584,7 @@ flowchart TB
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
-- [ ] SQLite adapter를 먼저 완성하고 PostgreSQL adapter를 동일 계약으로 추가한다.
+- [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. PostgreSQL live fixture와 capability matrix는 남아 있다.
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
 - [ ] transaction/savepoint, connection pool, request 단위 DB session을 구현하고 locking은 backend capability로 명시한다.
@@ -676,7 +677,7 @@ flowchart TB
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
 | [ ] | REQ-DATA-004 | P1 | unit-of-work와 connection pool을 request context에 연결하고 savepoint·locking capability를 명시한다. |
-| [-] | REQ-DATA-005 | P1 | SQLite adapter를 추가했고 PostgreSQL adapter와 backend capability matrix를 추가한다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter를 추가했고 backend capability matrix와 live compatibility test를 추가한다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 
 ### HTML·폼·관리자
@@ -766,7 +767,7 @@ flowchart TB
 - [-] **P0-05**: test client, contract test, secret redaction, secure defaults
 - [ ] **P1-01**: typed extraction, validation, DTO, JSON serialization
 - [ ] **P1-02**: OpenAPI generator, Swagger UI, ReDoc
-- [-] **P1-03**: 모델 metadata와 SQLite CRUD/migration 기반을 구현했고 PostgreSQL/relation 확장이 남아 있다.
+- [-] **P1-03**: 모델 metadata와 SQLite/PostgreSQL query·transaction adapter 기반을 구현했고 live repository/connection pool/relation execution 확장이 남아 있다.
 
 각 항목은 구현·테스트·문서가 모두 완료되어야 Done으로 이동한다. P0 작업에서 API 계약이 바뀌면 후속 작업을 시작하기 전에 ADR(Architecture Decision Record)을 남긴다.
 

@@ -38,6 +38,11 @@ task check, "Compile the framework CLI":
 task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
 
+task postgresCheck, "Compile the optional PostgreSQL adapter contract":
+  ## Compile-only avoids requiring libpq.dll or a running PostgreSQL server.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_postgres_adapter_compile.nim"
+
 task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"
