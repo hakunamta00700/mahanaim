@@ -61,9 +61,9 @@
 ### 완료 판정
 
 - [ ] 항목별 구현·단위/계약 테스트·문서가 같은 변경에 포함되어 있다.
-- [ ] 로컬 공통 게이트 `nimble test`, `nimble verify`, `nimble check`, `git diff --check`가 통과한다.
+- [x] 로컬 공통 게이트 `nimble test`, `nimble verify`, `nimble check`, `git diff --check`가 통과한다.
 - [ ] 외부 환경 항목은 성공 로그 또는 자격 증명 부재에 대한 명시적 skip 증거가 있다.
-- [ ] 변경 로그와 상세 실행 계획이 `plan.md`의 상태와 일치한다.
+- [x] 변경 로그와 상세 실행 계획이 `plan.md`의 상태와 일치한다.
 
 ## 우선순위 기준
 
