@@ -191,7 +191,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate를 추가했다. connection pool/isolation, live integration, relation query execution/repository는 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, backend-neutral bounded connection pool을 추가했다. connection pool request wiring/isolation, live integration, relation query execution/repository는 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -200,7 +200,8 @@
 - [x] transaction, savepoint, migration up 경계를 adapter에 연결하고 닫힌 connection을 명시적으로 거부한다.
 - [x] SQLite migration history와 latest down rollback을 제공한다.
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
-- [ ] PostgreSQL connection pooling, typed result metadata와 live server fixture는 남아 있다.
+- [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
+- [ ] PostgreSQL connection pool request wiring, typed result metadata와 live server fixture는 남아 있다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -587,7 +588,7 @@ flowchart TB
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. PostgreSQL live fixture와 capability matrix는 남아 있다.
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
-- [ ] transaction/savepoint, connection pool, request 단위 DB session을 구현하고 locking은 backend capability로 명시한다.
+- [-] transaction/savepoint와 backend-neutral connection pool을 구현했다. request 단위 DB session, locking capability와 isolation은 남아 있다.
 - [ ] 모델 metadata를 API, form, admin과 연결한다. raw SQL은 명시적인 escape hatch로 둔다.
 
 완료 기준:
@@ -676,7 +677,7 @@ flowchart TB
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
-| [ ] | REQ-DATA-004 | P1 | unit-of-work와 connection pool을 request context에 연결하고 savepoint·locking capability를 명시한다. |
+| [-] | REQ-DATA-004 | P1 | backend-neutral connection pool과 savepoint 계약을 추가했고 request context unit-of-work, locking capability, isolation은 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter를 추가했고 backend capability matrix와 live compatibility test를 추가한다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 

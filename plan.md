@@ -136,7 +136,7 @@
 - [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩하는 adapter를 제공한다.
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
-- [-] SQLite/PostgreSQL query·transaction adapter와 migration history/JOIN compiler를 제공했다. PostgreSQL live integration, connection pool과 repository 실행 계층은 남아 있다.
+- [-] SQLite/PostgreSQL query·transaction adapter, migration history/JOIN compiler와 bounded connection pool을 제공했다. PostgreSQL live integration, request session wiring과 repository 실행 계층은 남아 있다.
 
 ### API와 서버 렌더링
 

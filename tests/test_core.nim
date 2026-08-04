@@ -1882,6 +1882,27 @@ suite "Mahanaim core contracts":
     check historyAdapter.rollbackLatest([first]).get() == "001_users"
     check historyAdapter.appliedMigrations().len == 0
 
+  test "database connection pool bounds and safely returns adapters":
+    var closed = 0
+    let pool = newDatabaseConnectionPool(
+      proc(): DatabaseAdapter = newSqliteDatabaseAdapter(), 1,
+      proc(adapter: DatabaseAdapter) =
+        inc closed
+        cast[SqliteDatabaseAdapter](adapter).close())
+    let first = pool.acquire()
+    check pool.activeCount() == 1
+    expect ResourceExhaustedError:
+      discard pool.acquire()
+    pool.release(first)
+    check pool.idleCount() == 1
+    pool.withConnection(proc(adapter: DatabaseAdapter) =
+      check adapter.dialect == dialectSqlite)
+    check pool.idleCount() == 1
+    pool.close()
+    check closed == 1
+    expect ValueError:
+      discard pool.acquire()
+
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
       integerField("userId", flPath),
