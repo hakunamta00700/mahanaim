@@ -14,6 +14,7 @@ import ./database
 import ./database_pool
 import ./database_session
 import ./router
+import ./http_adapter
 
 type
   TestApplication* = Application
@@ -40,6 +41,13 @@ type
     toServerWaiter: Future[WebSocketMessage]
     fromServerWaiter: Future[WebSocketMessage]
 
+  NetworkTestFixture* = ref object
+    ## Owns a real loopback NetworkServer for smoke tests. The fixture keeps
+    ## bind/readiness polling and shutdown policy out of individual tests while
+    ## retaining the same adapter that production embedding uses.
+    network*: NetworkServer
+    started*: bool
+
   DatabaseTestFactory* = proc(): DatabaseAdapter {.gcsafe.}
   DatabaseTestCloser* = proc(adapter: DatabaseAdapter) {.gcsafe.}
 
@@ -61,6 +69,50 @@ proc newTestClient*(app: Application): TestClient =
   result.cookies = initTable[string, string]()
   result.hasLastResponse = false
   result.lastResponse = newResponse(Http500)
+
+proc newNetworkTestFixture*(app: Application, host = "127.0.0.1",
+                           port = 0): NetworkTestFixture =
+  ## Construct without binding so callers can safely use an ephemeral port.
+  if app.isNil:
+    raise newException(ValueError, "Network test fixture requires an application")
+  new(result)
+  result.network = newNetworkServer(app, host, port)
+  result.started = false
+
+proc start*(fixture: NetworkTestFixture): Future[void] =
+  ## Start the real adapter as a caller-owned async task. Returning its Future
+  ## lets tests choose `asyncCheck` or explicit error propagation as needed.
+  if fixture.isNil or fixture.network.isNil:
+    raise newException(ValueError, "Network test fixture is required")
+  if fixture.started:
+    raise newException(ValueError, "Network test fixture already started")
+  fixture.started = true
+  fixture.network.serve()
+
+proc waitUntilReady*(fixture: NetworkTestFixture, attempts = 50,
+                     intervalMs = 10): Future[Port] {.async.} =
+  ## Async polling avoids a fixed long sleep and handles the small race between
+  ## starting the server task and completing its ephemeral-port bind.
+  if fixture.isNil or fixture.network.isNil or not fixture.started:
+    raise newException(ValueError, "Network test fixture must be started")
+  if attempts <= 0 or intervalMs < 0:
+    raise newException(ValueError, "Network fixture readiness bounds are invalid")
+  for attempt in 0 ..< attempts:
+    try:
+      let port = fixture.network.boundPort()
+      if port.uint16 > 0:
+        return port
+    except OSError:
+      discard
+    if attempt + 1 < attempts:
+      await sleepAsync(intervalMs)
+  raise newException(IOError, "Network test fixture did not become ready")
+
+proc close*(fixture: NetworkTestFixture) =
+  ## Closing is idempotent because cleanup must remain safe after assertions or
+  ## an adapter startup error have already initiated shutdown.
+  if not fixture.isNil and not fixture.network.isNil:
+    fixture.network.close()
 
 proc newDatabaseTestFixture*(factory: DatabaseTestFactory,
                              closer: DatabaseTestCloser = nil): DatabaseTestFixture =

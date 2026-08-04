@@ -1505,6 +1505,25 @@ suite "Mahanaim core contracts":
     waitFor socket.wait()
     check socket.closed
 
+  test "network test fixture owns real adapter readiness and shutdown":
+    let app = newTestApplication()
+    app.get("/fixture", "fixture",
+      proc(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        return textResponse("fixture-ready"))
+    let fixture = newNetworkTestFixture(app)
+    asyncCheck fixture.start()
+    let port = waitFor fixture.waitUntilReady()
+    let client = hc.newAsyncHttpClient()
+    try:
+      let response = waitFor client.get(
+        "http://127.0.0.1:" & $port.uint16 & "/fixture")
+      check response.code == Http200
+      check (waitFor response.body()) == "fixture-ready"
+    finally:
+      client.close()
+      fixture.close()
+      fixture.close()
+
   test "test applications and clients are isolated by construction":
     let firstApp = newTestApplication()
     let secondApp = newTestApplication()
