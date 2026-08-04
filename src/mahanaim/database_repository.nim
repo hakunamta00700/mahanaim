@@ -393,6 +393,47 @@ proc relationRowJson(row: ResourceRow): JsonNode =
   for name, value in row:
     result[name] = value
 
+proc listManyToManyRelated(repository: DatabaseRepository,
+                           relation: ModelRelation,
+                           target: ModelMetadata,
+                           localValue: SqlValue,
+                           query: RelationSelectQuery): seq[ResourceRow] =
+  ## Compile a two-hop target-through-source join. The through table is part
+  ## of relation metadata, while every value remains a bound SqlValue.
+  if relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
+      relation.throughForeignField.len == 0:
+    raise newException(ValueError,
+      "Many-to-many relation requires explicit through metadata")
+  let local = repository.fieldFor(relation.localField)
+  let foreign = target.field(relation.foreignField)
+  if local.isNone or foreign.isNone:
+    raise newException(ValueError, "Unknown many-to-many relation field")
+  var normalized = RelationSelectQuery(table: target.tableName, alias: "target",
+    columns: @[], joins: @[], filters: @[], orderBy: @[],
+    limit: query.limit, offset: query.offset)
+  if query.columns.len == 0:
+    for field in target.fields:
+      normalized.columns.add(field.columnName)
+  else:
+    for column in query.columns:
+      let field = target.field(relationBaseField(column))
+      if field.isNone:
+        raise newException(ValueError,
+          "Unknown many-to-many target field: " & column)
+      normalized.columns.add(field.get().columnName)
+  normalized.joins.add(RelationJoin(kind: relationInnerJoin,
+    table: relation.throughTable, alias: "through", localTable: "target",
+    localField: foreign.get().columnName,
+    foreignField: relation.throughForeignField))
+  normalized.filters = query.filters
+  normalized.filters.add(QueryFilter(field: "through." &
+    relation.throughLocalField, operator: filterEqual, value: localValue))
+  normalized.orderBy = query.orderBy
+  let compiled = compileRelationSelect(normalized, repository.adapter.dialect)
+  let targetRepository = newDatabaseRepository(target, repository.adapter)
+  for values in repository.adapter.execute(compiled):
+    result.add(targetRepository.rowFromValues(values))
+
 proc listRelationWithRelated*(repository: DatabaseRepository,
                               relation: ModelRelation,
                               target: ModelMetadata,
@@ -400,7 +441,9 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
   ## Load one relation as nested JSON without duplicating base rows. This is
   ## intentionally a separate API from listRelation: the latter is a stable
   ## join/base-row contract, while this method owns eager DTO assembly.
-  if relation.kind == relationManyToMany:
+  if relation.kind == relationManyToMany and
+      (relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
+       relation.throughForeignField.len == 0):
     raise newException(ValueError,
       "Many-to-many eager loading requires an explicit through relation")
   if relation.localField.len == 0 or relation.foreignField.len == 0:
@@ -434,11 +477,15 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
     var baseRow = originalRow
     var relatedRows: seq[ResourceRow] = @[]
     if baseRow.hasKey(localName) and baseRow[localName].kind != JNull:
-      let relatedQuery = SelectQuery(filters: @[
-        QueryFilter(field: relation.foreignField, operator: filterEqual,
-          value: sqlValue(baseRow[localName]))])
-      relatedRows = targetRepository.list(relatedQuery)
-    if relation.kind == relationOneToMany:
+      if relation.kind == relationManyToMany:
+        relatedRows = repository.listManyToManyRelated(relation, target,
+          sqlValue(baseRow[localName]), query)
+      else:
+        let relatedQuery = SelectQuery(filters: @[
+          QueryFilter(field: relation.foreignField, operator: filterEqual,
+            value: sqlValue(baseRow[localName]))])
+        relatedRows = targetRepository.list(relatedQuery)
+    if relation.kind in {relationOneToMany, relationManyToMany}:
       var nested = newJArray()
       for relatedRow in relatedRows:
         nested.add(relationRowJson(relatedRow))

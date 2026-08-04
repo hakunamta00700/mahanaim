@@ -64,6 +64,11 @@ type
     targetModel*: string
     localField*: string
     foreignField*: string
+    ## Many-to-many relations use an explicit through table rather than
+    ## guessing join columns. These remain empty for direct relations.
+    throughTable*: string
+    throughLocalField*: string
+    throughForeignField*: string
 
   ModelMetadata* = object
     ## A complete model declaration suitable for registry inspection.

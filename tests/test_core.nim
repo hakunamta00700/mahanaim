@@ -2942,6 +2942,44 @@ suite "Mahanaim core contracts":
         ModelRelation(name: "members", kind: relationManyToMany,
           targetModel: "Post", localField: "id", foreignField: "user_id"), posts)
 
+  test "database repository eager-loads explicit many-to-many through relation":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"posts\" (\"id\" INTEGER, \"title\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"memberships\" (\"user_id\" INTEGER, \"post_id\" INTEGER)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" VALUES (?, ?)",
+      parameters: @[integerValue(1), textValue("Ada")]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"posts\" VALUES (?, ?)",
+      parameters: @[integerValue(10), textValue("Nim")]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"memberships\" VALUES (?, ?)",
+      parameters: @[integerValue(1), integerValue(10)]))
+    var user = newModelMetadata("User", "users")
+    user.addField(newModelField("id", modelInteger, primaryKey = true))
+    user.addField(newModelField("name", modelString))
+    var posts = newModelMetadata("Post", "posts")
+    posts.addField(newModelField("id", modelInteger, primaryKey = true))
+    posts.addField(newModelField("title", modelString))
+    let repository = newDatabaseRepository(user, adapter)
+    let relation = ModelRelation(name: "posts", kind: relationManyToMany,
+      targetModel: "Post", localField: "id", foreignField: "id",
+      throughTable: "memberships", throughLocalField: "user_id",
+      throughForeignField: "post_id")
+    let usersWithPosts = repository.listRelationWithRelated(relation, posts)
+    check usersWithPosts.len == 1
+    check usersWithPosts[0]["posts"].kind == JArray
+    check usersWithPosts[0]["posts"].len == 1
+    check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
+
   test "application wires and releases request-scoped database connections":
     var closed = 0
     let pool = newDatabaseConnectionPool(
