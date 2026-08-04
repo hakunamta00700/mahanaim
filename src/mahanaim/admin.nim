@@ -12,6 +12,7 @@ import ./core
 import ./forms
 import ./model_schema
 import ./models
+import ./query_components
 import ./resources
 import ./security
 import ./validation
@@ -93,7 +94,11 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
   app.get(current.prefix, "admin." & current.name & ".list",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not current.authorize(request): return forbiddenResponse()
-      return listResponse(current.resource))
+      let parsed = request.parseQueryComponent(current.metadata.fields)
+      if not parsed.valid:
+        return request.problemResponseFor(Http400, "Invalid query",
+          "One or more query parameters are invalid", parsed.errors)
+      return listResponse(current.resource, parsed.query))
   app.get(current.prefix & "/new", "admin." & current.name & ".form",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not current.authorize(request): return forbiddenResponse()

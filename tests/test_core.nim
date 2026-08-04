@@ -1794,6 +1794,52 @@ suite "Mahanaim core contracts":
     check registry.auditLog[1].action == "update"
     check registry.auditLog[2].action == "delete"
 
+    var invalidQuery = newRequest("GET", "/admin/items")
+    invalidQuery.headers["x-admin"] = "yes"
+    invalidQuery.query["page_size"] = "bad"
+    let rejectedQuery = waitFor app.dispatch(invalidQuery)
+    check rejectedQuery.status == Http400
+    check rejectedQuery.headers["content-type"] == "application/problem+json"
+
+  test "query component validates bounded pagination filters sorting and fields":
+    var metadata = newModelMetadata("QueryUser", "query_users")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("active", modelBoolean))
+    metadata.addField(newModelField("score", modelFloat))
+    metadata.addField(newModelField("name", modelString))
+    var request = newRequest("GET", "/users")
+    request.query["page"] = "2"
+    request.query["page_size"] = "10"
+    request.query["fields"] = "name,id"
+    request.query["sort"] = "-score,name"
+    request.query["filter.id__gte"] = "10"
+    request.query["filter.active"] = "true"
+    let parsed = request.parseQueryComponent(metadata.fields)
+    check parsed.valid
+    check parsed.pagination.page == 2
+    check parsed.pagination.pageSize == 10
+    check parsed.query.offset == 10
+    check parsed.query.columns == @["name", "id"]
+    check parsed.query.orderBy[0].field == "score"
+    check parsed.query.orderBy[0].descending
+    var idFilter: QueryFilter
+    var activeFilter: QueryFilter
+    for currentFilter in parsed.query.filters:
+      if currentFilter.field == "id": idFilter = currentFilter
+      if currentFilter.field == "active": activeFilter = currentFilter
+    check idFilter.operator == filterGreaterOrEqual
+    check idFilter.value.kind == sqlInteger
+    check idFilter.value.integer == 10
+    check activeFilter.value.boolean
+
+    var invalid = newRequest("GET", "/users")
+    invalid.query["page_size"] = "1000"
+    invalid.query["fields"] = "unknown"
+    invalid.query["filter.active"] = "maybe"
+    let rejected = invalid.parseQueryComponent(metadata.fields)
+    check not rejected.valid
+    check rejected.errors.len == 3
+
   test "MessagePack encoder is deterministic and preserves serializer validity":
     let document = parseJson("{\"b\":true,\"a\":1,\"items\":[null,\"ok\"]}")
     let encoded = toMessagePack(document)

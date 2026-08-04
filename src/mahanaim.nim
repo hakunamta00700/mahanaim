@@ -8,7 +8,7 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  model_macro, database, openapi, observability, messagepack,
                  forms, resources, di, jobs, tracing, sqlite_adapter,
                  database_pool, database_session, database_repository,
-                 redis_resp, templates, model_schema, admin]
+                 redis_resp, templates, model_schema, admin, query_components]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
@@ -16,4 +16,4 @@ export core, router, application, config, http_adapter, generator, security,
        websocket_adapter, model_macro, database, openapi, observability,
        messagepack, forms, resources, di, jobs, tracing, sqlite_adapter,
        database_pool, database_session, database_repository, redis_resp,
-       templates, model_schema, admin
+       templates, model_schema, admin, query_components

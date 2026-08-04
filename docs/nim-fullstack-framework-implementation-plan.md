@@ -578,7 +578,7 @@ flowchart TB
 - [ ] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다.
 - [ ] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
 - [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. route 자동 수집은 남아 있다.
-- [ ] pagination, filtering, sorting, field selection을 공통 query component로 제공한다.
+- [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection과 query validation 오류 형식을 제공한다. cursor pagination과 aggregate 표현식은 후속 범위다.
 
 완료 기준:
 
@@ -589,7 +589,7 @@ flowchart TB
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture는 남아 있다.
-- [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
+- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component를 연결했다. QuerySet, aggregate, annotate, eager/lazy loading은 후속 범위다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현했다. locking capability와 live isolation fixture는 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
@@ -671,7 +671,7 @@ flowchart TB
 | [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route를 붙였다. route 자동 수집과 schema macro는 남아 있다. |
-| [ ] | REQ-API-005 | P1 | 재사용 가능한 pagination/filter/sort/field-selection component와 공통 validation 오류 형식을 제공한다. |
+| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 공통 validation 오류 형식을 제공했다. cursor pagination과 aggregate 표현식은 남아 있다. |
 
 ### 데이터·ORM·마이그레이션
 
