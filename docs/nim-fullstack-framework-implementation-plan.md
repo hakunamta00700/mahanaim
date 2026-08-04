@@ -233,7 +233,7 @@
 - [x] SQLite migration history와 latest down rollback을 제공한다.
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
 - [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
-- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 `DatabaseResult`/column metadata contract와 SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar mapping을 추가했고 live contract가 typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback을 검증하며 live server fixture는 남아 있다.
+- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 SQLite live-server fixture에서 실제 HTTP 요청의 pool lease·반환·shutdown close를 검증했고, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar mapping도 추가했다. PostgreSQL 전용 live-server fixture와 공통 `DatabaseResult`/column metadata contract의 확장은 남아 있다.
 - [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 - [x] metadata-driven repository가 relation metadata와 target metadata로 one-hop JOIN execution을 수행하고 SQLite 통합 테스트를 통과했다.
 - [x] SQLite/PostgreSQL capability matrix가 transaction/savepoint/typed NULL/isolation 지원 범위를 명시하고 unsupported isolation을 거부한다.
@@ -654,7 +654,7 @@ flowchart TB
 - [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
 - [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
-- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation은 남아 있으며, live-server fixture와 WebSocket/SSE test client 계약을 추가했다.
+- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
 - [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
 - [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. `checkApplication`은 HTTPS 강제 정책의 공개 host 미고정 상태를 warning으로 보고한다. Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 외부 endpoint용 `httpsLive` client로 handshake·proxy hop·secure cookie를 검증했으며, 운영 staging 인증서/renewal·redirect 증거는 배포 환경 gate로 남아 있다.
 

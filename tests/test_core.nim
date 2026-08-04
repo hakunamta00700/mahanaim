@@ -2171,6 +2171,46 @@ suite "Mahanaim core contracts":
       fixture.close()
       fixture.close()
 
+  test "live HTTP requests borrow and release the application database pool":
+    ## This crosses both adapter boundaries: the real TCP server invokes
+    ## Application.dispatch, which owns the request-scoped database lease.
+    let pool = newDatabaseConnectionPool(
+      proc(): DatabaseAdapter {.gcsafe.} =
+        let adapter = newSqliteDatabaseAdapter()
+        discard adapter.execute(CompiledQuery(sql:
+          "CREATE TABLE \"live_rows\" (\"value\" TEXT)", parameters: @[]))
+        discard adapter.execute(CompiledQuery(sql:
+          "INSERT INTO \"live_rows\" (\"value\") VALUES (?)",
+          parameters: @[textValue("from-pool")]))
+        adapter,
+      maxConnections = 1,
+      closer = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+        cast[SqliteDatabaseAdapter](adapter).close())
+    let app = newTestApplication()
+    app.databasePool = pool
+    app.get("/database", "database",
+      proc(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        let rows = request.database.execute(CompiledQuery(sql:
+          "SELECT \"value\" FROM \"live_rows\"", parameters: @[]))
+        return jsonResponse(%*{"value": rows[0][0].text}))
+    let fixture = newNetworkTestFixture(app)
+    asyncCheck fixture.start()
+    let port = waitFor fixture.waitUntilReady()
+    let client = hc.newAsyncHttpClient()
+    try:
+      let response = waitFor client.get(
+        "http://127.0.0.1:" & $port.uint16 & "/database")
+      check response.code == Http200
+      check parseJson(waitFor response.body())["value"].getStr() == "from-pool"
+      check pool.activeCount() == 0
+      check pool.idleCount() == 1
+    finally:
+      client.close()
+      fixture.close()
+    check pool.activeCount() == 0
+    expect ValueError:
+      discard pool.acquire()
+
   test "test applications and clients are isolated by construction":
     let firstApp = newTestApplication()
     let secondApp = newTestApplication()
