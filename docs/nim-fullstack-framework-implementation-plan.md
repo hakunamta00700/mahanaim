@@ -726,7 +726,7 @@ flowchart TB
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
 | [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, in-process SSE/WebSocket test client, live-server smoke fixture를 추가했다. PostgreSQL live isolation은 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
-| [ ] | REQ-DOC-001 | P0 | 기능을 merge할 때 Nim 예제·API reference·migration/security guide·지원 버전 정책을 함께 갱신한다. |
+| [-] | REQ-DOC-001 | P0 | 기능별 Definition of Done 체크리스트와 운영/보안 문서 갱신 규칙을 [`docs/definition-of-done.md`](definition-of-done.md)에 고정했다. Nim 예제·API reference·migration guide·지원 버전 정책의 기능별 적용 증거는 남아 있다. |
 
 ## 6. SHOULD/MAY 우선순위
 

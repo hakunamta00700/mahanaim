@@ -123,7 +123,7 @@
 - [x] `nimble test`, `nimble verify`, `nimble check`를 CI와 동일하게 실행한다.
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
 - [-] 지원 OS/Nim 2.2.4 matrix에서 test·verify·check·build를 실행하고 OS별 release candidate와 SHA-256 checksum artifact를 생성하도록 CI를 확장했다. 실제 GitHub runner 실행 결과와 추가 지원 버전 확대는 후속 검증 범위다.
-- [ ] 모든 기능의 Definition of Done을 적용한다: 구현, 단위/통합 테스트, 문서, 회귀 검증.
+- [-] 모든 기능에 적용할 Definition of Done 체크리스트를 [`docs/definition-of-done.md`](docs/definition-of-done.md)에 고정했다. 기존 기능에 대한 항목별 적용과 외부 환경 gate 증거 수집은 진행 중이다.
 
 ### 2026-08-04 구현 기록
 
