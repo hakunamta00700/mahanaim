@@ -1,10 +1,12 @@
 ## Secure-by-default HTTP middleware.
 ##
-## This security layer covers response headers, host validation, CORS, and
-## request size limits. CSRF, authentication, and rate limiting remain separate
-## policies so each concern can be tested and replaced independently.
+## This security layer covers response headers, host validation, CORS, request
+## size limits, and an explicit signed double-submit CSRF policy. Authentication
+## and rate limiting remain separate policies so each concern can be tested and
+## replaced independently.
 
-import std/[asyncdispatch, httpcore, options, strutils, tables]
+import std/[asyncdispatch, httpcore, options, strutils, sysrand, tables]
+import nimcrypto
 import ./core
 
 type
@@ -15,6 +17,11 @@ type
     corsMethods*: string
     corsHeaders*: string
     maxBodyBytes*: int
+    csrfEnabled*: bool
+    csrfSecret*: string
+    csrfCookieName*: string
+    csrfHeaderName*: string
+    csrfCookieSecure*: bool
     contentSecurityPolicy*: string
     frameOptions*: string
     referrerPolicy*: string
@@ -27,6 +34,11 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     corsMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     corsHeaders: "Content-Type, Authorization",
     maxBodyBytes: 1024 * 1024,
+    csrfEnabled: false,
+    csrfSecret: "",
+    csrfCookieName: "mahanaim_csrf",
+    csrfHeaderName: "x-csrf-token",
+    csrfCookieSecure: false,
     contentSecurityPolicy: "default-src 'self'",
     frameOptions: "DENY",
     referrerPolicy: "strict-origin-when-cross-origin")
@@ -72,6 +84,57 @@ proc addCorsHeaders(response: var Response, policy: SecurityPolicy, origin: stri
   response.headers["access-control-allow-headers"] = policy.corsHeaders
   response.headers["vary"] = "Origin"
 
+const hexDigits = "0123456789abcdef"
+
+proc hexEncode(bytes: openArray[byte]): string =
+  ## Keep token serialization URL/cookie-safe without a second encoding layer.
+  result = newStringOfCap(bytes.len * 2)
+  for value in bytes:
+    result.add(hexDigits[int(value shr 4)])
+    result.add(hexDigits[int(value and 0x0F)])
+
+proc constantTimeEquals(left, right: string): bool =
+  ## Compare every byte so an attacker cannot learn the signature prefix from
+  ## timing differences. Length is folded into the accumulator as well.
+  var difference = left.len xor right.len
+  let commonLength = min(left.len, right.len)
+  for index in 0 ..< commonLength:
+    difference = difference or (ord(left[index]) xor ord(right[index]))
+  difference == 0
+
+proc csrfSignature(policy: SecurityPolicy, nonce: string): string =
+  ## HMAC-SHA256 prevents clients from minting a valid token after reading the
+  ## public nonce from their own cookie.
+  ($sha256.hmac(policy.csrfSecret, nonce)).toLowerAscii()
+
+proc csrfToken*(policy: SecurityPolicy): string =
+  ## Create a signed token for server-rendered forms or API clients.
+  if policy.csrfSecret.len == 0:
+    raise newException(ValueError, "CSRF secret must be configured")
+  let nonce = hexEncode(sysrand.urandom(32))
+  nonce & "." & csrfSignature(policy, nonce)
+
+proc verifyCsrfToken*(policy: SecurityPolicy, token: string): bool =
+  ## Validate structure and signature independently of where the token came
+  ## from; the middleware later enforces the cookie/header equality rule.
+  let separator = token.find('.')
+  if separator <= 0 or separator == token.high:
+    return false
+  let nonce = token[0 ..< separator]
+  let signature = token[separator + 1 .. ^1]
+  constantTimeEquals(signature, csrfSignature(policy, nonce))
+
+proc csrfProtectedMethod(httpMethod: string): bool =
+  ## Safe methods may obtain a token; state-changing methods must prove it.
+  httpMethod.toUpperAscii() notin ["GET", "HEAD", "OPTIONS", "TRACE"]
+
+proc addCsrfCookie(response: var Response, policy: SecurityPolicy,
+                   token: string) =
+  ## HttpOnly is intentionally false: browser code must echo this token in the
+  ## request header, while SameSite=Lax and Secure remain safe defaults.
+  response.setCookie(policy.csrfCookieName, token, httpOnly = false,
+    secure = policy.csrfCookieSecure, sameSite = "Lax")
+
 proc securityMiddleware*(policy: SecurityPolicy): Middleware =
   ## Validate Host before invoking application code and decorate every result.
   result = proc(request: Request, next: Handler): Future[Response] {.async, gcsafe.} =
@@ -91,12 +154,29 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       var rejected = textResponse("Request Entity Too Large", Http413)
       addSecurityHeaders(rejected, policy)
       return rejected
+    if policy.csrfEnabled:
+      if policy.csrfSecret.len == 0:
+        var rejected = textResponse("CSRF Policy Misconfigured", Http500)
+        addSecurityHeaders(rejected, policy)
+        return rejected
+      if csrfProtectedMethod(request.httpMethod):
+        let cookieToken = request.cookies.getOrDefault(policy.csrfCookieName)
+        let headerToken = request.header(policy.csrfHeaderName)
+        if cookieToken.len == 0 or headerToken.isNone or
+           not verifyCsrfToken(policy, cookieToken) or
+           not constantTimeEquals(cookieToken, headerToken.get()):
+          var rejected = textResponse("CSRF Validation Failed", Http403)
+          addSecurityHeaders(rejected, policy)
+          return rejected
     if request.httpMethod == "OPTIONS" and origin.isSome:
       var preflight = newResponse(Http204)
       addCorsHeaders(preflight, policy, origin.get())
       addSecurityHeaders(preflight, policy)
       return preflight
     var response = await next(request)
+    if policy.csrfEnabled and
+       request.cookies.getOrDefault(policy.csrfCookieName).len == 0:
+      addCsrfCookie(response, policy, csrfToken(policy))
     if origin.isSome and policy.allowedOrigins.len > 0:
       addCorsHeaders(response, policy, origin.get())
     addSecurityHeaders(response, policy)

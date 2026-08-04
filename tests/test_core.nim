@@ -145,6 +145,44 @@ suite "Mahanaim core contracts":
     let oversizedResponse = waitFor app.dispatch(oversized)
     check oversizedResponse.status == Http413
 
+  test "security policy issues and validates signed CSRF tokens":
+    var policy = defaultSecurityPolicy()
+    policy.csrfEnabled = true
+    policy.csrfSecret = "test-only-secret-that-is-long-enough"
+    let app = newApplication(defaultConfig(), policy)
+    proc form(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("form")
+    proc submit(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("submitted")
+    app.get("/form", "csrf-form", form)
+    app.post("/csrf-submit", "csrf-submit", submit)
+
+    let formResponse = waitFor app.dispatch(newRequest("GET", "/form"))
+    let cookieHeader = formResponse.header("Set-Cookie").get()
+    let separator = cookieHeader.find('=')
+    let endOfCookie = cookieHeader.find(';')
+    let token = cookieHeader[separator + 1 ..< endOfCookie]
+    check verifyCsrfToken(policy, token)
+
+    let missingToken = waitFor app.dispatch(newRequest("POST", "/csrf-submit"))
+    check missingToken.status == Http403
+
+    var validRequest = newRequest("POST", "/csrf-submit")
+    validRequest.cookies[policy.csrfCookieName] = token
+    validRequest.headers[policy.csrfHeaderName] = token
+    let validResponse = waitFor app.dispatch(validRequest)
+    check validResponse.status == Http200
+    check validResponse.body == "submitted"
+
+    var forgedRequest = newRequest("POST", "/csrf-submit")
+    let forgedToken = token[0 .. ^2] & (if token[^1] == '0': "1" else: "0")
+    forgedRequest.cookies[policy.csrfCookieName] = forgedToken
+    forgedRequest.headers[policy.csrfHeaderName] = forgedToken
+    let forgedResponse = waitFor app.dispatch(forgedRequest)
+    check forgedResponse.status == Http403
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
