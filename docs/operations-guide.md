@@ -89,8 +89,10 @@ proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행�
   상태를 보존하지 않으므로 durable persistence의 대체가 아니다. 재시작 후
   key 상태가 필요한 단일 writer 환경은 append-only `FileIdempotencyStore`를,
   여러 connection/process가 공유하는 SQLite 환경은 `SqliteIdempotencyStore`를
-  사용할 수 있다. durable job payload와 외부 queue recovery는 별도 adapter가
-  담당해야 한다.
+  사용할 수 있다. durable job payload는 `SqliteDurableJobStore`의 named kind와
+  opaque payload로 저장하며, process restart 시 `recoverProcessing()`으로
+  미완료 claim을 pending으로 되돌린다. 실제 handler registry/executor 연결과
+  외부 queue recovery는 별도 adapter가 담당해야 한다.
 
 ## PostgreSQL live integration fixture
 

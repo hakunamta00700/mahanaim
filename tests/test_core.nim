@@ -564,6 +564,33 @@ suite "Mahanaim core contracts":
     sqliteSecond.release("multi-process:42")
     check sqliteFirst.claim("multi-process:42")
 
+    let jobsPath = getTempDir() / "mahanaim_durable_jobs.sqlite"
+    if fileExists(jobsPath):
+      removeFile(jobsPath)
+    defer:
+      if fileExists(jobsPath):
+        removeFile(jobsPath)
+    let durableJobs = newSqliteDurableJobStore(jobsPath)
+    durableJobs.enqueue("job-1", "email", "{\"to\":\"a@example.com\"}")
+    let claimed = durableJobs.claimNext()
+    check claimed.isSome
+    check claimed.get().kind == "email"
+    check claimed.get().payload.contains("a@example.com")
+    check claimed.get().attempts == 1
+    durableJobs.complete(claimed.get().id)
+    check durableJobs.claimNext().isNone
+    durableJobs.enqueue("job-2", "email", "retry")
+    let interrupted = durableJobs.claimNext().get()
+    check interrupted.status == djsProcessing
+    durableJobs.close()
+    let recoveredJobs = newSqliteDurableJobStore(jobsPath)
+    recoveredJobs.recoverProcessing()
+    let recovered = recoveredJobs.claimNext().get()
+    check recovered.id == "job-2"
+    check recovered.attempts == 2
+    recoveredJobs.complete(recovered.id)
+    recoveredJobs.close()
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

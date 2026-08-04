@@ -289,7 +289,7 @@
 - [x] existing ThreadPoolExecutor를 재사용하는 `BackgroundJobQueue`와 job result contract를 추가했다.
 - [x] max attempts/delay를 검증하고 retry를 event-loop sleep으로 bounded asynchronous scheduling한다.
 - [x] 성공·실패 attempt count와 retry policy invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] `IdempotencyStore` claim/release contract, in-memory·append-only file·SQLite reference adapter와 `enqueueIdempotent` 중복 억제 경계를 추가했다. durable job payload, crash recovery와 외부 queue adapter는 남아 있다.
+- [-] `IdempotencyStore` claim/release contract, in-memory·append-only file·SQLite reference adapter와 `enqueueIdempotent` 중복 억제 경계, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine을 추가했다. 외부 queue adapter와 executor handler registry 연동은 남아 있다.
 
 ### 2026-08-04 — P1 content negotiation 2차
 
@@ -398,7 +398,7 @@
 - [x] executor capacity 포화 시 무제한 대기 대신 configurable `queueWaitMs`를 적용했다.
 - [x] 짧은 burst는 대기해 처리하고 budget 초과는 `executor_queue_timeout` 503으로 구분한다.
 - [x] queue wait 성공과 음수 정책 pre-flight 회귀 테스트를 추가했다.
-- [-] 작업별 idempotency key claim/release와 bounded retry 경계를 추가하고 file journal/SQLite unique constraint로 restart 및 multi-connection key 상태를 보존한다. durable 외부 queue adapter와 crash recovery는 남아 있다.
+- [-] 작업별 idempotency key claim/release와 bounded retry 경계를 추가하고 file journal/SQLite unique constraint로 restart 및 multi-connection key 상태를 보존한다. SQLite durable job payload와 processing recovery도 제공하며 외부 queue adapter와 executor handler registry 연동은 남아 있다.
 
 ### 2026-08-04 — P0 executor backend 1차
 
@@ -719,7 +719,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가했다. storage/cache·production compatibility와 eviction 정책은 남아 있다. |
-| [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release 및 `enqueueIdempotent` in-memory 경계를 제공했다. durable queue adapter, crash recovery와 외부 persistence는 남아 있다. |
+| [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine과 processing recovery를 제공했다. 외부 queue adapter와 executor handler registry 연동은 남아 있다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 기반 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입, IANA/DST timezone provider와 고급 formatting은 남아 있다. |
