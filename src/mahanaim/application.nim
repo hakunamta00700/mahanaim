@@ -22,6 +22,7 @@ type
     plugins*: seq[Plugin]
     models*: ModelRegistry
     executionPolicy*: ExecutionPolicy
+    executor*: ThreadPoolExecutor
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -47,6 +48,7 @@ proc newApplication*(config = defaultConfig(),
   result.plugins = @[]
   result.models = initModelRegistry()
   result.executionPolicy = executionPolicy
+  result.executor = newThreadPoolExecutor()
   result.started = false
 
 proc defaultErrorHandler(request: Request,
@@ -98,15 +100,15 @@ proc post*(app: Application, group: RouteGroup, pattern, name: string,
 proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
               middleware: seq[Middleware] = @[]) =
   ## Register a synchronous handler explicitly so blocking work is visible in
-  ## code review and can later be routed through an executor policy.
+  ## code review and is routed through the application's executor policy.
   app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware,
-    hekSync)
+    hekSync, handler)
 
 proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
                middleware: seq[Middleware] = @[]) =
   ## POST counterpart to getSync; both use the same adapter contract.
   app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware,
-    hekSync)
+    hekSync, handler)
 
 proc onStartup*(app: Application, hook: LifecycleHook) =
   app.startupHooks.add(hook)
@@ -166,6 +168,15 @@ proc invoke(app: Application, request: Request, handler: Handler): Future[Respon
   except CatchableError as error:
     return await app.errorHandler(request, error)
 
+proc syncEndpoint(app: Application, handler: SyncHandler): Handler =
+  ## Adapt sync work only after middleware has built the final request shape.
+  ## The executor boundary therefore includes path parameters and middleware
+  ## context while keeping the event loop free for other requests.
+  result = proc(request: Request): Future[Response] {.gcsafe.} =
+    if app.executionPolicy.offloadSynchronousHandlers and app.executor != nil:
+      return app.executor.execute(proc(): Response {.gcsafe.} = handler(request))
+    asyncHandler(handler)(request)
+
 proc fallback(app: Application, request: Request,
               handler: Handler): Future[Response] {.async.} =
   ## Apply global middleware to 404/405 responses as well as matched routes.
@@ -190,7 +201,10 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
     return await app.fallback(requestWithParams, synchronousHandlerDisabled)
   var layers = app.middlewares
   layers.add(route.middleware)
-  return await app.invoke(requestWithParams, compose(layers, route.handler))
+  var endpoint = route.handler
+  if route.executionKind == hekSync and route.syncHandler != nil:
+    endpoint = app.syncEndpoint(route.syncHandler)
+  return await app.invoke(requestWithParams, compose(layers, endpoint))
 
 proc startup*(app: Application) =
   ## Hooks execute once and in registration order.

@@ -54,7 +54,9 @@
 - [x] `SyncHandler`와 `asyncHandler` adapter를 추가했다.
 - [x] `getSync`/`postSync` 명시 등록 API를 추가했다.
 - [x] sync handler가 공통 async dispatcher에서 동작하는 contract test를 추가했다.
-- [ ] blocking I/O thread-pool offload와 실행 경계 진단은 남아 있다.
+- [x] 기본 thread-pool executor와 비차단 Future bridge를 추가했다.
+- [x] worker 예외 복원·sync route offload·실패 전파 회귀 테스트를 추가했다.
+- [ ] executor backend 교체(taskpools 등), timeout/cancellation, blocking 자동 감지는 남아 있다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 

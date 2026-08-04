@@ -44,6 +44,7 @@ type
     pattern*: string
     name*: string
     handler*: Handler
+    syncHandler*: SyncHandler
     middleware*: seq[Middleware]
     executionKind*: HandlerExecutionKind
 
@@ -74,10 +75,9 @@ proc newResponse*(status: HttpCode, body = ""): Response =
 
 proc asyncHandler*(handler: SyncHandler): Handler =
   ## Adapt a synchronous, non-blocking handler to the async route contract.
-  ##
-  ## This wrapper preserves one handler model for application code. It must not
-  ## be used for file/network/database blocking work; such work belongs in a
-  ## future executor adapter so the event loop remains responsive.
+  ## Application `getSync`/`postSync` routes use the execution module's
+  ## executor boundary; this low-level adapter remains useful for explicitly
+  ## non-blocking callbacks and compatibility code.
   result = proc(request: Request): Future[Response] {.async, gcsafe.} =
     return handler(request)
 

@@ -47,7 +47,8 @@ proc joinPrefix(prefix, pattern: string): string =
 
 proc addRoute*(router: var Router, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[],
-               executionKind = hekAsync) =
+               executionKind = hekAsync,
+               syncHandler: SyncHandler = nil) =
   ## Registration is explicit and rejects duplicate names early.  A duplicate
   ## route name would make generated links depend on registration order.
   let normalizedName = name.strip()
@@ -56,7 +57,8 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
   let index = router.routes.len
   router.routes.add(Route(
     httpMethod: httpMethod.toUpperAscii(), pattern: normalizePattern(pattern),
-    name: normalizedName, handler: handler, middleware: middleware,
+    name: normalizedName, handler: handler, syncHandler: syncHandler,
+    middleware: middleware,
     executionKind: executionKind))
   if normalizedName.len > 0:
     router.routeNames[normalizedName] = index
@@ -64,11 +66,12 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
 proc addRoute*(router: var Router, group: RouteGroup, httpMethod, pattern,
                name: string, handler: Handler,
                middleware: seq[Middleware] = @[],
-               executionKind = hekAsync) =
+               executionKind = hekAsync,
+               syncHandler: SyncHandler = nil) =
   ## Group middleware is outermost and local middleware remains closest to the
   ## handler, matching the same onion ordering as global middleware.
   router.addRoute(httpMethod, joinPrefix(group.prefix, pattern), name, handler,
-    group.middleware & middleware, executionKind)
+    group.middleware & middleware, executionKind, syncHandler)
 
 proc splitPath(value: string): seq[string] =
   ## Normalize a path into non-empty segments for route matching.

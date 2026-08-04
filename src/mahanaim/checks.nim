@@ -166,7 +166,7 @@ proc checkExecution*(router: Router,
         "synchronous handler is disabled: " & route.name)
     elif policy.warnOnSynchronousHandlers:
       result.addWarning("execution.sync.handler",
-        "synchronous handler requires non-blocking work or an executor: " & route.name)
+        "synchronous handler is executor-bound; review blocking and thread-safety: " & route.name)
 
 proc checkApplication*(app: Application,
                        securityPolicy = defaultSecurityPolicy()): CheckReport =

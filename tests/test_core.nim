@@ -46,9 +46,30 @@ suite "Mahanaim core contracts":
     check response.body == "sync ok"
     let route = app.router.find(newRequest("GET", "/sync-health")).get()
     check route.executionKind == hekSync
+    check route.syncHandler != nil
+    check app.executor != nil
     let executionReport = checkExecution(app.router, app.executionPolicy)
     check executionReport.passed
     check executionReport.issues[0].code == "execution.sync.handler"
+
+  test "thread pool executor keeps the async loop available while sync work runs":
+    let executor = newThreadPoolExecutor(pollIntervalMs = 1)
+    proc blockingJob(): mahanaim.Response {.gcsafe.} =
+      sleep(30)
+      textResponse("offloaded")
+    proc observe(executor: ThreadPoolExecutor): Future[bool] {.async, gcsafe.} =
+      let pending = executor.execute(blockingJob)
+      await sleepAsync(1)
+      discard await pending
+      return true
+    check waitFor observe(executor)
+
+  test "thread pool executor propagates worker failures":
+    let executor = newThreadPoolExecutor()
+    proc failJob(): mahanaim.Response {.gcsafe.} =
+      raise newException(ValueError, "worker failure")
+    expect ValueError:
+      discard waitFor executor.execute(failJob)
 
   test "execution policy can reject synchronous handlers before invocation":
     var policy = defaultExecutionPolicy()
