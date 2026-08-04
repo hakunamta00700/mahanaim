@@ -10,7 +10,6 @@ import std/[asynchttpserver, asyncdispatch, asyncnet, httpcore, nativesockets, s
 import ./application
 import ./core
 import ./router
-import ./response_policy
 import ./websocket_adapter
 
 type
@@ -100,8 +99,9 @@ proc handleRequest(network: NetworkServer,
         closeOnSession = false)
       request.headers["connection"] = "close"
     return
-  let response = negotiateResponse(frameworkRequest,
-    await network.app.dispatch(frameworkRequest))
+  ## Application.dispatch already resolves Accept variants. Keeping transport
+  ## serialization here avoids a second policy decision at the wire boundary.
+  let response = await network.app.dispatch(frameworkRequest)
   if response.representation in {rrStream, rrServerSentEvents}:
     await respondChunked(request, response)
   else:

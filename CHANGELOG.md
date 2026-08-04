@@ -24,6 +24,9 @@
   `libpq.dll` client runtime을 명시적으로 설치하고 PATH에 연결하도록 보완했다.
 - typed documented route의 request/response DTO schema가 서로 독립적인 필드
   집합을 유지하도록 회귀 검증을 강화했다.
+- response variant의 `Accept` negotiation을 `Application.dispatch` 공통 경계로
+  이동해 in-process client, stdlib HTTP, Prologue adapter가 동일한 406 및
+  `Vary: Accept` 정책을 사용하도록 정리했다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.

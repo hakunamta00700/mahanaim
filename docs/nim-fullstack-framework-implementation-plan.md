@@ -610,7 +610,7 @@ flowchart TB
 - [x] request DTO와 response DTO를 분리하고 rename, partial update, nested object, 민감 필드 제외를 지원한다. typed documented route의 request/response schema 분리와 metadata serializer 회귀 테스트를 포함한다.
 - [x] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다. content negotiation과 buffered/stream response contract를 함께 검증한다.
 - [x] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
-- [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. registry 기반 nested DTO component schema, cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`, typed DTO macro `addTypedDocumentedRoute`를 추가했으며 type-erased generic handler closure의 무리한 자동 body schema 추론은 남아 있다.
+- [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. registry 기반 nested DTO component schema, cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`, typed DTO macro `addTypedDocumentedRoute`를 추가했고 runtime content negotiation은 `Application.dispatch` 공통 경계에서 수행한다. type-erased generic handler closure의 무리한 자동 body schema 추론은 남아 있다.
 - [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata와 query validation 오류 형식을 제공한다. metadata-driven aggregate expression parser도 추가했고 annotate/loading 전략은 후속 범위다.
 
 완료 기준:
@@ -703,7 +703,7 @@ flowchart TB
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [x] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [x] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. JSON-compatible decode와 JSON/MessagePack `Accept` negotiation, 명시적 field `wireType` codec registry를 포함한다. schema-level custom wire type은 후속 범위다. |
-| [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. operation별 다중 request/response content type, scalar input/response object용 `inputSchema`·`responseSchema` macro, typed DTO `addTypedDocumentedRoute`, registry 기반 nested DTO component schema/cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했으며 type-erased generic handler closure의 무리한 자동 body schema 추론과 runtime negotiation은 남아 있다. |
+| [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. operation별 다중 request/response content type, scalar input/response object용 `inputSchema`·`responseSchema` macro, typed DTO `addTypedDocumentedRoute`, registry 기반 nested DTO component schema/cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했고 runtime negotiation은 `Application.dispatch` 공통 경계에서 검증했다. type-erased generic handler closure의 무리한 자동 body schema 추론은 남아 있다. |
 | [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |
 
 ### 데이터·ORM·마이그레이션

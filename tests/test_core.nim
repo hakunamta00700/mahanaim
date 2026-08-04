@@ -2487,6 +2487,30 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "application/json;q=0"
     check negotiateResponse(request, jsonResponse("{\"ok\":true}")).status == Http406
 
+  test "application dispatch negotiates response variants for every adapter":
+    ## Negotiation belongs at the framework dispatch boundary so in-process
+    ## clients and network adapters observe the same selected representation.
+    let app = newApplication()
+    proc negotiated(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return responseVariants([
+        textResponse("plain"), jsonResponse("{\"ok\":true}")])
+    app.get("/dispatch-negotiated", "dispatch-negotiated", negotiated)
+
+    var jsonRequest = newRequest("GET", "/dispatch-negotiated")
+    jsonRequest.headers["accept"] = "application/json"
+    let selected = waitFor app.dispatch(jsonRequest)
+    check selected.status == Http200
+    check selected.body == "{\"ok\":true}"
+    check selected.variants.len == 0
+    check selected.header("Vary").get() == "Accept"
+
+    var rejectedRequest = newRequest("GET", "/dispatch-negotiated")
+    rejectedRequest.headers["accept"] = "image/png"
+    let rejected = waitFor app.dispatch(rejectedRequest)
+    check rejected.status == Http406
+    check rejected.variants.len == 0
+
   test "HTML JSON response helper selects HTMX partials and JSON":
     var request = newRequest("GET", "/items")
     let full = htmlJsonResponse(request, "<main>full</main>",

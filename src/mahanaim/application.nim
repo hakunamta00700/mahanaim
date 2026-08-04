@@ -14,6 +14,7 @@ import ./jobs
 import ./migration_commands
 import ./seed_commands
 import ./durable_jobs
+import ./response_policy
 
 type
   LifecycleHook* = proc ()
@@ -497,13 +498,16 @@ proc dispatchInternal(app: Application, request: Request): Future[Response] {.as
 proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   ## Network adapters delegate here. A borrowed connection is released on every
   ## route, 404, 405, timeout, and exception path through the finally block.
+  ## Response negotiation is centralized here so in-process clients and every
+  ## transport adapter observe the same selected representation.
   if app.databasePool.isNil:
-    return await app.dispatchInternal(request)
+    return negotiateResponse(request, await app.dispatchInternal(request))
   let database = app.databasePool.acquire()
   var requestWithDatabase = request
   requestWithDatabase.database = database
   try:
-    return await app.dispatchInternal(requestWithDatabase)
+    return negotiateResponse(requestWithDatabase,
+      await app.dispatchInternal(requestWithDatabase))
   finally:
     app.databasePool.release(database)
 

@@ -10,7 +10,6 @@ when defined(windows):
 import prologue/core/application as prologueApplication
 import ./application
 import ./prologue_adapter
-import ./response_policy
 import ./router
 import ./websocket_adapter
 
@@ -49,8 +48,9 @@ proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
         ## The WebSocket adapter owns this connection after the 101 handshake.
         ctx.handled = true
       return
-    let frameworkResponse = negotiateResponse(frameworkRequest,
-      await app.dispatch(frameworkRequest))
+    ## Application.dispatch owns representation selection for both in-process
+    ## and adapter-backed requests; this server only maps the selected response.
+    let frameworkResponse = await app.dispatch(frameworkRequest)
     # Populate Prologue's response object and let its normal central response
     # phase write to the socket. This also keeps mocking contexts socket-free.
     ctx.response.code = frameworkResponse.status
