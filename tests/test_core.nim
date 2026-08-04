@@ -21,6 +21,10 @@ type MacroUser = object
   email: string
   active: bool
 
+type OptionalMacroUser = object
+  displayName: Option[string]
+  age: Option[int]
+
 type CreateProfileDto = object
   displayName: string
   age: int
@@ -4199,6 +4203,18 @@ suite "Mahanaim core contracts":
     check generated.fields[0].kind == modelInteger
     check generated.fields[1].kind == modelString
     check generated.fields[2].kind == modelBoolean
+
+  test "model macro maps Option fields to nullable metadata and optional input":
+    let generated = modelMetadata(OptionalMacroUser, "OptionalMacroUser",
+      "optional_macro_users")
+    check generated.field("displayName").get().kind == modelString
+    check generated.field("displayName").get().nullable
+    check generated.field("age").get().kind == modelInteger
+    check generated.field("age").get().nullable
+    let schema = inputSchema(OptionalMacroUser)
+    check schema.len == 2
+    check not schema[0].required
+    check not schema[1].required
 
   test "input schema macro generates ordered FieldSpec values":
     let generated = inputSchema(MacroUser)

@@ -20,8 +20,19 @@ proc fieldTypeName(node: NimNode): string =
   ## Keep type mapping explicit; guessing a JSON kind would hide schema drift.
   node.repr.strip()
 
+proc unwrapOptionalType(node: NimNode): tuple[base: NimNode, optional: bool] =
+  ## `Option[T]` is the one generic type whose meaning is common to every
+  ## metadata consumer: the storage value may be NULL and the input field is
+  ## not required. Other collections and custom types remain explicit adapter
+  ## boundaries instead of being guessed from their AST shape.
+  result.base = node
+  result.optional = false
+  if node.kind == nnkBracketExpr and node.len == 2 and $node[0] == "Option":
+    result.base = node[1]
+    result.optional = true
+
 proc modelKind(typeNode: NimNode): NimNode =
-  let name = fieldTypeName(typeNode)
+  let name = fieldTypeName(unwrapOptionalType(typeNode).base)
   case name
   of "string": ident("modelString")
   of "int", "int8", "int16", "int32", "int64",
@@ -76,14 +87,16 @@ macro modelMetadata*(modelType: typedesc,
   for (name, typeNode) in fields:
     let fieldLiteral = newLit(name)
     let kindNode = modelKind(typeNode)
+    let optionalLiteral = newLit(unwrapOptionalType(typeNode).optional)
     result.add quote do:
-      `generated`.addField(newModelField(`fieldLiteral`, `kindNode`))
+      `generated`.addField(newModelField(`fieldLiteral`, `kindNode`,
+        nullable = `optionalLiteral`))
   result.add generated
 
 proc inputFieldConstructor(typeNode: NimNode): NimNode =
   ## Only scalar HTTP input types are mapped automatically; nested DTOs stay
   ## an explicit schema boundary instead of being guessed at compile time.
-  let name = fieldTypeName(typeNode)
+  let name = fieldTypeName(unwrapOptionalType(typeNode).base)
   case name
   of "string": ident("stringField")
   of "int", "int8", "int16", "int32", "int64",
@@ -107,8 +120,10 @@ proc generateScalarSchema(modelType, location: NimNode,
   for (name, typeNode) in fields:
     let fieldLiteral = newLit(name)
     let constructor = inputFieldConstructor(typeNode)
+    let requiredLiteral = newLit(not unwrapOptionalType(typeNode).optional)
     result.add quote do:
-      `generated`.add(`constructor`(`fieldLiteral`, `location`))
+      `generated`.add(`constructor`(`fieldLiteral`, `location`,
+        required = `requiredLiteral`))
   result.add generated
 
 macro inputSchema*(modelType: typedesc,

@@ -322,7 +322,7 @@
 - [x] string·integer·float·boolean·DateTime·UUID·JsonNode 타입 매핑을 명시적으로 고정했다.
 - [x] 상속 object와 지원하지 않는 field type은 compile-time 오류로 거부한다.
 - [x] 생성 metadata의 이름·table·field order·kind 회귀 테스트를 추가했다.
-- [ ] relation/index/constraint annotation, Option·컬렉션·custom type adapter는 남아 있다.
+- [-] `Option[T]`를 nullable model metadata와 optional input/response `FieldSpec`로 매핑하고 회귀 테스트를 추가했다. relation/index/constraint annotation, collection·custom type adapter는 남아 있다.
 
 ### 2026-08-04 — P0 handler execution 1차
 
