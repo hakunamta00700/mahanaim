@@ -257,6 +257,13 @@
 - [x] 성공·실패 attempt count와 retry policy invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [ ] durable job persistence, idempotency key, crash recovery와 외부 queue adapter는 남아 있다.
 
+### 2026-08-04 — P1 content negotiation 2차
+
+- [x] Accept media type parameter에서 quality factor를 파싱하고 0..1 범위로 정규화했다.
+- [x] quality 내림차순과 header order tie-break를 적용해 server variants를 선택한다.
+- [x] `q=0`을 명시적 거부로 처리하고 기존 wildcard/406 정책을 보존하는 회귀 테스트를 통과했다.
+- [ ] route schema macro, typed response schema, Swagger/ReDoc UI는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

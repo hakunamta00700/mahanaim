@@ -4,18 +4,41 @@
 ## policy selects among those already-rendered variants, keeping HTTP Accept
 ## parsing out of business logic and making 406 behavior consistent.
 
-import std/[httpcore, options, strutils]
+import std/[algorithm, httpcore, options, strutils]
 import ./core
 
-proc acceptedTypes(request: Request): seq[string] =
-  ## Parse media types and ignore optional parameters such as q values.
+type AcceptedMedia = object
+  value: string
+  quality: float
+  order: int
+
+proc acceptedTypes(request: Request): seq[AcceptedMedia] =
+  ## Parse quality values so clients can express representation preference.
   let header = request.header("accept")
   if header.isNone:
     return @[]
-  for item in header.get().split(','):
-    let mediaType = item.split(';', maxsplit = 1)[0].strip().toLowerAscii()
-    if mediaType.len > 0:
-      result.add(mediaType)
+  let items = header.get().split(',')
+  for order in 0 ..< items.len:
+    let item = items[order]
+    let pieces = item.split(';')
+    let mediaType = pieces[0].strip().toLowerAscii()
+    if mediaType.len == 0:
+      continue
+    var quality = 1.0
+    if pieces.len > 1:
+      for index in 1 ..< pieces.len:
+        let assignment = pieces[index].split('=', maxsplit = 1)
+        if assignment.len == 2 and assignment[0].strip().toLowerAscii() == "q":
+          try:
+            quality = parseFloat(assignment[1].strip())
+          except ValueError:
+            quality = 0.0
+    result.add(AcceptedMedia(value: mediaType,
+      quality: max(0.0, min(1.0, quality)), order: order))
+  result.sort(proc(left, right: AcceptedMedia): int =
+    if left.quality > right.quality: -1
+    elif left.quality < right.quality: 1
+    else: cmp(left.order, right.order))
 
 proc mediaType(response: Response): string =
   ## Compare only the media type portion, not charset parameters.
@@ -39,10 +62,10 @@ proc negotiateResponse*(request: Request,
   let accepted = request.acceptedTypes()
   if accepted.len == 0:
     return variants[0]
-  for variant in variants:
-    let offered = mediaType(variant)
-    for requested in accepted:
-      if mediaTypeMatches(requested, offered):
+  for requested in accepted:
+    for variant in variants:
+      let offered = mediaType(variant)
+      if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
         return variant
   textResponse("Not Acceptable", Http406)
 
@@ -59,6 +82,6 @@ proc negotiateResponse*(request: Request, response: Response): Response =
     return response
   let offered = response.mediaType()
   for requested in accepted:
-    if mediaTypeMatches(requested, offered):
+    if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
       return response
   textResponse("Not Acceptable", Http406)

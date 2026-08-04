@@ -1349,6 +1349,15 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "image/png"
     check negotiateResponse(request, candidates).status == Http406
 
+  test "response negotiation honors Accept quality and q zero":
+    var request = newRequest("GET", "/quality")
+    request.headers["accept"] = "text/plain;q=0.2, application/json;q=0.9"
+    let selected = negotiateResponse(request, [
+      textResponse("text"), jsonResponse("{\"ok\":true}")])
+    check selected.headers["content-type"].startsWith("application/json")
+    request.headers["accept"] = "application/json;q=0"
+    check negotiateResponse(request, jsonResponse("{\"ok\":true}")).status == Http406
+
   test "stream and SSE responses expose representation metadata":
     let stream = streamResponse("chunk", "text/plain")
     check stream.representation == rrStream
