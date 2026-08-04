@@ -11,7 +11,7 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  redis_resp, templates, model_schema, admin, query_components,
                  aggregate_routes, migration_commands, authorization,
                  password_hashing, seed_commands, login_throttling, release_checks,
-                 cli]
+                 account_auth, cli]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
@@ -21,4 +21,4 @@ export core, router, application, config, http_adapter, generator, security,
        database_pool, database_session, database_repository, redis_resp,
        templates, model_schema, admin, query_components, aggregate_routes,
        migration_commands, authorization, password_hashing, seed_commands,
-       login_throttling, release_checks, cli
+       login_throttling, release_checks, account_auth, cli

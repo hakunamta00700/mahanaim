@@ -872,6 +872,53 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard throttle.checkAttempt("")
 
+  test "account authentication routes compose hashing throttle and session lifecycle":
+    var policy = defaultSecurityPolicy()
+    policy.session.enabled = true
+    policy.session.cookieName = "mahanaim_session"
+    policy.session.secret = "account-auth-session-secret-that-is-long-enough"
+    policy.session.secureCookie = false
+    let accountStore = newInMemoryAccountCredentialStore()
+    let accountHasher = newPbkdf2PasswordHasher(iterations = 10000)
+    accountStore.addAccount(AccountCredential(
+      subject: "user-42", identifier: " user@example.test ",
+      passwordHash: accountHasher.hashPassword("correct horse battery staple"),
+      enabled: true))
+    let rotatingHasher = newPbkdf2PasswordHasher(iterations = 12000)
+    let authentication = newAccountAuthentication(accountStore, rotatingHasher,
+      policy.session, newInMemoryLoginThrottle(maxFailures = 2))
+    let app = newTestApplication(securityPolicy = policy)
+    app.registerAccountAuthenticationRoutes(authentication)
+    let client = newTestClient(app)
+
+    let login = waitFor client.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"correct horse battery staple\"}")
+    check login.status == Http200
+    check parseJson(login.body)["authenticated"].getBool()
+    check parseJson(login.body)["subject"].getStr() == "user-42"
+    check login.header("set-cookie").get().startsWith("mahanaim_session=")
+    check not accountStore.findBySubject("user-42").get().passwordHash.startsWith(
+      "pbkdf2-sha256$10000$")
+    check not rotatingHasher.passwordNeedsRehash(
+      accountStore.findBySubject("user-42").get().passwordHash)
+
+    let malformed = waitFor client.post("/login", "{}")
+    check malformed.status == Http400
+    let wrongOne = waitFor client.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"wrong\"}")
+    check wrongOne.status == Http401
+    let wrongTwo = waitFor client.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"wrong\"}")
+    check wrongTwo.status == Http401
+    let blocked = waitFor client.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"wrong\"}")
+    check blocked.status == Http429
+    check blocked.header("retry-after").isSome
+
+    let logout = waitFor client.post("/logout")
+    check logout.status == Http204
+    check logout.header("set-cookie").get().contains("Max-Age=0")
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")

@@ -42,37 +42,37 @@ type
     maxRetries*: int
 
 method readFailureCount*(client: LoginThrottleCounterClient, key: string,
-                         windowSeconds: int): LoginThrottleCounterResult {.base.} =
+                         windowSeconds: int): LoginThrottleCounterResult {.base, gcsafe.} =
   discard client
   discard key
   discard windowSeconds
   raise newException(ValueError, "Login throttle counter read is not implemented")
 
 method incrementFailure*(client: LoginThrottleCounterClient, key: string,
-                         windowSeconds: int): LoginThrottleCounterResult {.base.} =
+                         windowSeconds: int): LoginThrottleCounterResult {.base, gcsafe.} =
   discard client
   discard key
   discard windowSeconds
   raise newException(ValueError, "Login throttle counter increment is not implemented")
 
-method resetFailures*(client: LoginThrottleCounterClient, key: string) {.base.} =
+method resetFailures*(client: LoginThrottleCounterClient, key: string) {.base, gcsafe.} =
   discard client
   discard key
   raise newException(ValueError, "Login throttle counter reset is not implemented")
 
 method checkAttempt*(store: LoginThrottleStore,
-                     key: string): LoginThrottleDecision {.base.} =
+                     key: string): LoginThrottleDecision {.base, gcsafe.} =
   ## A missing adapter must fail closed rather than silently allowing logins.
   discard store
   discard key
   raise newException(ValueError, "Login throttle store is not implemented")
 
-method recordFailure*(store: LoginThrottleStore, key: string) {.base.} =
+method recordFailure*(store: LoginThrottleStore, key: string) {.base, gcsafe.} =
   discard store
   discard key
   raise newException(ValueError, "Login throttle store is not implemented")
 
-method recordSuccess*(store: LoginThrottleStore, key: string) {.base.} =
+method recordSuccess*(store: LoginThrottleStore, key: string) {.base, gcsafe.} =
   discard store
   discard key
   raise newException(ValueError, "Login throttle store is not implemented")
@@ -125,7 +125,7 @@ proc incrementRemote(store: DistributedLoginThrottle, key: string):
   raise lastError
 
 method checkAttempt*(store: DistributedLoginThrottle,
-                     key: string): LoginThrottleDecision =
+                     key: string): LoginThrottleDecision {.gcsafe.} =
   validateKey(key)
   let counter = store.readRemote(key)
   result.failures = max(0, counter.count)
@@ -133,11 +133,11 @@ method checkAttempt*(store: DistributedLoginThrottle,
   if not result.allowed:
     result.retryAfterSeconds = max(1, counter.ttlSeconds)
 
-method recordFailure*(store: DistributedLoginThrottle, key: string) =
+method recordFailure*(store: DistributedLoginThrottle, key: string) {.gcsafe.} =
   validateKey(key)
   discard store.incrementRemote(key)
 
-method recordSuccess*(store: DistributedLoginThrottle, key: string) =
+method recordSuccess*(store: DistributedLoginThrottle, key: string) {.gcsafe.} =
   validateKey(key)
   store.client.resetFailures(key)
 
@@ -152,7 +152,7 @@ proc refreshState(store: InMemoryLoginThrottle, key: string,
     result = LoginThrottleState(windowStarted: now, failures: 0)
 
 method checkAttempt*(store: InMemoryLoginThrottle,
-                     key: string): LoginThrottleDecision =
+                     key: string): LoginThrottleDecision {.gcsafe.} =
   ## Reads never increment counters, so callers can check before credential
   ## verification and record exactly one outcome afterward.
   validateKey(key)
@@ -170,7 +170,7 @@ method checkAttempt*(store: InMemoryLoginThrottle,
   finally:
     release(store.lock)
 
-method recordFailure*(store: InMemoryLoginThrottle, key: string) =
+method recordFailure*(store: InMemoryLoginThrottle, key: string) {.gcsafe.} =
   ## Failed attempts are bounded by maxFailures; the next check denies access.
   validateKey(key)
   acquire(store.lock)
@@ -182,7 +182,7 @@ method recordFailure*(store: InMemoryLoginThrottle, key: string) =
   finally:
     release(store.lock)
 
-method recordSuccess*(store: InMemoryLoginThrottle, key: string) =
+method recordSuccess*(store: InMemoryLoginThrottle, key: string) {.gcsafe.} =
   ## A successful authentication clears the subject's failure window.
   validateKey(key)
   acquire(store.lock)
