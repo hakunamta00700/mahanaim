@@ -1933,6 +1933,36 @@ suite "Mahanaim core contracts":
         raise newException(ValueError, "transaction failure"))
     check adapter.events == @["begin", "commit", "begin", "rollback"]
 
+  test "QuerySet builder compiles grouped aggregates for both database dialects":
+    let base = newQuerySet("orders")
+    let grouped = base
+      .selectFields(@["status"])
+      .whereFilter(QueryFilter(field: "active", operator: filterEqual,
+        value: booleanValue(true)))
+      .addAggregate(aggregateCount, "*", "total")
+      .addAggregate(aggregateSum, "amount", "gross")
+      .groupByFields(@["status"])
+      .orderByField("status")
+      .paginate(newPagination(2, 10, 50))
+    check base.query.filters.len == 0
+    check base.query.aggregates.len == 0
+    let sqlite = grouped.compile()
+    check sqlite.sql == "SELECT \"status\", COUNT(*) AS \"total\", SUM(\"amount\") AS \"gross\" FROM \"orders\" WHERE \"active\" = ? GROUP BY \"status\" ORDER BY \"status\" ASC LIMIT 10 OFFSET 10"
+    check sqlite.parameters.len == 1
+    check sqlite.parameters[0].kind == sqlBoolean
+    check sqlite.parameters[0].boolean
+    let postgres = grouped.compile(dialectPostgres)
+    check postgres.sql.contains("WHERE \"active\" = $1")
+    check postgres.sql.contains("GROUP BY \"status\"")
+    check postgres.sql.endsWith("LIMIT 10 OFFSET 10")
+
+    expect ValueError:
+      discard newQuerySet("orders").addAggregate(aggregateCount, "*", "")
+        .compile()
+    expect ValueError:
+      discard newQuerySet("orders").addAggregate(aggregateSum, "amount;DROP", "gross")
+        .compile()
+
   test "template engine escapes context and composes inheritance includes filters":
     let engine = newTemplateEngine()
     engine.registerTemplate("base", "<main>{% block content %}fallback{% endblock %}</main>")

@@ -61,6 +61,20 @@ type
     field*: string
     descending*: bool
 
+  QueryAggregateFunction* = enum
+    aggregateCount
+    aggregateSum
+    aggregateAverage
+    aggregateMinimum
+    aggregateMaximum
+
+  QueryAggregate* = object
+    ## Aggregate intent is data, so the same expression can be compiled for
+    ## SQLite and PostgreSQL without allowing route code to build SQL text.
+    function*: QueryAggregateFunction
+    field*: string
+    alias*: string
+
   SelectQuery* = object
     table*: string
     columns*: seq[string]
@@ -68,6 +82,13 @@ type
     orderBy*: seq[QueryOrder]
     limit*: int
     offset*: int
+    aggregates*: seq[QueryAggregate]
+    groupBy*: seq[string]
+
+  QuerySet* = object
+    ## Immutable-style builder around SelectQuery. Every builder operation
+    ## returns a copy, allowing a base query to be safely reused by callers.
+    query*: SelectQuery
 
   RelationJoinKind* = enum
     relationInnerJoin
@@ -240,17 +261,93 @@ proc operatorSql(operator: FilterOperator): string =
   of filterIsNull: " IS NULL"
   of filterIsNotNull: " IS NOT NULL"
 
+proc aggregateSql(function: QueryAggregateFunction): string =
+  case function
+  of aggregateCount: "COUNT"
+  of aggregateSum: "SUM"
+  of aggregateAverage: "AVG"
+  of aggregateMinimum: "MIN"
+  of aggregateMaximum: "MAX"
+
+proc withPagination*(query: SelectQuery,
+                     pagination: Pagination): SelectQuery
+
+proc compileSelect*(query: SelectQuery,
+                    dialect = dialectSqlite): CompiledQuery
+
+proc newQuerySet*(table: string): QuerySet =
+  ## Start a query with no implicit projection; callers must choose fields or
+  ## aggregates before compilation, preventing accidental SELECT * behavior.
+  if table.len == 0:
+    raise newException(ValueError, "QuerySet table is required")
+  QuerySet(query: SelectQuery(table: table, columns: @[], filters: @[],
+    orderBy: @[], aggregates: @[], groupBy: @[]))
+
+proc selectFields*(query: QuerySet, fields: openArray[string]): QuerySet =
+  ## Replace the projection while preserving filters and execution controls.
+  result = query
+  result.query.columns = @[]
+  for field in fields:
+    result.query.columns.add(field)
+
+proc whereFilter*(query: QuerySet, value: QueryFilter): QuerySet =
+  ## Add one bound predicate; values remain outside the SQL string.
+  result = query
+  result.query.filters = query.query.filters & @[value]
+
+proc orderByField*(query: QuerySet, field: string,
+                   descending = false): QuerySet =
+  ## Add deterministic ordering to the builder.
+  result = query
+  result.query.orderBy = query.query.orderBy &
+    @[QueryOrder(field: field, descending: descending)]
+
+proc groupByFields*(query: QuerySet, fields: openArray[string]): QuerySet =
+  ## Grouping is explicit so aggregate queries cannot accidentally group by a
+  ## backend-specific implicit column set.
+  result = query
+  result.query.groupBy = @[]
+  for field in fields:
+    result.query.groupBy.add(field)
+
+proc addAggregate*(query: QuerySet, function: QueryAggregateFunction,
+                   field, alias: string): QuerySet =
+  ## Add a typed aggregate expression with an explicit response column name.
+  result = query
+  result.query.aggregates = query.query.aggregates &
+    @[QueryAggregate(function: function, field: field, alias: alias)]
+
+proc paginate*(query: QuerySet, pagination: Pagination): QuerySet =
+  ## Reuse the bounded pagination contract used by HTTP query components.
+  result = query
+  result.query = result.query.withPagination(pagination)
+
+proc toSelectQuery*(query: QuerySet): SelectQuery = query.query
+
+proc compile*(query: QuerySet,
+              dialect = dialectSqlite): CompiledQuery =
+  ## Keep compilation at the database boundary, where identifiers and values
+  ## can be validated together with the selected SQL dialect.
+  compileSelect(query.query, dialect)
+
 proc compileSelect*(query: SelectQuery,
                     dialect = dialectSqlite): CompiledQuery =
   ## Compile intent and values separately so every driver can bind parameters.
-  if query.table.len == 0 or query.columns.len == 0:
-    raise newException(ValueError, "SELECT requires a table and columns")
+  if query.table.len == 0 or (query.columns.len == 0 and query.aggregates.len == 0):
+    raise newException(ValueError, "SELECT requires a table and projection")
   if query.limit < 0 or query.offset < 0:
     raise newException(ValueError, "Query limit and offset cannot be negative")
   result.sql = "SELECT "
   var selected: seq[string] = @[]
   for column in query.columns:
     selected.add(quoteIdentifier(column))
+  for aggregate in query.aggregates:
+    if aggregate.alias.len == 0:
+      raise newException(ValueError, "Aggregate alias is required")
+    let expression = if aggregate.function == aggregateCount and
+        aggregate.field == "*": "*" else: quoteIdentifier(aggregate.field)
+    selected.add(aggregateSql(aggregate.function) & "(" & expression & ") AS " &
+      quoteIdentifier(aggregate.alias))
   result.sql.add(selected.join(", "))
   result.sql.add(" FROM " & quoteIdentifier(query.table))
   var parameterIndex = 0
@@ -263,6 +360,11 @@ proc compileSelect*(query: SelectQuery,
       inc parameterIndex
       result.sql.add(if dialect == dialectPostgres: "$" & $parameterIndex else: "?")
       result.parameters.add(filter.value)
+  if query.groupBy.len > 0:
+    var groups: seq[string] = @[]
+    for field in query.groupBy:
+      groups.add(quoteIdentifier(field))
+    result.sql.add(" GROUP BY " & groups.join(", "))
   if query.orderBy.len > 0:
     var orders: seq[string] = @[]
     for order in query.orderBy:
