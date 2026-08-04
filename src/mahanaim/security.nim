@@ -10,6 +10,13 @@ import nimcrypto
 import ./core
 
 type
+  SignedValueVerification* = object
+    ## Keyring verification reports whether a value was signed by a legacy key
+    ## so callers can rotate the cookie on the next successful response.
+    value*: string
+    keyIndex*: int
+    needsRotation*: bool
+
   SecurityPolicy* = object
     ## Explicit policy values make deployment review possible.
     allowedHosts*: seq[string]
@@ -165,6 +172,19 @@ proc verifySignedValue*(secret, signedValue: string): Option[string] =
   if constantTimeEquals(signature, expected): some(value)
   else: none(string)
 
+proc verifySignedValueWithKeyring*(secrets: openArray[string],
+                                   signedValue: string):
+    Option[SignedValueVerification] =
+  ## Verify against the primary key first, then legacy keys in order. Keeping
+  ## the key index in the result makes rotation explicit instead of silently
+  ## re-signing every cookie and hiding key rollover behavior from callers.
+  for keyIndex, secret in secrets:
+    let value = verifySignedValue(secret, signedValue)
+    if value.isSome:
+      return some(SignedValueVerification(value: value.get(),
+        keyIndex: keyIndex, needsRotation: keyIndex > 0))
+  none(SignedValueVerification)
+
 proc setSignedCookie*(response: var Response, name, value, secret: string,
                       httpOnly = true, secure = true, sameSite = "Lax",
                       maxAge = -1) =
@@ -172,6 +192,17 @@ proc setSignedCookie*(response: var Response, name, value, secret: string,
   ## identity or authorization state. Callers must provide an explicit secret.
   response.setCookie(name, signValue(secret, value), httpOnly, secure,
     sameSite, maxAge)
+
+proc setRotatedSignedCookie*(response: var Response, name,
+                             primarySecret: string,
+                             verification: SignedValueVerification,
+                             httpOnly = true, secure = true,
+                             sameSite = "Lax", maxAge = -1) =
+  ## Re-issue a legacy-key cookie with the current primary key. Callers should
+  ## invoke this only when `verification.needsRotation` is true.
+  if verification.needsRotation:
+    response.setSignedCookie(name, verification.value, primarySecret,
+      httpOnly, secure, sameSite, maxAge)
 
 proc signedCookieValue*(request: Request, name, secret: string): Option[string] =
   ## Read and verify one signed cookie without coupling handlers to a server

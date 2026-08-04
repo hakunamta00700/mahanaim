@@ -176,6 +176,13 @@
 - [x] response/header/error buffer 복원과 worker 예외 전파 회귀 테스트를 유지한다.
 - [ ] blocking 자동 감지, queue limit, backend cancellation 정책은 남아 있다.
 
+### 2026-08-04 — P0 signed cookie rotation 1차
+
+- [x] primary/legacy secret keyring 검증과 legacy key index 결과를 추가했다.
+- [x] legacy signed cookie를 primary key로 재발급하는 명시적 rotation helper를 추가했다.
+- [x] legacy acceptance, invalid key rejection, rotated signature 회귀 테스트를 추가했다.
+- [ ] session/auth middleware integration과 key retirement 운영 정책은 남아 있다.
+
 ### 2026-08-04 — P0 HTTP body parsing 1차
 
 - [x] `Content-Type` 기반 framework-neutral body parser를 추가했다.

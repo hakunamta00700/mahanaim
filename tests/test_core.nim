@@ -701,6 +701,23 @@ suite "Mahanaim core contracts":
     check cookie.contains("Secure")
     check cookie.contains("Max-Age=3600")
 
+  test "signed cookie keyrings accept legacy keys and expose rotation":
+    let primary = "primary-cookie-key-that-is-long-enough"
+    let legacy = "legacy-cookie-key-that-is-long-enough"
+    let signedWithLegacy = signValue(legacy, "user.42")
+    let verification = verifySignedValueWithKeyring(
+      @[primary, legacy], signedWithLegacy).get()
+    check verification.value == "user.42"
+    check verification.keyIndex == 1
+    check verification.needsRotation
+
+    var response = textResponse("ok")
+    response.setRotatedSignedCookie("session", primary, verification)
+    check response.header("Set-Cookie").get().contains(
+      signValue(primary, "user.42"))
+
+    check verifySignedValueWithKeyring(@[primary], signedWithLegacy).isNone
+
   test "configuration merges dotenv JSON TOML and environment values":
     let root = getTempDir() / "mahanaim_config_test"
     if dirExists(root):
