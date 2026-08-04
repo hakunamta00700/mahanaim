@@ -10,6 +10,9 @@ import ./config
 import ./core
 import ./execution
 import ./security
+import ./database
+import ./database_pool
+import ./database_session
 
 type
   TestApplication* = Application
@@ -20,6 +23,14 @@ type
     cookies*: Table[string, string]
     hasLastResponse*: bool
     lastResponse*: Response
+
+  DatabaseTestFactory* = proc(): DatabaseAdapter {.gcsafe.}
+  DatabaseTestCloser* = proc(adapter: DatabaseAdapter) {.gcsafe.}
+
+  DatabaseTestFixture* = ref object
+    ## A fixture owns only pool/session policy; the caller chooses SQLite,
+    ## PostgreSQL, or a fake adapter through the backend-neutral factory.
+    pool: DatabaseConnectionPool
 
 proc newTestApplication*(config = defaultConfig(),
                          securityPolicy = defaultSecurityPolicy(),
@@ -34,6 +45,35 @@ proc newTestClient*(app: Application): TestClient =
   result.cookies = initTable[string, string]()
   result.hasLastResponse = false
   result.lastResponse = newResponse(Http500)
+
+proc newDatabaseTestFixture*(factory: DatabaseTestFactory,
+                             closer: DatabaseTestCloser = nil): DatabaseTestFixture =
+  ## One connection per fixture makes the transaction boundary deterministic;
+  ## each operation is still isolated by a fresh DatabaseSession rollback.
+  if factory.isNil:
+    raise newException(ValueError, "Database test fixture requires a factory")
+  new(result)
+  result.pool = newDatabaseConnectionPool(factory, maxConnections = 1,
+    closer = closer)
+
+proc withTestDatabase*(fixture: DatabaseTestFixture,
+                       operation: proc(adapter: DatabaseAdapter)) =
+  ## Tests must never commit setup data into a shared fixture. Cleanup belongs
+  ## here so assertion failures and raised application errors both rollback.
+  if fixture.isNil or fixture.pool.isNil:
+    raise newException(ValueError, "Database test fixture is required")
+  let session = newDatabaseSession(fixture.pool, transactional = true)
+  try:
+    operation(session.adapter)
+  finally:
+    session.rollback()
+    session.close()
+
+proc close*(fixture: DatabaseTestFixture) =
+  ## Close idle backend connections after the suite; active sessions still obey
+  ## their own rollback/return contract before the pool closes.
+  if not fixture.isNil and not fixture.pool.isNil:
+    fixture.pool.close()
 
 proc cookieHeader(client: TestClient): string =
   ## Serialize client cookies using the wire format consumed by adapters.

@@ -163,7 +163,7 @@
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [ ] durable persistence, idempotency key와 외부 queue adapter를 제공한다.
-- [ ] test database transaction isolation, live-server fixture, WebSocket/SSE test client를 제공한다.
+- [-] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공한다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
 
 ## P3 — 선택 확장
 

@@ -1935,6 +1935,36 @@ suite "Mahanaim core contracts":
     check historyAdapter.rollbackLatest([first]).get() == "001_users"
     check historyAdapter.appliedMigrations().len == 0
 
+  test "database test fixture rolls back each isolated operation":
+    let fixture = newDatabaseTestFixture(
+      proc(): DatabaseAdapter {.gcsafe.} = newSqliteDatabaseAdapter(),
+      proc(adapter: DatabaseAdapter) {.gcsafe.} =
+        cast[SqliteDatabaseAdapter](adapter).close())
+    defer: fixture.close()
+
+    proc firstFixtureOperation(adapter: DatabaseAdapter) =
+      discard adapter.execute(CompiledQuery(sql:
+        "CREATE TABLE \"fixture_rows\" (\"value\" TEXT)",
+        parameters: @[]))
+      discard adapter.execute(CompiledQuery(
+        sql: "INSERT INTO \"fixture_rows\" (\"value\") VALUES (?)",
+        parameters: @[textValue("rolled back")]))
+      let rows = adapter.execute(CompiledQuery(sql:
+        "SELECT \"value\" FROM \"fixture_rows\"", parameters: @[]))
+      check rows.len == 1
+    fixture.withTestDatabase(firstFixtureOperation)
+
+    ## The first operation's DDL and data were both inside the session
+    ## transaction, so the next operation receives a clean database state.
+    proc secondFixtureOperation(adapter: DatabaseAdapter) =
+      discard adapter.execute(CompiledQuery(sql:
+        "CREATE TABLE \"fixture_rows\" (\"value\" TEXT)",
+        parameters: @[]))
+      let rows = adapter.execute(CompiledQuery(sql:
+        "SELECT \"value\" FROM \"fixture_rows\"", parameters: @[]))
+      check rows.len == 0
+    fixture.withTestDatabase(secondFixtureOperation)
+
   test "database connection pool bounds and safely returns adapters":
     var closed = 0
     let pool = newDatabaseConnectionPool(
