@@ -10,6 +10,26 @@ import ./security
 type
   RespCommandTransport* = proc(payload: string): string
 
+  RedisServerFlavor* = enum
+    ## INFO exposes a different version key for Redis and Valkey. Keeping the
+    ## distinction in the adapter makes compatibility reports actionable
+    ## without leaking a vendor-specific client type into security.nim.
+    redisFlavor, valkeyFlavor, unknownFlavor
+
+  RedisServerInfo* = object
+    flavor*: RedisServerFlavor
+    version*: string
+
+  RedisCompatibilityReport* = object
+    ## This snapshot describes only capabilities that can be observed through
+    ## the portable INFO/CONFIG commands. It is intentionally not a policy
+    ## object: rate limiting still owns its fail-closed behavior elsewhere.
+    flavor*: RedisServerFlavor
+    version*: string
+    evictionPolicy*: string
+    maxmemoryBytes*: int64
+    boundedEviction*: bool
+
   RedisValkeyRespStats* = object
     ## Counters are adapter diagnostics, not rate-limit policy. A snapshot can
     ## be exported to any metrics system without coupling this module to one.
@@ -56,6 +76,67 @@ proc encodeFixedWindowCommand*(key: string, windowSeconds: int): string =
   let arguments = @[
     "EVAL", fixedWindowScript, "1", key, $windowSeconds]
   encodeRedisCommand(arguments)
+
+proc parseRespBulkString(payload: string, cursor: var int): string =
+  ## Parse one bulk string from an already framed RESP payload. Compatibility
+  ## probes reject simple strings and nil values so a degraded server response
+  ## cannot be mistaken for a valid configuration.
+  if cursor >= payload.len or payload[cursor] != '$':
+    raise newException(ValueError, "expected RESP bulk string")
+  inc cursor
+  let lineEnd = payload.find("\r\n", cursor)
+  if lineEnd < 0:
+    raise newException(ValueError, "incomplete RESP bulk length")
+  let length = parseInt(payload[cursor ..< lineEnd])
+  cursor = lineEnd + 2
+  if length < 0 or cursor + length + 2 > payload.len:
+    raise newException(ValueError, "invalid RESP bulk string length")
+  result = payload[cursor ..< cursor + length]
+  if payload[cursor + length .. cursor + length + 1] != "\r\n":
+    raise newException(ValueError, "invalid RESP bulk string terminator")
+  cursor += length + 2
+
+proc parseRedisServerInfo*(payload: string): RedisServerInfo =
+  ## Parse the stable INFO server fields shared by Redis and Valkey. Unknown
+  ## future vendors remain explicit instead of being silently classified.
+  var cursor = 0
+  let body = parseRespBulkString(payload, cursor)
+  for rawLine in body.splitLines():
+    let line = rawLine.strip()
+    let separator = line.find(':')
+    if separator < 1:
+      continue
+    let key = line[0 ..< separator]
+    let value = line[separator + 1 .. ^1]
+    case key
+    of "redis_version":
+      result.flavor = redisFlavor
+      result.version = value
+    of "valkey_version":
+      result.flavor = valkeyFlavor
+      result.version = value
+    else:
+      discard
+  if result.version.len == 0:
+    result.flavor = unknownFlavor
+    raise newException(ValueError, "Redis/Valkey version is missing")
+
+proc parseRedisConfigPair(payload: string, expectedKey: string): string =
+  ## CONFIG GET returns [key, value]. Exact key matching guards against a
+  ## proxy or ACL wrapper returning a different configuration entry.
+  var cursor = 0
+  if cursor >= payload.len or payload[cursor] != '*':
+    raise newException(ValueError, "expected Redis CONFIG array")
+  inc cursor
+  let lineEnd = payload.find("\r\n", cursor)
+  if lineEnd < 0 or parseInt(payload[cursor ..< lineEnd]) != 2:
+    raise newException(ValueError, "Redis CONFIG response must contain two values")
+  cursor = lineEnd + 2
+  let key = parseRespBulkString(payload, cursor)
+  let value = parseRespBulkString(payload, cursor)
+  if key != expectedKey:
+    raise newException(ValueError, "unexpected Redis CONFIG key: " & key)
+  value
 
 proc readRespLine(payload: string, cursor: var int): string =
   let ending = payload.find("\r\n", cursor)
@@ -233,6 +314,27 @@ proc executeCommand*(client: RedisValkeyRespClient, command: string): string =
     raise
   finally:
     release(client.lock)
+
+proc inspectRedisCompatibility*(client: RedisValkeyRespClient):
+    RedisCompatibilityReport =
+  ## Run the small, read-only compatibility probe used by the operations gate.
+  ## CONFIG GET may be restricted by ACL; surfacing that error is preferable to
+  ## claiming bounded eviction when the deployment has not been inspected.
+  if client.isNil:
+    raise newException(ValueError, "Redis compatibility client is required")
+  let info = parseRedisServerInfo(client.executeCommand(
+    encodeRedisCommand(["INFO", "server"])))
+  let evictionPolicy = parseRedisConfigPair(client.executeCommand(
+    encodeRedisCommand(["CONFIG", "GET", "maxmemory-policy"])),
+    "maxmemory-policy")
+  let maxmemoryText = parseRedisConfigPair(client.executeCommand(
+    encodeRedisCommand(["CONFIG", "GET", "maxmemory"])), "maxmemory")
+  result.flavor = info.flavor
+  result.version = info.version
+  result.evictionPolicy = evictionPolicy
+  result.maxmemoryBytes = parseBiggestInt(maxmemoryText)
+  result.boundedEviction = result.maxmemoryBytes > 0 and
+    evictionPolicy.toLowerAscii() != "noeviction"
 
 method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
                              windowSeconds: int): RateLimitCounterResult =

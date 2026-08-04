@@ -4164,6 +4164,37 @@ suite "Mahanaim core contracts":
     expect CatchableError:
       discard parseCounterResponse("-ERR unavailable\r\n")
 
+  test "Redis and Valkey compatibility probe reports version and eviction safety":
+    ## The fake transport keeps this contract deterministic while exercising
+    ## the same INFO/CONFIG commands that the live operations gate executes.
+    var requested: seq[string] = @[]
+    let client = newRedisValkeyRespClient(transport =
+      proc(payload: string): string =
+        requested.add(payload)
+        if payload.contains("INFO"):
+          let body = "# Server\r\nvalkey_version:8.0.1\r\nredis_mode:standalone\r\n\r\n"
+          return "$" & $body.len & "\r\n" & body & "\r\n"
+        if payload.contains("maxmemory-policy"):
+          return "*2\r\n$16\r\nmaxmemory-policy\r\n$11\r\nallkeys-lru\r\n"
+        if payload.contains("maxmemory"):
+          return "*2\r\n$9\r\nmaxmemory\r\n$8\r\n10485760\r\n"
+        "-ERR unsupported\r\n")
+    let report = inspectRedisCompatibility(client)
+    check report.flavor == valkeyFlavor
+    check report.version == "8.0.1"
+    check report.evictionPolicy == "allkeys-lru"
+    check report.maxmemoryBytes == 10485760
+    check report.boundedEviction
+    check requested.len == 3
+
+    let redisBody = "# Server\r\nredis_version:7.2.5\r\n\r\n"
+    let redisInfo = parseRedisServerInfo(
+      "$" & $redisBody.len & "\r\n" & redisBody & "\r\n")
+    check redisInfo.flavor == redisFlavor
+    check redisInfo.version == "7.2.5"
+    expect ValueError:
+      discard parseRedisServerInfo("+OK\r\n")
+
   test "Redis RESP client completes a real loopback socket exchange":
     var state: RespFixtureState
     state.port.store(0)
