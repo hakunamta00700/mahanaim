@@ -5,7 +5,7 @@
 ## small syntax needed by framework pages: `{{ value|filter }}`, `{% include
 ## "name" %}`, and `{% extends "base" %}` with `{% block name %}` overrides.
 
-import std/[strutils, tables]
+import std/[json, os, strutils, tables]
 
 type
   TemplateContext* = Table[string, string]
@@ -72,6 +72,30 @@ proc registerTranslation*(engine: TemplateEngine, locale, key, value: string) =
   if engine.translations[locale].hasKey(key):
     raise newException(ValueError, "Duplicate translation: " & locale & ":" & key)
   engine.translations[locale][key] = value
+
+proc loadTranslationFile*(engine: TemplateEngine, locale, path: string) =
+  ## Filesystem loading is deliberately an adapter-sized operation: the
+  ## renderer still owns catalog validation and duplicate policy, while an
+  ## embedding application can choose when and how to discover files.
+  if engine.isNil or locale.strip().len == 0:
+    raise newException(ValueError, "Translation engine and locale are required")
+  if path.strip().len == 0 or not fileExists(path):
+    raise newException(ValueError, "Translation catalog does not exist: " & path)
+  let document = try:
+    parseJson(readFile(path))
+  except CatchableError as error:
+    raise newException(ValueError,
+      "Invalid translation catalog: " & error.msg)
+  if document.kind != JObject:
+    raise newException(ValueError,
+      "Translation catalog must contain a JSON object")
+  ## Register one key at a time so malformed values and duplicate keys cannot
+  ## partially bypass the same policy used by programmatic registration.
+  for key, value in document.pairs:
+    if value.kind != JString:
+      raise newException(ValueError,
+        "Translation value must be a string: " & locale & ":" & key)
+    engine.registerTranslation(locale, key, value.getStr())
 
 proc translate*(engine: TemplateEngine, key: string, locale = ""): string =
   ## Missing locale entries fall back to the default catalog and finally the

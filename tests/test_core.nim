@@ -2636,6 +2636,22 @@ suite "Mahanaim core contracts":
     check engine.translate("welcome", "ko") == "환영합니다"
     check engine.translate("welcome", "ja") == "Welcome"
     check engine.translate("missing", "ko") == "missing"
+    let catalogPath = getTempDir() / "mahanaim_translation_catalog.json"
+    writeFile(catalogPath, "{\"welcome\":\"안녕하세요\",\"logout\":\"로그아웃\"}")
+    try:
+      let fileEngine = newTemplateEngine()
+      fileEngine.loadTranslationFile("ko", catalogPath)
+      check fileEngine.translate("welcome", "ko") == "안녕하세요"
+      check fileEngine.translate("logout", "ko") == "로그아웃"
+    finally:
+      if fileExists(catalogPath): removeFile(catalogPath)
+    let invalidCatalogPath = getTempDir() / "mahanaim_invalid_translation.json"
+    writeFile(invalidCatalogPath, "{\"welcome\":true}")
+    try:
+      expect ValueError:
+        newTemplateEngine().loadTranslationFile("ko", invalidCatalogPath)
+    finally:
+      if fileExists(invalidCatalogPath): removeFile(invalidCatalogPath)
     expect ValueError:
       engine.registerTranslation("en", "welcome", "Again")
     expect ValueError:

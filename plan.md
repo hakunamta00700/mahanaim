@@ -158,7 +158,7 @@
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
 - [-] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. scalar object에서 `inputSchema`/`responseSchema` macro로 `FieldSpec`를 생성하며 nested DTO와 route 자동 수집은 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
-- [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공하고 locale catalog 기반 `registerTranslation`/`translate` helper를 추가했다. locale 파일 로딩과 요청별 자동 locale 주입은 후속 범위다.
+- [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공하고 locale catalog 기반 `registerTranslation`/`translate` helper와 JSON `loadTranslationFile`을 추가했다. 요청별 자동 locale 주입은 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
 - [-] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, bulk delete action과 명시적 inline PATCH route를 지원하며 custom layout은 남아 있다.
 
