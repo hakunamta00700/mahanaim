@@ -91,8 +91,9 @@ proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행�
   여러 connection/process가 공유하는 SQLite 환경은 `SqliteIdempotencyStore`를
   사용할 수 있다. durable job payload는 `SqliteDurableJobStore`의 named kind와
   opaque payload로 저장하며, process restart 시 `recoverProcessing()`으로
-  미완료 claim을 pending으로 되돌린다. 실제 handler registry/executor 연결과
-  외부 queue recovery는 별도 adapter가 담당해야 한다.
+  미완료 claim을 pending으로 되돌린다. `DurableJobRegistry`가 named kind를
+  handler에 연결하고 기존 bounded executor를 사용하며, 외부 queue recovery는
+  별도 adapter가 담당한다.
 
 ## PostgreSQL live integration fixture
 

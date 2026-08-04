@@ -5,8 +5,9 @@
 ## decides how to execute it. SQLite is the reference adapter, while external
 ## queues can implement the same state transition contract.
 
-import std/[locks, options, strutils]
+import std/[asyncdispatch, locks, options, strutils, tables]
 import pkg/db_connector/db_sqlite
+import ./jobs
 
 type
   DurableJobStatus* = enum
@@ -23,10 +24,38 @@ type
 
   DurableJobStore* = ref object of RootObj
 
+  DurableJobHandler* = proc(payload: string) {.gcsafe.}
+
+  DurableJobRegistry* = ref object
+    ## Kind-to-handler registration remains application-owned. The durable
+    ## store never executes arbitrary payload text or discovers code by name.
+    handlers: Table[string, DurableJobHandler]
+
+  DurableJobRunResult* = object
+    processed*: bool
+    succeeded*: bool
+    id*: string
+    attempts*: int
+    error*: string
+
   SqliteDurableJobStore* = ref object of DurableJobStore
     path*: string
     connection: DbConn
     lock: Lock
+
+proc newDurableJobRegistry*(): DurableJobRegistry =
+  new(result)
+  result.handlers = initTable[string, DurableJobHandler]()
+
+proc registerHandler*(registry: DurableJobRegistry, kind: string,
+                      handler: DurableJobHandler) =
+  ## Duplicate kinds are rejected so plugin load order cannot silently replace
+  ## a handler for already persisted jobs.
+  if registry.isNil or kind.strip().len == 0 or handler.isNil:
+    raise newException(ValueError, "Durable job kind and handler are required")
+  if registry.handlers.hasKey(kind):
+    raise newException(ValueError, "Duplicate durable job handler: " & kind)
+  registry.handlers[kind] = handler
 
 method enqueue*(store: DurableJobStore, id, kind, payload: string) {.base, gcsafe.} =
   discard store
@@ -53,6 +82,34 @@ method recoverProcessing*(store: DurableJobStore) {.base, gcsafe.} =
   discard store
   raise newException(ValueError,
     "Durable job store does not implement recoverProcessing")
+
+proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
+              queue: BackgroundJobQueue): Future[DurableJobRunResult] {.async.} =
+  ## Claim one record, execute its named handler through the existing bounded
+  ## executor, and advance durable state only after the handler succeeds.
+  if registry.isNil or store.isNil or queue.isNil:
+    raise newException(ValueError,
+      "Durable job registry, store, and queue are required")
+  let claimed = store.claimNext()
+  if claimed.isNone:
+    return DurableJobRunResult(processed: false)
+  let record = claimed.get()
+  result.processed = true
+  result.id = record.id
+  result.attempts = record.attempts
+  if not registry.handlers.hasKey(record.kind):
+    store.release(record.id)
+    result.error = "No durable job handler registered: " & record.kind
+    return
+  let handler = registry.handlers[record.kind]
+  let payload = record.payload
+  let execution = await queue.enqueue(proc() {.gcsafe.} = handler(payload))
+  if execution.succeeded:
+    store.complete(record.id)
+    result.succeeded = true
+  else:
+    store.release(record.id)
+    result.error = execution.error
 
 const durableJobsTable = "__mahanaim_durable_jobs"
 

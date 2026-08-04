@@ -591,6 +591,42 @@ suite "Mahanaim core contracts":
     recoveredJobs.complete(recovered.id)
     recoveredJobs.close()
 
+  test "durable job runner dispatches named handlers through the executor":
+    let app = newApplication()
+    let queue = newBackgroundJobQueue(app.executor,
+      JobRetryPolicy(maxAttempts: 2, delayMs: 0))
+    let registry = newDurableJobRegistry()
+    var executions: Atomic[int]
+    executions.store(0)
+    registry.registerHandler("email",
+      proc(payload: string) {.gcsafe.} =
+        if payload == "fail":
+          raise newException(ValueError, "handler failure")
+        discard executions.fetchAdd(1))
+    expect ValueError:
+      registry.registerHandler("email", proc(payload: string) {.gcsafe.} = discard)
+
+    let store = newSqliteDurableJobStore()
+    store.enqueue("runner-1", "email", "ok")
+    let completed = waitFor registry.runNext(store, queue)
+    check completed.processed
+    check completed.succeeded
+    check executions.load() == 1
+    check (waitFor registry.runNext(store, queue)).processed == false
+
+    store.enqueue("runner-2", "email", "fail")
+    let failed = waitFor registry.runNext(store, queue)
+    check failed.processed
+    check not failed.succeeded
+    ## A released failed record can be claimed again after the handler is fixed.
+    let fixedRegistry = newDurableJobRegistry()
+    fixedRegistry.registerHandler("email",
+      proc(payload: string) {.gcsafe.} = discard executions.fetchAdd(1))
+    let retried = waitFor fixedRegistry.runNext(store, queue)
+    check retried.succeeded
+    check executions.load() == 2
+    store.close()
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
