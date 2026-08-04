@@ -12,6 +12,20 @@ type
     dialectSqlite
     dialectPostgres
 
+  TransactionIsolationLevel* = enum
+    isolationReadCommitted
+    isolationRepeatableRead
+    isolationSerializable
+
+  DatabaseCapabilities* = object
+    ## Explicit capability data prevents repositories from assuming that a
+    ## PostgreSQL feature has identical SQLite semantics.
+    supportsTransactions*: bool
+    supportsSavepoints*: bool
+    supportsTypedNulls*: bool
+    supportsIsolation*: bool
+    isolationLevels*: set[TransactionIsolationLevel]
+
   SqlValueKind* = enum
     sqlNull
     sqlText
@@ -111,6 +125,7 @@ type
   DatabaseAdapter* = ref object of RootObj
     ## Driver adapters implement execution and transaction methods here.
     dialect*: DatabaseDialect
+    capabilities*: DatabaseCapabilities
 
   ## Transactions execute on the caller's connection thread; callbacks do
   ## not cross a worker boundary and therefore need no artificial gcsafe
@@ -152,6 +167,36 @@ method releaseSavepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
   discard name
   raise newException(ValueError,
     "Database adapter does not implement releaseSavepoint")
+
+proc capabilitiesForDialect*(dialect: DatabaseDialect): DatabaseCapabilities =
+  ## This matrix is conservative: a capability is advertised only when the
+  ## common adapter contract can preserve its semantics on that backend.
+  case dialect
+  of dialectSqlite:
+    DatabaseCapabilities(
+      supportsTransactions: true,
+      supportsSavepoints: true,
+      supportsTypedNulls: true,
+      supportsIsolation: false,
+      isolationLevels: {})
+  of dialectPostgres:
+    DatabaseCapabilities(
+      supportsTransactions: true,
+      supportsSavepoints: true,
+      supportsTypedNulls: true,
+      supportsIsolation: true,
+      isolationLevels: {isolationReadCommitted, isolationRepeatableRead,
+                        isolationSerializable})
+
+method setIsolationLevel*(adapter: DatabaseAdapter,
+                          level: TransactionIsolationLevel) {.base.} =
+  ## Drivers opt in explicitly; silent emulation would make transaction safety
+  ## depend on the backend selected at deployment time.
+  if adapter.isNil or not adapter.capabilities.supportsIsolation or
+      level notin adapter.capabilities.isolationLevels:
+    raise newException(ValueError,
+      "Database adapter does not support requested isolation level")
+  discard level
 
 proc withTransaction*(adapter: DatabaseAdapter,
                       operation: TransactionCallback) =

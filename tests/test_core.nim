@@ -1791,6 +1791,11 @@ suite "Mahanaim core contracts":
     let postgres = compileSelect(query, dialectPostgres)
     check postgres.sql.contains("= $1")
     check postgres.sql.contains("LIKE $2")
+    check capabilitiesForDialect(dialectSqlite).supportsTransactions
+    check not capabilitiesForDialect(dialectSqlite).supportsIsolation
+    let postgresCapabilities = capabilitiesForDialect(dialectPostgres)
+    check postgresCapabilities.supportsIsolation
+    check isolationSerializable in postgresCapabilities.isolationLevels
     let paged = compileSelect(query.withPagination(newPagination(3, 10, 50)))
     check paged.sql.endsWith("LIMIT 10 OFFSET 20")
     expect ValueError:

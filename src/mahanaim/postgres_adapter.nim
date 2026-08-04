@@ -23,6 +23,7 @@ proc newPostgresDatabaseAdapter*(connection, user, password, database: string):
     raise newException(ValueError,
       "PostgreSQL connection and database are required")
   result = PostgresDatabaseAdapter(dialect: dialectPostgres,
+    capabilities: capabilitiesForDialect(dialectPostgres),
     connection: db_postgres.open(connection, user, password, database),
     endpoint: connection, nextStatementId: 0)
 
@@ -131,3 +132,18 @@ method rollbackToSavepoint*(adapter: PostgresDatabaseAdapter, name: string) =
 
 method releaseSavepoint*(adapter: PostgresDatabaseAdapter, name: string) =
   adapter.execControl("RELEASE SAVEPOINT " & safeSavepointName(name))
+
+proc isolationSql(level: TransactionIsolationLevel): string =
+  case level
+  of isolationReadCommitted: "READ COMMITTED"
+  of isolationRepeatableRead: "REPEATABLE READ"
+  of isolationSerializable: "SERIALIZABLE"
+
+method setIsolationLevel*(adapter: PostgresDatabaseAdapter,
+                          level: TransactionIsolationLevel) =
+  ## PostgreSQL requires this command inside a transaction; callers therefore
+  ## set isolation immediately after DatabaseSession.begin().
+  if level notin adapter.capabilities.isolationLevels:
+    raise newException(ValueError,
+      "PostgreSQL adapter does not support requested isolation level")
+  adapter.execControl("SET TRANSACTION ISOLATION LEVEL " & isolationSql(level))

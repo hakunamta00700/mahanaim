@@ -191,7 +191,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, backend-neutral bounded connection pool/request session wiring을 추가했다. isolation, live integration과 repository route 연결은 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. live integration/isolation fixture와 repository route 연결은 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -204,6 +204,7 @@
 - [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. PostgreSQL typed result metadata와 live server fixture는 남아 있다.
 - [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 - [x] metadata-driven repository가 relation metadata와 target metadata로 one-hop JOIN execution을 수행하고 SQLite 통합 테스트를 통과했다.
+- [x] SQLite/PostgreSQL capability matrix가 transaction/savepoint/typed NULL/isolation 지원 범위를 명시하고 unsupported isolation을 거부한다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -587,17 +588,17 @@ flowchart TB
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
-- [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. PostgreSQL live fixture와 capability matrix는 남아 있다.
+- [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture는 남아 있다.
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
-- [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring과 unit-of-work를 구현했다. locking capability와 isolation은 남아 있다.
+- [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현했다. locking capability와 live isolation fixture는 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API, form, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
 완료 기준:
 
-- [-] SQLite repository CRUD가 동작하고 PostgreSQL adapter repository API가 준비됐다. PostgreSQL live CRUD fixture는 남아 있다.
+- [-] SQLite repository CRUD가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture는 남아 있다.
 - [ ] 관계 query와 migration up/down 테스트가 통과한다.
-- [ ] transaction isolation 테스트가 통과한다.
+- [ ] PostgreSQL live transaction isolation 테스트가 통과한다.
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
@@ -679,8 +680,8 @@ flowchart TB
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
-| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release와 unit-of-work를 추가했고 locking capability와 isolation은 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter를 추가했고 backend capability matrix와 live compatibility test를 추가한다. |
+| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 
 ### HTML·폼·관리자

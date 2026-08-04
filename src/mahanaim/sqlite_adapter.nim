@@ -20,6 +20,7 @@ proc newSqliteDatabaseAdapter*(path = ":memory:"): SqliteDatabaseAdapter =
   if path.strip().len == 0:
     raise newException(ValueError, "SQLite path cannot be empty")
   result = SqliteDatabaseAdapter(dialect: dialectSqlite,
+    capabilities: capabilitiesForDialect(dialectSqlite),
     connection: db_sqlite.open(path, "", "", ""), path: path)
 
 proc close*(adapter: SqliteDatabaseAdapter) =
