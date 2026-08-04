@@ -7,13 +7,42 @@
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
-                postgres_testing, resources, testing]
+                postgres_adapter, postgres_testing, resources, testing]
+
+proc runLiveMigrationContract(configuration: PostgresTestConfiguration) =
+  ## Migration history is tested on a dedicated connection because the normal
+  ## fixture wraps a callback in an outer rollback transaction. The migration
+  ## runner owns its own begin/commit boundary and must be tested at that seam.
+  let adapter = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  defer: adapter.close()
+  let tableName = "mahanaim_live_migration_items"
+  let migration = Migration(name: "mahanaim_live_migration_001", up: @[
+    MigrationOperation(kind: migrationCreateTable, table: tableName,
+      field: newModelField("message", modelString))], down: @[
+    MigrationOperation(kind: migrationDropTable, table: tableName)])
+  let applied = adapter.migrate([migration])
+  if applied != @[migration.name] or adapter.appliedMigrations() != @[migration.name]:
+    raise newException(ValueError, "PostgreSQL migration history mismatch")
+  if adapter.migrate([migration]).len != 0:
+    raise newException(ValueError, "PostgreSQL migration was not idempotent")
+  let rolledBack = adapter.rollbackLatest([migration])
+  if rolledBack.isNone or rolledBack.get() != migration.name or
+      adapter.appliedMigrations().len != 0:
+    raise newException(ValueError, "PostgreSQL migration rollback mismatch")
+  ## The history table is framework-owned test state; remove it after proving
+  ## status/up/rollback so repeated live runs do not accumulate metadata.
+  discard adapter.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"__mahanaim_migrations\"", parameters: @[]))
 
 proc runLiveContract() =
   let configuration = postgresTestConfigurationFromEnv()
   if configuration.isNone:
     echo "PostgreSQL live test skipped: credentials are not configured"
     quit(0)
+
+  runLiveMigrationContract(configuration.get())
 
   let fixture = newPostgresTestFixture(configuration.get())
   defer: fixture.close()

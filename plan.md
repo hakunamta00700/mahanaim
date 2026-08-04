@@ -51,7 +51,7 @@
 ### P1 — 핵심 제품 기능의 남은 범위
 
 - [x] **P1-01 구조형 template AST** — `TemplateNode` 구조형 AST parser/render를 추가하고 block/include/helper 인자를 typed node로 검증했다. nested collection projection, quoted literal, named argument, 교차 종료 태그의 parser/render regression test와 사용자 문서를 함께 반영했다.
-- [ ] **P1-02 PostgreSQL migration evidence** — live migration up/down/status와 schema history를 PostgreSQL에서 검증하고 SQLite와 capability/isolation 차이를 contract report로 남긴다. 로컬에서는 compile gate와 credential 없는 skip을 계속 명시한다.
+- [-] **P1-02 PostgreSQL migration evidence** — PostgreSQL adapter에 migration history table, transactional up/down, idempotent migrate, status와 latest rollback 및 shared command overload를 추가하고 compile/live contract에 연결했다. live migration up/down/status와 schema history를 PostgreSQL에서 검증하고 SQLite와 capability/isolation 차이를 contract report로 남기는 단계는 credential 없는 환경에서 계속 남아 있다.
 
 ### P2/P3 — 운영 호환성과 선택적 확장
 
@@ -223,7 +223,7 @@
 
 - [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
-- [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|migrate|up|rollback` CLI, standalone `admin`/`jobs` 진입점, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command도 추가했으며 live fixture 증거는 남아 있다.
+- [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|migrate|up|rollback` CLI, standalone `admin`/`jobs` 진입점, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command도 추가했으며 live fixture 증거는 남아 있다.
 
 ## 탄탄한 기반을 위한 설계 규칙
 

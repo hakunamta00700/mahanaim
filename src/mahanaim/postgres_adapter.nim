@@ -4,7 +4,7 @@
 ## intent, identifier validation, and migration shape remain in database.nim,
 ## which keeps the SQLite and PostgreSQL implementations interchangeable.
 
-import std/[strutils]
+import std/[options, strutils]
 import pkg/db_connector/[db_postgres, postgres]
 import ./database
 
@@ -196,3 +196,112 @@ method setIsolationLevel*(adapter: PostgresDatabaseAdapter,
     raise newException(ValueError,
       "PostgreSQL adapter does not support requested isolation level")
   adapter.execControl("SET TRANSACTION ISOLATION LEVEL " & isolationSql(level))
+
+proc applyMigration*(adapter: PostgresDatabaseAdapter, migration: Migration) =
+  ## Apply one migration atomically using PostgreSQL's transactional DDL. The
+  ## operation compiler remains backend-neutral; only the adapter owns the
+  ## connection and transaction boundary.
+  if adapter.isNil:
+    raise newException(ValueError, "PostgreSQL migration adapter is required")
+  let currentMigration = migration
+  adapter.withTransaction(proc() =
+    for operation in currentMigration.up:
+      discard adapter.execute(CompiledQuery(
+        sql: migrationSql(operation, dialectPostgres), parameters: @[])))
+
+proc rollbackMigration*(adapter: PostgresDatabaseAdapter,
+                        migration: Migration) =
+  ## Down operations use the same rollback boundary as up operations. A failed
+  ## step therefore leaves both schema and migration history unchanged.
+  if adapter.isNil:
+    raise newException(ValueError, "PostgreSQL migration adapter is required")
+  let currentMigration = migration
+  adapter.withTransaction(proc() =
+    for operation in currentMigration.down:
+      discard adapter.execute(CompiledQuery(
+        sql: migrationSql(operation, dialectPostgres), parameters: @[])))
+
+const postgresMigrationTable = "__mahanaim_migrations"
+
+proc ensureMigrationTable(adapter: PostgresDatabaseAdapter) =
+  ## BIGSERIAL preserves execution order across independent connections while
+  ## the unique name keeps repeated `migrate` calls idempotent.
+  discard adapter.execute(CompiledQuery(sql:
+    "CREATE TABLE IF NOT EXISTS \"" & postgresMigrationTable &
+    "\" (\"sequence\" BIGSERIAL PRIMARY KEY, \"name\" TEXT NOT NULL UNIQUE)",
+    parameters: @[]))
+
+proc appliedMigrations*(adapter: PostgresDatabaseAdapter): seq[string] =
+  ## Return migration names in the order committed by PostgreSQL.
+  if adapter.isNil:
+    raise newException(ValueError, "PostgreSQL migration adapter is required")
+  adapter.ensureMigrationTable()
+  let rows = adapter.execute(CompiledQuery(sql:
+    "SELECT \"name\" FROM \"" & postgresMigrationTable &
+    "\" ORDER BY \"sequence\"", parameters: @[]))
+  for row in rows:
+    if row.len > 0:
+      result.add(row[0].text)
+
+proc validatePostgresMigrations(migrations: openArray[Migration]) =
+  ## Validate the complete list before changing the database so duplicate
+  ## names cannot leave a partially applied history.
+  var names: seq[string] = @[]
+  for migration in migrations:
+    if migration.name.strip().len == 0:
+      raise newException(ValueError, "Migration name cannot be empty")
+    if migration.name in names:
+      raise newException(ValueError, "Duplicate migration: " & migration.name)
+    names.add(migration.name)
+
+proc migrate*(adapter: PostgresDatabaseAdapter,
+              migrations: openArray[Migration]): seq[string] =
+  ## Apply only pending migrations and record each name in the same commit.
+  if adapter.isNil:
+    raise newException(ValueError, "PostgreSQL migration adapter is required")
+  validatePostgresMigrations(migrations)
+  adapter.ensureMigrationTable()
+  let applied = adapter.appliedMigrations()
+  for migration in migrations:
+    if migration.name in applied:
+      continue
+    let currentMigration = migration
+    adapter.withTransaction(proc() =
+      for operation in currentMigration.up:
+        discard adapter.execute(CompiledQuery(
+          sql: migrationSql(operation, dialectPostgres), parameters: @[]))
+      discard adapter.execute(CompiledQuery(
+        sql: "INSERT INTO \"" & postgresMigrationTable &
+          "\" (\"name\") VALUES ($1)",
+        parameters: @[textValue(currentMigration.name)])))
+    result.add(currentMigration.name)
+
+proc rollbackLatest*(adapter: PostgresDatabaseAdapter,
+                     migrations: openArray[Migration]): Option[string] =
+  ## Roll back exactly the latest recorded migration, preserving stack order.
+  if adapter.isNil:
+    raise newException(ValueError, "PostgreSQL migration adapter is required")
+  validatePostgresMigrations(migrations)
+  adapter.ensureMigrationTable()
+  let rows = adapter.execute(CompiledQuery(sql:
+    "SELECT \"name\" FROM \"" & postgresMigrationTable &
+    "\" ORDER BY \"sequence\" DESC LIMIT 1", parameters: @[]))
+  if rows.len == 0 or rows[0].len == 0:
+    return none(string)
+  let name = rows[0][0].text
+  var selected = none(Migration)
+  for migration in migrations:
+    if migration.name == name:
+      selected = some(migration)
+      break
+  if selected.isNone:
+    raise newException(ValueError, "Migration definition is missing: " & name)
+  let currentMigration = selected.get()
+  adapter.withTransaction(proc() =
+    for operation in currentMigration.down:
+      discard adapter.execute(CompiledQuery(
+        sql: migrationSql(operation, dialectPostgres), parameters: @[]))
+    discard adapter.execute(CompiledQuery(
+      sql: "DELETE FROM \"" & postgresMigrationTable & "\" WHERE \"name\" = $1",
+      parameters: @[textValue(name)])))
+  some(name)

@@ -7,6 +7,7 @@
 import std/[options, strutils]
 import ./database
 import ./models
+import ./postgres_adapter
 import ./sqlite_adapter
 
 type
@@ -145,6 +146,24 @@ proc executeMigrationCommand*(adapter: SqliteDatabaseAdapter,
                              migrations: openArray[Migration],
                              command: MigrationCommand): MigrationCommandResult =
   ## Keep migration history mutations inside the adapter's transaction rules.
+  if adapter.isNil:
+    raise newException(ValueError, "migration adapter is required")
+  result.kind = command.kind
+  case command.kind
+  of migrationCommandStatus:
+    result.applied = adapter.appliedMigrations()
+  of migrationCommandUp:
+    result.applied = adapter.migrate(migrations)
+  of migrationCommandRollback:
+    result.rolledBack = adapter.rollbackLatest(migrations)
+
+proc executeMigrationCommand*(adapter: PostgresDatabaseAdapter,
+                             migrations: openArray[Migration],
+                             command: MigrationCommand): MigrationCommandResult =
+  ## PostgreSQL uses the same parser/result contract as SQLite while its
+  ## adapter owns libpq placeholders and transactional DDL. Keeping this
+  ## overload here lets embedding CLIs choose a backend without duplicating
+  ## command semantics.
   if adapter.isNil:
     raise newException(ValueError, "migration adapter is required")
   result.kind = command.kind
