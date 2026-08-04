@@ -6,6 +6,7 @@
 
 import std/[macros, strutils]
 import ./models
+import ./validation
 
 proc fieldName(node: NimNode): string =
   ## Exported fields appear as `Postfix(Ident, "*")` in the macro AST.
@@ -75,4 +76,34 @@ macro modelMetadata*(modelType: typedesc,
     let kindNode = modelKind(typeNode)
     result.add quote do:
       `generated`.addField(newModelField(`fieldLiteral`, `kindNode`))
+  result.add generated
+
+proc inputFieldConstructor(typeNode: NimNode): NimNode =
+  ## Only scalar HTTP input types are mapped automatically; nested DTOs stay
+  ## an explicit schema boundary instead of being guessed at compile time.
+  let name = fieldTypeName(typeNode)
+  case name
+  of "string": ident("stringField")
+  of "int", "int8", "int16", "int32", "int64",
+     "uint", "uint8", "uint16", "uint32", "uint64": ident("integerField")
+  of "float", "float32", "float64": ident("floatField")
+  of "bool": ident("booleanField")
+  of "JsonNode": ident("jsonField")
+  else: error("Unsupported input schema field type: " & name, typeNode)
+
+macro inputSchema*(modelType: typedesc,
+                   location: static[FieldLocation] = flBody): untyped =
+  ## Generate deterministic FieldSpec values in source declaration order.
+  let typeDesc = getTypeInst(modelType)
+  let objectType = getImpl(typeDesc[1])
+  let fields = recordFields(objectType)
+  let generated = genSym(nskVar, "inputSchema")
+  result = newStmtList()
+  result.add quote do:
+    var `generated`: seq[FieldSpec] = @[]
+  for (name, typeNode) in fields:
+    let fieldLiteral = newLit(name)
+    let constructor = inputFieldConstructor(typeNode)
+    result.add quote do:
+      `generated`.add(`constructor`(`fieldLiteral`, `location`))
   result.add generated

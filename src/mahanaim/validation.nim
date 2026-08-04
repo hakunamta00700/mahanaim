@@ -60,6 +60,30 @@ proc integerField*(name: string, location: FieldLocation,
     defaultValue: defaultValue, minLength: -1, maxLength: -1,
     minValue: minValue, maxValue: maxValue, enumValues: @[])
 
+proc floatField*(name: string, location: FieldLocation,
+                 required = true, defaultValue = ""): FieldSpec =
+  ## Declare a floating-point field with the same required/default contract.
+  result = FieldSpec(name: name, location: location, inputType: itFloat,
+    required: required, hasDefault: defaultValue.len > 0,
+    defaultValue: defaultValue, minLength: -1, maxLength: -1,
+    minValue: low(int), maxValue: high(int), enumValues: @[])
+
+proc booleanField*(name: string, location: FieldLocation,
+                   required = true, defaultValue = ""): FieldSpec =
+  ## Declare a boolean field while keeping coercion in the validator.
+  result = FieldSpec(name: name, location: location, inputType: itBoolean,
+    required: required, hasDefault: defaultValue.len > 0,
+    defaultValue: defaultValue, minLength: -1, maxLength: -1,
+    minValue: low(int), maxValue: high(int), enumValues: @[])
+
+proc jsonField*(name: string, location: FieldLocation,
+                required = true, defaultValue = ""): FieldSpec =
+  ## Declare a JSON field without coupling the schema to a concrete DTO type.
+  result = FieldSpec(name: name, location: location, inputType: itJson,
+    required: required, hasDefault: defaultValue.len > 0,
+    defaultValue: defaultValue, minLength: -1, maxLength: -1,
+    minValue: low(int), maxValue: high(int), enumValues: @[])
+
 proc locationName(location: FieldLocation): string =
   case location
   of flPath: "path"

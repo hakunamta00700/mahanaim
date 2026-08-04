@@ -156,7 +156,7 @@
 - [x] parameterized query contract에 bounded pagination page/size/offset 정책을 연결한다.
 - [ ] 공통 query component로 pagination/filter/sort/field-selection과 typed cursor filter/token 변환, signed/expiring next cursor metadata, opt-in total metadata, metadata-driven aggregate expression parser, query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler/repository mapping/route, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 추가했다. 관계 loading의 query batching 최적화는 후속 범위다.
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
-- [ ] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. schema macro는 남아 있다.
+- [-] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. scalar object에서 `inputSchema` macro로 `FieldSpec`를 생성하며 response DTO macro와 route 자동 수집은 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공하고 locale catalog 기반 `registerTranslation`/`translate` helper를 추가했다. locale 파일 로딩과 요청별 자동 locale 주입은 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.

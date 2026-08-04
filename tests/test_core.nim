@@ -3396,6 +3396,15 @@ suite "Mahanaim core contracts":
     check generated.fields[1].kind == modelString
     check generated.fields[2].kind == modelBoolean
 
+  test "input schema macro generates ordered FieldSpec values":
+    let generated = inputSchema(MacroUser)
+    check generated.len == 3
+    check generated[0].name == "id"
+    check generated[0].inputType == itInteger
+    check generated[1].inputType == itString
+    check generated[2].inputType == itBoolean
+    check generated[0].location == flBody
+
   test "model metadata drives validation forms and OpenAPI schema":
     var metadata = newModelMetadata("Profile", "profiles")
     metadata.addField(newModelField("id", modelInteger,
