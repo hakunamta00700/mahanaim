@@ -18,6 +18,8 @@
 - HTTPS Docker wire fixture가 cold cache에서 Nim 의존성 설치·upstream 컴파일에
   필요한 bounded readiness window를 허용하도록 보완했고, nginx TLS 1.2/1.3,
   trusted proxy hop과 secure cookie live contract를 다시 통과시켰다.
+- HTTPS wire fixture에 HTTP→HTTPS `301 Location` 검증을 추가해 TLS 응답과
+  redirect 정책을 별도의 관찰 가능한 계약으로 분리했다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.

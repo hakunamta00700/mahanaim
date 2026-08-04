@@ -65,13 +65,15 @@ try {
   }
 
   docker run -d --name $containerName --network $networkName --ip $proxyIp `
-    -p 18443:18443 `
+    -p 18443:18443 -p 18081:18081 `
     -v "${PWD}\tests\nginx-https-wire.conf:/etc/nginx/nginx.conf:ro" `
     -v "${certDirectory}:/etc/nginx/certs:ro" nginx:1.27-alpine | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'HTTPS proxy container failed to start' }
   Start-Sleep -Seconds 2
 
   $env:MAHANAIM_HTTPS_URL = 'https://127.0.0.1:18443/wire'
+  $env:MAHANAIM_HTTPS_REDIRECT_URL = 'http://127.0.0.1:18081/wire'
+  $env:MAHANAIM_HTTPS_EXPECTED_REDIRECT = 'https://public.example:18443/wire'
   $env:MAHANAIM_HTTPS_HOST_HEADER = 'public.example'
   $env:MAHANAIM_HTTPS_INSECURE = '1'
   nimble httpsLive

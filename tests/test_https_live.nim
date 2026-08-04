@@ -7,6 +7,29 @@
 
 import std/[httpclient, httpcore, net, os, strutils]
 
+proc runRedirectContract() =
+  ## Keep redirect validation separate from the TLS client contract. The
+  ## redirect endpoint is plain HTTP by design, while the destination is
+  ## checked by the HTTPS request below; disabling follow-up redirects makes
+  ## the proxy's exact Location header observable.
+  let redirectUrl = getEnv("MAHANAIM_HTTPS_REDIRECT_URL")
+  if redirectUrl.len == 0:
+    return
+  let expectedLocation = getEnv("MAHANAIM_HTTPS_EXPECTED_REDIRECT",
+    "https://public.example:18443/wire")
+  let client = newHttpClient(maxRedirects = 0)
+  client.headers = newHttpHeaders({"Host": getEnv(
+    "MAHANAIM_HTTPS_HOST_HEADER", "public.example")})
+  defer: client.close()
+
+  let response = client.get(redirectUrl)
+  let location = response.headers.getOrDefault("location")
+  if response.code != Http301 or location != expectedLocation:
+    raise newException(ValueError,
+      "HTTPS redirect contract mismatch: status=" & $response.code &
+      ", location=" & location & ", expected=" & expectedLocation)
+  echo "HTTPS HTTP-to-HTTPS redirect contract passed"
+
 proc runLiveContract() =
   let url = getEnv("MAHANAIM_HTTPS_URL")
   if url.len == 0:
@@ -39,4 +62,5 @@ proc runLiveContract() =
   echo "HTTPS reverse-proxy live contract passed"
 
 when isMainModule:
+  runRedirectContract()
   runLiveContract()

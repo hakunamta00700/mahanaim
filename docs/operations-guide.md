@@ -142,9 +142,9 @@ timeout, health/readiness와 loopback HTTP/SSE/WebSocket을 검증한다. 실제
 사용한다. upstream 컨테이너는 cold Docker cache에서 lockfile 의존성을
 설치하고 컴파일할 수 있도록 bounded readiness window를 사용한다. Windows
 Docker 환경에서 다음 명령은 ephemeral self-signed
-certificate를 만들고 TLS 1.2/1.3 handshake, reverse-proxy hop, trusted
-forwarded scheme/host, `Secure`·`HttpOnly` cookie를 실제 HTTPS client로
-검증한 뒤 모든 컨테이너와 인증서를 정리한다.
+certificate를 만들고 HTTP→HTTPS redirect, TLS 1.2/1.3 handshake,
+reverse-proxy hop, trusted forwarded scheme/host, `Secure`·`HttpOnly` cookie를
+실제 client로 검증한 뒤 모든 컨테이너와 인증서를 정리한다.
 
 ```powershell
 powershell -NoProfile -Command "& '.\tests\run_https_wire.ps1'"
