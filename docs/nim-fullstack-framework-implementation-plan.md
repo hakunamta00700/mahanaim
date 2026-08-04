@@ -712,7 +712,7 @@ flowchart TB
 | [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. Argon2id/bcrypt adapter와 user/account route flow는 남아 있다. |
 | [x] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. rate limit·timeout은 별도 정책이다. |
 | [x] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
-| [ ] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS 배포 점검을 기본 설정/CLI check로 제공한다. |
+| [-] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화했다. 실제 TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 남아 있다. |
 
 ### 운영·확장·검증
 
