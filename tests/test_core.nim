@@ -3293,6 +3293,13 @@ suite "Mahanaim core contracts":
     check usersWithPosts[1]["posts"].kind == JArray
     check usersWithPosts[1]["posts"].len == 1
     check usersWithPosts[1]["posts"][0]["title"].getStr() == "SQL"
+    let pagedUsers = repository.listRelationWithRelated(relation, posts,
+      RelationSelectQuery(orderBy: @[QueryOrder(field: "id")], limit: 1,
+        offset: 1))
+    check pagedUsers.len == 1
+    check pagedUsers[0]["id"].getInt() == 2
+    check pagedUsers[0]["posts"].len == 1
+    check pagedUsers[0]["posts"][0]["title"].getStr() == "SQL"
     let lazyPosts = newLazyRelationLoader(repository, relation, posts)
     let lazyRelated = lazyPosts.load(integerValue(1))
     check lazyRelated.len == 1

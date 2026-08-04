@@ -597,7 +597,7 @@ flowchart TB
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
-- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many parent page에 bound `IN` 기반 batching을 적용했으며 many-to-many relation별 페이지 단위 batching은 남아 있다.
+- [x] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many와 many-to-many parent page에 bound `IN` 기반 batching을 적용했다.
 - [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|up|rollback`와 atomic `db seed` CLI wiring까지 연결했으며, 생성·검토, schema diff/check, fixture는 남아 있다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
@@ -686,7 +686,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
-| [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many parent page에는 bound `IN` batching을 적용했으며 many-to-many relation별 페이지 단위 batching은 남아 있다. |
+| [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 CI PostgreSQL service에서 live compatibility, serializable isolation, repository CRUD route, DDL rollback contract를 실행한다. local credential 부재로 live 결과는 CI에서 확인해야 하며 filtering/aggregate relation execution은 남아 있다. |
@@ -803,5 +803,5 @@ flowchart TB
 - [ ] 애플리케이션이 테스트·보안 점검·관측성·플러그인 확장을 갖춘 상태로 운영된다.
 
 이 기준을 충족한 뒤 SHOULD와 MAY 기능을 확장한다. 구현 중 외부 프레임워크의 현재 지원 기능이 바뀌면 요구사항 문서의 조사 기준일·버전·추적성 메모를 함께 갱신한다.
-- [-] Relation loading: 기존 JOIN 기반 `listRelation`은 base row 계약으로 유지하고, `listRelationWithRelated`가 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. one-to-many parent page와 explicit through metadata 기반 unpaged many-to-many는 batched query로 eager loading하며, many-to-many relation별 페이지 단위 batching과 lazy loading 확장은 후속 범위다.
+- [x] Relation loading: 기존 JOIN 기반 `listRelation`은 base row 계약으로 유지하고, `listRelationWithRelated`가 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. one-to-many와 explicit through metadata 기반 many-to-many parent page를 batched query로 eager loading하고 lazy relation loader도 제공한다.
 - [ ] OS/Nim matrix와 cross-platform release artifact checksum pipeline을 실제 GitHub runner에서 검증한다.

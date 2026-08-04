@@ -470,12 +470,11 @@ proc listManyToManyRelatedBatched(repository: DatabaseRepository,
                                   query: RelationSelectQuery,
                                   baseRows: seq[ResourceRow]): Table[string,
                                     seq[ResourceRow]] =
-  ## Batch an unpaged many-to-many eager load as two bounded queries:
+  ## Batch a parent page's many-to-many eager load as two bounded queries:
   ## through(local, target) followed by target IN (target keys). This avoids
   ## one join query per parent while keeping projection and target filtering in
-  ## the target repository. Per-parent pagination is intentionally handled by
-  ## the legacy path because a single global LIMIT cannot represent that
-  ## contract without window-function support in every backend.
+  ## the target repository. Pagination belongs to the parent page; applying a
+  ## single global child LIMIT would otherwise drop relations unpredictably.
   if relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
       relation.throughForeignField.len == 0:
     raise newException(ValueError,
@@ -645,10 +644,9 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
   ## join/base-row contract, while this method owns eager DTO assembly.
   if relation.kind == relationOneToMany and query.joins.len == 0:
     return repository.listRelationWithRelatedBatched(relation, target, query)
-  if relation.kind == relationManyToMany and query.limit == 0 and
-      query.offset == 0 and query.joins.len == 0:
-    ## The base page is still selected once, then all through rows and target
-    ## rows are loaded in bounded batches and grouped in memory.
+  if relation.kind == relationManyToMany and query.joins.len == 0:
+    ## The base page is selected once, then all through rows and target rows
+    ## for that page are loaded in bounded batches and grouped in memory.
     var baseQuery = SelectQuery(limit: query.limit, offset: query.offset)
     for column in query.columns:
       baseQuery.columns.add(relationBaseField(column))
