@@ -21,6 +21,14 @@ type MacroUser = object
   email: string
   active: bool
 
+type CreateProfileDto = object
+  displayName: string
+  age: int
+
+type ProfileResponseDto = object
+  id: int
+  displayName: string
+
 type FakeDependencyService = ref object of DependencyService
 type FakeDatabaseAdapter = ref object of DatabaseAdapter
   events: seq[string]
@@ -3769,6 +3777,17 @@ suite "Mahanaim core contracts":
         requestSchema: @[], responseSchema: @[], successStatus: 200),
         documentedHandler)
     check registry.operations.len == 1
+
+    addTypedDocumentedRoute(app, registry, OpenApiOperation(
+      httpMethod: "POST", path: "/typed-profiles", operationId: "typedProfile",
+      requestSchema: @[], responseSchema: @[], successStatus: 201),
+      CreateProfileDto, ProfileResponseDto, documentedHandler)
+    let typedOperation = registry.operations[1]
+    check typedOperation.requestSchema.len == 2
+    check typedOperation.requestSchema[0].name == "displayName"
+    check typedOperation.requestSchema[1].inputType == itInteger
+    check typedOperation.responseSchema.len == 2
+    check typedOperation.responseSchema[0].name == "id"
 
     var profile = newModelMetadata("DocumentedProfile", "documented_profiles")
     profile.addField(newModelField("id", modelInteger, primaryKey = true))

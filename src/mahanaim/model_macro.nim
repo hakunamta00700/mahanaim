@@ -7,6 +7,8 @@
 import std/[macros, strutils]
 import ./models
 import ./validation
+import ./application
+import ./openapi
 
 proc fieldName(node: NimNode): string =
   ## Exported fields appear as `Postfix(Ident, "*")` in the macro AST.
@@ -120,3 +122,19 @@ macro responseSchema*(modelType: typedesc,
   ## Response schemas remain FieldSpec values so OpenAPI and serializers can
   ## consume them without introducing a second schema representation.
   generateScalarSchema(modelType, newLit(location), "responseSchema")
+
+macro addTypedDocumentedRoute*(app, registry, operation, requestType,
+                               responseType, handler: typed): untyped =
+  ## Handler values are intentionally type-erased at the core boundary, so a
+  ## macro cannot safely recover DTO types from a generic closure at runtime.
+  ## This explicit typed declaration keeps the ergonomic one-line route API
+  ## while generating request/response FieldSpec values at the call site.
+  let resolved = genSym(nskVar, "typedOperation")
+  result = quote do:
+    block:
+      var `resolved` = `operation`
+      `resolved`.requestSchema = `resolved`.requestSchema &
+        inputSchema(`requestType`)
+      if `resolved`.responseSchema.len == 0:
+        `resolved`.responseSchema = responseSchema(`responseType`)
+      `app`.addDocumentedRoute(`registry`, `resolved`, `handler`)
