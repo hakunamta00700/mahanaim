@@ -49,7 +49,8 @@
 - [x] SSE event framing과 stream/WebSocket response helper contract 회귀 테스트를 추가했다.
 - [x] 표준 HTTP adapter에서 SSE representation framing을 실제 TCP wire로 검증했다.
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리했다.
-- [ ] 실제 chunked streaming, WebSocket upgrade, SSE content negotiation wire integration은 남아 있다.
+- [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 연결했다.
+- [ ] 실제 WebSocket upgrade와 SSE/content negotiation wire integration은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
@@ -164,6 +165,13 @@
 - [x] Prologue multipart upload body를 core parser/storage contract로 연결했다.
 - [x] WebSocket frame kind와 adapter-owned session callback core contract를 추가했다.
 - [ ] WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
+
+### 2026-08-04 — 표준 TCP chunked stream wire
+
+- [x] `rrStream`과 `rrServerSentEvents` 응답을 `AsyncHttpServer.respond`의 buffered 경로와 분리했다.
+- [x] 표준 TCP adapter가 `Transfer-Encoding: chunked`와 terminating zero chunk를 직접 작성한다.
+- [x] 여러 chunk를 생성하는 live HTTP 회귀 테스트를 추가했다.
+- [ ] WebSocket handshake/session adapter와 content negotiation wire integration은 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 

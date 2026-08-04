@@ -559,6 +559,33 @@ suite "Mahanaim core contracts":
     client.close()
     network.close()
 
+  test "network adapter writes stream responses with chunked transfer framing":
+    var app = newApplication()
+    let expectedBody = "chunk-".repeat(2000)
+    app.get("/stream", "stream", proc(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      streamResponse("chunk-".repeat(2000), "text/plain"))
+    let network = newNetworkServer(app, "127.0.0.1", 0)
+    asyncCheck network.serve()
+    var attempts = 0
+    while attempts < 50:
+      try:
+        if network.boundPort().uint16 > 0:
+          break
+      except OSError:
+        discard
+      waitFor sleepAsync(10)
+      inc attempts
+    check network.boundPort().uint16 > 0
+    let client = hc.newAsyncHttpClient()
+    let response = waitFor client.get(
+      "http://127.0.0.1:" & $network.boundPort().uint16 & "/stream")
+    check response.headers.getOrDefault("transfer-encoding") == "chunked"
+    check response.headers.getOrDefault("content-length") == ""
+    let body = waitFor response.body()
+    check body == expectedBody
+    client.close()
+    network.close()
+
   test "Prologue adapter maps request context and response headers":
     var nativeHeaders = newHttpHeaders()
     nativeHeaders["Host"] = "example.test"

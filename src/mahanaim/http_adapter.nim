@@ -5,7 +5,7 @@
 ## request into Mahanaim's framework-neutral Request and writes Response back.
 ## A future Prologue adapter can implement the same two translation functions.
 
-import std/[asynchttpserver, asyncdispatch, httpcore, nativesockets, strutils,
+import std/[asynchttpserver, asyncdispatch, asyncnet, httpcore, nativesockets, strutils,
             tables, uri]
 import ./application
 import ./core
@@ -52,12 +52,41 @@ proc toHttpHeaders*(response: Response): HttpHeaders =
   for key, value in response.headers:
     result[key] = value
 
+proc respondChunked(request: asynchttpserver.Request,
+                    response: Response): Future[void] {.async, gcsafe.} =
+  ## `AsyncHttpServer.respond` always emits one buffered Content-Length body.
+  ## Write the framing here so stream/SSE representations have observable wire
+  ## semantics while the core response remains transport-neutral.
+  let headers = toHttpHeaders(response)
+  if headers.hasKey("content-length"):
+    headers.del("content-length")
+  headers["transfer-encoding"] = "chunked"
+  var headerBlock = "HTTP/1.1 " & $response.status & "\c\L"
+  for key, value in headers:
+    headerBlock.add(key & ": " & value & "\c\L")
+  headerBlock.add("\c\L")
+  let clientFd = AsyncFD(request.client.getFd())
+  await clientFd.send(headerBlock)
+
+  const chunkSize = 4096
+  var offset = 0
+  while offset < response.body.len:
+    let length = min(chunkSize, response.body.len - offset)
+    await clientFd.send(toHex(length) & "\c\L")
+    await clientFd.send(response.body[offset ..< offset + length])
+    await clientFd.send("\c\L")
+    offset += length
+  await clientFd.send("0\c\L\c\L")
+
 proc handleRequest(network: NetworkServer,
                    request: asynchttpserver.Request): Future[void] {.async, gcsafe.} =
   ## Keep the network callback tiny: translate, dispatch, translate back.
   let frameworkRequest = toFrameworkRequest(request)
   let response = await network.app.dispatch(frameworkRequest)
-  await request.respond(response.status, response.body, toHttpHeaders(response))
+  if response.representation in {rrStream, rrServerSentEvents}:
+    await respondChunked(request, response)
+  else:
+    await request.respond(response.status, response.body, toHttpHeaders(response))
 
 proc newNetworkServer*(app: Application, host = "127.0.0.1",
                        port = 8000): NetworkServer =
