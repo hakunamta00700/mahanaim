@@ -12,6 +12,7 @@ import ./observability
 import ./di
 import ./jobs
 import ./migration_commands
+import ./seed_commands
 
 type
   LifecycleHook* = proc ()
@@ -79,6 +80,7 @@ type
     databasePool*: DatabaseConnectionPool
     migrationRegistry*: MigrationRegistry
     migrationDatabasePath*: string
+    seedRegistry*: SeedRegistry
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -117,6 +119,7 @@ proc newApplication*(config = defaultConfig(),
   result.jobs = newBackgroundJobQueue(result.executor)
   result.migrationRegistry = newMigrationRegistry()
   result.migrationDatabasePath = ".mahanaim.sqlite"
+  result.seedRegistry = newSeedRegistry()
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
@@ -157,6 +160,16 @@ proc configureMigrations*(app: Application, registry: MigrationRegistry,
       "Migrations must be configured before application startup")
   app.migrationRegistry = registry
   app.migrationDatabasePath = sqlitePath
+
+proc configureSeeds*(app: Application, registry: SeedRegistry) =
+  ## Seed handlers are explicit application inputs and must be configured
+  ## before startup just like migrations and database pools.
+  if app.isNil or registry.isNil:
+    raise newException(ValueError, "Application and seed registry are required")
+  if app.started:
+    raise newException(ValueError,
+      "Seeds must be configured before application startup")
+  app.seedRegistry = registry
 
 proc registerCommand*(app: Application, command: CommandDefinition) =
   ## Registration is fail-fast so duplicate CLI names cannot shadow commands.

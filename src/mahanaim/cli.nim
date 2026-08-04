@@ -9,6 +9,7 @@ import std/[options, strutils, tables]
 import ./application
 import ./migration_commands
 import ./sqlite_adapter
+import ./seed_commands
 
 proc cliArguments(arguments: openArray[string]): seq[string] =
   ## Copy borrowed command arguments before they cross a frontend boundary.
@@ -16,21 +17,28 @@ proc cliArguments(arguments: openArray[string]): seq[string] =
     result.add(argument)
 
 proc runDatabaseCli*(app: Application, arguments: openArray[string]): int =
-  ## Execute the built-in SQLite migration command using the app-owned registry.
+  ## Execute the built-in SQLite migration or seed command using app-owned
+  ## registries.
   ## PostgreSQL remains an adapter-specific follow-up until its live contract is
   ## available; this path never silently falls back to a different backend.
   if app.isNil or app.migrationRegistry.isNil:
     raise newException(ValueError, "Application migration registry is required")
   if arguments.len < 1 or arguments.len > 2:
     raise newException(ValueError,
-      "db command must be: db status|up|rollback [sqlite-path]")
+      "db command must be: db status|up|rollback|seed [sqlite-path]")
   var commandArgs = @[arguments[0]]
   let path = if arguments.len == 2: arguments[1] else: app.migrationDatabasePath
   if path.strip().len == 0:
     raise newException(ValueError, "SQLite database path cannot be empty")
-  let command = parseMigrationCommand(commandArgs)
   let adapter = newSqliteDatabaseAdapter(path)
   defer: adapter.close()
+  if arguments[0].toLowerAscii() == "seed":
+    if app.seedRegistry.isNil:
+      raise newException(ValueError, "Application seed registry is required")
+    for name in app.seedRegistry.runSeeds(adapter):
+      echo "seeded " & name
+    return 0
+  let command = parseMigrationCommand(commandArgs)
   let migrations = app.migrationRegistry.loadMigrations()
   let outcome = executeMigrationCommand(adapter, migrations, command)
   case outcome.kind
@@ -54,6 +62,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
   if copied.len == 0 or copied[0].toLowerAscii() in ["help", "--help", "-h"]:
     echo "mahanaim <command>"
     echo "  db status|up|rollback [sqlite-path]  Run application migrations"
+    echo "  db seed [sqlite-path]  Run application seed providers"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
     return 0
@@ -61,7 +70,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
   of "db":
     if copied.len == 1:
       raise newException(ValueError,
-        "db command must be: db status|up|rollback [sqlite-path]")
+        "db command must be: db status|up|rollback|seed [sqlite-path]")
     return runDatabaseCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):

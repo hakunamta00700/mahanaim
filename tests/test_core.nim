@@ -2380,6 +2380,19 @@ suite "Mahanaim core contracts":
     check app.runCli(["db", "status"]) == 0
     check app.runCli(["db", "up"]) == 0
     check app.runCli(["db", "status"]) == 0
+
+    let seeds = newSeedRegistry()
+    proc cliSeed(adapter: DatabaseAdapter) {.gcsafe.} =
+      discard adapter.execute(CompiledQuery(
+        sql: "INSERT INTO \"cli_users\" (\"id\") VALUES (?)",
+        parameters: @[integerValue(1)]))
+    seeds.registerSeed(SeedDefinition(name: "001_cli_user", handler: cliSeed))
+    app.configureSeeds(seeds)
+    check app.runCli(["db", "seed"]) == 0
+    let verifyAdapter = newSqliteDatabaseAdapter(path)
+    defer: verifyAdapter.close()
+    check verifyAdapter.execute(CompiledQuery(
+      sql: "SELECT \"id\" FROM \"cli_users\"", parameters: @[])).len == 1
     check app.runCli(["db", "rollback"]) == 0
 
   test "database test fixture rolls back each isolated operation":
