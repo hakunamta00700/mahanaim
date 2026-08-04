@@ -233,7 +233,7 @@
 - [x] SQLite migration history와 latest down rollback을 제공한다.
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
 - [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
-- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 SQLite live-server fixture에서 실제 HTTP 요청의 pool lease·반환·shutdown close를 검증했고, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar mapping도 추가했다. PostgreSQL 전용 live-server fixture와 공통 `DatabaseResult`/column metadata contract의 확장은 남아 있다.
+- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 SQLite live-server fixture와 PostgreSQL 16 `postgresLive`에서 실제 HTTP 요청의 pool lease·반환·shutdown close를 검증했고, PostgreSQL-backed HTTP/SSE/WebSocket wire 경로도 통과했다. SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar mapping은 추가했으며, 공통 `DatabaseResult`/column metadata contract의 확장은 남아 있다.
 - [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 - [x] metadata-driven repository가 relation metadata와 target metadata로 one-hop JOIN execution을 수행하고 SQLite 통합 테스트를 통과했다.
 - [x] SQLite/PostgreSQL capability matrix가 transaction/savepoint/typed NULL/isolation 지원 범위를 명시하고 unsupported isolation을 거부한다.

@@ -10,6 +10,8 @@
   실제 생성 테스트에서 실행하도록 확장했다.
 - 실제 TCP 요청이 Application의 SQLite database pool을 borrow/release하고,
   응답 후 idle 반환과 shutdown close를 보장하는 live-server 통합 계약을 추가했다.
+- PostgreSQL 16 컨테이너에서 `postgresLive`를 실행해 pool/session lifecycle과
+  PostgreSQL-backed HTTP·SSE·WebSocket wire contract를 실제로 통과시켰다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.

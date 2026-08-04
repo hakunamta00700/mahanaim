@@ -53,7 +53,7 @@
 
 - [x] **P1-01 구조형 template AST** — `TemplateNode` 구조형 AST parser/render를 추가하고 block/include/helper 인자를 typed node로 검증했다. nested collection projection, quoted literal, named argument, 교차 종료 태그의 parser/render regression test와 사용자 문서를 함께 반영했다.
 - [x] **P1-02 PostgreSQL migration evidence** — PostgreSQL adapter의 migration history table, transactional up/down, idempotent migrate, status/latest rollback 및 shared command overload를 compile/live contract에 연결했다. PostgreSQL 16 컨테이너에서 shared command status/up/migrate/status/history/rollback/status를 통과했고 SQLite/PostgreSQL capability·isolation 차이를 운영 contract report로 기록했다.
-- [x] **P1-03 DB pool/live HTTP contract** — 실제 TCP 요청이 `Application.dispatch`의 request-scoped database pool borrow/release를 통과하고, 응답 후 idle 반환·shutdown 후 pool close를 보장하는 SQLite live-server fixture를 추가했다. PostgreSQL 전용 live-server 범위는 별도 external gate로 남긴다.
+- [x] **P1-03 DB pool/live HTTP contract** — 실제 TCP 요청이 `Application.dispatch`의 request-scoped database pool borrow/release를 통과하고, 응답 후 idle 반환·shutdown 후 pool close를 보장하는 SQLite fixture를 추가했다. PostgreSQL 16 컨테이너의 `postgresLive`에서도 pool/session commit·rollback·isolation·close와 PostgreSQL-backed HTTP/SSE/WebSocket wire 경로를 실제로 통과시켰다.
 
 ### P2/P3 — 운영 호환성과 선택적 확장
 
