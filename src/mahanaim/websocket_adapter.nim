@@ -223,9 +223,20 @@ when not defined(windows):
     new(result)
     result.beastSocket = socket
     result.sendBytes = proc(data: string): Future[void] {.async, gcsafe.} =
-      await socket.send(data)
+      ## httpx waits on its own selector and only polls asyncdispatch when its
+      ## dispatcher fd is readable. Pump the handoff-owned dispatcher while a
+      ## WebSocket frame is pending, otherwise a writable socket can wait
+      ## forever inside the httpx callback.
+      let pending = socket.send(data)
+      while not pending.finished:
+        asyncdispatch.poll(10)
+      await pending
     result.receiveBytes = proc(size: int): Future[string] {.async, gcsafe.} =
-      return await socket.recv(size)
+      ## The same pump is required for reads after httpx has forgotten the fd.
+      let pending = socket.recv(size)
+      while not pending.finished:
+        asyncdispatch.poll(10)
+      return await pending
     result.closeSocket = proc() {.gcsafe.} = fd.closeSocket()
 
   proc serveWebSocket*(socketRequest: httpx.Request,

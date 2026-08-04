@@ -66,7 +66,9 @@ proc maskedFrame(opcode: byte, payload: string): string =
 
 proc runClient() =
   ## Exercise handshake, a masked data frame, and orderly close on the wire.
-  var socket = newSocket()
+  ## Use unbuffered reads because the HTTP handshake is shorter than the
+  ## scratch buffer; buffered `net.recv` intentionally waits for the full size.
+  var socket = newSocket(buffered = false)
   socket.connect("127.0.0.1", fixturePort)
   let clientKey = "dGhlIHNhbXBsZSBub25jZQ=="
   socket.send("GET /echo HTTP/1.1\r\n" &
@@ -97,10 +99,18 @@ proc runClient() =
   doAssert recvExactly(socket, 2) == "\x03\xE8"
   socket.close()
 
+proc runProbe() =
+  ## Separate listener readiness from the slower HTTP/WebSocket assertion.
+  var socket = newSocket()
+  socket.connect("127.0.0.1", fixturePort)
+  socket.close()
+
 when isMainModule:
   if paramCount() > 0 and paramStr(1) == "server":
     runServer()
   elif paramCount() > 0 and paramStr(1) == "client":
     runClient()
+  elif paramCount() > 0 and paramStr(1) == "probe":
+    runProbe()
   else:
-    quit("usage: test_beast_live server|client", QuitFailure)
+    quit("usage: test_beast_live server|probe|client", QuitFailure)

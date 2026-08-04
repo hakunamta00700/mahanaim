@@ -111,6 +111,14 @@ jobs:
         if: runner.os != 'Windows'
         run: nimble beastCheck
 
+      - name: Compile Beast/httpx live fixture (Unix)
+        if: runner.os == 'Linux'
+        run: nimble beastLiveCheck
+
+      - name: Run Beast/httpx live fixture (Linux)
+        if: runner.os == 'Linux'
+        run: nimble beastLive
+
       - name: Build release candidate
         run: nimble build
 

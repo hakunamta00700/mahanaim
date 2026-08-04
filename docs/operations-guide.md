@@ -269,4 +269,4 @@ and W3C trace propagation boundaries in an application-owned adapter.
    acknowledgement를 별도 drain budget 안에서 완료한다.
 
 현재 표준 TCP와 Windows stdlib Prologue adapter는 idempotent close를 검증했지만,
-Beast live socket ownership fixture는 추가했지만 httpx callback에서 asyncnet handshake write가 완료되지 않아 실제 release gate 승격은 남아 있다. external DB/queue drain도 별도 live 증거가 필요하다.
+Beast live socket ownership fixture는 Linux에서 `beastLiveCheck`와 `beastLive`로 handshake, frame, handler finalization, close를 검증한다. external DB/queue drain은 별도 live 증거가 필요하다.

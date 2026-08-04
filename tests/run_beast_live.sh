@@ -17,13 +17,12 @@ trap cleanup EXIT INT TERM
 
 MAHANAIM_BEAST_MARKER="$marker" ./tests/test_beast_live server >"$log" 2>&1 &
 server_pid=$!
-sleep 1
 
-passed=false
+ready=false
 attempt=0
-while [ "$attempt" -lt 3 ]; do
-  if MAHANAIM_BEAST_MARKER="$marker" timeout 3 ./tests/test_beast_live client; then
-    passed=true
+while [ "$attempt" -lt 30 ]; do
+  if MAHANAIM_BEAST_MARKER="$marker" timeout 1 ./tests/test_beast_live probe >/dev/null 2>&1; then
+    ready=true
     break
   fi
   if ! kill -0 "$server_pid" 2>/dev/null; then
@@ -34,9 +33,11 @@ while [ "$attempt" -lt 3 ]; do
   sleep 0.1
 done
 
-if [ "$passed" != true ]; then
+if [ "$ready" != true ]; then
   cat "$log"
   exit 1
 fi
+
+MAHANAIM_BEAST_MARKER="$marker" timeout 10 ./tests/test_beast_live client
 
 test -f "$marker"
