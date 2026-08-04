@@ -607,7 +607,7 @@ flowchart TB
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
 - [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하는 registry 기초를 추가하고, 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout·object-level permission은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
-- [ ] 사용자·그룹·role·permission·route guard·object-level authorization, password 관리, session rotation을 구현한다.
+- [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했다. password 관리와 session rotation은 남아 있다.
 - [ ] admin의 권한 검사와 audit log를 별도로 보장한다.
 
 완료 기준:
@@ -700,7 +700,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
-| [ ] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable policy로 제공한다. |
+| [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
 | [ ] | REQ-SEC-003 | P1 | Argon2/bcrypt 등 검증된 hashing adapter, reset token, rotation, login throttling hook을 제공한다. |
 | [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
 | [ ] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |

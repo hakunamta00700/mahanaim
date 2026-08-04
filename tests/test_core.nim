@@ -719,6 +719,30 @@ suite "Mahanaim core contracts":
       authenticated.headers["Authorization"][0 .. ^2] & "0"
     check (waitFor app.dispatch(tampered)).status == Http401
 
+  test "authorization policy composes roles groups object checks and route guards":
+    let policy = newAuthorizationPolicy()
+    policy.grantPermission("editor", "documents", "read")
+    policy.addGroupRole("writers", "editor")
+    policy.addSubjectToGroup("user-7", "writers")
+    policy.objectPolicy = proc(request: Request, resource, action,
+                               objectId: string): bool {.gcsafe.} =
+      discard request
+      resource == "documents" and action == "read" and objectId == "owned-1"
+    let app = newApplication()
+    proc document(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse("document:" & request.pathParams["id"])
+    app.get("/documents/:id", "document", document,
+      @[policy.requirePermission("documents", "read")])
+
+    let anonymous = newRequest("GET", "/documents/owned-1")
+    check (waitFor app.dispatch(anonymous)).status == Http403
+    var owned = newRequest("GET", "/documents/owned-1")
+    owned.auth = AuthContext(authenticated: true, subject: "user-7")
+    check (waitFor app.dispatch(owned)).body == "document:owned-1"
+    var other = newRequest("GET", "/documents/other")
+    other.auth = owned.auth
+    check (waitFor app.dispatch(other)).status == Http403
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")
