@@ -1033,6 +1033,26 @@ suite "Mahanaim core contracts":
       first[0 .. ^2] & (if first[^1] == '0': "1" else: "0"))
     check not hasher.verifyPassword("correct horse battery staple", "invalid")
 
+  test "Argon2id password hasher emits PHC hashes and rehashes cost changes":
+    expect ValueError:
+      discard newArgon2idPasswordHasher(memoryKiB = 4096)
+    let hasher = newArgon2idPasswordHasher(memoryKiB = 8192,
+      iterations = 1, threadCount = 1, derivedBytes = 16)
+    let encoded = hasher.hashPassword("correct horse battery staple")
+    check encoded.startsWith("$argon2id$")
+    check hasher.verifyPassword("correct horse battery staple", encoded)
+    check not hasher.verifyPassword("wrong password", encoded)
+    check not hasher.passwordNeedsRehash(encoded)
+    let stronger = newArgon2idPasswordHasher(memoryKiB = 8192,
+      iterations = 2, threadCount = 1, derivedBytes = 16)
+    check stronger.passwordNeedsRehash(encoded)
+    let upgraded = stronger.verifyAndRehash(
+      "correct horse battery staple", encoded)
+    check upgraded.valid
+    check upgraded.rehashed
+    check stronger.verifyPassword("correct horse battery staple", upgraded.encoded)
+    check not hasher.verifyPassword("correct horse battery staple", "not-a-phc-hash")
+
   test "password hasher contract accepts replaceable algorithms":
     let hasher: PasswordHasher = FakePasswordHasher()
     check hasher.hashPassword("secret") == "fake$secret"

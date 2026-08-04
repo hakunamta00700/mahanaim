@@ -28,6 +28,15 @@
 - 장애 복구 시에는 먼저 blocking detection과 executor counters를 확인하고,
   무한 queue나 무제한 retry로 트래픽을 흡수하지 않는다.
 
+## Password hashing
+
+`newArgon2idPasswordHasher`는 PHC encoded Argon2id hash를 생성하고 저장된
+cost parameter를 읽어 `verifyAndRehash`로 점진적 cost rotation을 수행한다.
+메모리·반복·parallelism은 생성자에서 bounded policy로 검증해야 하며, 운영 배포는
+실제 hardware에서 login latency와 concurrent memory 사용량을 benchmark한 뒤 값을
+선택한다. bcrypt는 별도 adapter로 연결할 수 있고, PBKDF2는 호환성 reference
+adapter로 유지한다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.

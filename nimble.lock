@@ -1,6 +1,16 @@
 {
   "version": 2,
   "packages": {
+    "argon2": {
+      "version": "1.1.0",
+      "vcsRevision": "8e4308c0fe2f38e9882ba8f6d5f17ad9cd37fb90",
+      "url": "https://github.com/Ahrotahn/argon2",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "95332de129a8d1383c5410248ea1b0de2f831ceb"
+      }
+    },
     "cligen": {
       "version": "1.9.3",
       "vcsRevision": "55aa1c79939dc04875d1c9fefa12e52582f39fae",

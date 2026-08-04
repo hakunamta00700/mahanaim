@@ -18,11 +18,12 @@ requires "parsetoml >= 0.7.2"
 requires "prologue >= 0.6.8"
 requires "taskpools >= 0.1.0"
 requires "db_connector >= 0.1.0"
+requires "argon2 >= 1.1.0"
 
 proc dependencyPathArgs(): string =
   ## Tasks are run by Nimble but invoke Nim directly, so pass every locked
   ## package path explicitly instead of depending on an ambient compiler path.
-  let packageNames = "nimcrypto parsetoml prologue taskpools db_connector cookiejar httpx ioselectors " &
+  let packageNames = "nimcrypto parsetoml prologue taskpools db_connector argon2 cookiejar httpx ioselectors " &
     "wepoll logue cligen regex unicodedb"
   let paths = staticExec("nimble path " & packageNames)
   for path in paths.splitLines:

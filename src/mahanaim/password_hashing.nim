@@ -5,8 +5,9 @@
 ## supplied by nimcrypto; applications may replace it with Argon2id/bcrypt at
 ## this same API boundary without changing user or auth services.
 
-import std/[locks, options, strutils, sysrand, tables, times]
+import std/[base64, locks, options, strutils, sysrand, tables, times]
 import nimcrypto/[pbkdf2, sha2]
+import argon2
 import ./security
 
 type
@@ -18,6 +19,15 @@ type
     iterations*: int
     saltBytes*: int
     derivedBytes*: int
+
+  Argon2idPasswordHasher* = ref object of PasswordHasher
+    ## The encoded PHC string stores the algorithm parameters with each
+    ## password. Keeping the policy here lets verifyAndRehash rotate costs
+    ## without coupling account storage to the Argon2 implementation.
+    memoryKiB*: uint32
+    iterations*: uint32
+    threadCount*: uint32
+    derivedBytes*: uint32
 
   PasswordVerification* = object
     ## Authentication code persists `encoded` only when `valid` is true;
@@ -155,6 +165,115 @@ proc newPbkdf2PasswordHasher*(iterations = defaultPasswordIterations,
     raise newException(ValueError, "Invalid PBKDF2 salt or derived key size")
   Pbkdf2PasswordHasher(iterations: iterations, saltBytes: saltBytes,
     derivedBytes: derivedBytes)
+
+proc newArgon2idPasswordHasher*(memoryKiB: uint32 = 64 * 1024,
+                                iterations: uint32 = 3,
+                                threadCount: uint32 = 1,
+                                derivedBytes: uint32 = 32):
+    Argon2idPasswordHasher =
+  ## Bounds reject both accidentally weak settings and unbounded request-cost
+  ## settings. Applications may tune within these limits using deployment
+  ## benchmarks, while the encoded hash remains self-describing.
+  if memoryKiB < 8 * 1024 or memoryKiB > 1024 * 1024:
+    raise newException(ValueError, "Argon2 memory must be 8192..1048576 KiB")
+  if iterations < 1 or iterations > 10:
+    raise newException(ValueError, "Argon2 iterations must be 1..10")
+  if threadCount < 1 or threadCount > 32:
+    raise newException(ValueError, "Argon2 threads must be 1..32")
+  if derivedBytes < 16 or derivedBytes > 64:
+    raise newException(ValueError, "Argon2 output size must be 16..64 bytes")
+  Argon2idPasswordHasher(memoryKiB: memoryKiB, iterations: iterations,
+    threadCount: threadCount, derivedBytes: derivedBytes)
+
+type ParsedArgon2Hash = object
+  ## Only the PHC fields required by this adapter are retained. A malformed or
+  ## non-Argon2id string is represented by `none` and never reaches the C API.
+  memoryKiB: uint32
+  iterations: uint32
+  threadCount: uint32
+  derivedBytes: uint32
+  salt: string
+
+proc parseArgon2idHash(encoded: string): Option[ParsedArgon2Hash] =
+  ## Parse the standard `$argon2id$v=19$m=...,t=...,p=...$salt$digest` form.
+  ## The parser is deliberately strict because this value is persisted input.
+  try:
+    let parts = encoded.split('$')
+    if parts.len != 6 or parts[1] != "argon2id" or parts[2] != "v=19":
+      return none(ParsedArgon2Hash)
+    var memory = 0
+    var iterations = 0
+    var threads = 0
+    for item in parts[3].split(','):
+      let pair = item.split('=', maxsplit = 1)
+      if pair.len != 2:
+        return none(ParsedArgon2Hash)
+      let value = parseInt(pair[1])
+      if value < 1:
+        return none(ParsedArgon2Hash)
+      case pair[0]
+      of "m": memory = value
+      of "t": iterations = value
+      of "p": threads = value
+      else: return none(ParsedArgon2Hash)
+    let salt = decode(parts[4])
+    let digest = decode(parts[5])
+    if memory > int(high(uint32)) or iterations > int(high(uint32)) or
+       threads > int(high(uint32)) or digest.len == 0:
+      return none(ParsedArgon2Hash)
+    some(ParsedArgon2Hash(memoryKiB: uint32(memory),
+      iterations: uint32(iterations), threadCount: uint32(threads),
+      derivedBytes: uint32(digest.len), salt: salt))
+  except CatchableError:
+    none(ParsedArgon2Hash)
+
+proc constantTimeTextEquals(left, right: string): bool =
+  ## Hash strings are compared without an early-exit prefix leak. The length is
+  ## folded into the accumulator as well, matching the byte-level policy used
+  ## by the PBKDF2 adapter.
+  var difference = left.len xor right.len
+  let common = min(left.len, right.len)
+  for index in 0 ..< common:
+    difference = difference or (ord(left[index]) xor ord(right[index]))
+  difference == 0
+
+method hashPassword*(hasher: Argon2idPasswordHasher, password: string): string
+    {.gcsafe.} =
+  if hasher.isNil or password.len == 0:
+    raise newException(ValueError, "Password hasher and password are required")
+  ## The C-backed dependency receives a random salt and emits the standard
+  ## `$argon2id$...` PHC representation; plaintext never persists.
+  let salt = cast[string](urandom(16))
+  argon2("id", password, salt, hasher.iterations, hasher.memoryKiB,
+    hasher.threadCount, hasher.derivedBytes).enc
+
+method verifyPassword*(hasher: Argon2idPasswordHasher,
+                       password, encoded: string): bool {.gcsafe.} =
+  if hasher.isNil or password.len == 0 or encoded.len == 0:
+    return false
+  try:
+    let parsed = parseArgon2idHash(encoded)
+    if parsed.isNone:
+      return false
+    let value = parsed.get()
+    let regenerated = argon2("id", password, value.salt, value.iterations,
+      value.memoryKiB, value.threadCount, value.derivedBytes).enc
+    constantTimeTextEquals(regenerated, encoded)
+  except CatchableError:
+    false
+
+method passwordNeedsRehash*(hasher: Argon2idPasswordHasher,
+                            encoded: string): bool {.gcsafe.} =
+  if hasher.isNil:
+    return true
+  let parsed = parseArgon2idHash(encoded)
+  if parsed.isNone:
+    return true
+  let value = parsed.get()
+  value.memoryKiB != hasher.memoryKiB or
+    value.iterations != hasher.iterations or
+    value.threadCount != hasher.threadCount or
+    value.derivedBytes != hasher.derivedBytes
 
 proc derive(hasher: Pbkdf2PasswordHasher, password: string,
             salt: openArray[byte], iterations, outputBytes: int): seq[byte] =
