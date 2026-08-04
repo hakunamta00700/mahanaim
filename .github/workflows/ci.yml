@@ -50,6 +50,12 @@ jobs:
       - name: Validate package and dependency contracts
         run: nimble check
 
+      - name: Compile HTTPS reverse-proxy wire contract
+        run: nimble httpsLiveCheck
+
+      - name: Run HTTPS live contract or record explicit skip
+        run: nimble httpsLive
+
       - name: Compile PostgreSQL adapter contract
         run: nimble postgresCheck
 

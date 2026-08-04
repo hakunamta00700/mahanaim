@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.
 - `PasswordHasher`에 Nim maintained pure bcrypt adapter를 추가하고 `$2a$`·`$2b$`·`$2y$` 검증, work-factor rotation, bcrypt benchmark output과 Windows/Linux contract gate를 연결했다.
 - Beast/httpx Linux live gate와 PostgreSQL pool/session·HTTP/SSE/WebSocket live-server 계약을 추가하고, HTTP adapter가 parent socket ownership을 보존하도록 WebSocket close 경계를 수정했다.
