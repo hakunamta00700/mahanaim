@@ -171,6 +171,7 @@
 - [x] `rrStream`과 `rrServerSentEvents` 응답을 `AsyncHttpServer.respond`의 buffered 경로와 분리했다.
 - [x] 표준 TCP adapter가 `Transfer-Encoding: chunked`와 terminating zero chunk를 직접 작성한다.
 - [x] 여러 chunk를 생성하는 live HTTP 회귀 테스트를 추가했다.
+- [x] HTTP route와 분리된 `WebSocketRoute` registry와 path precedence 회귀 테스트를 추가했다.
 - [ ] WebSocket handshake/session adapter와 content negotiation wire integration은 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차

@@ -80,6 +80,13 @@ type
   SyncHandler* = proc (request: Request): Response {.gcsafe.}
   WebSocketHandler* = proc (request: Request,
                             session: WebSocketSession): Future[void] {.gcsafe.}
+
+  WebSocketRoute* = object
+    ## WebSocket routes have a different completion model from HTTP routes:
+    ## the handler owns a live session instead of returning one Response.
+    pattern*: string
+    name*: string
+    handler*: WebSocketHandler
   Middleware* = proc (request: Request, next: Handler): Future[Response] {.gcsafe.}
 
   HandlerExecutionKind* = enum

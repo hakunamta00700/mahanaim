@@ -26,7 +26,9 @@ type
     ## `routeNames` and `routeTree` are separate indexes so URL generation and
     ## matching do not scan every route blindly.
     routes*: seq[Route]
+    webSocketRoutes*: seq[WebSocketRoute]
     routeNames: Table[string, int]
+    webSocketNames: Table[string, bool]
     routeTree: seq[RouteTreeNode]
 
 proc newRouteTreeNode(): RouteTreeNode =
@@ -39,7 +41,9 @@ proc newRouteTreeNode(): RouteTreeNode =
 
 proc initRouter*(): Router =
   result.routes = @[]
+  result.webSocketRoutes = @[]
   result.routeNames = initTable[string, int]()
+  result.webSocketNames = initTable[string, bool]()
   result.routeTree = @[newRouteTreeNode()]
 
 proc newRouteGroup*(prefix: string, middleware: seq[Middleware] = @[]): RouteGroup =
@@ -112,6 +116,20 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
   if normalizedName.len > 0:
     router.routeNames[normalizedName] = index
   router.indexRoute(normalizePattern(pattern), index)
+
+proc addWebSocketRoute*(router: var Router, pattern, name: string,
+                        handler: WebSocketHandler) =
+  ## Keep upgrade routes out of HTTP method matching while reusing the same
+  ## path grammar and registration-time duplicate-name protection.
+  let normalizedName = name.strip()
+  if normalizedName.len > 0 and
+     (router.routeNames.hasKey(normalizedName) or
+      router.webSocketNames.hasKey(normalizedName)):
+    raise newException(ValueError, "Duplicate route name: " & normalizedName)
+  router.webSocketRoutes.add(WebSocketRoute(
+    pattern: normalizePattern(pattern), name: normalizedName, handler: handler))
+  if normalizedName.len > 0:
+    router.webSocketNames[normalizedName] = true
 
 proc addRoute*(router: var Router, group: RouteGroup, httpMethod, pattern,
                name: string, handler: Handler,
@@ -254,6 +272,18 @@ proc findNamed*(router: Router, name: string): Option[Route] =
   if router.routeNames.hasKey(name):
     return some(router.routes[router.routeNames[name]])
   none(Route)
+
+proc findWebSocket*(router: Router, path: string): Option[WebSocketRoute] =
+  ## Choose the most specific upgrade route with the same scoring policy as
+  ## HTTP routes; registration order remains the tie breaker.
+  var bestScore = -1
+  for route in router.webSocketRoutes:
+    var params = initTable[string, string]()
+    if matchPattern(route.pattern, path, params):
+      let score = routeScore(Route(pattern: route.pattern))
+      if score > bestScore:
+        bestScore = score
+        result = some(route)
 
 proc extractParams*(pattern, path: string): Option[Table[string, string]] =
   ## Public helper for the dispatcher and route-level tests.

@@ -901,6 +901,22 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard newWebSocketSession().send(textFrame)
 
+  test "WebSocket routes use a separate registry and preserve path precedence":
+    var app = newApplication()
+    app.websocket("/rooms/:id", "roomSocket",
+      proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
+        discard request
+        discard session
+        discard)
+    app.websocket("/rooms/*path", "roomWildcard",
+      proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
+        discard request
+        discard session)
+    let matched = app.router.findWebSocket("/rooms/42")
+    check matched.isSome
+    check matched.get().name == "roomSocket"
+    check app.router.routes.len == 0
+
   test "response cookie helper applies safe defaults":
     var response = textResponse("ok")
     response.setCookie("session", "a;b", secure = true, maxAge = 3600)

@@ -80,6 +80,12 @@ proc post*(app: Application, pattern, name: string, handler: Handler,
            middleware: seq[Middleware] = @[]) =
   app.addRoute("POST", pattern, name, handler, middleware)
 
+proc websocket*(app: Application, pattern, name: string,
+                handler: WebSocketHandler) =
+  ## Register a live protocol endpoint without pretending it is an HTTP body
+  ## handler. Concrete adapters perform the handshake and own the session.
+  app.router.addWebSocketRoute(pattern, name, handler)
+
 proc group*(app: Application, prefix: string,
             middleware: seq[Middleware] = @[]): RouteGroup =
   ## Return a reusable route declaration scope.  The application remains the
