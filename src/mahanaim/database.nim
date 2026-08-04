@@ -574,16 +574,34 @@ proc withPagination*(query: SelectQuery,
 
 proc migrationSql*(operation: MigrationOperation,
                    dialect = dialectSqlite): string =
-  ## A small deterministic compiler is useful for review and driver adapters.
-  discard dialect
+  ## Keep migration DDL metadata-driven so a generated schema preserves the
+  ## repository's typed values and generated-key contract.
+  proc fieldType(field: ModelField): string =
+    case field.kind
+    of modelInteger: "INTEGER"
+    of modelFloat: "REAL"
+    of modelBoolean: "BOOLEAN"
+    of modelJson, modelFile: "TEXT"
+    of modelDateTime, modelUuid, modelReference, modelString: "TEXT"
+  proc columnDefinition(field: ModelField, includePrimaryKey = true): string =
+    let columnName = if field.columnName.len > 0: field.columnName else: field.name
+    result = quoteIdentifier(columnName) & " " & fieldType(field)
+    if includePrimaryKey and field.primaryKey:
+      result.add(" PRIMARY KEY")
+      if dialect == dialectSqlite and field.kind == modelInteger:
+        result.add(" AUTOINCREMENT")
+    elif includePrimaryKey and not field.nullable:
+      result.add(" NOT NULL")
+    if includePrimaryKey and field.unique and not field.primaryKey:
+      result.add(" UNIQUE")
   case operation.kind
   of migrationCreateTable:
     if operation.table.len == 0: raise newException(ValueError, "Table is required")
     "CREATE TABLE " & quoteIdentifier(operation.table) & " (" &
-      quoteIdentifier(operation.field.name) & " TEXT)"
+      columnDefinition(operation.field) & ")"
   of migrationAddColumn:
     "ALTER TABLE " & quoteIdentifier(operation.table) & " ADD COLUMN " &
-      quoteIdentifier(operation.field.name) & " TEXT"
+      columnDefinition(operation.field, includePrimaryKey = false)
   of migrationCreateIndex:
     if operation.index.fields.len == 0: raise newException(ValueError, "Index needs fields")
     var fields: seq[string] = @[]

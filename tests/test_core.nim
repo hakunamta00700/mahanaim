@@ -3881,6 +3881,99 @@ suite "Mahanaim core contracts":
     check (waitFor app.dispatch(newRequest("GET",
       "/route-items/" & $id))).status == Http404
 
+  test "first vertical slice composes migration CRUD admin auth OpenAPI and lifecycle":
+    ## This is intentionally one application fixture: component tests above
+    ## prove local contracts, while this scenario proves their composition at
+    ## the boundary a generated application will actually use.
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    var metadata = newModelMetadata("SliceItem", "slice_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("title", modelString))
+    let migration = migrationFromMetadata(metadata, "001_slice_items")
+    let migrationResult = executeMigrationCommand(adapter, @[migration],
+      parseMigrationCommand(["migrate"]))
+    check migrationResult.applied == @["001_slice_items"]
+
+    let repository = newDatabaseRepository(metadata, adapter)
+    let resource = newCrudResource(metadata,
+      newDatabaseRepositoryResourceStore(repository))
+    var policy = defaultSecurityPolicy()
+    policy.csrfEnabled = true
+    policy.csrfSecret = "vertical-slice-csrf-secret-that-is-long-enough"
+    policy.csrfCookieSecure = false
+    policy.session.enabled = true
+    policy.session.cookieName = "vertical_slice_session"
+    policy.session.secret = "vertical-slice-session-secret-that-is-long-enough"
+    policy.session.secureCookie = false
+    let app = newTestApplication(securityPolicy = policy)
+
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      ## The route remains capture-free; application health state is asserted
+      ## through the observability API below to preserve the handler boundary.
+      discard request
+      return jsonResponse(%*{"status": "ok"})
+    app.get("/health", "health", health)
+    registerCrudRoutes(app, resource, "/slice-items", "slice-items")
+
+    let accountStore = newInMemoryAccountCredentialStore()
+    let accountHasher = newPbkdf2PasswordHasher(iterations = 10000)
+    accountStore.addAccount(AccountCredential(subject: "admin-1",
+      identifier: "admin@example.test",
+      passwordHash: accountHasher.hashPassword("admin-password"), enabled: true))
+    let authentication = newAccountAuthentication(accountStore, accountHasher,
+      policy.session, newInMemoryLoginThrottle())
+    app.registerAccountAuthenticationRoutes(authentication)
+
+    let adminRegistry = newAdminRegistry()
+    proc authorize(request: Request): bool {.gcsafe.} =
+      request.auth.authenticated and request.auth.subject == "admin-1"
+    adminRegistry.registerAdminResource("slice-items", "/admin/slice-items",
+      metadata, newDatabaseRepositoryResourceStore(repository), authorize,
+      formPolicy = policy)
+    registerAdminRoutes(app, adminRegistry)
+
+    let client = newTestClient(app)
+    ## A GET seeds the browser's double-submit token before protected POSTs.
+    let anonymousForm = waitFor client.get("/admin/slice-items/new")
+    check anonymousForm.status == Http403
+    check client.cookies.hasKey(policy.csrfCookieName)
+    let csrf = client.cookies[policy.csrfCookieName]
+    let csrfHeaders = [(policy.csrfHeaderName, csrf)]
+    let login = waitFor client.post("/login",
+      "{\"identifier\":\"admin@example.test\",\"password\":\"admin-password\"}",
+      headers = csrfHeaders)
+    check login.status == Http200
+
+    let form = waitFor client.get("/admin/slice-items/new")
+    check form.status == Http200
+    check form.body.contains("name=\"title\"")
+    check form.body.contains("x-csrf-token")
+    let created = waitFor client.post("/slice-items", "{\"title\":\"first\"}",
+      headers = csrfHeaders)
+    check created.status == Http201
+    let id = parseJson(created.body)["id"].getInt()
+    check parseJson(created.body)["title"].getStr() == "first"
+    let adminList = waitFor client.get("/admin/slice-items")
+    check adminList.status == Http200
+    check parseJson(adminList.body)[0]["title"].getStr() == "first"
+
+    let openApi = newOpenApiRegistry("Vertical Slice", "1.0.0")
+    check openApi.collectRoutes(app.router) > 0
+    let document = openApi.document()
+    check document["paths"].hasKey("/slice-items")
+    check document["paths"].hasKey("/admin/slice-items")
+
+    app.startup()
+    let healthy = waitFor client.get("/health")
+    check healthy.status == Http200
+    check healthy.headers.hasKey("x-request-id")
+    check healthy.body.contains("\"status\":\"ok\"")
+    check healthResponse(app.observability).status == Http200
+    app.shutdown()
+    check not app.observability.ready
+    discard id
+
   test "admin registry composes database repository store with SQLite":
     let adapter = newSqliteDatabaseAdapter()
     defer: adapter.close()

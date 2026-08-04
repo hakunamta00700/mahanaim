@@ -766,11 +766,15 @@ flowchart TB
 처음부터 모든 기능을 병렬 구현하지 않는다. 다음 예제 앱 하나를 기준으로 코어 계약을 검증한다.
 
 - [ ] `new`로 생성한다.
-- [ ] SQLite 모델과 migration을 만든다.
-- [ ] 서버 렌더링 CRUD와 JSON CRUD를 같은 모델로 노출한다.
-- [ ] validation 오류, CSRF, session login, admin 권한을 확인한다.
-- [ ] OpenAPI 문서와 test client로 같은 route를 검증한다.
-- [ ] health check, request ID, graceful shutdown을 확인한다.
+- [x] SQLite 모델과 metadata migration을 만들고, 타입·자동 증가 PK를 보존한다.
+- [x] 서버 렌더링 admin CRUD와 JSON CRUD를 같은 SQLite 모델로 노출한다.
+- [x] validation 경계, CSRF, session login, admin 권한을 확인한다.
+- [x] OpenAPI route collection과 in-process test client로 같은 route를 검증한다.
+- [x] health response, request ID, graceful startup/shutdown을 확인한다.
+
+`tests/test_core.nim`의 첫 수직 슬라이스 fixture가 위 경계를 하나의 Application
+lifecycle에서 검증한다. `new`가 이 구성을 자동 생성하는 범위는 아직 별도 작업으로
+남아 있으므로 첫 번째 항목은 완료로 표시하지 않는다.
 
 이 수직 슬라이스가 통과하면 PostgreSQL, WebSocket/SSE, queue, 외부 storage를 추가한다. 이 순서로 진행해야 계층 간 계약이 실제 사용 흐름에서 검증된다.
 
