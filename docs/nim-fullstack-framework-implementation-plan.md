@@ -109,6 +109,14 @@
 - [x] 정상 설정과 invalid port·중복 route·약한 CSRF secret 실패 회귀 테스트를 추가했다.
 - [ ] model·migration 검사와 CI/deployment 환경의 동일한 실행 wiring은 남아 있다.
 
+### 2026-08-04 — P0 model metadata 1차
+
+- [x] field, index, constraint, relation을 표현하는 backend-neutral metadata를 추가했다.
+- [x] application-owned model registry와 중복 선언 방지를 추가했다.
+- [x] check report가 model field·index·relation 참조를 검증하도록 연결했다.
+- [x] metadata lookup과 registry·invalid reference 회귀 테스트를 추가했다.
+- [ ] model macro 생성, query/backend adapter, migration compiler와 serializer/form/admin/OpenAPI 소비자는 남아 있다.
+
 검증 명령:
 
 ```powershell
@@ -298,12 +306,12 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [ ] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
+| [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [ ] | REQ-DATA-003 | P1 | schema diff, migration artifact, up/down/status/check와 fixture/seed 명령을 제공한다. |
 | [ ] | REQ-DATA-004 | P1 | unit-of-work와 connection pool을 request context에 연결하고 savepoint·locking capability를 명시한다. |
 | [ ] | REQ-DATA-005 | P1 | SQLite를 기준 backend로 완성한 뒤 PostgreSQL adapter와 backend capability matrix를 추가한다. |
-| [ ] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
+| [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 
 ### HTML·폼·관리자
 

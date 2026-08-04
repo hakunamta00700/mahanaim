@@ -462,6 +462,38 @@ suite "Mahanaim core contracts":
     check config.secrets.len == 0
     check redactSecrets("nothing sensitive", config) == "nothing sensitive"
 
+  test "model metadata is registry-backed and backend-neutral":
+    var user = newModelMetadata("User", "users")
+    user.addField(newModelField("id", modelInteger, primaryKey = true,
+      indexed = true))
+    user.addField(newModelField("email", modelString, unique = true,
+      maxLength = 320))
+    user.addIndex(ModelIndex(name: "users_email_idx", fields: @["email"],
+      unique: true))
+    user.addConstraint(ModelConstraint(name: "email_not_blank",
+      expression: "email <> ''"))
+    user.addRelation(ModelRelation(name: "posts", kind: relationOneToMany,
+      targetModel: "Post", localField: "id", foreignField: "user_id"))
+
+    var registry = initModelRegistry()
+    registry.registerModel(user)
+    check registry.model("User").isSome
+    check registry.model("User").get().field("email").get().maxLength == 320
+    check registry.modelNames() == @["User"]
+    expect ValueError:
+      user.addField(newModelField("id", modelInteger))
+    expect ValueError:
+      registry.registerModel(user)
+
+    var broken = newModelMetadata("Broken", "broken")
+    broken.addField(newModelField("id", modelInteger, primaryKey = true))
+    broken.addIndex(ModelIndex(name: "missing_idx", fields: @["missing"]))
+    var brokenRegistry = initModelRegistry()
+    brokenRegistry.registerModel(broken)
+    let brokenReport = checkModels(brokenRegistry)
+    check not brokenReport.passed
+    check brokenReport.issues[0].code == "model.index.unknown-field"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

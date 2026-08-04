@@ -7,6 +7,7 @@
 import std/[strutils, tables]
 import ./application
 import ./config
+import ./models
 import ./router
 import ./security
 
@@ -113,13 +114,52 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
     if origin.strip().len == 0:
       result.addError("security.origin.empty", "allowed origins must not contain empty values")
 
+proc checkModels*(registry: ModelRegistry): CheckReport =
+  ## Validate metadata references before a future migration compiler runs.
+  result = initCheckReport()
+  for modelName, metadata in registry.models:
+    if modelName.strip().len == 0 or metadata.name.strip().len == 0:
+      result.addError("model.name.empty", "model names must not be empty")
+    if metadata.tableName.strip().len == 0:
+      result.addError("model.table.empty", "model table names must not be empty")
+    var primaryKeys = 0
+    for field in metadata.fields:
+      if field.name.strip().len == 0:
+        result.addError("model.field.empty", "model field names must not be empty")
+      if field.columnName.strip().len == 0:
+        result.addError("model.column.empty", "model column names must not be empty")
+      if field.primaryKey:
+        inc primaryKeys
+      if field.maxLength < 0:
+        result.addError("model.field.max-length.invalid",
+          "model field maxLength must not be negative: " & metadata.name & "." & field.name)
+    if primaryKeys > 1:
+      result.addError("model.primary-key.multiple",
+        "model metadata must declare at most one primary key field: " & metadata.name)
+    for index in metadata.indexes:
+      if index.name.strip().len == 0:
+        result.addError("model.index.empty-name", "model index names must not be empty")
+      for fieldName in index.fields:
+        if not metadata.hasField(fieldName):
+          result.addError("model.index.unknown-field",
+            "index references unknown field: " & metadata.name & "." & fieldName)
+    for relation in metadata.relations:
+      if not metadata.hasField(relation.localField):
+        result.addError("model.relation.unknown-local-field",
+          "relation references unknown local field: " & metadata.name & "." & relation.localField)
+      if relation.targetModel.strip().len == 0:
+        result.addError("model.relation.empty-target",
+          "relation target model must not be empty: " & metadata.name & "." & relation.name)
+
 proc checkApplication*(app: Application,
                        securityPolicy = defaultSecurityPolicy()): CheckReport =
   ## Combine the same checks used by CLI and embedding applications.
   result = initCheckReport()
   let configReport = checkConfig(app.config)
   let routeReport = checkRouter(app.router)
+  let modelReport = checkModels(app.models)
   let securityReport = checkSecurityPolicy(securityPolicy)
   result.issues.add(configReport.issues)
   result.issues.add(routeReport.issues)
+  result.issues.add(modelReport.issues)
   result.issues.add(securityReport.issues)

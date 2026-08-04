@@ -5,6 +5,7 @@ import ./core
 import ./router
 import ./config
 import ./security
+import ./models
 
 type
   LifecycleHook* = proc ()
@@ -18,6 +19,7 @@ type
     shutdownHooks*: seq[LifecycleHook]
     errorHandler*: ErrorHandler
     plugins*: seq[Plugin]
+    models*: ModelRegistry
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -40,6 +42,7 @@ proc newApplication*(config = defaultConfig(),
   result.shutdownHooks = @[]
   result.errorHandler = defaultErrorHandler
   result.plugins = @[]
+  result.models = initModelRegistry()
   result.started = false
 
 proc defaultErrorHandler(request: Request,
@@ -114,6 +117,11 @@ proc use*(app: Application, plugin: Plugin) =
   ## commands, or future extension points through the Application contract.
   app.plugins.add(plugin)
   plugin(app)
+
+proc registerModel*(app: Application, metadata: ModelMetadata) =
+  ## Model registration follows the same isolated application ownership model
+  ## as routes and plugins, which keeps test applications deterministic.
+  app.models.registerModel(metadata)
 
 proc wrapMiddleware(current: Middleware, next: Handler): Handler =
   ## A factory gives each closure its own immutable current/next bindings.
