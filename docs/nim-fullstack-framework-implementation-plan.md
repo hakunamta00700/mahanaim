@@ -29,6 +29,7 @@
 - [ ] `dev`, `db migrate`, `admin create-user`, `static collect`, `test` subcommand를 같은 application/검사 경계에 연결한다.
 
 - [x] `admin create-user <identifier> [subject]`를 Application 소유 provisioning callback에 연결했다. 비밀번호는 argv에 노출되지 않도록 `MAHANAIM_ADMIN_PASSWORD`에서 읽고, account store/password hasher adapter와 중복 생성 회귀 테스트로 검증한다.
+- [x] `static collect <source...> --output <path>`를 추가하고, deterministic manifest 순서·중복 경로·기존 파일·source 내부 output·symbolic link 거부를 독립 storage contract와 CLI 회귀 테스트로 검증했다.
 
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차
 
@@ -667,7 +668,7 @@ flowchart TB
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·redaction logger로 로그·오류·빌드 노출을 차단한다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
-| [-] | NFR-APP-004 | P1 | `openapi [PATH]`와 Application 소유 `admin create-user <identifier> [subject]`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽는다. `dev`, `db migrate`, `static collect`, `test`, `check` subcommand와 standalone application wiring은 남아 있다. |
+| [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`, `test`, `check` subcommand와 standalone application wiring은 남아 있다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |
 
 ### HTTP·라우팅·응답
@@ -727,7 +728,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가하고 in-memory monotonic TTL·bounded eviction을 제공했다. storage/cache·production compatibility와 Redis/Valkey eviction 정책은 남아 있다. |
+| [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가하고 in-memory monotonic TTL·bounded eviction을 제공했다. S3 호환 object storage, cache store와 Redis/Valkey eviction 운영 정책은 남아 있다. |
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |

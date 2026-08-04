@@ -11,6 +11,7 @@ import ./checks
 import ./migration_commands
 import ./openapi
 import ./sqlite_adapter
+import ./static_assets
 import ./seed_commands
 import ./durable_jobs
 
@@ -141,6 +142,39 @@ proc runAdminCli*(app: Application, arguments: openArray[string]): int =
   echo "created admin user " & identifier
   0
 
+proc runStaticCli*(app: Application, arguments: openArray[string]): int =
+  ## Parse only the frontend flags here; file traversal and copy policy remain
+  ## in static_assets so embedding and standalone callers share one contract.
+  discard app
+  if arguments.len < 2 or arguments[0].toLowerAscii() != "collect":
+    raise newException(ValueError,
+      "static command must be: static collect <source...> --output <path>")
+  var sources: seq[string] = @[]
+  var output = ""
+  var overwrite = false
+  var index = 1
+  while index < arguments.len:
+    case arguments[index].toLowerAscii()
+    of "--output", "-o":
+      inc index
+      if index >= arguments.len or arguments[index].strip().len == 0:
+        raise newException(ValueError, "static collect output path is required")
+      output = arguments[index]
+    of "--overwrite":
+      overwrite = true
+    else:
+      sources.add(arguments[index])
+    inc index
+  if sources.len == 0 or output.strip().len == 0:
+    raise newException(ValueError,
+      "static command must be: static collect <source...> --output <path>")
+  let policy = newStaticCollectionPolicy(sources, output, overwrite)
+  let assets = collectStaticAssets(policy)
+  for asset in assets:
+    echo "collected " & asset.relativePath
+  echo "collected " & $assets.len & " static files"
+  0
+
 proc runCli*(app: Application, arguments: openArray[string]): int =
   ## Dispatch built-in database commands first, then application-owned
   ## extension commands. Unknown commands fail instead of being ignored.
@@ -154,6 +188,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "  jobs run [max]|recover Run or recover durable jobs"
     echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
     echo "  admin create-user <identifier> [subject]  Create an admin user"
+    echo "  static collect <source...> --output <path>  Collect static assets"
     echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
@@ -186,6 +221,11 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
       raise newException(ValueError,
         "admin command must be: admin create-user <identifier> [subject]")
     return runAdminCli(app, copied[1 .. ^1])
+  of "static":
+    if copied.len == 1:
+      raise newException(ValueError,
+        "static command must be: static collect <source...> --output <path>")
+    return runStaticCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):
       return app.runCommand(copied[0], copied[1 .. ^1])

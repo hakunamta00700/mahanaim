@@ -3960,6 +3960,29 @@ suite "Mahanaim core contracts":
     finally:
       if fileExists(outputPath): removeFile(outputPath)
 
+  test "static collect CLI copies deterministic assets and rejects unsafe roots":
+    let root = getTempDir() / "mahanaim_static_collect_test"
+    if dirExists(root):
+      removeDir(root)
+    let source = root / "source"
+    let nested = source / "css"
+    let output = root / "public"
+    createDir(nested)
+    writeFile(source / "app.js", "console.log('ok');")
+    writeFile(nested / "site.css", "body { color: red; }")
+    try:
+      let app = newApplication()
+      check app.runCli(["static", "collect", source, "--output", output]) == 0
+      check readFile(output / "app.js") == "console.log('ok');"
+      check readFile(output / "css" / "site.css") == "body { color: red; }"
+      expect StaticCollectionError:
+        discard app.runCli(["static", "collect", source, "--output", output])
+      expect StaticCollectionError:
+        discard newStaticCollectionPolicy(@[source], source / "nested-output")
+    finally:
+      if dirExists(root):
+        removeDir(root)
+
   test "admin create-user CLI uses an application-owned provisioning callback":
     let app = newApplication()
     let store = newInMemoryAccountCredentialStore()

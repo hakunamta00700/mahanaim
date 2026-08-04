@@ -13,6 +13,7 @@ proc printUsage() =
   echo "  db status|up|rollback [PATH]  Run application migrations"
   echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
   echo "  admin create-user <identifier> [subject]  Create an admin user"
+  echo "  static collect <source...> --output <path>  Collect static assets"
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"
@@ -79,6 +80,16 @@ proc main() =
         arguments.add(paramStr(index))
     try:
       quit(runCli(newApplication(), @["openapi"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
+  of "static":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @["static"] & arguments))
     except CatchableError as error:
       stderr.writeLine(error.msg)
       quit(1)
