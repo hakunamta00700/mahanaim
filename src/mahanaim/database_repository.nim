@@ -117,6 +117,41 @@ proc list*(repository: DatabaseRepository,
   for values in repository.adapter.execute(compiled):
     result.add(repository.rowFromValues(values))
 
+proc listRelation*(repository: DatabaseRepository,
+                   relation: ModelRelation,
+                   target: ModelMetadata,
+                   query = RelationSelectQuery()): seq[ResourceRow] =
+  ## Execute one-hop relation loading while returning only the base model.
+  ## Target projection can be added by a separate DTO loader without changing
+  ## this repository's stable base-row contract.
+  if relation.localField.len == 0 or relation.foreignField.len == 0:
+    raise newException(ValueError, "Relation fields are required")
+  if target.tableName.len == 0:
+    raise newException(ValueError, "Relation target table is required")
+  let local = repository.fieldFor(relation.localField)
+  if local.isNone:
+    raise newException(ValueError,
+      "Unknown relation local field: " & relation.localField)
+  let foreign = target.field(relation.foreignField)
+  if foreign.isNone:
+    raise newException(ValueError,
+      "Unknown relation target field: " & relation.foreignField)
+  var normalized = query
+  normalized.table = repository.metadata.tableName
+  normalized.alias = "base"
+  if normalized.columns.len == 0:
+    for field in repository.metadata.fields:
+      normalized.columns.add("base." & field.columnName)
+  normalized.joins.insert(RelationJoin(kind: relationInnerJoin,
+    table: target.tableName,
+    alias: relation.name,
+    localTable: "base",
+    localField: local.get().columnName,
+    foreignField: foreign.get().columnName), 0)
+  let compiled = compileRelationSelect(normalized, repository.adapter.dialect)
+  for values in repository.adapter.execute(compiled):
+    result.add(repository.rowFromValues(values))
+
 proc idFilter(repository: DatabaseRepository, id: string): QueryFilter =
   let field = repository.fieldFor(repository.idField)
   if field.isNone:

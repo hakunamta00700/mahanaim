@@ -1959,6 +1959,38 @@ suite "Mahanaim core contracts":
     check repository.delete("1")
     check repository.find("1").isNone
 
+  test "database repository executes metadata-driven relation joins":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"posts\" (\"id\" INTEGER, \"user_id\" INTEGER, \"title\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" VALUES (?, ?)",
+      parameters: @[integerValue(1), textValue("Ada")]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"posts\" VALUES (?, ?, ?)",
+      parameters: @[integerValue(10), integerValue(1), textValue("Nim")]))
+    var user = newModelMetadata("User", "users")
+    user.addField(newModelField("id", modelInteger, primaryKey = true))
+    user.addField(newModelField("name", modelString))
+    var posts = newModelMetadata("Post", "posts")
+    posts.addField(newModelField("id", modelInteger, primaryKey = true))
+    posts.addField(newModelField("user_id", modelInteger))
+    posts.addField(newModelField("title", modelString))
+    var relation = ModelRelation(name: "posts", kind: relationOneToMany,
+      targetModel: "Post", localField: "id", foreignField: "user_id")
+    let repository = newDatabaseRepository(user, adapter)
+    let related = repository.listRelation(relation, posts,
+      RelationSelectQuery(filters: @[
+        QueryFilter(field: "posts.title", operator: filterEqual,
+          value: textValue("Nim"))]))
+    check related.len == 1
+    check related[0]["name"].getStr() == "Ada"
+
   test "application wires and releases request-scoped database connections":
     var closed = 0
     let pool = newDatabaseConnectionPool(

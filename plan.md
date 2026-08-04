@@ -137,7 +137,7 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [-] SQLite/PostgreSQL query·transaction adapter, migration history/JOIN compiler, bounded pool과 request session wiring을 제공했다. PostgreSQL live integration/isolation과 repository route 연결은 남아 있다.
+- [-] SQLite/PostgreSQL query·transaction adapter, migration history/JOIN compiler, bounded pool, request session과 metadata repository relation execution을 제공했다. PostgreSQL live integration/isolation과 repository route 연결은 남아 있다.
 
 ### API와 서버 렌더링
 
