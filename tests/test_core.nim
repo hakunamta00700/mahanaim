@@ -532,6 +532,22 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard waitFor queue.enqueueIdempotent("", countedJob)
 
+    let journalPath = getTempDir() / "mahanaim_idempotency.journal"
+    if fileExists(journalPath):
+      removeFile(journalPath)
+    defer:
+      if fileExists(journalPath):
+        removeFile(journalPath)
+    let durableFirst = newFileIdempotencyStore(journalPath)
+    check durableFirst.claim("restart:42")
+    let durableAfterRestart = newFileIdempotencyStore(journalPath)
+    check not durableAfterRestart.claim("restart:42")
+    durableAfterRestart.release("restart:42")
+    let durableRetry = newFileIdempotencyStore(journalPath)
+    check durableRetry.claim("restart:42")
+    expect ValueError:
+      discard durableRetry.claim("bad\tkey")
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
