@@ -111,22 +111,30 @@ proc renderWidget*(registry: WidgetRegistry, field: FormFieldState): string =
     result.add(" required")
   result.add(">")
 
-proc csrfHiddenInput*(policy: SecurityPolicy): string =
-  ## Forms can opt into the same signed CSRF primitive as API middleware.
+proc csrfHiddenInput*(policy: SecurityPolicy, token = ""): string =
+  ## Forms can opt into the same signed CSRF primitive as API middleware. A
+  ## request-bound token is preferred; the fallback preserves the standalone
+  ## helper for callers rendering outside an HTTP request.
   if not policy.csrfEnabled:
     return ""
-  let token = escapeHtml(csrfToken(policy))
+  let resolvedToken = if token.len > 0: token else: csrfToken(policy)
+  let escapedToken = escapeHtml(resolvedToken)
   "<input type=\"hidden\" name=\"" & escapeHtml(policy.csrfHeaderName) &
-    "\" value=\"" & token & "\">"
+    "\" value=\"" & escapedToken & "\">"
 
-proc renderForm*(form: FormState, action = "", httpMethod = "post",
-                 csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
-                 widgets: WidgetRegistry = nil): string =
-  ## Render only a deliberately small HTML vocabulary; templates can wrap it or
-  ## replace the renderer while retaining the same FormState contract.
+proc csrfHiddenInput*(request: Request, policy: SecurityPolicy): string =
+  ## Request-aware rendering is the safe server-rendered form path because the
+  ## middleware owns the token lifecycle and binds it before the handler runs.
+  csrfHiddenInput(policy, request.csrfToken)
+
+proc renderFormMarkup(form: FormState, action, httpMethod: string,
+                      csrfPolicy: SecurityPolicy, token: string,
+                      widgets: WidgetRegistry): string =
+  ## Keep HTML assembly in one private implementation so request-aware and
+  ## standalone overloads cannot drift in escaping or validation error output.
   result = "<form action=\"" & escapeHtml(action) & "\" method=\"" &
     escapeHtml(httpMethod.toLowerAscii()) & "\">"
-  result.add(csrfHiddenInput(csrfPolicy))
+  result.add(csrfHiddenInput(csrfPolicy, token))
   for field in form.fields:
     result.add("<label for=\"" & escapeHtml(field.name) & "\">" &
       escapeHtml(field.label) & "</label>")
@@ -135,14 +143,46 @@ proc renderForm*(form: FormState, action = "", httpMethod = "post",
       result.add("<div class=\"form-error\">" & escapeHtml(error) & "</div>")
   result.add("<button type=\"submit\">Submit</button></form>")
 
+proc renderForm*(form: FormState, action = "", httpMethod = "post",
+                 csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
+                 widgets: WidgetRegistry = nil): string =
+  ## Render only a deliberately small HTML vocabulary; templates can wrap it or
+  ## replace the renderer while retaining the same FormState contract.
+  renderFormMarkup(form, action, httpMethod, csrfPolicy, "", widgets)
+
+proc renderForm*(form: FormState, request: Request, action = "",
+                 httpMethod = "post",
+                 csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
+                 widgets: WidgetRegistry = nil): string =
+  ## Use the token attached by securityMiddleware so the rendered form and
+  ## double-submit cookie prove the same request-scoped value.
+  renderFormMarkup(form, action, httpMethod, csrfPolicy, request.csrfToken,
+    widgets)
+
 proc renderFormSet*(formSet: FormSetState, action = "", httpMethod = "post",
                     csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
                     widgets: WidgetRegistry = nil): string =
-  ## Render rows through renderForm so CSRF, escaping, and custom widgets keep
-  ## one implementation. A formset is a presentation composition only.
+  ## Render every row with one token. A formset submits against one response
+  ## cookie, so generating a token per row would make all but one row invalid.
+  let token = if csrfPolicy.csrfEnabled: csrfToken(csrfPolicy) else: ""
   result = "<div class=\"formset\">"
   for form in formSet.forms:
     result.add("<div class=\"formset-row\">")
-    result.add(renderForm(form, action, httpMethod, csrfPolicy, widgets))
+    result.add(renderFormMarkup(form, action, httpMethod, csrfPolicy, token,
+      widgets))
+    result.add("</div>")
+  result.add("</div>")
+
+proc renderFormSet*(formSet: FormSetState, request: Request, action = "",
+                    httpMethod = "post",
+                    csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
+                    widgets: WidgetRegistry = nil): string =
+  ## Request-aware formsets share the middleware token across every row and
+  ## therefore remain valid under the same double-submit cookie contract.
+  result = "<div class=\"formset\">"
+  for form in formSet.forms:
+    result.add("<div class=\"formset-row\">")
+    result.add(renderFormMarkup(form, action, httpMethod, csrfPolicy,
+      request.csrfToken, widgets))
     result.add("</div>")
   result.add("</div>")

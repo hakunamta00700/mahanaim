@@ -937,8 +937,12 @@ suite "Mahanaim core contracts":
     policy.csrfSecret = "test-only-secret-that-is-long-enough"
     let app = newApplication(defaultConfig(), policy)
     proc form(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
-      discard request
-      return textResponse("form")
+      let state = bindForm(request, [stringField("name", flBody)])
+      var renderPolicy = defaultSecurityPolicy()
+      renderPolicy.csrfEnabled = true
+      renderPolicy.csrfSecret = "test-only-secret-that-is-long-enough"
+      return htmlResponse(renderForm(state, request, "/csrf-submit", "POST",
+        renderPolicy))
     proc submit(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
       discard request
       return textResponse("submitted")
@@ -951,6 +955,15 @@ suite "Mahanaim core contracts":
     let endOfCookie = cookieHeader.find(';')
     let token = cookieHeader[separator + 1 ..< endOfCookie]
     check verifyCsrfToken(policy, token)
+    let hiddenStart = formResponse.body.find("value=\"") + 7
+    let hiddenEnd = formResponse.body.find('"', hiddenStart)
+    check hiddenStart > 7
+    check formResponse.body[hiddenStart ..< hiddenEnd] == token
+    var formRequest = newRequest("GET", "/form")
+    formRequest.csrfToken = token
+    let formSetHtml = renderFormSet(FormSetState(forms: @[FormState(), FormState()]),
+      formRequest, "/csrf-submit", "POST", policy)
+    check formSetHtml.count("value=\"" & token & "\"") == 2
 
     let missingToken = waitFor app.dispatch(newRequest("POST", "/csrf-submit"))
     check missingToken.status == Http403

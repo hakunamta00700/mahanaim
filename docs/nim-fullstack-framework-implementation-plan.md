@@ -267,7 +267,7 @@
 
 - [x] 기존 `FieldSpec`/`ValidationResult`를 재사용하는 `FormState` binding contract를 추가했다.
 - [x] field value/error/required 상태를 HTML input context로 변환하고 attribute/text escaping을 적용했다.
-- [x] CSRF enabled policy를 사용할 때 signed hidden input을 생성하도록 연결했다.
+- [x] CSRF enabled policy를 사용할 때 middleware가 request-scoped signed token을 제공하고 form renderer가 동일 token을 hidden input에 사용하도록 연결했다.
 - [x] field 이름 기반 widget registry로 기본 input renderer를 교체할 수 있게 했다.
 - [x] URL-encoded invalid input, escaped value, CSRF field 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] template inheritance/include/filter의 독립 엔진, 명시적 `TemplateRenderContext` collection loop, metadata 기반 model formset, locale별 JSON catalog directory loader를 구현하고 회귀 테스트를 추가했다. AST 기반 고급 helper와 동적 nested collection projection은 별도 범위다.
@@ -635,7 +635,7 @@ flowchart TB
 
 - [-] 안전한 기본 escaping, inheritance, include/partial, filter registry, nested `if/else/endif` block과 `registerTag` custom helper registry를 갖춘 독립 template engine을 추가했고 locale catalog 기반 `registerTranslation`/`translate` helper와 JSON catalog file loading, 명시적 `TemplateRenderContext` collection loop를 제공한다. `Request.locale`/`Request.timezoneOffsetMinutes`와 Accept-Language middleware, 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간, locale 숫자 formatter도 제공하며 고급 AST tag/helper와 동적 nested collection projection은 후속 범위다.
 - [x] model metadata에서 validation `FieldSpec`, `bindModelForm`/`bindModelFormSet`, OpenAPI schema와 field widget registry를 생성하는 bridge를 추가했다.
-- [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
+- [x] CSRF token과 FieldSpec 기반 form validation을 request-aware 서버 렌더링 흐름에 통합한다. hidden input과 response cookie가 동일 token을 사용하며 POST 제출 회귀 테스트를 제공한다.
 - [-] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. resource별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 권한 경계 밖의 안전한 form layout renderer hook을 지원한다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
 - [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 algorithm-neutral `PasswordHasher` 계약, PBKDF2 reference adapter, C-backed Argon2id adapter, work-factor rehash 판단, stateless signed reset token, atomic one-time token store, password rotation, 교체 가능한 login throttle 계약과 session key rotation을 추가했다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, 배포 호스트별 Argon2 hash/verify benchmark harness도 추가했으며 bcrypt adapter와 production benchmark 결과 확정은 남아 있다.

@@ -607,6 +607,15 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       rejected.headers["retry-after"] = $rateLimit.retryAfter
       addSecurityHeaders(rejected, policy)
       return rejected
+    if policy.csrfEnabled and policy.csrfSecret.len > 0:
+      ## Bind one token before the handler renders HTML. Existing valid cookie
+      ## tokens are reused; missing or invalid tokens are replaced only after
+      ## the response is produced, keeping form hidden input and cookie aligned.
+      let existingToken = requestWithAuth.cookies.getOrDefault(
+        policy.csrfCookieName)
+      requestWithAuth.csrfToken = if existingToken.len > 0 and
+          verifyCsrfToken(policy, existingToken): existingToken
+        else: csrfToken(policy)
     if policy.csrfEnabled:
       if policy.csrfSecret.len == 0:
         var rejected = textResponse("CSRF Policy Misconfigured", Http500)
@@ -629,9 +638,10 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
     var response = await next(requestWithAuth)
     if rateLimit.enabled:
       addRateLimitHeaders(response, policy, rateLimit.remaining)
-    if policy.csrfEnabled and
-       request.cookies.getOrDefault(policy.csrfCookieName).len == 0:
-      addCsrfCookie(response, policy, csrfToken(policy))
+    if policy.csrfEnabled and requestWithAuth.csrfToken.len > 0 and
+       request.cookies.getOrDefault(policy.csrfCookieName) !=
+         requestWithAuth.csrfToken:
+      addCsrfCookie(response, policy, requestWithAuth.csrfToken)
     if sessionRotation.isSome and sessionRotation.get().needsRotation:
       response.setRotatedSignedCookie(policy.session.cookieName,
         policy.session.secret, sessionRotation.get(), httpOnly = true,
