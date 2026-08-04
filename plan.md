@@ -97,7 +97,7 @@
 - [x] TOML 전체 문법 파서를 연결하고 AppConfig scalar schema validation을 구현한다.
 - [x] signed session cookie와 교체 가능한 `AuthBackend`, HMAC bearer token adapter를 `AuthContext` 및 required authentication route의 401 정책에 연결하고 SessionPolicy primary/legacy secret rotation을 제공한다.
 - [x] role/group permission, object-level policy와 route guard를 독립 `AuthorizationPolicy` 모듈로 제공한다.
-- [-] `nimcrypto` PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor rehash 판단, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory adapter를 제공한다. Argon2id/bcrypt, password rotation, 분산 throttling은 후속 범위다.
+- [-] `nimcrypto` PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory adapter를 제공한다. Argon2id/bcrypt, 사용자 password change flow, 분산 throttling은 후속 범위다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
 - [-] Redis/Valkey RESP adapter와 bounded retry 기반을 구현했다. production timeout/reconnect와 eviction 운영은 남아 있다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.

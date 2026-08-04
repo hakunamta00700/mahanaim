@@ -15,6 +15,13 @@ type
     saltBytes*: int
     derivedBytes*: int
 
+  PasswordVerification* = object
+    ## Authentication code persists `encoded` only when `valid` is true;
+    ## `rehashed` makes gradual work-factor rotation observable.
+    valid*: bool
+    rehashed*: bool
+    encoded*: string
+
   PasswordResetTokenStore* = ref object of RootObj
     ## Token consumption is an adapter boundary because production systems
     ## should atomically persist this state in their existing user/session DB.
@@ -159,6 +166,18 @@ proc passwordNeedsRehash*(hasher: Pbkdf2PasswordHasher,
   let digest = hexDecode(parts[3])
   iterations < hasher.iterations or salt.len != hasher.saltBytes or
     digest.len != hasher.derivedBytes
+
+proc verifyAndRehash*(hasher: Pbkdf2PasswordHasher,
+                      password, encoded: string): PasswordVerification =
+  ## Combine verify-then-upgrade so failed attempts never replace stored hashes.
+  result.valid = hasher.verifyPassword(password, encoded)
+  if not result.valid:
+    return
+  if hasher.passwordNeedsRehash(encoded):
+    result.encoded = hasher.hashPassword(password)
+    result.rehashed = true
+  else:
+    result.encoded = encoded
 
 proc issuePasswordResetTokenAt*(secret, subject: string, ttlSeconds,
                                 issuedAt: int64): string =
