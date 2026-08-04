@@ -4,7 +4,7 @@
 ## keeps failures deterministic while still covering the same dispatch pipeline
 ## a future Prologue/ASGI adapter will call.
 
-import std/[asyncdispatch, httpcore, json, options, os, strutils, tables, times,
+import std/[asyncdispatch, asyncnet, httpcore, json, options, os, strutils, tables, times,
             unittest, uri]
 import std/httpclient as hc
 import pkg/cookiejar
@@ -583,6 +583,56 @@ suite "Mahanaim core contracts":
     check response.headers.getOrDefault("content-length") == ""
     let body = waitFor response.body()
     check body == expectedBody
+    client.close()
+    network.close()
+
+  test "network adapter upgrades a WebSocket and exchanges masked text frames":
+    let app = newApplication()
+    app.websocket("/echo", "echoSocket",
+      proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
+        discard request
+        let incoming = await session.receive()
+        await session.send(incoming))
+    let network = newNetworkServer(app, "127.0.0.1", 0)
+    asyncCheck network.serve()
+    var attempts = 0
+    while attempts < 50:
+      try:
+        if network.boundPort().uint16 > 0:
+          break
+      except OSError:
+        discard
+      waitFor sleepAsync(10)
+      inc attempts
+    check network.boundPort().uint16 > 0
+
+    let client = newAsyncSocket()
+    waitFor client.connect("127.0.0.1", network.boundPort())
+    let key = "dGhlIHNhbXBsZSBub25jZQ=="
+    waitFor client.send("GET /echo HTTP/1.1\r\n" &
+      "Host: 127.0.0.1\r\n" &
+      "Upgrade: websocket\r\n" &
+      "Connection: Upgrade\r\n" &
+      "Sec-WebSocket-Version: 13\r\n" &
+      "Sec-WebSocket-Key: " & key & "\r\n\r\n")
+    var handshake = ""
+    while not handshake.endsWith("\r\n\r\n"):
+      handshake.add(waitFor client.recv(1))
+    check handshake.contains("101 Switching Protocols")
+    check handshake.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+
+    let clearText = "hello"
+    let mask = [byte(1), byte(2), byte(3), byte(4)]
+    var frame = "\x81" & char(0x80 or clearText.len)
+    for value in mask:
+      frame.add(char(value))
+    for index, value in clearText:
+      frame.add(char(ord(value) xor int(mask[index mod 4])))
+    waitFor client.send(frame)
+    let responseHeader = waitFor client.recv(2)
+    check (ord(responseHeader[0]) and 0x0f) == 0x1
+    let echoed = waitFor client.recv(ord(responseHeader[1]) and 0x7f)
+    check echoed == clearText
     client.close()
     network.close()
 

@@ -50,7 +50,8 @@
 - [x] 표준 HTTP adapter에서 SSE representation framing을 실제 TCP wire로 검증했다.
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리했다.
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 연결했다.
-- [ ] 실제 WebSocket upgrade와 SSE/content negotiation wire integration은 남아 있다.
+- [x] 표준 TCP adapter의 WebSocket upgrade와 기본 frame wire를 연결했다.
+- [ ] Prologue WebSocket adapter와 SSE/content negotiation wire integration은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
@@ -172,7 +173,8 @@
 - [x] 표준 TCP adapter가 `Transfer-Encoding: chunked`와 terminating zero chunk를 직접 작성한다.
 - [x] 여러 chunk를 생성하는 live HTTP 회귀 테스트를 추가했다.
 - [x] HTTP route와 분리된 `WebSocketRoute` registry와 path precedence 회귀 테스트를 추가했다.
-- [ ] WebSocket handshake/session adapter와 content negotiation wire integration은 다음 P0 slice로 남긴다.
+- [x] 표준 TCP adapter의 RFC 6455 handshake, client masking, text frame echo, close lifecycle을 live socket으로 검증했다.
+- [ ] Prologue WebSocket handshake/session adapter와 content negotiation wire integration은 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 

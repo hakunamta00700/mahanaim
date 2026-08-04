@@ -6,9 +6,11 @@
 ## A future Prologue adapter can implement the same two translation functions.
 
 import std/[asynchttpserver, asyncdispatch, asyncnet, httpcore, nativesockets, strutils,
-            tables, uri]
+            options, tables, uri]
 import ./application
 import ./core
+import ./router
+import ./websocket_adapter
 
 type
   NetworkServer* = ref object
@@ -82,6 +84,14 @@ proc handleRequest(network: NetworkServer,
                    request: asynchttpserver.Request): Future[void] {.async, gcsafe.} =
   ## Keep the network callback tiny: translate, dispatch, translate back.
   let frameworkRequest = toFrameworkRequest(request)
+  let websocketRoute = network.app.router.findWebSocket(frameworkRequest.path)
+  if websocketRoute.isSome:
+    if frameworkRequest.httpMethod != "GET" or
+       not isWebSocketUpgrade(frameworkRequest):
+      await request.respond(Http426, "WebSocket upgrade required")
+    else:
+      await serveWebSocket(request, frameworkRequest, websocketRoute.get())
+    return
   let response = await network.app.dispatch(frameworkRequest)
   if response.representation in {rrStream, rrServerSentEvents}:
     await respondChunked(request, response)

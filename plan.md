@@ -52,7 +52,8 @@
 - [x] stream/SSE/WebSocket representation metadata와 core response helper를 추가한다.
 - [x] 표준 HTTP adapter에서 SSE representation framing을 TCP wire로 검증한다.
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 통합한다.
-- [ ] WebSocket upgrade adapter와 content negotiation wire integration을 통합한다.
+- [x] 표준 TCP adapter의 WebSocket upgrade와 기본 text/binary/control frame wire를 통합한다.
+- [ ] Prologue WebSocket adapter와 content negotiation wire integration을 통합한다.
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 
