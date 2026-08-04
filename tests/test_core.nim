@@ -2863,6 +2863,14 @@ suite "Mahanaim core contracts":
     check form.fields[0].name == "name"
     check form.fields[1].errors[0] == "Value must be a number"
 
+    let widgets = newWidgetRegistry()
+    widgets.registerWidget("name", proc(field: FormFieldState): string =
+      "<textarea name=\"" & field.name & "\">custom</textarea>")
+    let customHtml = renderForm(form, widgets = widgets)
+    check "<textarea name=\"name\">custom</textarea>" in customHtml
+    expect ValueError:
+      widgets.registerWidget("name", proc(field: FormFieldState): string = "")
+
     let document = modelOpenApiDocument("Profiles", "1.0.0", metadata,
       includePrimaryKey = false)
     let properties = document["paths"]["/generated"]["post"][
