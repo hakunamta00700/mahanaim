@@ -5,17 +5,34 @@
 ## dispatcher can offload them through the executor contract before awaiting
 ## their result on the event loop.
 
-import std/[asyncdispatch, httpcore, locks, tables]
+import std/[asyncdispatch, httpcore, locks, monotimes, tables, times]
 import pkg/taskpools
 import ./core
 
 type
+  BlockingDetectedHook* = proc (elapsedMs: int) {.gcsafe.}
+  BackendCancellationHook* = proc (cancellation: CancellationToken): bool {.gcsafe.}
+
+  ExecutorHooks* = ref object
+    ## Keep callback closures in a separately owned object. Taskpool owns
+    ## native worker state, so separating GC-managed hooks avoids mixing
+    ## closure finalization with the backend object itself.
+    onBlockingDetected*: BlockingDetectedHook
+    backendCancellation*: BackendCancellationHook
+
   ExecutionPolicy* = object
     ## `allowSynchronousHandlers` is permissive for local development; a
     ## production application can set it false and fail during dispatch.
     allowSynchronousHandlers*: bool
     warnOnSynchronousHandlers*: bool
     offloadSynchronousHandlers*: bool
+    ## Zero disables the diagnostic. A positive value reports a worker that
+    ## has not completed within the configured budget.
+    blockingDetectionMs*: int
+    ## Zero disables the backend cancellation hook. The core always publishes
+    ## the request token first; a concrete executor may add a safe backend
+    ## cancellation implementation through the hook.
+    forceCancellationAfterMs*: int
 
   SyncJob* = proc (): Response {.gcsafe.}
 
@@ -45,6 +62,9 @@ type
     maxConcurrentJobs*: int
     activeJobs: int
     pool: Taskpool
+    blockingDetectionMs*: int
+    forceCancellationAfterMs*: int
+    hooks*: ExecutorHooks
 
 var sharedPool: Taskpool
 var jobRegistry: ptr Table[int, SyncJob]
@@ -90,17 +110,32 @@ proc defaultExecutionPolicy*(): ExecutionPolicy =
   ## Keep the existing developer experience while making the decision explicit.
   ExecutionPolicy(allowSynchronousHandlers: true,
     warnOnSynchronousHandlers: true,
-    offloadSynchronousHandlers: true)
+    offloadSynchronousHandlers: true,
+    blockingDetectionMs: 0,
+    forceCancellationAfterMs: 0)
 
 proc newThreadPoolExecutor*(pollIntervalMs = 1,
-                            maxConcurrentJobs = 0): ThreadPoolExecutor =
+                            maxConcurrentJobs = 0,
+                            blockingDetectionMs = 0,
+                            forceCancellationAfterMs = 0,
+                            onBlockingDetected: BlockingDetectedHook = nil,
+                            backendCancellation: BackendCancellationHook = nil): ThreadPoolExecutor =
   ## Polling keeps the event loop responsive while a FlowVar is pending.
   ## Zero is useful for low-latency tests; positive values avoid busy waiting.
   if maxConcurrentJobs < 0:
     raise newException(ValueError, "maxConcurrentJobs must not be negative")
+  if blockingDetectionMs < 0:
+    raise newException(ValueError, "blockingDetectionMs must not be negative")
+  if forceCancellationAfterMs < 0:
+    raise newException(ValueError, "forceCancellationAfterMs must not be negative")
   new(result)
   result.pollIntervalMs = max(0, pollIntervalMs)
   result.maxConcurrentJobs = maxConcurrentJobs
+  result.blockingDetectionMs = blockingDetectionMs
+  result.forceCancellationAfterMs = forceCancellationAfterMs
+  new(result.hooks)
+  result.hooks.onBlockingDetected = onBlockingDetected
+  result.hooks.backendCancellation = backendCancellation
   result.activeJobs = 0
   result.pool = processPool()
 
@@ -171,7 +206,8 @@ proc runRegisteredJob(jobId: int): SyncJobResult {.gcsafe, raises: [].} =
   ## closure capture and GC ownership explicit at the adapter boundary.
   runSyncJob(takeJob(jobId))
 
-proc execute*(executor: ThreadPoolExecutor, job: SyncJob): Future[Response] {.async.} =
+proc execute*(executor: ThreadPoolExecutor, job: SyncJob,
+              cancellation: CancellationToken = nil): Future[Response] {.async.} =
   ## Run blocking-capable sync work away from the async event-loop thread.
   if executor.maxConcurrentJobs > 0 and
      executor.activeJobs >= executor.maxConcurrentJobs:
@@ -186,7 +222,29 @@ proc execute*(executor: ThreadPoolExecutor, job: SyncJob): Future[Response] {.as
   let jobId = registerJob(job)
   try:
     let flow = spawn(executor.pool, runRegisteredJob(jobId))
+    let startedAt = getMonoTime()
+    var blockingReported = false
+    var cancellationRequested = false
     while not flow.isReady:
+      let elapsedMs = (getMonoTime() - startedAt).inMilliseconds
+      if executor.blockingDetectionMs > 0 and
+         not blockingReported and elapsedMs >= executor.blockingDetectionMs:
+        blockingReported = true
+        ## Detection is deliberately observable but does not interrupt user
+        ## code. This keeps diagnostics from changing handler semantics.
+        if executor.hooks != nil and executor.hooks.onBlockingDetected != nil:
+          executor.hooks.onBlockingDetected(elapsedMs)
+      if executor.forceCancellationAfterMs > 0 and
+         not cancellationRequested and
+         elapsedMs >= executor.forceCancellationAfterMs:
+        cancellationRequested = true
+        ## Nim cannot safely kill an arbitrary native thread. Publish the
+        ## atomic token first, then let an executor-specific hook perform a
+        ## stronger cancellation only when its backend guarantees safety.
+        if cancellation != nil:
+          cancellation.cancel()
+        if executor.hooks != nil and executor.hooks.backendCancellation != nil:
+          discard executor.hooks.backendCancellation(cancellation)
       await sleepAsync(executor.pollIntervalMs)
     let outcome = sync(flow)
     if outcome.failed:

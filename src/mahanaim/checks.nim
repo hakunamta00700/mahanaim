@@ -179,6 +179,17 @@ proc checkExecution*(router: Router,
   ## Surface sync handlers during pre-flight so blocking work is reviewed before
   ## boot. Strict deployments can turn the warning into a blocking error.
   result = initCheckReport()
+  if policy.blockingDetectionMs < 0:
+    result.addError("execution.blocking-detection.negative",
+      "blockingDetectionMs must be zero or greater")
+  if policy.forceCancellationAfterMs < 0:
+    result.addError("execution.force-cancellation.negative",
+      "forceCancellationAfterMs must be zero or greater")
+  if policy.forceCancellationAfterMs > 0 and
+     policy.blockingDetectionMs > 0 and
+     policy.forceCancellationAfterMs < policy.blockingDetectionMs:
+    result.addWarning("execution.force-cancellation.before-detection",
+      "force cancellation may occur before blocking detection is reported")
   for route in router.routes:
     if route.executionKind != hekSync:
       continue

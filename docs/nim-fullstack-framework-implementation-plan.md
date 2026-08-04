@@ -75,7 +75,8 @@
 - [x] deprecated `std/concurrency/threadpool`을 lockfile 기반 `taskpools` backend로 교체했다.
 - [x] GC-managed `Response`를 worker에서 copy-safe shared buffer로 변환하고 event loop에서 복원했다.
 - [x] 실행 중 cooperative cancellation 신호를 atomic token으로 전달하고 worker 안전 지점 종료를 검증했다.
-- [ ] blocking 자동 감지와 강제 backend cancellation 운영 정책은 남아 있다.
+- [x] blocking 감지 threshold, atomic cancellation escalation, backend cancellation hook과 pre-flight 검사를 추가했다.
+- [ ] taskpools worker를 안전하게 중단하는 실제 backend 강제 cancellation 구현은 남아 있다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 
@@ -166,7 +167,8 @@
 - [x] route에 async/sync execution metadata를 기록하도록 추가했다.
 - [x] synchronous handler를 기본 check warning으로 노출하고 strict policy에서 거부하도록 추가했다.
 - [x] sync handler가 비동기 wrapper 뒤에서 실행되는 기존 contract를 유지하면서 정책 회귀 테스트를 추가했다.
-- [ ] 실제 thread-pool/executor adapter, blocking 감지와 운영별 자동 전환은 남아 있다.
+- [x] taskpools executor adapter와 blocking 감지·cancellation hook 운영 경계를 추가했다.
+- [ ] backend별 자동 전환과 안전한 native worker 중단은 남아 있다.
 
 ### 2026-08-04 — P0 Prologue adapter 1차
 
@@ -204,7 +206,15 @@
 - [x] `AppConfig.requestTimeoutMs`와 환경변수 provider를 추가했다.
 - [x] 공통 dispatch 경계에서 timeout을 감지하고 504 응답으로 변환한다.
 - [x] Nim의 비선점 실행 모델에 맞춰 cooperative cancellation token과 회귀 테스트를 추가했다.
-- [ ] taskpools 등 executor backend 교체와 blocking 자동 감지는 남아 있다.
+- [x] taskpools executor backend 교체와 blocking 감지 threshold를 연결했다.
+- [ ] backend별 안전한 native worker 강제 cancellation은 남아 있다.
+
+### 2026-08-04 — P0 executor blocking policy 1차
+
+- [x] 실행 중인 sync 작업의 elapsed time을 event loop에서 감시하는 blocking detection hook을 추가했다.
+- [x] force-cancellation threshold에서 request atomic token을 취소하고 executor-specific backend hook을 호출한다.
+- [x] 감지 callback, backend hook, cooperative worker exit, invalid threshold pre-flight 회귀 테스트를 추가했다.
+- [ ] Nim `taskpools`가 제공하지 않는 임의 native thread 강제 종료는 안전한 backend API가 제공될 때까지 미지원으로 명시한다.
 
 ### 2026-08-04 — P0 보안 rate limit 1차
 
@@ -218,26 +228,30 @@
 - [x] deprecated std threadpool 대신 lockfile에 고정한 `taskpools`를 사용한다.
 - [x] closure는 synchronized registry로 보관하고 worker에는 copy-safe ID만 전달한다.
 - [x] response/header/error buffer 복원과 worker 예외 전파 회귀 테스트를 유지한다.
-- [ ] blocking 자동 감지, queue limit, backend cancellation 정책은 남아 있다.
+- [x] blocking 자동 감지와 backend cancellation policy hook을 추가했다.
+- [ ] queue limit과 backend별 실제 worker cancellation은 남아 있다.
 
 ### 2026-08-04 — P0 executor cooperative cancellation
 
 - [x] worker 시작 전에 request cancellation token을 확인해 취소된 sync handler 진입을 건너뛴다.
 - [x] 취소된 sync request가 user handler를 호출하지 않는 회귀 테스트를 추가했다.
 - [x] CancellationToken을 atomic flag로 전환하고 실행 중 cooperative worker exit 회귀 테스트를 추가했다.
-- [ ] blocking 자동 감지와 실행 중 worker 강제 cancellation은 남아 있다.
+- [x] blocking 자동 감지와 실행 중 atomic cancellation escalation을 추가했다.
+- [ ] backend가 보장하는 실제 worker 강제 cancellation은 남아 있다.
 
 ### 2026-08-04 — P0 executor capacity 1차
 
 - [x] `maxConcurrentJobs` admission gate와 `executor_overloaded` 503 계약을 추가했다.
 - [x] 작업 완료·실패 시 active job counter를 정리하는 회귀 테스트를 추가했다.
-- [ ] blocking 자동 감지와 backend cancellation 정책은 남아 있다.
+- [x] blocking 자동 감지와 backend cancellation hook 정책을 추가했다.
+- [ ] backend별 실제 worker cancellation은 남아 있다.
 
 ### 2026-08-04 — P0 executor capacity configuration
 
 - [x] executorMaxConcurrentJobs를 AppConfig와 process environment provider에 연결했다.
 - [x] 음수 capacity pre-flight validation과 설정 precedence 회귀 테스트를 추가했다.
-- [ ] blocking 자동 감지와 backend cancellation 정책은 남아 있다.
+- [x] blocking 자동 감지와 backend cancellation hook 정책을 추가했다.
+- [ ] backend별 실제 worker cancellation은 남아 있다.
 
 ### 2026-08-04 — P0 signed cookie rotation 1차
 

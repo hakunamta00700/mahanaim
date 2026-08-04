@@ -99,6 +99,34 @@ suite "Mahanaim core contracts":
     let response = waitFor pending
     check response.body == "worker observed cancellation"
 
+  test "executor detects blocking work and applies backend cancellation policy":
+    ## Detection and cancellation are separate hooks: diagnostics can be
+    ## enabled without changing behavior, while a backend may opt into a
+    ## stronger cancellation operation when it can prove that operation safe.
+    var detected: Atomic[bool]
+    var backendCalled: Atomic[bool]
+    detected.store(false)
+    backendCalled.store(false)
+    var policy = defaultExecutionPolicy()
+    policy.blockingDetectionMs = 3
+    policy.forceCancellationAfterMs = 8
+    let app = newApplication(defaultConfig(), defaultSecurityPolicy(), policy)
+    ## Hooks belong to the executor adapter, not the copied application policy;
+    ## this keeps closure ownership out of the ORC-managed policy value.
+    app.executor.hooks.onBlockingDetected = proc(_: int) {.gcsafe.} = detected.store(true)
+    app.executor.hooks.backendCancellation = proc(_: CancellationToken): bool {.gcsafe.} =
+      backendCalled.store(true)
+      true
+    proc slow(request: Request): mahanaim.Response {.gcsafe.} =
+      while not request.isCancelled():
+        sleep(1)
+      textResponse("cancelled by executor policy")
+    app.getSync("/executor-policy", "executor-policy", slow)
+    let response = waitFor app.dispatch(newRequest("GET", "/executor-policy"))
+    check response.body == "cancelled by executor policy"
+    check detected.load()
+    check backendCalled.load()
+
   test "thread pool executor propagates worker failures":
     let executor = newThreadPoolExecutor()
     proc failJob(): mahanaim.Response {.gcsafe.} =
@@ -156,6 +184,13 @@ suite "Mahanaim core contracts":
     let report = checkConfig(config)
     check not report.passed
     check report.issues[0].code == "config.executor-capacity.negative"
+
+  test "invalid executor cancellation policy is rejected by pre-flight checks":
+    var policy = defaultExecutionPolicy()
+    policy.blockingDetectionMs = -1
+    let report = checkExecution(initRouter(), policy)
+    check not report.passed
+    check report.issues[0].code == "execution.blocking-detection.negative"
 
   test "execution policy can reject synchronous handlers before invocation":
     var policy = defaultExecutionPolicy()

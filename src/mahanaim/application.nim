@@ -49,7 +49,9 @@ proc newApplication*(config = defaultConfig(),
   result.models = initModelRegistry()
   result.executionPolicy = executionPolicy
   result.executor = newThreadPoolExecutor(
-    maxConcurrentJobs = config.executorMaxConcurrentJobs)
+    maxConcurrentJobs = config.executorMaxConcurrentJobs,
+    blockingDetectionMs = executionPolicy.blockingDetectionMs,
+    forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs)
   result.started = false
 
 proc defaultErrorHandler(request: Request,
@@ -202,7 +204,7 @@ proc syncEndpoint(app: Application, handler: SyncHandler): Handler =
         ## cooperative token was already cancelled before worker start.
         if request.isCancelled():
           return textResponse("Request cancelled", Http408)
-        handler(request))
+        handler(request), request.cancellation)
     if request.isCancelled():
       return asyncHandler(proc(_: Request): Response {.gcsafe.} =
         textResponse("Request cancelled", Http408))(request)
