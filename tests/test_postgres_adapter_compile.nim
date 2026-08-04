@@ -6,6 +6,7 @@
 
 import mahanaim/postgres_adapter
 import mahanaim/postgres_testing
+import mahanaim/database
 
 static:
   doAssert compiles(PostgresDatabaseAdapter)
@@ -15,3 +16,7 @@ static:
   doAssert compiles(newPostgresTestFixture(
     newPostgresTestConfiguration("127.0.0.1", "user", "password", "db")))
   doAssert compiles(newPostgresTestFixtureFromEnv())
+  doAssert postgresValueKindForOid(16) == sqlBoolean
+  doAssert postgresValueKindForOid(23) == sqlInteger
+  doAssert postgresValueKindForOid(701) == sqlFloat
+  doAssert postgresValueKindForOid(3802) == sqlText

@@ -71,6 +71,30 @@ proc releaseParameters(values: cstringArray,
     dealloc(buffer)
   dealloc(values)
 
+proc postgresValueKindForOid*(oid: int): SqlValueKind =
+  ## libpq reports PostgreSQL's stable type OID for every result column. Keep
+  ## this mapping pure and small so compile-only tests can pin the neutral
+  ## boundary without requiring a running PostgreSQL server.
+  case oid
+  of 16: sqlBoolean                 # bool
+  of 20, 21, 23, 26: sqlInteger      # int8, int2, int4, oid
+  of 700, 701, 1700: sqlFloat       # float4, float8, numeric
+  else: sqlText                     # dates, UUID, JSON, and extensions
+
+proc postgresValueForOid(value: string, oid: int): SqlValue =
+  ## Convert only unambiguous scalar OIDs. Values that do not parse are kept as
+  ## text rather than being silently coerced into a misleading JSON number.
+  case postgresValueKindForOid(oid)
+  of sqlBoolean:
+    booleanValue(value.toLowerAscii() in ["t", "true", "1", "yes"])
+  of sqlInteger:
+    try: integerValue(parseInt(value).int64)
+    except ValueError: textValue(value)
+  of sqlFloat:
+    try: floatValue(parseFloat(value))
+    except ValueError: textValue(value)
+  else: textValue(value)
+
 method execute*(adapter: PostgresDatabaseAdapter,
                 query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
   ## Execute one parameterized command/query through libpq's extended query
@@ -98,8 +122,9 @@ method execute*(adapter: PostgresDatabaseAdapter,
           if pqgetisnull(response, rowIndex.int32, columnIndex.int32) != 0:
             row.add(nullValue())
           else:
-            row.add(textValue($pqgetvalue(response,
-              rowIndex.int32, columnIndex.int32)))
+            let oid = pqftype(response, columnIndex.int32).int
+            row.add(postgresValueForOid($pqgetvalue(response,
+              rowIndex.int32, columnIndex.int32), oid))
         result.add(row)
   finally:
     releaseParameters(bound.values, bound.allocated)
