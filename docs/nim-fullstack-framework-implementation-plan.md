@@ -248,7 +248,7 @@
 - [x] CSRF enabled policy를 사용할 때 signed hidden input을 생성하도록 연결했다.
 - [x] field 이름 기반 widget registry로 기본 input renderer를 교체할 수 있게 했다.
 - [x] URL-encoded invalid input, escaped value, CSRF field 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [-] template inheritance/include/filter의 독립 엔진은 구현했다. i18n과 model formset은 남아 있다.
+- [x] template inheritance/include/filter의 독립 엔진, metadata 기반 model formset, locale별 JSON catalog directory loader를 구현하고 회귀 테스트를 추가했다. loop·AST 기반 고급 helper는 별도 범위다.
 
 ### 2026-08-04 — P1 API pagination contract 1차
 
@@ -697,7 +697,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-UI-001 | P1 | auto-escaping renderer와 inheritance·partial(include)·filter registry, nested conditional block, `registerTag` custom helper registry, locale catalog 기반 translation helper를 구현했다. loop·AST 기반 확장 helper와 locale 파일 자동 로딩은 후속 범위다. |
+| [-] | REQ-UI-001 | P1 | auto-escaping renderer와 inheritance·partial(include)·filter registry, nested conditional block, `registerTag` custom helper registry, locale catalog 기반 translation helper와 deterministic JSON catalog directory loader를 구현했다. loop·AST 기반 확장 helper는 후속 범위다. |
 | [x] | REQ-UI-002 | P1 | model metadata를 form schema와 `bindModelForm`/`bindModelFormSet`에 연결하고 CSRF·오류 표시 및 field widget registry를 제공한다. |
 | [-] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action과 명시적 inline PATCH route를 지원하며 custom layout은 남아 있다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |

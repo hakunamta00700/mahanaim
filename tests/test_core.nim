@@ -2985,6 +2985,28 @@ suite "Mahanaim core contracts":
       check fileEngine.translate("logout", "ko") == "로그아웃"
     finally:
       if fileExists(catalogPath): removeFile(catalogPath)
+    let catalogDirectory = getTempDir() / "mahanaim_translation_directory_test"
+    if dirExists(catalogDirectory):
+      removeDir(catalogDirectory)
+    createDir(catalogDirectory)
+    let enCatalog = catalogDirectory / "en.json"
+    let koCatalog = catalogDirectory / "ko-KR.json"
+    let ignoredCatalog = catalogDirectory / "ignored.txt"
+    writeFile(enCatalog, "{\"welcome\":\"Directory welcome\"}")
+    writeFile(koCatalog, "{\"welcome\":\"디렉터리 환영\"}")
+    writeFile(ignoredCatalog, "not a JSON catalog")
+    try:
+      let directoryEngine = newTemplateEngine()
+      directoryEngine.loadTranslationDirectory(catalogDirectory, "json")
+      check directoryEngine.translate("welcome", "en") == "Directory welcome"
+      check directoryEngine.translate("welcome", "ko-KR") == "디렉터리 환영"
+      expect ValueError:
+        directoryEngine.loadTranslationDirectory(catalogDirectory / "missing")
+    finally:
+      if fileExists(enCatalog): removeFile(enCatalog)
+      if fileExists(koCatalog): removeFile(koCatalog)
+      if fileExists(ignoredCatalog): removeFile(ignoredCatalog)
+      if dirExists(catalogDirectory): removeDir(catalogDirectory)
     let invalidCatalogPath = getTempDir() / "mahanaim_invalid_translation.json"
     writeFile(invalidCatalogPath, "{\"welcome\":true}")
     try:

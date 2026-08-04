@@ -5,7 +5,7 @@
 ## small syntax needed by framework pages: `{{ value|filter }}`, `{% include
 ## "name" %}`, and `{% extends "base" %}` with `{% block name %}` overrides.
 
-import std/[json, os, strutils, tables]
+import std/[algorithm, json, os, strutils, tables]
 
 type
   TemplateContext* = Table[string, string]
@@ -109,6 +109,34 @@ proc loadTranslationFile*(engine: TemplateEngine, locale, path: string) =
       raise newException(ValueError,
         "Translation value must be a string: " & locale & ":" & key)
     engine.registerTranslation(locale, key, value.getStr())
+
+proc loadTranslationDirectory*(engine: TemplateEngine, directory: string,
+                               extension = ".json") =
+  ## Discover one catalog per locale from a deployment-owned directory. File
+  ## enumeration order is normalized before registration so duplicate keys and
+  ## malformed catalogs fail deterministically across operating systems.
+  if engine.isNil or directory.strip().len == 0:
+    raise newException(ValueError,
+      "Template engine and translation directory are required")
+  if not dirExists(directory):
+    raise newException(ValueError,
+      "Translation directory does not exist: " & directory)
+  var normalizedExtension = extension.strip().toLowerAscii()
+  if normalizedExtension.len == 0:
+    normalizedExtension = ".json"
+  elif normalizedExtension[0] != '.':
+    normalizedExtension = "." & normalizedExtension
+  var catalogs: seq[string] = @[]
+  for path in walkFiles(directory / "*" & normalizedExtension):
+    if fileExists(path):
+      catalogs.add(path)
+  catalogs.sort()
+  for path in catalogs:
+    let locale = splitFile(path).name
+    if locale.strip().len == 0:
+      raise newException(ValueError,
+        "Translation catalog locale cannot be empty: " & path)
+    engine.loadTranslationFile(locale, path)
 
 proc translate*(engine: TemplateEngine, key: string, locale = ""): string =
   ## Missing locale entries fall back to the default catalog and finally the
