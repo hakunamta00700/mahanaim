@@ -754,6 +754,18 @@ suite "Mahanaim core contracts":
       first[0 .. ^2] & (if first[^1] == '0': "1" else: "0"))
     check not hasher.verifyPassword("correct horse battery staple", "invalid")
 
+  test "password reset tokens are signed and expire":
+    let secret = "password-reset-secret-that-is-long-enough"
+    let token = issuePasswordResetTokenAt(secret, "user-42", 60, 1000)
+    check verifyPasswordResetTokenAt(secret, token, "user-42", 1059)
+    check not verifyPasswordResetTokenAt(secret, token, "user-42", 1060)
+    check not verifyPasswordResetTokenAt(secret, token, "user-99", 1050)
+    check not verifyPasswordResetTokenAt(secret,
+      token[0 .. ^2] & (if token[^1] == '0': "1" else: "0"),
+      "user-42", 1050)
+    expect ValueError:
+      discard issuePasswordResetTokenAt("short", "user-42", 60, 1000)
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")

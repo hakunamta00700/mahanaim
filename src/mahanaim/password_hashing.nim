@@ -5,8 +5,9 @@
 ## supplied by nimcrypto; applications may replace it with Argon2id/bcrypt at
 ## this same API boundary without changing user or auth services.
 
-import std/[strutils, sysrand]
+import std/[options, strutils, sysrand, times]
 import nimcrypto/[pbkdf2, sha2]
+import ./security
 
 type
   Pbkdf2PasswordHasher* = ref object
@@ -93,3 +94,45 @@ proc verifyPassword*(hasher: Pbkdf2PasswordHasher, password, encoded: string): b
     return false
   let actual = hasher.derive(password, salt, iterations, expected.len)
   constantTimeEquals(actual, expected)
+
+proc issuePasswordResetTokenAt*(secret, subject: string, ttlSeconds,
+                                issuedAt: int64): string =
+  ## A reset token is an HMAC-signed envelope, not a password or session. The
+  ## random nonce prevents identical tokens for the same subject and timestamp.
+  ## One-time consumption still requires an application-owned used-token store.
+  if secret.len < 32 or subject.strip().len == 0 or subject.contains('|'):
+    raise newException(ValueError,
+      "Reset token secret and subject are required")
+  if ttlSeconds <= 0:
+    raise newException(ValueError, "Reset token TTL must be positive")
+  let expiresAt = issuedAt + ttlSeconds
+  let nonce = hexEncode(urandom(16))
+  signValue(secret, "password-reset|" & subject & "|" & $issuedAt & "|" &
+    $expiresAt & "|" & nonce)
+
+proc issuePasswordResetToken*(secret, subject: string,
+                              ttlSeconds: int64): string =
+  ## Production convenience wrapper uses the current Unix timestamp.
+  issuePasswordResetTokenAt(secret, subject, ttlSeconds, getTime().toUnix)
+
+proc verifyPasswordResetTokenAt*(secret, token, expectedSubject: string,
+                                 now: int64): bool =
+  ## Verification fails closed for malformed, mis-signed, wrong-subject, or
+  ## expired tokens. Callers must atomically mark a successful token as used.
+  if secret.len < 32 or expectedSubject.strip().len == 0:
+    return false
+  let signedPayload = verifySignedValue(secret, token)
+  if signedPayload.isNone:
+    return false
+  let parts = signedPayload.get().split('|')
+  if parts.len != 5 or parts[0] != "password-reset" or
+     parts[1] != expectedSubject:
+    return false
+  let issuedAt = try: parseInt(parts[2]).int64 except ValueError: return false
+  let expiresAt = try: parseInt(parts[3]).int64 except ValueError: return false
+  issuedAt <= now and expiresAt > now and expiresAt > issuedAt and
+    parts[4].len == 32
+
+proc verifyPasswordResetToken*(secret, token, expectedSubject: string): bool =
+  ## Production convenience wrapper uses the current Unix timestamp.
+  verifyPasswordResetTokenAt(secret, token, expectedSubject, getTime().toUnix)
