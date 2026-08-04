@@ -70,7 +70,7 @@ proc releaseParameters(values: cstringArray,
   dealloc(values)
 
 method execute*(adapter: PostgresDatabaseAdapter,
-                query: CompiledQuery): seq[seq[SqlValue]] =
+                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
   ## Execute one parameterized command/query through libpq's extended query
   ## protocol. Values never get interpolated into SQL source text.
   if adapter.isNil or adapter.connection.isNil:
@@ -102,18 +102,18 @@ method execute*(adapter: PostgresDatabaseAdapter,
   finally:
     releaseParameters(bound.values, bound.allocated)
 
-proc execControl(adapter: PostgresDatabaseAdapter, statement: string) =
+proc execControl(adapter: PostgresDatabaseAdapter, statement: string) {.gcsafe.} =
   ## Transaction and savepoint statements contain only framework-generated
   ## identifiers, but still use the common execute boundary for consistency.
   discard adapter.execute(CompiledQuery(sql: statement, parameters: @[]))
 
-method begin*(adapter: PostgresDatabaseAdapter) =
+method begin*(adapter: PostgresDatabaseAdapter) {.gcsafe.} =
   adapter.execControl("BEGIN")
 
-method commit*(adapter: PostgresDatabaseAdapter) =
+method commit*(adapter: PostgresDatabaseAdapter) {.gcsafe.} =
   adapter.execControl("COMMIT")
 
-method rollback*(adapter: PostgresDatabaseAdapter) =
+method rollback*(adapter: PostgresDatabaseAdapter) {.gcsafe.} =
   adapter.execControl("ROLLBACK")
 
 proc safeSavepointName(name: string): string =
@@ -124,13 +124,13 @@ proc safeSavepointName(name: string): string =
       raise newException(ValueError, "Unsafe savepoint name: " & name)
   "\"" & name & "\""
 
-method savepoint*(adapter: PostgresDatabaseAdapter, name: string) =
+method savepoint*(adapter: PostgresDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("SAVEPOINT " & safeSavepointName(name))
 
-method rollbackToSavepoint*(adapter: PostgresDatabaseAdapter, name: string) =
+method rollbackToSavepoint*(adapter: PostgresDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("ROLLBACK TO SAVEPOINT " & safeSavepointName(name))
 
-method releaseSavepoint*(adapter: PostgresDatabaseAdapter, name: string) =
+method releaseSavepoint*(adapter: PostgresDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("RELEASE SAVEPOINT " & safeSavepointName(name))
 
 proc isolationSql(level: TransactionIsolationLevel): string =
@@ -140,7 +140,7 @@ proc isolationSql(level: TransactionIsolationLevel): string =
   of isolationSerializable: "SERIALIZABLE"
 
 method setIsolationLevel*(adapter: PostgresDatabaseAdapter,
-                          level: TransactionIsolationLevel) =
+                          level: TransactionIsolationLevel) {.gcsafe.} =
   ## PostgreSQL requires this command inside a transaction; callers therefore
   ## set isolation immediately after DatabaseSession.begin().
   if level notin adapter.capabilities.isolationLevels:

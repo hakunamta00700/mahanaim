@@ -39,7 +39,7 @@ proc bindValue(statement: SqlPrepared, index: int, value: SqlValue) =
   of sqlBoolean: statement.bindParam(index, if value.boolean: 1'i64 else: 0'i64)
 
 method execute*(adapter: SqliteDatabaseAdapter,
-                query: CompiledQuery): seq[seq[SqlValue]] =
+                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
   ## Execute SELECT or DML and return text-backed rows at the neutral boundary.
   if adapter.isNil or adapter.connection.isNil:
     raise newException(ValueError, "SQLite adapter is closed")
@@ -55,15 +55,15 @@ method execute*(adapter: SqliteDatabaseAdapter,
   finally:
     statement.finalize()
 
-proc execControl(adapter: SqliteDatabaseAdapter, statement: string) =
+proc execControl(adapter: SqliteDatabaseAdapter, statement: string) {.gcsafe.} =
   ## Keep lifecycle SQL centralized and free from caller-provided fragments.
   if adapter.isNil or adapter.connection.isNil:
     raise newException(ValueError, "SQLite adapter is closed")
   adapter.connection.exec(SqlQuery(statement))
 
-method begin*(adapter: SqliteDatabaseAdapter) = adapter.execControl("BEGIN")
-method commit*(adapter: SqliteDatabaseAdapter) = adapter.execControl("COMMIT")
-method rollback*(adapter: SqliteDatabaseAdapter) = adapter.execControl("ROLLBACK")
+method begin*(adapter: SqliteDatabaseAdapter) {.gcsafe.} = adapter.execControl("BEGIN")
+method commit*(adapter: SqliteDatabaseAdapter) {.gcsafe.} = adapter.execControl("COMMIT")
+method rollback*(adapter: SqliteDatabaseAdapter) {.gcsafe.} = adapter.execControl("ROLLBACK")
 
 proc safeSavepointName(name: string): string =
   if name.len == 0:
@@ -73,13 +73,13 @@ proc safeSavepointName(name: string): string =
       raise newException(ValueError, "Unsafe savepoint name: " & name)
   "\"" & name & "\""
 
-method savepoint*(adapter: SqliteDatabaseAdapter, name: string) =
+method savepoint*(adapter: SqliteDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("SAVEPOINT " & safeSavepointName(name))
 
-method rollbackToSavepoint*(adapter: SqliteDatabaseAdapter, name: string) =
+method rollbackToSavepoint*(adapter: SqliteDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("ROLLBACK TO SAVEPOINT " & safeSavepointName(name))
 
-method releaseSavepoint*(adapter: SqliteDatabaseAdapter, name: string) =
+method releaseSavepoint*(adapter: SqliteDatabaseAdapter, name: string) {.gcsafe.} =
   adapter.execControl("RELEASE SAVEPOINT " & safeSavepointName(name))
 
 proc applyMigration*(adapter: SqliteDatabaseAdapter, migration: Migration) =

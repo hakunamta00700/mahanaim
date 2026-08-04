@@ -133,36 +133,36 @@ type
   TransactionCallback* = proc ()
 
 method execute*(adapter: DatabaseAdapter,
-                query: CompiledQuery): seq[seq[SqlValue]] {.base.} =
+                query: CompiledQuery): seq[seq[SqlValue]] {.base, gcsafe.} =
   discard adapter
   discard query
   raise newException(ValueError, "Database adapter does not implement execute")
 
-method begin*(adapter: DatabaseAdapter) {.base.} =
+method begin*(adapter: DatabaseAdapter) {.base, gcsafe.} =
   discard adapter
   raise newException(ValueError, "Database adapter does not implement begin")
 
-method commit*(adapter: DatabaseAdapter) {.base.} =
+method commit*(adapter: DatabaseAdapter) {.base, gcsafe.} =
   discard adapter
   raise newException(ValueError, "Database adapter does not implement commit")
 
-method rollback*(adapter: DatabaseAdapter) {.base.} =
+method rollback*(adapter: DatabaseAdapter) {.base, gcsafe.} =
   discard adapter
   raise newException(ValueError, "Database adapter does not implement rollback")
 
-method savepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+method savepoint*(adapter: DatabaseAdapter, name: string) {.base, gcsafe.} =
   ## Drivers may map this to SAVEPOINT; the base contract fails explicitly.
   discard adapter
   discard name
   raise newException(ValueError, "Database adapter does not implement savepoint")
 
-method rollbackToSavepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+method rollbackToSavepoint*(adapter: DatabaseAdapter, name: string) {.base, gcsafe.} =
   discard adapter
   discard name
   raise newException(ValueError,
     "Database adapter does not implement rollbackToSavepoint")
 
-method releaseSavepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+method releaseSavepoint*(adapter: DatabaseAdapter, name: string) {.base, gcsafe.} =
   discard adapter
   discard name
   raise newException(ValueError,
@@ -189,7 +189,7 @@ proc capabilitiesForDialect*(dialect: DatabaseDialect): DatabaseCapabilities =
                         isolationSerializable})
 
 method setIsolationLevel*(adapter: DatabaseAdapter,
-                          level: TransactionIsolationLevel) {.base.} =
+                          level: TransactionIsolationLevel) {.base, gcsafe.} =
   ## Drivers opt in explicitly; silent emulation would make transaction safety
   ## depend on the backend selected at deployment time.
   if adapter.isNil or not adapter.capabilities.supportsIsolation or

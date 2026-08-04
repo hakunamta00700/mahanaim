@@ -16,6 +16,12 @@ type
     adapter*: DatabaseAdapter
     idField*: string
 
+  DatabaseRepositoryResourceStore* = ref object of ResourceStore
+    ## Adapt repository persistence to the existing CRUD route contract. The
+    ## adapter owns no HTTP behavior; resources.nim remains responsible for
+    ## validation, response status, and route registration.
+    repository*: DatabaseRepository
+
 proc newDatabaseRepository*(metadata: ModelMetadata,
                             adapter: DatabaseAdapter): DatabaseRepository =
   ## Keep repository construction explicit so a connection cannot be hidden in
@@ -30,6 +36,44 @@ proc newDatabaseRepository*(metadata: ModelMetadata,
     if field.primaryKey:
       result.idField = field.name
       break
+
+## Forward declarations keep the ResourceStore adapter near its type while
+## allowing the repository implementation to remain grouped by operation.
+proc list*(repository: DatabaseRepository,
+           query = SelectQuery()): seq[ResourceRow] {.gcsafe.}
+proc find*(repository: DatabaseRepository, id: string): Option[ResourceRow] {.gcsafe.}
+proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow {.gcsafe.}
+proc update*(repository: DatabaseRepository, id: string,
+             row: ResourceRow): Option[ResourceRow] {.gcsafe.}
+proc delete*(repository: DatabaseRepository, id: string): bool {.gcsafe.}
+
+proc newDatabaseRepositoryResourceStore*(repository: DatabaseRepository):
+    DatabaseRepositoryResourceStore =
+  ## Keep the repository explicit so request/session ownership can be added by
+  ## an application integration without hiding a connection in the store.
+  if repository.isNil:
+    raise newException(ValueError, "Database repository store requires a repository")
+  DatabaseRepositoryResourceStore(repository: repository)
+
+method list*(store: DatabaseRepositoryResourceStore,
+             query: SelectQuery): seq[ResourceRow] {.gcsafe.} =
+  store.repository.list(query)
+
+method find*(store: DatabaseRepositoryResourceStore,
+             id: string): Option[ResourceRow] {.gcsafe.} =
+  store.repository.find(id)
+
+method create*(store: DatabaseRepositoryResourceStore,
+               row: ResourceRow): ResourceRow {.gcsafe.} =
+  store.repository.create(row)
+
+method update*(store: DatabaseRepositoryResourceStore, id: string,
+               row: ResourceRow): Option[ResourceRow] {.gcsafe.} =
+  store.repository.update(id, row)
+
+method delete*(store: DatabaseRepositoryResourceStore,
+               id: string): bool {.gcsafe.} =
+  store.repository.delete(id)
 
 proc fieldFor(repository: DatabaseRepository, name: string): Option[ModelField] =
   for field in repository.metadata.fields:
@@ -111,7 +155,7 @@ proc selectQuery(repository: DatabaseRepository,
   compileSelect(normalized, repository.adapter.dialect)
 
 proc list*(repository: DatabaseRepository,
-           query = SelectQuery()): seq[ResourceRow] =
+           query = SelectQuery()): seq[ResourceRow] {.gcsafe.} =
   ## List uses the shared compiler, including pagination and bound filters.
   let compiled = repository.selectQuery(query)
   for values in repository.adapter.execute(compiled):
@@ -162,7 +206,7 @@ proc idFilter(repository: DatabaseRepository, id: string): QueryFilter =
     except ValueError: raise newException(ValueError, "Invalid integer repository id")
   QueryFilter(field: repository.idField, operator: filterEqual, value: value)
 
-proc find*(repository: DatabaseRepository, id: string): Option[ResourceRow] =
+proc find*(repository: DatabaseRepository, id: string): Option[ResourceRow] {.gcsafe.} =
   var query = SelectQuery(filters: @[repository.idFilter(id)], limit: 1)
   let rows = repository.list(query)
   if rows.len > 0: some(rows[0]) else: none(ResourceRow)
@@ -171,7 +215,7 @@ proc rowId(repository: DatabaseRepository, row: ResourceRow): Option[JsonNode] =
   if row.hasKey(repository.idField): some(row[repository.idField])
   else: none(JsonNode)
 
-proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow =
+proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow {.gcsafe.} =
   ## Insert fields in metadata order for deterministic SQL and parameter order.
   var names: seq[string] = @[]
   var values: seq[SqlValue] = @[]
@@ -189,7 +233,30 @@ proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow =
   var quoted: seq[string] = @[]
   for name in names: quoted.add(identifier(name))
   sql.add(quoted.join(", ") & ") VALUES (" & placeholders.join(", ") & ")")
-  discard repository.adapter.execute(CompiledQuery(sql: sql, parameters: values))
+  ## PostgreSQL can return generated columns in the same command. SQLite's
+  ## db_connector versions vary in DML RETURNING support, so its adapter uses
+  ## the native last-insert-rowid query below instead of depending on driver
+  ## cursor behavior.
+  var generatedKey = false
+  for field in repository.metadata.fields:
+    if field.primaryKey and not row.hasKey(field.name):
+      generatedKey = true
+      break
+  if generatedKey and repository.adapter.dialect == dialectPostgres:
+    var returnedColumns: seq[string] = @[]
+    for field in repository.metadata.fields:
+      returnedColumns.add(identifier(field.columnName))
+    sql.add(" RETURNING " & returnedColumns.join(", "))
+  let inserted = repository.adapter.execute(CompiledQuery(sql: sql, parameters: values))
+  if generatedKey and inserted.len > 0:
+    return repository.rowFromValues(inserted[0])
+  if generatedKey and repository.adapter.dialect == dialectSqlite:
+    let idRows = repository.adapter.execute(CompiledQuery(
+      sql: "SELECT last_insert_rowid()", parameters: @[]))
+    if idRows.len > 0 and idRows[0].len > 0:
+      let found = repository.find(idRows[0][0].text)
+      if found.isSome:
+        return found.get()
   let id = repository.rowId(row)
   if id.isSome:
     let found = repository.find($id.get())
@@ -197,7 +264,7 @@ proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow =
   row
 
 proc update*(repository: DatabaseRepository, id: string,
-             row: ResourceRow): Option[ResourceRow] =
+             row: ResourceRow): Option[ResourceRow] {.gcsafe.} =
   if repository.find(id).isNone:
     return none(ResourceRow)
   var assignments: seq[string] = @[]
@@ -220,7 +287,7 @@ proc update*(repository: DatabaseRepository, id: string,
   discard repository.adapter.execute(CompiledQuery(sql: sql, parameters: values))
   repository.find(id)
 
-proc delete*(repository: DatabaseRepository, id: string): bool =
+proc delete*(repository: DatabaseRepository, id: string): bool {.gcsafe.} =
   if repository.find(id).isNone:
     return false
   let field = repository.fieldFor(repository.idField).get()

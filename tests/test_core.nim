@@ -2014,6 +2014,38 @@ suite "Mahanaim core contracts":
     check repository.delete("1")
     check repository.find("1").isNone
 
+  test "database repository store connects CRUD routes to SQLite":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"route_items\" (" &
+      "\"id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"title\" TEXT)",
+      parameters: @[]))
+    var metadata = newModelMetadata("RouteItem", "route_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("title", modelString))
+    let repository = newDatabaseRepository(metadata, adapter)
+    let resource = newCrudResource(metadata,
+      newDatabaseRepositoryResourceStore(repository))
+    let app = newApplication()
+    registerCrudRoutes(app, resource, "/route-items", "route-items")
+
+    let created = waitFor app.dispatch(newRequest("POST", "/route-items",
+      "{\"title\":\"first\"}"))
+    check created.status == Http201
+    let id = parseJson(created.body)["id"].getInt()
+    check parseJson(created.body)["title"].getStr() == "first"
+    let updated = waitFor app.dispatch(newRequest("PUT",
+      "/route-items/" & $id, "{\"title\":\"updated\"}"))
+    check updated.status == Http200
+    check parseJson(updated.body)["title"].getStr() == "updated"
+    check (waitFor app.dispatch(newRequest("GET",
+      "/route-items/" & $id))).status == Http200
+    check (waitFor app.dispatch(newRequest("DELETE",
+      "/route-items/" & $id))).status == Http204
+    check (waitFor app.dispatch(newRequest("GET",
+      "/route-items/" & $id))).status == Http404
+
   test "database repository executes metadata-driven relation joins":
     let adapter = newSqliteDatabaseAdapter()
     defer: adapter.close()

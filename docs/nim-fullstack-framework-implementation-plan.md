@@ -592,11 +592,11 @@ flowchart TB
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현했다. locking capability와 live isolation fixture는 남아 있다.
-- [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API, form, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
+- [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
 완료 기준:
 
-- [-] SQLite repository CRUD가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture는 남아 있다.
+- [-] SQLite repository CRUD와 metadata-driven CRUD route가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture와 admin route는 남아 있다.
 - [ ] 관계 query와 migration up/down 테스트가 통과한다.
 - [ ] PostgreSQL live transaction isolation 테스트가 통과한다.
 
