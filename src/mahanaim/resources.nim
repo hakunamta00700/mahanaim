@@ -37,6 +37,10 @@ type
     metadata*: ModelMetadata
     store*: ResourceStore
     responsePolicy*: SerializationPolicy
+    ## Cursor signing is explicit per resource so secrets do not leak into a
+    ## global query parser or get guessed from application configuration.
+    cursorSecret*: string
+    cursorTtlSeconds*: int64
 
 method list*(store: ResourceStore,
              query: SelectQuery): seq[ResourceRow] {.base, gcsafe.} =
@@ -267,10 +271,14 @@ method delete*(store: InMemoryResourceStore, id: string): bool {.gcsafe.} =
   false
 
 proc newCrudResource*(metadata: ModelMetadata, store: ResourceStore,
-                      responsePolicy = defaultSerializationPolicy()): CrudResource =
+                      responsePolicy = defaultSerializationPolicy(),
+                      cursorSecret = "", cursorTtlSeconds: int64 = 0): CrudResource =
   if store.isNil:
     raise newException(ValueError, "CRUD resource requires a store")
-  CrudResource(metadata: metadata, store: store, responsePolicy: responsePolicy)
+  if cursorTtlSeconds < 0:
+    raise newException(ValueError, "CRUD cursor TTL cannot be negative")
+  CrudResource(metadata: metadata, store: store, responsePolicy: responsePolicy,
+    cursorSecret: cursorSecret, cursorTtlSeconds: cursorTtlSeconds)
 
 proc jsonValues(metadata: ModelMetadata, document: JsonNode): ResourceRow =
   if document.kind != JObject:
@@ -375,7 +383,8 @@ proc listResponseWithCursor*(resource: CrudResource,
   if hasNext and cursorField.isSome and rows.len > 0 and
      rows[^1].hasKey(cursor.field):
     document["next_cursor"] = newJString(
-      cursorTokenFor(cursorField.get(), rows[^1][cursor.field]))
+      cursorTokenFor(cursorField.get(), rows[^1][cursor.field],
+        resource.cursorSecret, resource.cursorTtlSeconds))
   if includeTotal:
     document["total"] = newJInt(resource.store.listWithTotal(query).total)
   jsonResponse(document)
@@ -429,6 +438,8 @@ proc registerCrudRoutes*(app: Application, resource: CrudResource,
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       var options = defaultQueryComponentOptions()
       options.cursorField = primaryKey(resource.metadata)
+      options.cursorSecret = resource.cursorSecret
+      options.cursorTtlSeconds = resource.cursorTtlSeconds
       let parsed = request.parseQueryComponent(resource.metadata.fields, options)
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",

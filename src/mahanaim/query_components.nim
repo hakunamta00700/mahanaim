@@ -5,10 +5,11 @@
 ## admin pages, and future controllers share one safe pagination/filter/sort/
 ## field-selection contract without concatenating user input into SQL.
 
-import std/[json, options, strutils, tables]
+import std/[json, options, strutils, tables, times]
 import ./core
 import ./database
 import ./models
+import ./security
 import ./validation
 
 type
@@ -20,6 +21,12 @@ type
     ## uniquely ordered field. Empty means the component rejects `cursor`
     ## rather than guessing a potentially unstable ordering.
     cursorField*: string
+    ## Signing is opt-in and must be supplied by the application owner; the
+    ## parser never invents a deployment secret.
+    cursorSecret*: string
+    cursorTtlSeconds*: int64
+    ## Tests and deterministic callers may inject a clock. Zero uses wall time.
+    cursorNow*: int64
 
   CursorPagination* = object
     ## The cursor is translated into a bound comparison; it never becomes SQL.
@@ -39,7 +46,8 @@ type
 proc defaultQueryComponentOptions*(): QueryComponentOptions =
   ## Conservative defaults bound query cost before a backend sees the request.
   QueryComponentOptions(defaultPage: 1, defaultPageSize: 20,
-    maxPageSize: 100, cursorField: "")
+    maxPageSize: 100, cursorField: "", cursorSecret: "",
+    cursorTtlSeconds: 0, cursorNow: 0)
 
 proc addQueryIssue(result: var QueryComponentResult, field, code, message: string) =
   ## Reuse the framework validation envelope so query errors have the same
@@ -69,7 +77,8 @@ proc parseBoolean(parsed: var QueryComponentResult,
     return false
   normalized in ["true", "1"]
 
-proc encodeCursor*(value: SqlValue): string =
+proc encodeCursor*(value: SqlValue, secret = "", ttlSeconds: int64 = 0,
+                   now: int64 = 0): string {.gcsafe.} =
   ## Cursor tokens are opaque at the HTTP boundary but retain the neutral SQL
   ## type so a decoded value can be bound without string interpolation.
   let payload = case value.kind
@@ -86,17 +95,20 @@ proc encodeCursor*(value: SqlValue): string =
     let value = ord(character)
     encoded.add(digits[value shr 4])
     encoded.add(digits[value and 0x0f])
-  "m1." & encoded
+  if secret.len == 0:
+    return "m1." & encoded
+  if ttlSeconds < 0:
+    raise newException(ValueError, "Cursor TTL cannot be negative")
+  let issuedAt = if now > 0: now else: getTime().toUnix()
+  let expiresAt = if ttlSeconds > 0: issuedAt + ttlSeconds else: 0
+  let unsigned = "m2." & $expiresAt & "." & encoded
+  signValue(secret, unsigned)
 
-proc decodeCursor*(token: string): Option[SqlValue] =
-  ## Decode only the framework-owned token format. Legacy raw values are
-  ## intentionally handled by typedValue for backwards compatibility.
-  if not token.startsWith("m1."):
-    return none(SqlValue)
-  let encoded = token[3 .. ^1]
+proc decodeCursorPayload(encoded: string): Option[SqlValue] {.gcsafe.} =
+  ## Decode the typed payload after token envelope/signature checks are done.
   if encoded.len == 0 or encoded.len mod 2 != 0:
     return none(SqlValue)
-  proc hexValue(character: char): int =
+  proc hexValue(character: char): int {.gcsafe.} =
     if character in {'0'..'9'}: ord(character) - ord('0')
     elif character in {'a'..'f'}: ord(character) - ord('a') + 10
     elif character in {'A'..'F'}: ord(character) - ord('A') + 10
@@ -124,14 +136,39 @@ proc decodeCursor*(token: string): Option[SqlValue] =
   except CatchableError:
     none(SqlValue)
 
+proc decodeCursor*(token: string, secret = "", now: int64 = 0): Option[SqlValue] {.gcsafe.} =
+  ## Decode only the framework-owned token format. Legacy raw values are
+  ## intentionally handled by typedValue for backwards compatibility.
+  if token.startsWith("m1."):
+    return decodeCursorPayload(token[3 .. ^1])
+  if not token.startsWith("m2.") or secret.len == 0:
+    return none(SqlValue)
+  let parts = token.split('.')
+  if parts.len != 4:
+    return none(SqlValue)
+  let unsigned = parts[0] & "." & parts[1] & "." & parts[2]
+  let verified = verifySignedValue(secret, unsigned & "." & parts[3])
+  if verified.isNone:
+    return none(SqlValue)
+  try:
+    let expiresAt = parseInt(parts[1]).int64
+    if expiresAt > 0:
+      let current = if now > 0: now else: getTime().toUnix()
+      if current >= expiresAt:
+        return none(SqlValue)
+  except ValueError:
+    return none(SqlValue)
+  decodeCursorPayload(parts[2])
+
 proc typedValue(field: ModelField, raw: string,
                 parsed: var QueryComponentResult, key: string): SqlValue {.gcsafe.}
 
 proc cursorValue(field: ModelField, raw: string,
-                 parsed: var QueryComponentResult, key: string): SqlValue {.gcsafe.} =
+                 parsed: var QueryComponentResult, key: string,
+                 secret = "", now: int64 = 0): SqlValue {.gcsafe.} =
   ## Prefer an encoded cursor, then accept the original typed raw form.
-  if raw.startsWith("m1."):
-    let decoded = decodeCursor(raw)
+  if raw.startsWith("m1.") or raw.startsWith("m2."):
+    let decoded = decodeCursor(raw, secret, now)
     if decoded.isNone:
       parsed.addQueryIssue(key, "invalid_cursor", "Cursor token is invalid")
       return nullValue()
@@ -147,7 +184,9 @@ proc cursorValue(field: ModelField, raw: string,
     return decoded.get()
   typedValue(field, raw, parsed, key)
 
-proc cursorTokenFor*(field: ModelField, value: JsonNode): string =
+proc cursorTokenFor*(field: ModelField, value: JsonNode,
+                     secret = "", ttlSeconds: int64 = 0,
+                     now: int64 = 0): string =
   ## Convert a serialized row value back to the field's typed cursor token.
   let typed = case field.kind
     of modelInteger: integerValue(value.getInt().int64)
@@ -156,7 +195,7 @@ proc cursorTokenFor*(field: ModelField, value: JsonNode): string =
       else: floatValue(value.getFloat())
     of modelBoolean: booleanValue(value.getBool())
     else: textValue(if value.kind == JString: value.getStr() else: $value)
-  encodeCursor(typed)
+  encodeCursor(typed, secret, ttlSeconds, now)
 
 proc findField(fields: openArray[ModelField], name: string): Option[ModelField] =
   ## Accept Nim, database, and JSON names while returning one canonical field.
@@ -279,7 +318,8 @@ proc parseQueryComponent*(request: Request,
             descending: false))
         result.cursor = some(CursorPagination(field: canonical,
           value: cursorValue(cursorField.get(), request.query["cursor"],
-            result, "cursor"), descending: descending))
+            result, "cursor", options.cursorSecret, options.cursorNow),
+          descending: descending))
         result.query.filters.add(QueryFilter(field: canonical,
           operator: if descending: filterLess else: filterGreater,
           value: result.cursor.get().value))

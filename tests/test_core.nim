@@ -1832,6 +1832,26 @@ suite "Mahanaim core contracts":
     check lastCursorDocument["items"][0]["name"].getStr() == "inactive"
     check lastCursorDocument["next_cursor"].kind == JNull
 
+    let cursorSecret = "cursor-secret-that-is-long-enough-for-tests"
+    resource.cursorSecret = cursorSecret
+    resource.cursorTtlSeconds = 60
+    let signedCursor = encodeCursor(integerValue(1), cursorSecret, 60)
+    var signedRequest = newRequest("GET", "/ranked-items")
+    signedRequest.query["cursor"] = signedCursor
+    signedRequest.query["sort"] = "id"
+    signedRequest.query["page_size"] = "1"
+    let signedPage = waitFor app.dispatch(signedRequest)
+    check signedPage.status == Http200
+    let signedDocument = parseJson(signedPage.body)
+    check signedDocument["next_cursor"].getStr().startsWith("m2.")
+    check decodeCursor(signedDocument["next_cursor"].getStr(), cursorSecret).isSome
+    check decodeCursor(signedDocument["next_cursor"].getStr(), "wrong-secret").isNone
+    var tamperedRequest = signedRequest
+    tamperedRequest.query["cursor"] = signedCursor[0 .. ^2] & "0"
+    check (waitFor app.dispatch(tamperedRequest)).status == Http400
+    let expired = encodeCursor(integerValue(1), cursorSecret, 10, 100)
+    check decodeCursor(expired, cursorSecret, 110).isNone
+
   test "admin registry protects and audits metadata CRUD routes":
     var metadata = newModelMetadata("AdminItem", "admin_items")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
@@ -1925,6 +1945,9 @@ suite "Mahanaim core contracts":
     check cursorParsed.query.orderBy[0].field == "id"
     let cursorToken = encodeCursor(integerValue(20))
     check decodeCursor(cursorToken).get().integer == 20
+    let signedToken = encodeCursor(textValue("Ada"), "query-secret", 30, 1000)
+    check decodeCursor(signedToken, "query-secret", 1029).get().text == "Ada"
+    check decodeCursor(signedToken, "query-secret", 1030).isNone
 
     var invalidCursor = newRequest("GET", "/users")
     invalidCursor.query["cursor"] = "20"
