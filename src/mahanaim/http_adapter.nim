@@ -10,6 +10,7 @@ import std/[asynchttpserver, asyncdispatch, asyncnet, httpcore, nativesockets, s
 import ./application
 import ./core
 import ./router
+import ./response_policy
 import ./websocket_adapter
 
 type
@@ -92,7 +93,8 @@ proc handleRequest(network: NetworkServer,
     else:
       await serveWebSocket(request, frameworkRequest, websocketRoute.get())
     return
-  let response = await network.app.dispatch(frameworkRequest)
+  let response = negotiateResponse(frameworkRequest,
+    await network.app.dispatch(frameworkRequest))
   if response.representation in {rrStream, rrServerSentEvents}:
     await respondChunked(request, response)
   else:

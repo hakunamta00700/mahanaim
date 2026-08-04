@@ -525,6 +525,13 @@ suite "Mahanaim core contracts":
     let client = hc.newAsyncHttpClient()
     let response = waitFor client.getContent("http://127.0.0.1:" & $network.boundPort().uint16 & "/hello")
     check response == "hello over http"
+    var acceptHeaders = newHttpHeaders()
+    acceptHeaders["Accept"] = "application/json"
+    let rejected = waitFor client.request(
+      "http://127.0.0.1:" & $network.boundPort().uint16 & "/hello",
+      HttpGet, headers = acceptHeaders)
+    check rejected.code == Http406
+    discard waitFor rejected.body()
     client.close()
     network.close()
     network.close()
@@ -613,6 +620,7 @@ suite "Mahanaim core contracts":
       "Host: 127.0.0.1\r\n" &
       "Upgrade: websocket\r\n" &
       "Connection: Upgrade\r\n" &
+      "Accept: application/json\r\n" &
       "Sec-WebSocket-Version: 13\r\n" &
       "Sec-WebSocket-Key: " & key & "\r\n\r\n")
     var handshake = ""
@@ -917,6 +925,10 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "image/png"
     let unavailable = negotiateResponse(request, [htmlResponse("<p>hello</p>")])
     check unavailable.status == Http406
+    let single = negotiateResponse(request, textResponse("hello"))
+    check single.status == Http406
+    request.headers["accept"] = "text/plain"
+    check negotiateResponse(request, textResponse("hello")).status == Http200
 
   test "stream and SSE responses expose representation metadata":
     let stream = streamResponse("chunk", "text/plain")

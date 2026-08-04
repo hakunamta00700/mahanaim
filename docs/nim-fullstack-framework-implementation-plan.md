@@ -51,7 +51,8 @@
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리했다.
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 연결했다.
 - [x] 표준 TCP adapter의 WebSocket upgrade와 기본 frame wire를 연결했다.
-- [ ] Prologue WebSocket adapter와 SSE/content negotiation wire integration은 남아 있다.
+- [x] 표준 HTTP·Windows Prologue adapter의 단일 response `Accept` negotiation과 406 정책을 연결했다.
+- [ ] Prologue socket ownership fixture와 stream/SSE/WebSocket variant negotiation은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
@@ -175,7 +176,9 @@
 - [x] HTTP route와 분리된 `WebSocketRoute` registry와 path precedence 회귀 테스트를 추가했다.
 - [x] 표준 TCP adapter의 RFC 6455 handshake, client masking, text frame echo, close lifecycle을 live socket으로 검증했다.
 - [x] Windows Prologue native request bridge가 공통 WebSocket handshake/session adapter로 위임하도록 연결했다.
-- [ ] Prologue socket ownership smoke fixture와 content negotiation wire integration은 다음 P0 slice로 남긴다.
+- [x] 최종 단일 response media type을 `Accept`와 비교해 불일치 시 406을 반환한다.
+- [x] 표준 HTTP와 Windows Prologue bridge에 response policy를 연결하고 WebSocket upgrade는 이를 우회한다.
+- [ ] Prologue socket ownership fixture와 stream/SSE/WebSocket variant negotiation은 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 

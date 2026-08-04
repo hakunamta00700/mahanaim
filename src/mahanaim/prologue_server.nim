@@ -8,6 +8,7 @@ import std/[asyncdispatch, httpcore, options]
 import prologue/core/application as prologueApplication
 import ./application
 import ./prologue_adapter
+import ./response_policy
 import ./router
 import ./websocket_adapter
 
@@ -35,7 +36,8 @@ proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
           await serveWebSocket(ctx.request.nativeRequest, frameworkRequest,
             websocketRoute.get())
         return
-    let frameworkResponse = await app.dispatch(frameworkRequest)
+    let frameworkResponse = negotiateResponse(frameworkRequest,
+      await app.dispatch(frameworkRequest))
     # Populate Prologue's response object and let its normal central response
     # phase write to the socket. This also keeps mocking contexts socket-free.
     ctx.response.code = frameworkResponse.status

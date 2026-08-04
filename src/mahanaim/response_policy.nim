@@ -43,3 +43,16 @@ proc negotiateResponse*(request: Request,
       if mediaTypeMatches(requested, offered):
         return variant
   textResponse("Not Acceptable", Http406)
+
+proc negotiateResponse*(request: Request, response: Response): Response =
+  ## Validate a single final representation at an adapter boundary. This is
+  ## intentionally separate from the variant selector so handlers that only
+  ## have one representation still get deterministic 406 wire behavior.
+  let accepted = request.acceptedTypes()
+  if accepted.len == 0:
+    return response
+  let offered = response.mediaType()
+  for requested in accepted:
+    if mediaTypeMatches(requested, offered):
+      return response
+  textResponse("Not Acceptable", Http406)
