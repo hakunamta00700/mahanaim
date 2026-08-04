@@ -39,6 +39,32 @@
 
 이 문서는 요구사항을 구현 가능한 단위로 추적하기 위한 상위 체크리스트다. 각 항목은 코드, 테스트, 문서가 함께 완료될 때 `[x]`로 변경한다.
 
+## 현재 실행 큐
+
+아래 큐는 우선순위와 의존성을 반영한 다음 작업 순서다. 한 항목은 구현, 회귀 테스트, 관련 문서, 검증 게이트를 모두 통과한 뒤에만 `[x]`로 표시한다. 외부 서비스나 staging 자격 증명이 필요한 항목은 로컬 코드 완료와 live 증거 수집을 분리한다.
+
+### P0 — 안전한 기본 경계와 외부 검증
+
+- [ ] **P0-01 PostgreSQL live typed contract** — CI PostgreSQL service 또는 명시된 자격 증명으로 custom field codec, OID typed result, serializable transaction, repository CRUD/aggregate/relation, migration rollback을 실행한다. `tests/test_postgres_live.nim`의 skip/실행 로그를 보존하고 support 문서에 결과를 기록한다.
+- [ ] **P0-02 HTTPS deployment boundary** — forwarded scheme/host 신뢰 hop, secure cookie/header, allowed host와 TLS reverse-proxy 설정을 명시적 configuration/check contract로 연결한다. proxy staging wire test와 운영 복구 절차를 추가한 뒤 `nimble check`에 반영한다.
+
+### P1 — 핵심 제품 기능의 남은 범위
+
+- [ ] **P1-01 구조형 template AST** — template source를 구조형 AST로 파싱하고 block/include/helper 인자를 typed node로 검증한다. nested collection projection, quoted literal, named argument의 parser/render regression test와 사용자 문서를 함께 추가한다.
+- [ ] **P1-02 PostgreSQL migration evidence** — live migration up/down/status와 schema history를 PostgreSQL에서 검증하고 SQLite와 capability/isolation 차이를 contract report로 남긴다. 로컬에서는 compile gate와 credential 없는 skip을 계속 명시한다.
+
+### P2/P3 — 운영 호환성과 선택적 확장
+
+- [ ] **P2-01 Redis/Valkey compatibility** — 지원 RESP 명령, server-side TTL, eviction, reconnect/fail-closed 동작을 실제 Redis/Valkey 버전 matrix에서 확인하고 운영 지침을 갱신한다.
+- [ ] **P3-01 Beast/httpx live adapter** — Linux runner에서 socket ownership, graceful shutdown, TCP/WebSocket wire fixture를 실행하고 현재 compile-only gate를 live gate로 승격한다.
+
+### 완료 판정
+
+- [ ] 항목별 구현·단위/계약 테스트·문서가 같은 변경에 포함되어 있다.
+- [ ] 로컬 공통 게이트 `nimble test`, `nimble verify`, `nimble check`, `git diff --check`가 통과한다.
+- [ ] 외부 환경 항목은 성공 로그 또는 자격 증명 부재에 대한 명시적 skip 증거가 있다.
+- [ ] 변경 로그와 상세 실행 계획이 `plan.md`의 상태와 일치한다.
+
 ## 우선순위 기준
 
 | 우선순위 | 판단 기준 | 대표 범위 |
