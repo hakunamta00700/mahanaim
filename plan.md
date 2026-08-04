@@ -139,7 +139,8 @@
 
 ## P2 — 운영·확장성
 
-- [ ] structured logging, metrics, tracing, request ID, health/readiness endpoint를 제공한다.
+- [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
+- [ ] structured logging backend, tracing/span propagation을 제공한다.
 - [ ] rate limit, timeout, retry/backpressure, graceful shutdown을 운영 정책으로 고정한다.
 - [ ] plugin manifest, DI provider, command/admin extension point를 제공한다.
 - [ ] background task/job abstraction과 persistence·retry 정책을 제공한다.

@@ -708,6 +708,33 @@ suite "Mahanaim core contracts":
     app.shutdown()
     check events == @["start", "stop"]
 
+  test "observability correlates requests and exposes readiness":
+    let app = newApplication()
+    proc healthRoute(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("ok")
+    app.get("/observed", "observed", healthRoute)
+    var request = newRequest("GET", "/observed")
+    request.headers["x-request-id"] = "client-42"
+    let response = waitFor app.dispatch(request)
+    check response.status == Http200
+    check response.headers["x-request-id"] == "client-42"
+    check app.observability.requestCount == 1
+    check app.observability.inFlight == 0
+    check readinessResponse(app.observability).status == Http503
+
+    app.startup()
+    check readinessResponse(app.observability).status == Http200
+    let health = healthResponse(app.observability)
+    check health.status == Http200
+    check health.body.contains("\"requests\":1")
+    app.shutdown()
+    check readinessResponse(app.observability).status == Http503
+
+    request.headers["x-request-id"] = "invalid id with spaces"
+    let generated = waitFor app.dispatch(request)
+    check generated.headers["x-request-id"].startsWith("mahanaim-")
+
   test "environment configuration is parsed without logging secrets":
     putEnv("MAHANAIM_ENV", "test")
     putEnv("MAHANAIM_DEBUG", "false")

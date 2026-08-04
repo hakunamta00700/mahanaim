@@ -7,6 +7,7 @@ import ./config
 import ./security
 import ./models
 import ./execution
+import ./observability
 
 type
   LifecycleHook* = proc ()
@@ -23,6 +24,7 @@ type
     models*: ModelRegistry
     executionPolicy*: ExecutionPolicy
     executor*: ThreadPoolExecutor
+    observability*: Observability
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -53,6 +55,8 @@ proc newApplication*(config = defaultConfig(),
     blockingDetectionMs = executionPolicy.blockingDetectionMs,
     forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs,
     queueWaitMs = executionPolicy.queueWaitMs)
+  result.observability = newObservability()
+  result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
 proc defaultErrorHandler(request: Request,
@@ -246,6 +250,7 @@ proc startup*(app: Application) =
     return
   for hook in app.startupHooks:
     hook()
+  app.observability.setReady(true)
   app.started = true
 
 proc shutdown*(app: Application) =
@@ -254,4 +259,5 @@ proc shutdown*(app: Application) =
     return
   for index in countdown(app.shutdownHooks.high, 0):
     app.shutdownHooks[index]()
+  app.observability.setReady(false)
   app.started = false

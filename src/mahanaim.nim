@@ -5,9 +5,9 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  security, validation, response_policy, checks, models,
                  serialization, execution, prologue_adapter, testing,
                  body_parser, upload_storage, prologue_server, websocket_adapter,
-                 model_macro, database, openapi]
+                 model_macro, database, openapi, observability]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
        prologue_adapter, testing, body_parser, upload_storage, prologue_server,
-       websocket_adapter, model_macro, database, openapi
+       websocket_adapter, model_macro, database, openapi, observability

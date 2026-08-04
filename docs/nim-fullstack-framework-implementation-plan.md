@@ -194,6 +194,14 @@
 - [x] 생성 문서의 위치·필수 필드·제약조건 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] schema macro, typed response schema, route별 operation/response 자동 수집, 완전한 content negotiation은 남아 있다.
 
+### 2026-08-04 — P2 observability foundation 1차
+
+- [x] application dispatch에 request ID 생성/검증과 response `X-Request-ID` 반영을 연결했다.
+- [x] request/error/in-flight 기본 metrics와 구조화 `RequestEventSink` extension point를 추가했다.
+- [x] lifecycle readiness 상태와 JSON health/readiness response를 추가했다.
+- [x] supplied/invalid request ID, counter lifecycle, readiness 200/503 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] Logue/structured logging backend, tracing context/span propagation, production metrics exporter는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
