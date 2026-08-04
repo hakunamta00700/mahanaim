@@ -1,0 +1,20 @@
+# OMX local runtime state
+.omx/
+
+# Nim build artifacts
+nimcache/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
