@@ -11,7 +11,7 @@
 ### Template collection rendering
 
 - [x] `TemplateRenderContext`와 명시적 collection 등록 API를 추가하고 `{% for item in collection %}` loop의 중첩·조건문·자동 escaping을 회귀 테스트한다.
-- [-] 동적 nested collection projection을 `TemplateCollectionProjection`으로 추가해 현재 loop context 기반 child collection을 렌더링하고 회귀 테스트했다. 고급 AST tag/helper 문법은 후속 범위로 남긴다.
+- [-] 동적 nested collection projection과 AST-aware `TemplateHelperArgument`/`registerHelper`를 추가해 현재 loop context·named argument·quoted literal을 안전하게 렌더링하고 회귀 테스트했다. 전체 구조형 template AST는 후속 범위로 남긴다.
 
 ## 2026-08-04 transaction contract
 

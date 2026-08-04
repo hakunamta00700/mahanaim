@@ -11,6 +11,17 @@ type
   TemplateContext* = Table[string, string]
   TemplateCollectionProjection* = proc(
     context: TemplateContext): seq[TemplateContext]
+  TemplateHelperArgumentKind* = enum
+    helperLiteral
+    helperContext
+  TemplateHelperArgument* = object
+    ## A parsed helper argument keeps literal/context provenance explicit so a
+    ## helper cannot accidentally treat user data as template syntax.
+    name*: string
+    value*: string
+    kind*: TemplateHelperArgumentKind
+  TemplateHelper* = proc(arguments: seq[TemplateHelperArgument],
+                         context: TemplateContext): string
   TemplateRenderContext* = object
     ## Scalar values and collections are separate so a template cannot turn a
     ## comma-separated string into an implicit data structure. Applications
@@ -29,6 +40,7 @@ type
     templates: Table[string, string]
     filters: Table[string, TemplateFilter]
     tags: Table[string, TemplateTag]
+    helpers: Table[string, TemplateHelper]
     ## Locale catalogs are kept separate from template source so deployment
     ## can replace translations without changing rendering or escaping.
     translations: Table[string, Table[string, string]]
@@ -51,6 +63,7 @@ proc newTemplateEngine*(maxInheritanceDepth = 16): TemplateEngine =
   result.templates = initTable[string, string]()
   result.filters = initTable[string, TemplateFilter]()
   result.tags = initTable[string, TemplateTag]()
+  result.helpers = initTable[string, TemplateHelper]()
   result.translations = initTable[string, Table[string, string]]()
   result.defaultLocale = "en"
   result.maxInheritanceDepth = maxInheritanceDepth
@@ -125,6 +138,26 @@ proc registerTag*(engine: TemplateEngine, name: string, tag: TemplateTag) =
   if engine.tags.hasKey(name):
     raise newException(ValueError, "Duplicate template tag: " & name)
   engine.tags[name] = tag
+
+proc registerHelper*(engine: TemplateEngine, name: string,
+                      helper: TemplateHelper) =
+  ## Helpers are the AST-aware extension point. Unlike the legacy tag API,
+  ## helpers receive named arguments with literal/context kinds already parsed.
+  if engine.isNil or name.strip().len == 0 or helper.isNil:
+    raise newException(ValueError, "Template helper name and callback are required")
+  if engine.helpers.hasKey(name):
+    raise newException(ValueError, "Duplicate template helper: " & name)
+  engine.helpers[name] = helper
+
+proc resolveTemplateHelperArgument*(argument: TemplateHelperArgument,
+                                    context: TemplateContext): string =
+  ## Context lookup is explicit and bounded to the current render snapshot;
+  ## literal values never perform a second lookup.
+  case argument.kind
+  of helperLiteral:
+    argument.value
+  of helperContext:
+    context.getOrDefault(argument.value)
 
 proc registerTranslation*(engine: TemplateEngine, locale, key, value: string) =
   ## Translation keys are explicit and duplicate registration is rejected so
@@ -451,6 +484,92 @@ proc renderTags(engine: TemplateEngine, source: string,
     result.add(escapeHtml(engine.tags[arguments[0]](tagArgs, context)))
     cursor = tagEnd + 2
 
+type TemplateHelperLexeme = object
+  value: string
+  quoted: bool
+
+proc lexTemplateHelperArguments(source: string): seq[TemplateHelperLexeme] =
+  ## Parse one helper directive without evaluating it. Quoted segments may
+  ## contain whitespace; a backslash escapes the following character inside a
+  ## quoted segment. Keeping this lexer private prevents the public helper API
+  ## from depending on template source representation details.
+  var current = ""
+  var quoted = false
+  var quote: char = '\0'
+  var escaped = false
+  for character in source:
+    if escaped:
+      current.add(character)
+      escaped = false
+    elif quote != '\0' and character == '\\':
+      escaped = true
+    elif quote != '\0':
+      if character == quote:
+        quote = '\0'
+      else:
+        current.add(character)
+    elif character in {'"', '\''}:
+      quote = character
+      quoted = true
+    elif character.isSpaceAscii():
+      if current.len > 0 or quoted:
+        result.add(TemplateHelperLexeme(value: current, quoted: quoted))
+        current = ""
+        quoted = false
+    else:
+      current.add(character)
+  if escaped or quote != '\0':
+    raise newException(ValueError, "Malformed template helper argument")
+  if current.len > 0 or quoted:
+    result.add(TemplateHelperLexeme(value: current, quoted: quoted))
+
+proc parseTemplateHelperDirective(source: string): tuple[
+    name: string, arguments: seq[TemplateHelperArgument]] =
+  ## Build a small AST node list from `helper name=value` syntax. Bare values
+  ## are context expressions; quoted values are immutable literals.
+  let lexemes = lexTemplateHelperArguments(source)
+  if lexemes.len == 0 or lexemes[0].value.len == 0:
+    raise newException(ValueError, "Template helper name is required")
+  result.name = lexemes[0].value
+  if lexemes.len > 1:
+    for lexeme in lexemes[1 .. ^1]:
+      let separator = lexeme.value.find('=')
+      if separator == 0:
+        raise newException(ValueError,
+          "Template helper argument name is required")
+      let argumentName = if separator < 0: "" else: lexeme.value[0 ..< separator]
+      let rawValue = if separator < 0: lexeme.value else:
+        lexeme.value[separator + 1 .. ^1]
+      if rawValue.len == 0 and not lexeme.quoted:
+        raise newException(ValueError,
+          "Template helper context argument cannot be empty")
+      result.arguments.add(TemplateHelperArgument(name: argumentName,
+        value: rawValue,
+        kind: if lexeme.quoted: helperLiteral else: helperContext))
+
+proc renderHelpers(engine: TemplateEngine, source: string,
+                   context: TemplateContext): string =
+  ## Expand AST-aware helpers before legacy tags. Both extension points return
+  ## escaped text, so application callbacks cannot inject raw markup by
+  ## accident; a dedicated safe-html contract can be added later if needed.
+  var cursor = 0
+  const helperPrefix = "{% helper "
+  while true:
+    let start = source.find(helperPrefix, cursor)
+    if start < 0:
+      result.add(source[cursor .. ^1])
+      break
+    result.add(source[cursor ..< start])
+    let helperEnd = source.find("%}", start + helperPrefix.len)
+    if helperEnd < 0:
+      raise newException(ValueError, "Malformed template helper directive")
+    let parsed = parseTemplateHelperDirective(
+      source[start + helperPrefix.len ..< helperEnd].strip())
+    if not engine.helpers.hasKey(parsed.name):
+      raise newException(ValueError, "Template helper not found: " & parsed.name)
+    result.add(escapeHtml(engine.helpers[parsed.name](parsed.arguments, context)))
+    cursor = helperEnd + 2
+
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
@@ -485,7 +604,8 @@ proc renderFragment(engine: TemplateEngine, source: string,
     result.add(renderNamed(engine, structured[nameStart ..< nameEnd], context,
       collections, depth + 1, projections, initTable[string, string]()))
     cursor = nameEnd + 4
-  var rendered = renderTags(engine, result, context)
+  var rendered = renderHelpers(engine, result, context)
+  rendered = renderTags(engine, rendered, context)
   result = ""
   cursor = 0
   while true:

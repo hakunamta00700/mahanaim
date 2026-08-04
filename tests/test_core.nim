@@ -3155,6 +3155,34 @@ suite "Mahanaim core contracts":
     engine.registerTemplate("unknown-tag", "{% tag missing value %}")
     expect ValueError:
       discard engine.render("unknown-tag", context)
+    ## AST helpers preserve the distinction between quoted literals and
+    ## context references until the application callback resolves them.
+    engine.registerHelper("greet-ast", proc(
+        arguments: seq[TemplateHelperArgument],
+        values: TemplateContext): string =
+      var greeting = ""
+      var name = ""
+      for argument in arguments:
+        if argument.name == "prefix":
+          greeting = resolveTemplateHelperArgument(argument, values)
+        elif argument.name == "name":
+          name = resolveTemplateHelperArgument(argument, values)
+      greeting & " <" & name & ">")
+    engine.registerTemplate("ast-helper", "{% helper greet-ast " &
+      "prefix=\"Welcome\" name=title %}")
+    context["title"] = "<Ada>"
+    check engine.render("ast-helper", context) == "Welcome &lt;&lt;Ada&gt;&gt;"
+    engine.registerTemplate("unknown-helper", "{% helper missing value %}")
+    expect ValueError:
+      discard engine.render("unknown-helper", context)
+    engine.registerTemplate("unclosed-helper", "{% helper greet-ast " &
+      "prefix=\"Welcome name=title %}")
+    expect ValueError:
+      discard engine.render("unclosed-helper", context)
+    expect ValueError:
+      engine.registerHelper("greet-ast", proc(
+          arguments: seq[TemplateHelperArgument], values: TemplateContext): string =
+        "again")
     engine.registerTemplate("cycle-a", "{% include \"cycle-b\" %}")
     engine.registerTemplate("cycle-b", "{% include \"cycle-a\" %}")
     expect ValueError:
