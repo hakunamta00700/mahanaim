@@ -3039,6 +3039,14 @@ suite "Mahanaim core contracts":
     check parseJson(customListResponse.body)[0].hasKey("title")
     check parseJson(customListResponse.body)[0].hasKey("id") == false
     check parseJson(customListResponse.body)[0].hasKey("status") == false
+    var htmlList = customList
+    htmlList.headers["accept"] = "text/html"
+    let htmlListResponse = waitFor app.dispatch(htmlList)
+    check htmlListResponse.status == Http200
+    check htmlListResponse.header("Content-Type").get().startsWith("text/html")
+    check htmlListResponse.body.contains("<table")
+    check htmlListResponse.body.contains("href=\"/admin/items/new\"")
+    check htmlListResponse.body.contains("first")
     var snapshot = registry.auditEvents()
     snapshot[0].action = "tampered"
     check registry.auditEvents()[0].action == "create"

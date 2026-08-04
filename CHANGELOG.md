@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- admin list route가 기존 JSON 응답을 유지하면서 `Accept: text/html` 요청에 escaped HTML table과 신규 항목 링크를 제공하도록 확장했다. 공통 query/projection/권한 경계와 JSON·HTML 협상 회귀 테스트를 추가했다.
+
 - 첫 수직 슬라이스 통합 계약을 추가해 SQLite metadata migration의 타입·자동 증가
   PK 보존, JSON/admin CRUD, CSRF·session·권한, OpenAPI·health·request ID·shutdown을
   하나의 Application lifecycle에서 검증한다.

@@ -10,12 +10,15 @@ import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import ./application
 import ./authorization
 import ./core
+import ./database
 import ./forms
 import ./model_schema
 import ./models
 import ./query_components
 import ./resources
 import ./security
+import ./serialization
+import ./templates
 import ./validation
 
 type
@@ -198,6 +201,62 @@ proc adminForm(resource: AdminResource): Response =
   htmlResponse(renderForm(form, action = resource.prefix,
     csrfPolicy = resource.formPolicy))
 
+proc adminListColumns(resource: AdminResource, query: SelectQuery): seq[string] =
+  ## Resolve one visible column set for HTML headings and cell serialization.
+  ## Sensitive fields are filtered before rendering, even when a caller asks
+  ## for them explicitly through the shared query component.
+  let requested = if query.columns.len > 0: query.columns
+    elif resource.customColumns.len > 0: resource.customColumns
+    else: @[]
+  for field in resource.metadata.fields:
+    if field.sensitive and resource.resource.responsePolicy.excludeSensitive:
+      continue
+    if requested.len == 0 or field.name in requested:
+      result.add(field.name)
+
+proc adminDisplayValue(document: JsonNode, field: ModelField): string =
+  ## Keep HTML rendering independent from JSON node formatting while preserving
+  ## a readable representation for scalar and structured values.
+  if not document.hasKey(field.jsonName):
+    return ""
+  let value = document[field.jsonName]
+  if value.kind == JNull:
+    return ""
+  if value.kind == JString:
+    return escapeHtml(value.getStr())
+  escapeHtml($value)
+
+proc adminListHtml(resource: AdminResource, query: SelectQuery): Response =
+  ## Server-rendered list output is an optional representation of the same
+  ## query result as JSON. Keeping it here avoids a second store or auth path;
+  ## response negotiation selects it only for an HTML Accept header.
+  let columns = resource.adminListColumns(query)
+  var body = "<!doctype html><html><head><title>" &
+    escapeHtml(resource.name) & "</title></head><body>"
+  body.add("<main data-resource=\"" & escapeHtml(resource.name) & "\">")
+  body.add("<h1>" & escapeHtml(resource.name) & "</h1>")
+  body.add("<a href=\"" & escapeHtml(resource.prefix & "/new") &
+    "\">New</a><table><thead><tr>")
+  for column in columns:
+    let field = resource.metadata.field(column)
+    if field.isSome:
+      body.add("<th>" & escapeHtml(field.get().name) & "</th>")
+  body.add("</tr></thead><tbody>")
+  for row in resource.resource.store.list(query):
+    let serialized = serializeProjection(resource.metadata, row, columns,
+      resource.resource.responsePolicy)
+    if not serialized.valid:
+      return textResponse("Stored resource row failed serialization", Http500)
+    body.add("<tr>")
+    for column in columns:
+      let field = resource.metadata.field(column)
+      if field.isSome:
+        body.add("<td>" & adminDisplayValue(serialized.document,
+          field.get()) & "</td>")
+    body.add("</tr>")
+  body.add("</tbody></table></main></body></html>")
+  htmlResponse(body)
+
 proc adminWritableBody(resource: AdminResource, body: string): string =
   ## Strip protected fields before a CRUD resource sees input. Parsing errors
   ## remain the resource's responsibility so its existing problem envelope is
@@ -255,7 +314,9 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
           "One or more query parameters are invalid", parsed.errors)
       if parsed.query.columns.len == 0 and current.customColumns.len > 0:
         parsed.query.columns = current.customColumns
-      return listResponse(current.resource, parsed.query))
+      return responseVariants([
+        listResponse(current.resource, parsed.query),
+        adminListHtml(current, parsed.query)]))
   app.get(current.prefix & "/new", "admin." & current.name & ".form",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
