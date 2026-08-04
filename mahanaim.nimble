@@ -35,3 +35,7 @@ task check, "Compile the framework CLI":
 
 task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
+
+task benchmark, "Run deterministic router benchmark workloads":
+  exec "nim c -d:release --path:src" & dependencyPathArgs() &
+    " -r benchmarks/router_benchmark.nim"

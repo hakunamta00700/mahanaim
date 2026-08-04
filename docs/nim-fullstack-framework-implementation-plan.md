@@ -200,14 +200,16 @@
 - [x] static first-segment prefix index와 dynamic fallback bucket을 추가했다.
 - [x] 후보 index를 registration order로 merge해 score와 method precedence를 보존했다.
 - [x] static/dynamic route precedence 회귀 테스트를 추가했다.
-- [ ] benchmark suite와 compressed radix node 최적화는 남아 있다.
+- [x] deterministic router benchmark suite를 추가하고 latency threshold 없이 route hit invariant를 검증한다.
+- [ ] compressed radix node 최적화와 benchmark 결과 기록 자동화는 남아 있다.
 
 ### 2026-08-04 — P0 route tree matching
 
 - [x] static, parameter, trailing wildcard branch를 가진 내부 route tree를 추가했다.
 - [x] 후보 index를 registration order로 정렬해 기존 score와 tie-break를 보존했다.
 - [x] nested static/parameter route precedence 회귀 테스트를 추가했다.
-- [ ] benchmark suite와 compressed radix node 최적화는 남아 있다.
+- [x] deterministic router benchmark suite를 추가했다.
+- [ ] compressed radix node 최적화와 benchmark 결과 기록 자동화는 남아 있다.
 
 ### 2026-08-04 — P0 wildcard URL encoding
 

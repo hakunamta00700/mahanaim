@@ -39,7 +39,7 @@
 - [x] static first-segment prefix index와 dynamic fallback을 추가하고 기존 precedence를 보존한다.
 - [x] wildcard URL building 인코딩 정책을 확정하고 예약 문자가 route shape를 바꾸지 않게 한다.
 - [x] 내부 route tree matching으로 static/parameter/wildcard 후보를 좁히고 precedence를 보존한다.
-- [ ] benchmark suite를 확정한다.
+- [x] 고정 route cardinality와 반복 횟수의 deterministic router benchmark suite를 추가한다.
 - [x] Prologue raw form body와 `Content-Type`을 공통 body parser로 연결하고 contract test를 추가한다.
 - [ ] Prologue upload/WebSocket adapter와 종료 가능한 socket-level smoke fixture를 추가한다.
 
