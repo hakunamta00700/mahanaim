@@ -7,6 +7,8 @@
 import std/[strutils, tables]
 import ./application
 import ./config
+import ./core
+import ./execution
 import ./models
 import ./router
 import ./security
@@ -151,6 +153,21 @@ proc checkModels*(registry: ModelRegistry): CheckReport =
         result.addError("model.relation.empty-target",
           "relation target model must not be empty: " & metadata.name & "." & relation.name)
 
+proc checkExecution*(router: Router,
+                     policy = defaultExecutionPolicy()): CheckReport =
+  ## Surface sync handlers during pre-flight so blocking work is reviewed before
+  ## boot. Strict deployments can turn the warning into a blocking error.
+  result = initCheckReport()
+  for route in router.routes:
+    if route.executionKind != hekSync:
+      continue
+    if not policy.allowSynchronousHandlers:
+      result.addError("execution.sync.disabled",
+        "synchronous handler is disabled: " & route.name)
+    elif policy.warnOnSynchronousHandlers:
+      result.addWarning("execution.sync.handler",
+        "synchronous handler requires non-blocking work or an executor: " & route.name)
+
 proc checkApplication*(app: Application,
                        securityPolicy = defaultSecurityPolicy()): CheckReport =
   ## Combine the same checks used by CLI and embedding applications.
@@ -159,7 +176,9 @@ proc checkApplication*(app: Application,
   let routeReport = checkRouter(app.router)
   let modelReport = checkModels(app.models)
   let securityReport = checkSecurityPolicy(securityPolicy)
+  let executionReport = checkExecution(app.router, app.executionPolicy)
   result.issues.add(configReport.issues)
   result.issues.add(routeReport.issues)
   result.issues.add(modelReport.issues)
   result.issues.add(securityReport.issues)
+  result.issues.add(executionReport.issues)

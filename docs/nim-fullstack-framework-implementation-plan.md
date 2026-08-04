@@ -125,6 +125,13 @@
 - [x] 민감 필드 제외·null 처리·잘못된 타입 회귀 테스트를 추가했다.
 - [ ] nested DTO·patch projection·MessagePack·date/UUID/file adapter는 남아 있다.
 
+### 2026-08-04 — P0 handler execution 1차
+
+- [x] route에 async/sync execution metadata를 기록하도록 추가했다.
+- [x] synchronous handler를 기본 check warning으로 노출하고 strict policy에서 거부하도록 추가했다.
+- [x] sync handler가 비동기 wrapper 뒤에서 실행되는 기존 contract를 유지하면서 정책 회귀 테스트를 추가했다.
+- [ ] 실제 thread-pool/executor adapter, blocking 감지와 운영별 자동 전환은 남아 있다.
+
 검증 명령:
 
 ```powershell

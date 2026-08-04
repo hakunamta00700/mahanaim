@@ -41,6 +41,30 @@ suite "Mahanaim core contracts":
     let response = waitFor app.dispatch(newRequest("GET", "/sync-health"))
     check response.status == Http200
     check response.body == "sync ok"
+    let route = app.router.find(newRequest("GET", "/sync-health")).get()
+    check route.executionKind == hekSync
+    let executionReport = checkExecution(app.router, app.executionPolicy)
+    check executionReport.passed
+    check executionReport.issues[0].code == "execution.sync.handler"
+
+  test "execution policy can reject synchronous handlers before invocation":
+    var policy = defaultExecutionPolicy()
+    policy.allowSynchronousHandlers = false
+    let app = newApplication(defaultConfig(), defaultSecurityPolicy(), policy)
+    var invoked = false
+    proc blocked(request: Request): mahanaim.Response {.gcsafe.} =
+      invoked = true
+      discard request
+      textResponse("must not run")
+    app.getSync("/blocked-sync", "blocked-sync", blocked)
+
+    let response = waitFor app.dispatch(newRequest("GET", "/blocked-sync"))
+    check response.status == Http500
+    check response.body == "Synchronous handlers are disabled"
+    check not invoked
+    let report = checkApplication(app)
+    check not report.passed
+    check report.issues[0].code == "execution.sync.disabled"
 
   test "plugin can register a route through the application contract":
     let app = newApplication()

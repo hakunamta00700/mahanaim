@@ -6,6 +6,7 @@ import ./router
 import ./config
 import ./security
 import ./models
+import ./execution
 
 type
   LifecycleHook* = proc ()
@@ -20,6 +21,7 @@ type
     errorHandler*: ErrorHandler
     plugins*: seq[Plugin]
     models*: ModelRegistry
+    executionPolicy*: ExecutionPolicy
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -30,7 +32,8 @@ proc defaultErrorHandler(request: Request,
                          error: ref CatchableError): Future[Response] {.async, gcsafe.}
 
 proc newApplication*(config = defaultConfig(),
-                     securityPolicy = defaultSecurityPolicy()): Application =
+                     securityPolicy = defaultSecurityPolicy(),
+                     executionPolicy = defaultExecutionPolicy()): Application =
   ## Construct an isolated app instance; this is important for test isolation.
   new(result)
   result.config = config
@@ -43,6 +46,7 @@ proc newApplication*(config = defaultConfig(),
   result.errorHandler = defaultErrorHandler
   result.plugins = @[]
   result.models = initModelRegistry()
+  result.executionPolicy = executionPolicy
   result.started = false
 
 proc defaultErrorHandler(request: Request,
@@ -95,12 +99,14 @@ proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
               middleware: seq[Middleware] = @[]) =
   ## Register a synchronous handler explicitly so blocking work is visible in
   ## code review and can later be routed through an executor policy.
-  app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware)
+  app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware,
+    hekSync)
 
 proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
                middleware: seq[Middleware] = @[]) =
   ## POST counterpart to getSync; both use the same adapter contract.
-  app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware)
+  app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware,
+    hekSync)
 
 proc onStartup*(app: Application, hook: LifecycleHook) =
   app.startupHooks.add(hook)
@@ -146,6 +152,12 @@ proc methodNotAllowedHandler(request: Request): Future[Response] {.async, gcsafe
   discard request
   return textResponse("Method Not Allowed", Http405)
 
+proc synchronousHandlerDisabled(request: Request): Future[Response] {.async, gcsafe.} =
+  ## A policy rejection is explicit so a deployment never silently blocks the
+  ## event loop by executing an unapproved synchronous handler.
+  discard request
+  return textResponse("Synchronous handlers are disabled", Http500)
+
 proc invoke(app: Application, request: Request, handler: Handler): Future[Response] {.async.} =
   ## One guarded invocation path prevents sync, async, and plugin routes from
   ## drifting into different exception behavior.
@@ -173,6 +185,9 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   var requestWithParams = request
   if params.isSome:
     requestWithParams.pathParams = params.get()
+  if route.executionKind == hekSync and
+     not app.executionPolicy.allowSynchronousHandlers:
+    return await app.fallback(requestWithParams, synchronousHandlerDisabled)
   var layers = app.middlewares
   layers.add(route.middleware)
   return await app.invoke(requestWithParams, compose(layers, route.handler))

@@ -31,6 +31,12 @@ type
   SyncHandler* = proc (request: Request): Response {.gcsafe.}
   Middleware* = proc (request: Request, next: Handler): Future[Response] {.gcsafe.}
 
+  HandlerExecutionKind* = enum
+    ## Route metadata makes synchronous work visible to checks and deployment
+    ## policy instead of hiding it inside an async closure.
+    hekAsync
+    hekSync
+
   Route* = object
     ## A route is data, not a server-specific callback registration.
     ## This makes route inspection and future OpenAPI generation possible.
@@ -39,6 +45,7 @@ type
     name*: string
     handler*: Handler
     middleware*: seq[Middleware]
+    executionKind*: HandlerExecutionKind
 
   FrameworkError* = object of CatchableError
     ## Domain error used for predictable client-facing failures.
