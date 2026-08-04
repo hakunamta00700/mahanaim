@@ -144,6 +144,23 @@ proc responseDocument(resource: CrudResource, row: ResourceRow): JsonNode =
     raise newException(ValueError, "Stored resource row failed serialization")
   serialized.document
 
+proc inputPolicy(resource: CrudResource): SerializationPolicy =
+  ## Request DTOs may contain write-only sensitive fields, while unknown fields
+  ## must never be silently persisted through a CRUD convention.
+  result = resource.responsePolicy
+  result.excludeSensitive = false
+  result.rejectUnknownFields = true
+
+proc generatedKeyPlaceholder(field: ModelField): JsonNode =
+  ## Let an auto-generated primary key pass required-field validation without
+  ## pretending the placeholder is persisted.
+  case field.kind
+  of modelInteger: newJInt(0)
+  of modelFloat: newJFloat(0.0)
+  of modelBoolean: newJBool(false)
+  of modelJson, modelFile: newJObject()
+  of modelString, modelDateTime, modelUuid, modelReference: newJString("")
+
 proc listResponse*(resource: CrudResource,
                    query = SelectQuery()): Response {.gcsafe.} =
   var document = newJArray()
@@ -159,15 +176,27 @@ proc getResponse*(resource: CrudResource, id: string): Response {.gcsafe.} =
 
 proc createResponse*(resource: CrudResource, body: string): Response {.gcsafe.} =
   try:
-    let row = resource.store.create(jsonValues(resource.metadata, parseJson(body)))
+    let values = jsonValues(resource.metadata, parseJson(body))
+    var validationValues = values
+    for field in resource.metadata.fields:
+      if field.primaryKey and not validationValues.hasKey(field.name):
+        validationValues[field.name] = generatedKeyPlaceholder(field)
+    let validation = serializeModel(resource.metadata, validationValues,
+      resource.inputPolicy())
+    if not validation.valid:
+      return textResponse("Invalid resource body", Http400)
+    let row = resource.store.create(values)
     jsonResponse(responseDocument(resource, row), Http201)
   except CatchableError:
     textResponse("Invalid resource body", Http400)
 
 proc updateResponse*(resource: CrudResource, id, body: string): Response {.gcsafe.} =
   try:
-    let updated = resource.store.update(id,
-      jsonValues(resource.metadata, parseJson(body)))
+    let values = jsonValues(resource.metadata, parseJson(body))
+    let validation = serializePatch(resource.metadata, values, resource.inputPolicy())
+    if not validation.valid:
+      return textResponse("Invalid resource body", Http400)
+    let updated = resource.store.update(id, values)
     if updated.isNone:
       return textResponse("Not Found", Http404)
     jsonResponse(responseDocument(resource, updated.get()))

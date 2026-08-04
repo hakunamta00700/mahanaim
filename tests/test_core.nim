@@ -1637,6 +1637,9 @@ suite "Mahanaim core contracts":
     check deleted.status == Http204
     check (waitFor app.dispatch(newRequest("GET", "/items/" & $id))).status == Http404
     check (waitFor app.dispatch(newRequest("POST", "/items", "not-json"))).status == Http400
+    check (waitFor app.dispatch(newRequest("POST", "/items", "{}"))).status == Http400
+    check (waitFor app.dispatch(newRequest("POST", "/items",
+      "{\"title\":\"ok\",\"unknown\":true}"))).status == Http400
 
   test "MessagePack encoder is deterministic and preserves serializer validity":
     let document = parseJson("{\"b\":true,\"a\":1,\"items\":[null,\"ok\"]}")

@@ -238,6 +238,7 @@
 
 - [x] `ResourceStore` persistence contract와 deterministic `InMemoryResourceStore` reference adapter를 추가했다.
 - [x] metadata serializer를 재사용하는 list/get/create/update/delete response 경계를 추가했다.
+- [x] create/update 입력에서 required/type/unknown-field 검증을 저장 전에 적용하고 auto-generated primary key 예외를 분리했다.
 - [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] SQLite/PostgreSQL repository, transaction boundary, filtering/aggregate relation query와 admin UI는 남아 있다.
