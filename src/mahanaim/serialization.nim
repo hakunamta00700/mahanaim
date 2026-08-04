@@ -60,7 +60,8 @@ proc serializeValues(metadata: ModelMetadata,
                      values: Table[string, JsonNode],
                      policy: SerializationPolicy,
                      requireAll: bool,
-                     projection: seq[string]): SerializationResult =
+                     projection: seq[string],
+                     registry: Option[ModelRegistry] = none(ModelRegistry)): SerializationResult =
   ## One implementation serves full documents, patches, and projections. The
   ## caller selects whether absent fields are errors; type, null, sensitive,
   ## and unknown-field rules stay identical across every representation.
@@ -89,6 +90,33 @@ proc serializeValues(metadata: ModelMetadata,
       result.errors.add(SerializationIssue(field: field.name,
         code: "null_not_allowed", message: "Model field cannot be null"))
       continue
+    if field.nestedModel.len > 0:
+      if value.kind != JObject:
+        result.errors.add(SerializationIssue(field: field.name,
+          code: "invalid_nested_type",
+          message: "Nested DTO must be a JSON object"))
+        continue
+      if registry.isNone or registry.get.model(field.nestedModel).isNone:
+        result.errors.add(SerializationIssue(field: field.name,
+          code: "nested_model_missing",
+          message: "Nested model metadata is not registered"))
+        continue
+      let nestedMetadata = registry.get.model(field.nestedModel).get()
+      var nestedValues = initTable[string, JsonNode]()
+      for name, nestedValue in value:
+        var resolvedName = name
+        for nestedField in nestedMetadata.fields:
+          if nestedField.jsonName == name or nestedField.name == name:
+            resolvedName = nestedField.name
+            break
+        nestedValues[resolvedName] = nestedValue
+      let nested = serializeValues(nestedMetadata, nestedValues, policy,
+        requireAll = requireAll, projection = @[], registry = registry)
+      for issue in nested.errors:
+        result.errors.add(SerializationIssue(field: field.name & "." & issue.field,
+          code: issue.code, message: issue.message))
+      result.document[field.jsonName] = nested.document
+      continue
     if value.kind != JNull and not valueMatches(field, value):
       result.errors.add(SerializationIssue(field: field.name,
         code: "invalid_type",
@@ -114,6 +142,16 @@ proc serializePatch*(metadata: ModelMetadata,
   ## Partial updates validate only supplied fields, making it safe to merge the
   ## result into an existing record after authorization and persistence checks.
   serializeValues(metadata, values, policy, requireAll = false, projection = @[])
+
+proc serializeModelGraph*(metadata: ModelMetadata,
+                          values: Table[string, JsonNode],
+                          registry: ModelRegistry,
+                          policy = defaultSerializationPolicy()): SerializationResult =
+  ## Serialize a DTO graph using registry-owned nested metadata. This explicit
+  ## entry point prevents accidental recursive serialization when a caller only
+  ## wants a flat model document.
+  serializeValues(metadata, values, policy, requireAll = true, projection = @[],
+    registry = some(registry))
 
 proc serializeProjection*(metadata: ModelMetadata,
                           values: Table[string, JsonNode],

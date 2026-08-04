@@ -161,7 +161,8 @@
 - [x] unknown field 정책과 구조화된 serialization issue를 추가했다.
 - [x] 민감 필드 제외·null 처리·잘못된 타입 회귀 테스트를 추가했다.
 - [x] 공통 serializer 경계에서 patch와 명시적 response projection을 추가했다.
-- [ ] nested DTO·MessagePack·date/UUID/file adapter는 남아 있다.
+- [x] registry 기반 `nestedModel` metadata와 재귀 DTO serialization을 추가했다.
+- [ ] MessagePack·date/UUID/file adapter는 남아 있다.
 
 ### 2026-08-04 — P0 handler execution 1차
 

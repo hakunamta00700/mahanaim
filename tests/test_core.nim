@@ -1394,6 +1394,22 @@ suite "Mahanaim core contracts":
     check not invalidProjection.valid
     check invalidProjection.errors[0].code == "unknown_projection"
 
+    var profile = newModelMetadata("Profile", "profiles")
+    profile.addField(newModelField("display_name", modelString,
+      jsonName = "displayName"))
+    var user = newModelMetadata("UserDto", "users")
+    user.addField(newModelField("id", modelInteger, primaryKey = true))
+    user.addField(newModelField("profile", modelJson, nestedModel = "Profile"))
+    var registry = initModelRegistry()
+    registry.registerModel(profile)
+    registry.registerModel(user)
+    var graphValues = initTable[string, JsonNode]()
+    graphValues["id"] = parseJson("7")
+    graphValues["profile"] = parseJson("{\"displayName\":\"Ada\"}")
+    let graph = serializeModelGraph(user, graphValues, registry)
+    check graph.valid
+    check graph.document["profile"]["displayName"].getStr() == "Ada"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

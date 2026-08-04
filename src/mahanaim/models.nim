@@ -35,6 +35,10 @@ type
     indexed*: bool
     maxLength*: int
     sensitive*: bool
+    ## Optional nested DTO metadata name. Keeping this as a name instead of
+    ## embedding metadata avoids recursive value objects and lets a registry
+    ## remain the single source of nested schema truth.
+    nestedModel*: string
 
   ModelIndex* = object
     ## Composite indexes remain backend-neutral until a migration compiler reads
@@ -73,7 +77,7 @@ type
 proc newModelField*(name: string, kind: ModelValueKind,
                     columnName = "", jsonName = "", nullable = false,
                     primaryKey = false, unique = false, indexed = false,
-                    maxLength = 0, sensitive = false): ModelField =
+                    maxLength = 0, sensitive = false, nestedModel = ""): ModelField =
   ## Nim, database, and JSON names are independent so each adapter can use the
   ## naming convention appropriate to its boundary.
   result = ModelField(
@@ -86,7 +90,8 @@ proc newModelField*(name: string, kind: ModelValueKind,
     unique: unique,
     indexed: indexed,
     maxLength: maxLength,
-    sensitive: sensitive)
+    sensitive: sensitive,
+    nestedModel: nestedModel)
 
 proc newModelMetadata*(name: string, tableName = ""): ModelMetadata =
   ## Keep metadata construction explicit so generated and hand-written models
