@@ -3241,6 +3241,9 @@ suite "Mahanaim core contracts":
       discard newPagination(0, 10)
     expect ValueError:
       discard compileSelect(SelectQuery(table: "users; DROP TABLE users", columns: @["id"]))
+    check statementKeyword("  update users set name = ?") == "UPDATE"
+    check statementMutatesRows("DELETE FROM users")
+    check not statementMutatesRows("SELECT * FROM users")
 
     let migration = migrationSql(MigrationOperation(
       kind: migrationCreateIndex,
@@ -3521,6 +3524,14 @@ suite "Mahanaim core contracts":
     check typedResult.columns[1].name == "name"
     check typedResult.columns[1].kind == sqlText
     check typedResult.rows[0][0].integer == 1
+    let updatedResult = adapter.executeResult(CompiledQuery(sql:
+      "UPDATE \"users\" SET \"name\" = ? WHERE \"id\" = ?",
+      parameters: @[textValue("Ada Lovelace"), integerValue(1)]))
+    check updatedResult.affectedRows == 1
+    let missingDeleteResult = adapter.executeResult(CompiledQuery(sql:
+      "DELETE FROM \"users\" WHERE \"id\" = ?",
+      parameters: @[integerValue(99)]))
+    check missingDeleteResult.affectedRows == 0
 
     adapter.withTransaction(proc() =
       discard adapter.execute(CompiledQuery(sql:

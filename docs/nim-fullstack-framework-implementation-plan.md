@@ -233,7 +233,7 @@
 - [x] SQLite migration history와 latest down rollback을 제공한다.
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
 - [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
-- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 SQLite live-server fixture와 PostgreSQL 16 `postgresLive`에서 실제 HTTP 요청의 pool lease·반환·shutdown close를 검증했고, PostgreSQL-backed HTTP/SSE/WebSocket wire 경로도 통과했다. SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar mapping은 추가했으며, 공통 `DatabaseResult`/column metadata contract의 확장은 남아 있다.
+- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 SQLite live-server fixture와 PostgreSQL 16 `postgresLive`에서 실제 HTTP 요청의 pool lease·반환·shutdown close를 검증했고, PostgreSQL-backed HTTP/SSE/WebSocket wire 경로도 통과했다. SQLite 선언 타입·runtime storage class, PostgreSQL type OID 기반 typed scalar mapping, backend-neutral `DatabaseResult.affectedRows`와 DML 판별 helper까지 추가했으며, 공통 결과 계약의 추가 확장 범위는 남아 있다.
 - [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 - [x] metadata-driven repository가 relation metadata와 target metadata로 one-hop JOIN execution을 수행하고 SQLite 통합 테스트를 통과했다.
 - [x] SQLite/PostgreSQL capability matrix가 transaction/savepoint/typed NULL/isolation 지원 범위를 명시하고 unsupported isolation을 거부한다.
@@ -714,7 +714,7 @@ flowchart TB
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL 16 live fixture에서 shared command status/up/idempotency/history/rollback evidence를 통과했으며 CLI/provider wiring의 남은 범위는 별도 기록한다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback을 검증했다. pool/session과 live-server 검증은 남아 있다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata/`affectedRows` contract, DML 판별 helper, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session과 live-server를 검증했다. 추가 backend 확장과 production matrix evidence가 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
 ### HTML·폼·관리자
@@ -808,7 +808,7 @@ flowchart TB
 - [-] **P0-05**: test client, contract test, secret redaction, secure defaults
 - [ ] **P1-01**: typed extraction, validation, DTO, JSON serialization
 - [-] **P1-02**: OpenAPI registry generator, Swagger UI, ReDoc route, nested DTO component `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했고 generic handler closure의 자동 body schema 추론은 남아 있다.
-- [-] **P1-03**: 모델 metadata, SQLite/PostgreSQL adapter, pool/session과 repository/relation execution 기반을 구현했고 PostgreSQL live repository/isolation과 route 연결이 남아 있다.
+- [-] **P1-03**: 모델 metadata, SQLite/PostgreSQL adapter, pool/session과 repository/relation execution 기반을 구현했고 PostgreSQL live repository/isolation과 route 연결을 검증했다. 공통 typed result와 `affectedRows` 계약도 추가했으며, 추가 backend 확장과 production matrix evidence가 남아 있다.
 
 각 항목은 구현·테스트·문서가 모두 완료되어야 Done으로 이동한다. P0 작업에서 API 계약이 바뀌면 후속 작업을 시작하기 전에 ADR(Architecture Decision Record)을 남긴다.
 

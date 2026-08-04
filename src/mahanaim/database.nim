@@ -58,9 +58,11 @@ type
   DatabaseResult* = object
     ## A single execution result keeps column order and row order together.
     ## Existing `execute` callers remain source-compatible; new consumers can
-    ## opt into metadata through `executeResult`.
+    ## opt into metadata through `executeResult`. DML callers also receive a
+    ## backend-neutral affected-row count instead of parsing driver output.
     columns*: seq[DatabaseColumnMetadata]
     rows*: seq[seq[SqlValue]]
+    affectedRows*: int
 
   FilterOperator* = enum
     filterEqual
@@ -207,6 +209,21 @@ method executeResult*(adapter: DatabaseAdapter,
   ## The base implementation deliberately preserves the old row-only contract
   ## so third-party adapters do not break when the framework adds metadata.
   result.rows = adapter.execute(query)
+
+proc statementKeyword*(sql: string): string =
+  ## Keep DML classification in the common contract so adapters agree on
+  ## when `DatabaseResult.affectedRows` is meaningful. This intentionally
+  ## recognizes only top-level conventional DML; adapters still own dialect
+  ## specific execution and RETURNING behavior.
+  let tokens = sql.strip().splitWhitespace()
+  if tokens.len == 0:
+    return ""
+  tokens[0].toUpperAscii()
+
+proc statementMutatesRows*(sql: string): bool =
+  ## A small explicit set avoids treating SELECT/DDL command status as row
+  ## mutations while preserving a predictable extension point for adapters.
+  statementKeyword(sql) in ["INSERT", "UPDATE", "DELETE", "REPLACE"]
 
 method begin*(adapter: DatabaseAdapter) {.base, gcsafe.} =
   discard adapter

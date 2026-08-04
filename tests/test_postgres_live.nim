@@ -109,9 +109,12 @@ proc runLivePoolSessionContract(configuration: PostgresTestConfiguration) =
 
   let committed = newDatabaseSession(pool)
   committed.setIsolationLevel(isolationSerializable)
-  discard committed.adapter.execute(CompiledQuery(sql:
+  let committedInsert = committed.adapter.executeResult(CompiledQuery(sql:
     "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
     parameters: @[integerValue(1), textValue("committed")]))
+  if committedInsert.affectedRows != 1:
+    raise newException(ValueError,
+      "PostgreSQL affected-row count did not report committed insert")
   committed.commit()
   committed.close()
   if pool.idleCount() != 1 or pool.activeCount() != 0:

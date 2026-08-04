@@ -12,6 +12,9 @@
   응답 후 idle 반환과 shutdown close를 보장하는 live-server 통합 계약을 추가했다.
 - PostgreSQL 16 컨테이너에서 `postgresLive`를 실행해 pool/session lifecycle과
   PostgreSQL-backed HTTP·SSE·WebSocket wire contract를 실제로 통과시켰다.
+- SQLite와 PostgreSQL adapter의 DML 결과가 공통 `DatabaseResult.affectedRows`로
+  영향받은 행 수를 반환하도록 연결하고, SQLite 회귀 테스트와 PostgreSQL 16 live
+  insert contract를 추가했다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.

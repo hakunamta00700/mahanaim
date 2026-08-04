@@ -142,6 +142,17 @@ method executeResult*(adapter: PostgresDatabaseAdapter,
             row.add(postgresValueForOid($pqgetvalue(response,
               rowIndex.int32, columnIndex.int32), oid))
         result.rows.add(row)
+      if statementMutatesRows(query.sql):
+        ## PostgreSQL DML with RETURNING reports one tuple per affected row;
+        ## command-only DML is handled by PQcmdTuples below.
+        result.affectedRows = result.rows.len
+    elif status == PGRES_COMMAND_OK:
+      let tupleCount = $pqcmdTuples(response)
+      if tupleCount.len > 0:
+        try:
+          result.affectedRows = parseInt(tupleCount)
+        except ValueError:
+          result.affectedRows = 0
   finally:
     releaseParameters(bound.values, bound.allocated)
 

@@ -125,6 +125,17 @@ method executeResult*(adapter: SqliteDatabaseAdapter,
         converted.add(sqliteValueForKind($column_text(rawStatement,
           index.int32), result.columns[index].kind))
     result.rows.add(converted)
+  if statementMutatesRows(query.sql):
+    ## RETURNING exposes one row per affected record; ordinary DML has no
+    ## result columns, so ask SQLite's connection-local changes counter after
+    ## the prepared statement has been fully stepped.
+    result.affectedRows = if columnCount > 0:
+      result.rows.len
+    else:
+      try:
+        adapter.connection.getValue(SqlQuery("SELECT changes()")).parseInt()
+      except ValueError:
+        0
 
 method execute*(adapter: SqliteDatabaseAdapter,
                 query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
