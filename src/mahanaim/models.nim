@@ -27,12 +27,14 @@ type
     ## A field is a declaration consumed by multiple framework subsystems.
     name*: string
     columnName*: string
+    jsonName*: string
     kind*: ModelValueKind
     nullable*: bool
     primaryKey*: bool
     unique*: bool
     indexed*: bool
     maxLength*: int
+    sensitive*: bool
 
   ModelIndex* = object
     ## Composite indexes remain backend-neutral until a migration compiler reads
@@ -69,18 +71,22 @@ type
     models*: Table[string, ModelMetadata]
 
 proc newModelField*(name: string, kind: ModelValueKind,
-                    columnName = "", nullable = false, primaryKey = false,
-                    unique = false, indexed = false, maxLength = 0): ModelField =
-  ## The Nim field name is the default column name unless explicitly mapped.
+                    columnName = "", jsonName = "", nullable = false,
+                    primaryKey = false, unique = false, indexed = false,
+                    maxLength = 0, sensitive = false): ModelField =
+  ## Nim, database, and JSON names are independent so each adapter can use the
+  ## naming convention appropriate to its boundary.
   result = ModelField(
     name: name,
     columnName: if columnName.len > 0: columnName else: name,
+    jsonName: if jsonName.len > 0: jsonName else: name,
     kind: kind,
     nullable: nullable,
     primaryKey: primaryKey,
     unique: unique,
     indexed: indexed,
-    maxLength: maxLength)
+    maxLength: maxLength,
+    sensitive: sensitive)
 
 proc newModelMetadata*(name: string, tableName = ""): ModelMetadata =
   ## Keep metadata construction explicit so generated and hand-written models

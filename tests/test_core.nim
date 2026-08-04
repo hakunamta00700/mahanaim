@@ -494,6 +494,47 @@ suite "Mahanaim core contracts":
     check not brokenReport.passed
     check brokenReport.issues[0].code == "model.index.unknown-field"
 
+  test "metadata serializer renames fields and excludes sensitive values":
+    var account = newModelMetadata("Account", "accounts")
+    account.addField(newModelField("id", modelInteger, primaryKey = true))
+    account.addField(newModelField("display_name", modelString,
+      jsonName = "displayName"))
+    account.addField(newModelField("email", modelString))
+    account.addField(newModelField("bio", modelString, nullable = true))
+    account.addField(newModelField("password_hash", modelString,
+      sensitive = true, nullable = true))
+
+    var values = initTable[string, JsonNode]()
+    values["id"] = parseJson("7")
+    values["display_name"] = parseJson("\"Ada\"")
+    values["email"] = parseJson("\"ada@example.test\"")
+    values["password_hash"] = parseJson("\"private\"")
+    let serialized = serializeModel(account, values)
+    check serialized.valid
+    check serialized.document["displayName"].getStr() == "Ada"
+    check serialized.document.hasKey("password_hash") == false
+    check serialized.json().contains("displayName")
+
+    var policy = defaultSerializationPolicy()
+    policy.includeNulls = true
+    var valuesWithoutSecret = values
+    valuesWithoutSecret.del("password_hash")
+    let withNulls = serializeModel(account, valuesWithoutSecret, policy)
+    check withNulls.document["bio"].kind == JNull
+    check withNulls.document.hasKey("password_hash") == false
+
+    var invalidValues = values
+    invalidValues["id"] = parseJson("\"seven\"")
+    let invalid = serializeModel(account, invalidValues)
+    check not invalid.valid
+    check invalid.errors[0].code == "invalid_type"
+
+    policy.rejectUnknownFields = true
+    invalidValues["unknown"] = parseJson("true")
+    let unknown = serializeModel(account, invalidValues, policy)
+    check not unknown.valid
+    check unknown.errors[^1].code == "unknown_field"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

@@ -117,6 +117,14 @@
 - [x] metadata lookup과 registry·invalid reference 회귀 테스트를 추가했다.
 - [ ] model macro 생성, query/backend adapter, migration compiler와 serializer/form/admin/OpenAPI 소비자는 남아 있다.
 
+### 2026-08-04 — P0 model serializer 1차
+
+- [x] metadata의 JSON rename·nullable·sensitive policy를 읽는 serializer를 추가했다.
+- [x] string·integer·float·boolean·JSON boundary type 검증을 추가했다.
+- [x] unknown field 정책과 구조화된 serialization issue를 추가했다.
+- [x] 민감 필드 제외·null 처리·잘못된 타입 회귀 테스트를 추가했다.
+- [ ] nested DTO·patch projection·MessagePack·date/UUID/file adapter는 남아 있다.
+
 검증 명령:
 
 ```powershell
@@ -297,8 +305,8 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
-| [ ] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
-| [ ] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
+| [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
+| [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [ ] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3를 생성하고 Swagger UI·ReDoc route를 붙인다. |
 | [ ] | REQ-API-005 | P1 | 재사용 가능한 pagination/filter/sort/field-selection component와 공통 validation 오류 형식을 제공한다. |
 
