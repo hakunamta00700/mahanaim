@@ -743,6 +743,17 @@ suite "Mahanaim core contracts":
     other.auth = owned.auth
     check (waitFor app.dispatch(other)).status == Http403
 
+  test "PBKDF2 password hasher uses per-password salt and rejects tampering":
+    let hasher = newPbkdf2PasswordHasher(iterations = 10000)
+    let first = hasher.hashPassword("correct horse battery staple")
+    let second = hasher.hashPassword("correct horse battery staple")
+    check first != second
+    check hasher.verifyPassword("correct horse battery staple", first)
+    check not hasher.verifyPassword("wrong password", first)
+    check not hasher.verifyPassword("correct horse battery staple",
+      first[0 .. ^2] & (if first[^1] == '0': "1" else: "0"))
+    check not hasher.verifyPassword("correct horse battery staple", "invalid")
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")
