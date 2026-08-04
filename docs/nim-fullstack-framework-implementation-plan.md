@@ -132,6 +132,13 @@
 - [x] sync handler가 비동기 wrapper 뒤에서 실행되는 기존 contract를 유지하면서 정책 회귀 테스트를 추가했다.
 - [ ] 실제 thread-pool/executor adapter, blocking 감지와 운영별 자동 전환은 남아 있다.
 
+### 2026-08-04 — P0 Prologue adapter 1차
+
+- [x] Prologue 0.6.8 의존성을 추가하고 framework-neutral request 변환을 구현했다.
+- [x] method·path·query·header·cookie·body와 response headers bridge를 추가했다.
+- [x] Prologue mocking request 기반 adapter 회귀 테스트를 추가했다.
+- [ ] Prologue application/server lifecycle wiring과 upload/form/WebSocket adapter는 남아 있다.
+
 검증 명령:
 
 ```powershell

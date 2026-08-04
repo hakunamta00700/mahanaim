@@ -5,8 +5,11 @@
 ## a future Prologue/ASGI adapter will call.
 
 import std/[asyncdispatch, httpcore, json, options, os, strutils, tables, times,
-            unittest]
+            unittest, uri]
 import std/httpclient as hc
+import pkg/cookiejar
+import prologue/core/httpcore/httplogue
+import prologue/core/request except Request
 import mahanaim
 
 suite "Mahanaim core contracts":
@@ -347,6 +350,26 @@ suite "Mahanaim core contracts":
     check response == "hello over http"
     client.close()
     network.close()
+
+  test "Prologue adapter maps request context and response headers":
+    var nativeHeaders = newHttpHeaders()
+    nativeHeaders["Host"] = "example.test"
+    var cookies = initCookieJar()
+    cookies["session"] = "abc"
+    var prologueRequestValue = request.initMockingRequest(
+      HttpGet, nativeHeaders, parseUri("/search?q=nim"), cookies = cookies)
+
+    let frameworkRequest = toFrameworkRequest(prologueRequestValue)
+    check frameworkRequest.httpMethod == "GET"
+    check frameworkRequest.path == "/search"
+    check frameworkRequest.query["q"] == "nim"
+    check frameworkRequest.header("host").get() == "example.test"
+    check frameworkRequest.cookies["session"] == "abc"
+
+    var frameworkResponse = jsonResponse("{\"ok\":true}")
+    frameworkResponse.headers["x-adapter"] = "prologue"
+    let prologueHeaders = toPrologueHeaders(frameworkResponse)
+    check prologueHeaders["x-adapter", 0] == "prologue"
 
   test "project generator creates a safe starter project":
     let root = getTempDir() / "mahanaim_generated_test"

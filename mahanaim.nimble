@@ -8,6 +8,7 @@ srcDir        = "src"
 
 requires "nim >= 2.2.0"
 requires "nimcrypto >= 0.7.3"
+requires "prologue >= 0.6.8"
 
 task test, "Run the framework test suite":
   exec "nim c --path:src -r tests/test_core.nim"
