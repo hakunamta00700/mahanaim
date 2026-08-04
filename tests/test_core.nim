@@ -599,6 +599,50 @@ suite "Mahanaim core contracts":
     recoveredJobs.complete(recovered.id)
     recoveredJobs.close()
 
+  test "external durable job store delegates state transitions to application transport":
+    var enqueued: Atomic[int]
+    var claimed: Atomic[int]
+    var completed: Atomic[int]
+    var released: Atomic[int]
+    var recovered: Atomic[int]
+    var closed: Atomic[int]
+    enqueued.store(0)
+    claimed.store(0)
+    completed.store(0)
+    released.store(0)
+    recovered.store(0)
+    closed.store(0)
+    let store = newExternalDurableJobStore(
+      proc(id, kind, payload: string) {.gcsafe.} =
+        check id == "external-1"
+        check kind == "email"
+        check payload == "payload"
+        discard enqueued.fetchAdd(1),
+      proc(): Option[DurableJobRecord] {.gcsafe.} =
+        discard claimed.fetchAdd(1)
+        some(DurableJobRecord(id: "external-1", kind: "email",
+          payload: "payload", status: djsProcessing, attempts: 1)),
+      proc(id: string) {.gcsafe.} =
+        check id == "external-1"
+        discard completed.fetchAdd(1),
+      proc(id: string) {.gcsafe.} =
+        check id == "external-1"
+        discard released.fetchAdd(1),
+      proc() {.gcsafe.} = discard recovered.fetchAdd(1),
+      proc() {.gcsafe.} = discard closed.fetchAdd(1))
+    store.enqueue("external-1", "email", "payload")
+    check store.claimNext().get().id == "external-1"
+    store.complete("external-1")
+    store.release("external-1")
+    store.recoverProcessing()
+    store.close()
+    check enqueued.load() == 1
+    check claimed.load() == 1
+    check completed.load() == 1
+    check released.load() == 1
+    check recovered.load() == 1
+    check closed.load() == 1
+
   test "durable job runner dispatches named handlers through the executor":
     let app = newApplication()
     let queue = newBackgroundJobQueue(app.executor,

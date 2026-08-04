@@ -131,6 +131,14 @@ proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행�
   handler에 연결하고 기존 bounded executor를 사용하며, 외부 queue recovery는
   별도 adapter가 담당한다.
 
+## External durable queue adapters
+
+Use `newExternalDurableJobStore` to bridge an application-owned queue client to
+the framework's enqueue/claim/complete/release/recover/close contract. The
+callback bridge deliberately does not prescribe serialization, visibility
+timeouts, acknowledgement semantics, or provider retries; those policies must
+be documented and tested by the concrete queue adapter before deployment.
+
 ## PostgreSQL live integration fixture
 
 The optional `mahanaim/postgres_testing` module does not open a connection

@@ -300,7 +300,7 @@
 - [x] existing ThreadPoolExecutor를 재사용하는 `BackgroundJobQueue`와 job result contract를 추가했다.
 - [x] max attempts/delay를 검증하고 retry를 event-loop sleep으로 bounded asynchronous scheduling한다.
 - [x] 성공·실패 attempt count와 retry policy invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] `IdempotencyStore` claim/release contract, in-memory·append-only file·SQLite reference adapter와 `enqueueIdempotent` 중복 억제 경계, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner를 추가했다. 외부 queue adapter는 남아 있다.
+- [x] `IdempotencyStore` claim/release contract, in-memory·append-only file·SQLite reference adapter와 `enqueueIdempotent` 중복 억제 경계, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner를 추가했다. `ExternalDurableJobStore` callback bridge로 외부 queue의 상태 전이를 연결하며, 실제 provider protocol·visibility timeout·ack 정책은 application-owned 범위다.
 
 ### 2026-08-04 — P1 content negotiation 2차
 
@@ -730,7 +730,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge, Redis/Valkey RESP rate-limit·cache 구현체와 오류/재시도 경계를 추가하고 request/success/failure/connection/reconnect snapshot metrics와 in-memory monotonic TTL·bounded eviction을 제공했다. S3 signing/retry와 cache eviction 운영 정책은 남아 있다. |
-| [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
+| [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch, `ExternalDurableJobStore` callback bridge를 제공했다. 실제 외부 provider protocol·visibility timeout·ack 운영 검증은 application-owned 범위다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation과 vendor-neutral Prometheus text exporter를 구현했고 Logue/OpenTelemetry·production exporter 배포 검증은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |

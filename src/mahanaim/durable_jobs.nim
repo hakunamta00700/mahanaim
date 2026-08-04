@@ -26,6 +26,23 @@ type
 
   DurableJobHandler* = proc(payload: string) {.gcsafe.}
 
+  DurableJobEnqueue* = proc(id, kind, payload: string) {.gcsafe.}
+  DurableJobClaimNext* = proc(): Option[DurableJobRecord] {.gcsafe.}
+  DurableJobTransition* = proc(id: string) {.gcsafe.}
+  DurableJobRecover* = proc() {.gcsafe.}
+  DurableJobClose* = proc() {.gcsafe.}
+
+  ExternalDurableJobStore* = ref object of DurableJobStore
+    ## This bridge keeps external queue protocols outside the framework. An
+    ## adapter owns serialization, acknowledgement, visibility timeout, and
+    ## provider retries; the framework only calls the durable state contract.
+    enqueueCallback: DurableJobEnqueue
+    claimNextCallback: DurableJobClaimNext
+    completeCallback: DurableJobTransition
+    releaseCallback: DurableJobTransition
+    recoverCallback: DurableJobRecover
+    closeCallback: DurableJobClose
+
   DurableJobRegistry* = ref object
     ## Kind-to-handler registration remains application-owned. The durable
     ## store never executes arbitrary payload text or discovers code by name.
@@ -88,6 +105,60 @@ method close*(store: DurableJobStore) {.base, gcsafe.} =
   ## persistence backend. External queue adapters may override it to release
   ## connections; the base implementation is intentionally a no-op.
   discard store
+
+proc newExternalDurableJobStore*(enqueue: DurableJobEnqueue,
+                                 claimNext: DurableJobClaimNext,
+                                 complete: DurableJobTransition,
+                                 release: DurableJobTransition,
+                                 recoverProcessing: DurableJobRecover,
+                                 close: DurableJobClose = nil):
+    ExternalDurableJobStore =
+  ## Require every state transition so a partially configured provider cannot
+  ## acknowledge a job without a corresponding recovery path.
+  if enqueue.isNil or claimNext.isNil or complete.isNil or release.isNil or
+      recoverProcessing.isNil:
+    raise newException(ValueError,
+      "External durable job store requires all state transitions")
+  new(result)
+  result.enqueueCallback = enqueue
+  result.claimNextCallback = claimNext
+  result.completeCallback = complete
+  result.releaseCallback = release
+  result.recoverCallback = recoverProcessing
+  result.closeCallback = close
+
+method enqueue*(store: ExternalDurableJobStore, id, kind, payload: string)
+    {.gcsafe.} =
+  if store.isNil:
+    raise newException(ValueError, "External durable job store is required")
+  store.enqueueCallback(id, kind, payload)
+
+method claimNext*(store: ExternalDurableJobStore): Option[DurableJobRecord]
+    {.gcsafe.} =
+  if store.isNil:
+    raise newException(ValueError, "External durable job store is required")
+  store.claimNextCallback()
+
+method complete*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
+  if store.isNil:
+    raise newException(ValueError, "External durable job store is required")
+  store.completeCallback(id)
+
+method release*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
+  if store.isNil:
+    raise newException(ValueError, "External durable job store is required")
+  store.releaseCallback(id)
+
+method recoverProcessing*(store: ExternalDurableJobStore) {.gcsafe.} =
+  if store.isNil:
+    raise newException(ValueError, "External durable job store is required")
+  store.recoverCallback()
+
+method close*(store: ExternalDurableJobStore) {.gcsafe.} =
+  ## Provider cleanup is optional because some queue clients are process-wide;
+  ## when supplied, application shutdown invokes it exactly through this hook.
+  if not store.isNil and not store.closeCallback.isNil:
+    store.closeCallback()
 
 proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
               queue: BackgroundJobQueue): Future[DurableJobRunResult] {.async.} =
