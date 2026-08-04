@@ -151,7 +151,7 @@
 - [x] config·route·security를 공통 `CheckReport` 계약으로 검사하도록 추가했다.
 - [x] CLI `check`와 `dev`가 동일한 검사 결과를 사용하고 오류 시 non-zero로 종료하도록 변경했다.
 - [x] 정상 설정과 invalid port·중복 route·약한 CSRF secret 실패 회귀 테스트를 추가했다.
-- [ ] model·migration 검사와 CI/deployment 환경의 동일한 실행 wiring은 남아 있다.
+- [-] model·migration 검사와 CLI `check`의 공통 실행 wiring을 추가했다. CI/deployment 환경에서 동일한 check를 실행하는 연결은 남아 있다.
 
 ### 2026-08-04 — P0 model metadata 1차
 

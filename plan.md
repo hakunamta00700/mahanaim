@@ -82,6 +82,10 @@
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 
+### 부팅 전 정합성 검사
+
+- [-] `checkApplication`이 config·route·model·security·execution과 명시적 migration registry의 이름·경로·SQLite operation을 함께 검사한다. CI/deployment 환경의 동일 check wiring은 남아 있다.
+
 ### 설정과 보안
 
 - [x] `.env`, JSON, TOML flat key/value, process environment provider와 precedence를 구현한다.

@@ -2837,6 +2837,23 @@ suite "Mahanaim core contracts":
     check report.issues[1].code == "route.declaration.duplicate"
     check report.issues[2].code == "security.csrf-secret.weak"
 
+  test "framework checks validate migration registry before boot":
+    let registry = newMigrationRegistry()
+    proc invalidMigrations(): seq[Migration] {.gcsafe.} =
+      @[
+        Migration(name: "same", up: @[
+          MigrationOperation(kind: migrationDropTable, table: "bad name")]),
+        Migration(name: "same", up: @[], down: @[])]
+    registry.registerMigrations(invalidMigrations)
+    let report = checkMigrations(registry, "")
+    check not report.passed
+    var codes: seq[string] = @[]
+    for issue in report.issues:
+      codes.add(issue.code)
+    check "migration.path.empty" in codes
+    check "migration.operation.invalid" in codes
+    check "migration.name.duplicate" in codes
+
   test "model macro generates deterministic backend-neutral metadata":
     let generated = modelMetadata(MacroUser, "MacroUser", "macro_users")
     check generated.name == "MacroUser"

@@ -8,8 +8,10 @@ import std/[strutils, tables]
 import ./application
 import ./config
 import ./core
+import ./database
 import ./execution
 import ./models
+import ./migration_commands
 import ./router
 import ./security
 
@@ -174,8 +176,42 @@ proc checkModels*(registry: ModelRegistry): CheckReport =
         result.addError("model.relation.unknown-local-field",
           "relation references unknown local field: " & metadata.name & "." & relation.localField)
       if relation.targetModel.strip().len == 0:
-        result.addError("model.relation.empty-target",
-          "relation target model must not be empty: " & metadata.name & "." & relation.name)
+            result.addError("model.relation.empty-target",
+        "relation target model must not be empty: " & metadata.name & "." & relation.name)
+
+proc checkMigrations*(registry: MigrationRegistry,
+                      sqlitePath: string): CheckReport =
+  ## Inspect application-owned migration definitions without opening a
+  ## database. This makes CLI, CI, and embedding checks agree while keeping
+  ## migration execution an explicit command-side effect.
+  result = initCheckReport()
+  if registry.isNil:
+    result.addError("migration.registry.missing", "migration registry is required")
+    return
+  if sqlitePath.strip().len == 0:
+    result.addError("migration.path.empty", "migration SQLite path must not be empty")
+  var names = initTable[string, bool]()
+  try:
+    for migration in registry.loadMigrations():
+      if migration.name.strip().len == 0:
+        result.addError("migration.name.empty", "migration names must not be empty")
+      elif names.hasKey(migration.name):
+        result.addError("migration.name.duplicate",
+          "duplicate migration name: " & migration.name)
+      else:
+        names[migration.name] = true
+      for operation in migration.up:
+        try:
+          discard migrationSql(operation, dialectSqlite)
+        except CatchableError as error:
+          result.addError("migration.operation.invalid", error.msg)
+      for operation in migration.down:
+        try:
+          discard migrationSql(operation, dialectSqlite)
+        except CatchableError as error:
+          result.addError("migration.rollback.invalid", error.msg)
+  except CatchableError as error:
+    result.addError("migration.provider.failed", error.msg)
 
 proc checkExecution*(router: Router,
                      policy = defaultExecutionPolicy()): CheckReport =
@@ -213,10 +249,13 @@ proc checkApplication*(app: Application,
   let configReport = checkConfig(app.config)
   let routeReport = checkRouter(app.router)
   let modelReport = checkModels(app.models)
+  let migrationReport = checkMigrations(app.migrationRegistry,
+    app.migrationDatabasePath)
   let securityReport = checkSecurityPolicy(securityPolicy)
   let executionReport = checkExecution(app.router, app.executionPolicy)
   result.issues.add(configReport.issues)
   result.issues.add(routeReport.issues)
   result.issues.add(modelReport.issues)
+  result.issues.add(migrationReport.issues)
   result.issues.add(securityReport.issues)
   result.issues.add(executionReport.issues)
