@@ -11,6 +11,7 @@ type
   LocalePolicy* = object
     supportedLocales*: seq[string]
     defaultLocale*: string
+    timezoneOffsetMinutes*: int
 
   LocaleFormatPolicy* = object
     ## Formatting is separate from negotiation: applications can choose an
@@ -23,13 +24,17 @@ proc normalizedLocale(value: string): string =
   value.strip().toLowerAscii().replace('_', '-')
 
 proc newLocalePolicy*(supportedLocales: openArray[string],
-                      defaultLocale: string): LocalePolicy =
+                      defaultLocale: string,
+                      timezoneOffsetMinutes = 0): LocalePolicy =
   ## Validate the fallback once so every request can negotiate without a
   ## per-request configuration error.
   if supportedLocales.len == 0 or defaultLocale.strip().len == 0:
     raise newException(ValueError,
       "Locale policy requires supported locales and a default locale")
+  if timezoneOffsetMinutes < -24 * 60 or timezoneOffsetMinutes > 24 * 60:
+    raise newException(ValueError, "Locale timezone offset is out of range")
   result.defaultLocale = defaultLocale.strip()
+  result.timezoneOffsetMinutes = timezoneOffsetMinutes
   for locale in supportedLocales:
     if locale.strip().len == 0:
       raise newException(ValueError, "Supported locale cannot be empty")
@@ -101,6 +106,7 @@ proc localeMiddleware*(policy: LocalePolicy): Middleware =
     var localized = request
     localized.locale = configured.negotiateLocale(
       request.headers.getOrDefault("accept-language"))
+    localized.timezoneOffsetMinutes = configured.timezoneOffsetMinutes
     return await next(localized)
 
 proc newLocaleFormatPolicy*(locale = "en", timezoneOffsetMinutes = 0):

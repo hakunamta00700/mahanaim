@@ -40,6 +40,9 @@ type
     ## Localization middleware may populate it from Accept-Language before
     ## handlers render a response.
     locale*: string
+    ## The offset is explicit request state rather than a process-global clock
+    ## setting. IANA/DST resolution belongs to an application adapter.
+    timezoneOffsetMinutes*: int
     ## Trace context is populated by observability middleware and propagated
     ## through adapters without coupling handlers to a tracing SDK.
     trace*: TraceContext
