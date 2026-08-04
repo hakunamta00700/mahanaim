@@ -4,7 +4,7 @@
 
 - [x] 임의 Nim custom type은 `newModelCustomField(name, wireType)` 명시 선언으로만 JSON metadata와 serializer codec 경계에 연결한다.
 - [x] model macro가 custom field 선언의 중복·미존재 필드를 compile time에 거부한다.
-- [ ] PostgreSQL live 환경에서 custom field codec과 typed result mapping을 검증한다.
+- [x] PostgreSQL live 환경에서 custom field codec과 typed result mapping을 검증한다. PostgreSQL 16 컨테이너에서 JSONB OID 3802 metadata와 `money` wire codec을 실제 query 결과에 적용했다.
 
 ## Template collection rendering
 
@@ -712,7 +712,7 @@ flowchart TB
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL live fixture 증거는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 CI PostgreSQL service에서 live compatibility, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback contract를 실행한다. local credential 부재로 live 결과는 CI에서 확인해야 한다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback을 검증했다. pool/session과 live-server 검증은 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
 ### HTML·폼·관리자
@@ -747,7 +747,7 @@ flowchart TB
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
-| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, in-process SSE/WebSocket test client, live-server smoke fixture를 추가했다. PostgreSQL live isolation은 남아 있다. |
+| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·DDL rollback, in-process SSE/WebSocket test client를 추가했다. live-server smoke fixture는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [-] | REQ-DOC-001 | P0 | Definition of Done, 지원 버전 정책, 변경 로그 규칙을 문서화했다. 기능별 Nim 예제·API reference·migration/security guide와 릴리스 gate 증거 누적은 남아 있다. |
 

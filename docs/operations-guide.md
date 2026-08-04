@@ -184,6 +184,14 @@ returns `none`; a live/integration suite should treat that result as an
 explicit skip, while a release gate should fail if PostgreSQL credentials are
 required but absent.
 
+The PostgreSQL 16 live contract was executed on 2026-08-05 with Nim 2.2.4.
+It passed migration up/idempotency/rollback, serializable transaction setup,
+repository filtering/aggregate/one-to-many loading, typed scalar metadata,
+and the custom `money` codec over a PostgreSQL `jsonb` result (OID 3802).
+The live command prints `PostgreSQL live contract passed`; this evidence covers
+the database adapter contract, not a production connection pool or live HTTP
+server deployment.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and

@@ -7,7 +7,21 @@
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
-                postgres_adapter, postgres_testing, resources, testing]
+                postgres_adapter, postgres_testing, resources, serialization,
+                testing]
+
+proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
+  ## The live contract uses an application-owned codec rather than teaching
+  ## PostgreSQL about an arbitrary Nim domain type. The database stores the
+  ## JSON wire value; this codec proves the same explicit `wireType` metadata
+  ## is still applied after a typed PostgreSQL result has crossed the adapter.
+  if field.wireType != "money" or value.kind != JObject or
+      not value.hasKey("currency") or not value.hasKey("minor"):
+    raise newException(ValueError, "live money codec received an invalid value")
+  if value["currency"].kind != JString or value["minor"].kind != JInt:
+    raise newException(ValueError, "live money codec received invalid fields")
+  %*{"currency": value["currency"].getStr().toUpperAscii(),
+      "minor": value["minor"].getInt()}
 
 proc runLiveMigrationContract(configuration: PostgresTestConfiguration) =
   ## Migration history is tested on a dedicated connection because the normal
@@ -60,6 +74,9 @@ proc runLiveContract() =
     discard adapter.execute(CompiledQuery(sql:
       "CREATE TABLE \"mahanaim_live_comments\" (\"id\" INTEGER PRIMARY KEY, " &
       "\"item_id\" INTEGER, \"body\" TEXT)", parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"mahanaim_live_custom\" (\"id\" INTEGER PRIMARY KEY, " &
+      "\"price\" JSONB)", parameters: @[]))
     for values in @[
         (1, "live", "open", true, 10),
         (2, "second", "open", true, 5),
@@ -75,6 +92,10 @@ proc runLiveContract() =
     discard adapter.execute(CompiledQuery(sql:
       "INSERT INTO \"mahanaim_live_comments\" VALUES ($1, $2, $3)",
       parameters: @[integerValue(2), integerValue(1), textValue("second")] ))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"mahanaim_live_custom\" VALUES ($1, $2::jsonb)",
+      parameters: @[integerValue(1),
+        textValue("{\"currency\":\"usd\",\"minor\":1250}")] ))
     let typedResult = adapter.executeResult(CompiledQuery(sql:
       "SELECT \"id\", \"active\", \"amount\" FROM \"mahanaim_live_items\" " &
       "ORDER BY \"id\"", parameters: @[]))
@@ -84,6 +105,29 @@ proc runLiveContract() =
         typedResult.columns[2].kind != sqlInteger or
         typedResult.rows.len != 3 or typedResult.rows[0][1].kind != sqlBoolean:
       raise newException(ValueError, "Unexpected PostgreSQL column metadata")
+    let customResult = adapter.executeResult(CompiledQuery(sql:
+      "SELECT \"price\" FROM \"mahanaim_live_custom\" WHERE \"id\" = $1",
+      parameters: @[integerValue(1)]))
+    if customResult.columns.len != 1 or customResult.columns[0].kind != sqlText or
+        customResult.columns[0].backendTypeId != 3802 or
+        customResult.rows.len != 1 or customResult.rows[0][0].kind != sqlText:
+      raise newException(ValueError,
+        "Unexpected PostgreSQL custom field result metadata")
+    let customMetadata = ModelMetadata(name: "LiveCustom", tableName:
+      "mahanaim_live_custom", fields: @[newModelField("id", modelInteger,
+        primaryKey = true), newModelCustomField("price", "money")])
+    let codecRegistry = newSerializationAdapterRegistry()
+    codecRegistry.registerCodec("money", encodeLiveMoney)
+    let customValue = parseJson(customResult.rows[0][0].text)
+    var customValues = initTable[string, JsonNode]()
+    customValues["id"] = newJInt(1)
+    customValues["price"] = customValue
+    let encodedCustom = serializeModel(customMetadata, customValues,
+      adapter = codecRegistry)
+    if not encodedCustom.valid or encodedCustom.document["price"]["currency"].getStr() !=
+        "USD" or encodedCustom.document["price"]["minor"].getInt() != 1250:
+      raise newException(ValueError,
+        "PostgreSQL custom field codec mapping mismatch")
     let rows = adapter.execute(CompiledQuery(
       sql: "SELECT $1::text", parameters: @[textValue("mahanaim-live")]))
     if rows.len != 1 or rows[0].len != 1 or rows[0][0].kind != sqlText:
