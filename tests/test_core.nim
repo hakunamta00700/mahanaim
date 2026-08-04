@@ -1376,6 +1376,18 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard english.formatDecimal(1.0, 13)
 
+  test "IANA locale formatter applies DST-aware offsets":
+    let newYork = newIanaLocaleFormatPolicy("en-US", "America/New_York")
+    let winter = initDateTime(5, mJan, 2024, 15, 30, 0, 0, utc())
+    let summer = initDateTime(5, mJul, 2024, 15, 30, 0, 0, utc())
+    check newYork.timezoneName == "America/New_York"
+    check newYork.timezoneOffsetMinutes(winter) == -300
+    check newYork.timezoneOffsetMinutes(summer) == -240
+    check newYork.formatDateTime(winter) == "1/5/2024 10:30 AM"
+    check newYork.formatDateTime(summer) == "7/5/2024 11:30 AM"
+    expect ValueError:
+      discard newIanaLocaleFormatPolicy("en", "Mars/Phobos")
+
   test "lifecycle hooks are ordered and idempotent":
     let app = newApplication()
     var events: seq[string] = @[]

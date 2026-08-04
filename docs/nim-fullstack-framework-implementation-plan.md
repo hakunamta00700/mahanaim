@@ -610,7 +610,7 @@ flowchart TB
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
-- [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했고 locale catalog 기반 `registerTranslation`/`translate` helper와 JSON catalog file loading을 제공한다. `Request.locale`/`Request.timezoneOffsetMinutes`와 Accept-Language middleware, 명시적 timezone offset 기반 날짜·시간 및 locale 숫자 formatter도 제공하며 IANA/DST timezone provider와 고급 tag/helper는 후속 범위다.
+- [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했고 locale catalog 기반 `registerTranslation`/`translate` helper와 JSON catalog file loading을 제공한다. `Request.locale`/`Request.timezoneOffsetMinutes`와 Accept-Language middleware, 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간, locale 숫자 formatter도 제공하며 고급 tag/helper는 후속 범위다.
 - [x] model metadata에서 validation `FieldSpec`, `bindModelForm`/`bindModelFormSet`, OpenAPI schema와 field widget registry를 생성하는 bridge를 추가했다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
 - [-] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. resource별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 권한 경계 밖의 안전한 form layout renderer hook을 지원한다.
@@ -722,7 +722,7 @@ flowchart TB
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
-| [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 기반 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입, IANA/DST timezone provider와 고급 formatting은 남아 있다. |
+| [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
 | [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, in-process SSE/WebSocket test client, live-server smoke fixture를 추가했다. PostgreSQL live isolation은 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |

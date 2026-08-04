@@ -37,6 +37,12 @@ cost parameter를 읽어 `verifyAndRehash`로 점진적 cost rotation을 수행�
 선택한다. bcrypt는 별도 adapter로 연결할 수 있고, PBKDF2는 호환성 reference
 adapter로 유지한다.
 
+날짜·시간 표시에서 DST가 필요한 경우 `newIanaLocaleFormatPolicy("en-US",
+"America/New_York")`처럼 IANA 이름을 application 설정 단계에서 resolve한다. 잘못된
+zone은 startup에서 거부되며, formatter는 UTC instant를 기준으로 해당 시점의
+offset을 적용한다. 고정 offset은 DST가 필요하지 않은 deterministic 작업에만
+사용한다.
+
 Argon2 정책 측정은 `nimble passwordBenchmark`로 시작할 수 있다. 세부 값을 바꾸려면
 생성된 `benchmarks/password_hash_benchmark.exe`(또는 해당 플랫폼 실행 파일)에
 `--memory-kib`, `--iterations`, `--threads`, `--samples`를 명시해 hash/verify 평균

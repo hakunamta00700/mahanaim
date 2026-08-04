@@ -5,6 +5,7 @@
 ## contract stable while allowing any renderer to consume Request.locale.
 
 import std/[asyncdispatch, algorithm, math, strutils, tables, times]
+import timezones
 import ./core
 
 type
@@ -14,11 +15,15 @@ type
     timezoneOffsetMinutes*: int
 
   LocaleFormatPolicy* = object
-    ## Formatting is separate from negotiation: applications can choose an
-    ## explicit timezone offset at the request boundary without coupling the
-    ## framework to an IANA timezone database or a template implementation.
+    ## Formatting is separate from negotiation: applications can choose either
+    ## a deterministic fixed offset or an IANA-backed timezone at this seam.
+    ## The timezone database stays inside localization, so templates and API
+    ## handlers consume the same DateTime formatting contract without knowing
+    ## the provider's representation.
     locale*: string
     timezoneOffsetMinutes*: int
+    timezoneName*: string
+    timezone: Timezone
 
 proc normalizedLocale(value: string): string =
   value.strip().toLowerAscii().replace('_', '-')
@@ -118,7 +123,21 @@ proc newLocaleFormatPolicy*(locale = "en", timezoneOffsetMinutes = 0):
   if timezoneOffsetMinutes < -24 * 60 or timezoneOffsetMinutes > 24 * 60:
     raise newException(ValueError, "Locale timezone offset is out of range")
   LocaleFormatPolicy(locale: normalizedLocale(locale),
-    timezoneOffsetMinutes: timezoneOffsetMinutes)
+    timezoneOffsetMinutes: timezoneOffsetMinutes, timezoneName: "",
+    timezone: nil)
+
+proc newIanaLocaleFormatPolicy*(locale, timezoneName: string):
+    LocaleFormatPolicy =
+  ## Resolve the IANA name once during application configuration. This avoids
+  ## parsing timezone data on every request and makes invalid deployment
+  ## configuration fail before the server starts.
+  if locale.strip().len == 0:
+    raise newException(ValueError, "Locale formatter locale is required")
+  if timezoneName.strip().len == 0:
+    raise newException(ValueError, "IANA timezone name is required")
+  let zone = tz(timezoneName.strip())
+  LocaleFormatPolicy(locale: normalizedLocale(locale),
+    timezoneOffsetMinutes: 0, timezoneName: timezoneName.strip(), timezone: zone)
 
 proc padNumber(value, width: int): string =
   let raw = $value
@@ -162,8 +181,14 @@ proc formatDecimal*(policy: LocaleFormatPolicy, value: float,
   integerPart & decimalSeparator & raw[point + 1 .. ^1]
 
 proc formatDateTime*(policy: LocaleFormatPolicy, value: DateTime): string =
-  ## Convert the explicit offset first, then apply a stable locale pattern.
-  let localized = value + initDuration(minutes = policy.timezoneOffsetMinutes)
+  ## Convert the instant through the selected provider first, then apply a
+  ## stable locale pattern. `DateTime.inZone` uses the instant's UTC value and
+  ## therefore applies historical/DST transitions instead of adding a stale
+  ## fixed offset.
+  let localized = if policy.timezone.isNil:
+    value + initDuration(minutes = policy.timezoneOffsetMinutes)
+  else:
+    value.inZone(policy.timezone)
   let normalized = normalizedLocale(policy.locale)
   if normalized.startsWith("en"):
     let hour12 = if localized.hour mod 12 == 0: 12 else: localized.hour mod 12
@@ -174,3 +199,12 @@ proc formatDateTime*(policy: LocaleFormatPolicy, value: DateTime): string =
   $localized.year & "-" & padNumber(localized.month.int, 2) & "-" &
     padNumber(localized.monthday, 2) & " " & padNumber(localized.hour, 2) &
     ":" & padNumber(localized.minute, 2)
+
+proc timezoneOffsetMinutes*(policy: LocaleFormatPolicy, value: DateTime): int =
+  ## Expose the resolved offset for audit logs and tests without leaking the
+  ## concrete `Timezone` object to callers. The result can change across DST.
+  if policy.timezone.isNil:
+    return policy.timezoneOffsetMinutes
+  ## Nim's `utcOffset` is expressed as seconds west of UTC, while this
+  ## framework's public fixed-offset convention is minutes east of UTC.
+  -(policy.timezone.zonedTimeFromTime(value.toTime).utcOffset div 60)
