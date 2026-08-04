@@ -9,7 +9,7 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  forms, resources, di, jobs, tracing, sqlite_adapter,
                  database_pool, database_session, database_repository,
                  redis_resp, templates, model_schema, admin, query_components,
-                 aggregate_routes]
+                 aggregate_routes, migration_commands]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
@@ -17,4 +17,5 @@ export core, router, application, config, http_adapter, generator, security,
        websocket_adapter, model_macro, database, openapi, observability,
        messagepack, forms, resources, di, jobs, tracing, sqlite_adapter,
        database_pool, database_session, database_repository, redis_resp,
-       templates, model_schema, admin, query_components, aggregate_routes
+       templates, model_schema, admin, query_components, aggregate_routes,
+       migration_commands

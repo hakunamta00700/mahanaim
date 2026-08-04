@@ -2082,6 +2082,30 @@ suite "Mahanaim core contracts":
     check historyAdapter.rollbackLatest([first]).get() == "001_users"
     check historyAdapter.appliedMigrations().len == 0
 
+  test "migration command contract parses and runs status up and rollback":
+    let first = Migration(name: "001_users", up: @[
+      MigrationOperation(kind: migrationCreateTable, table: "users",
+        field: ModelField(name: "name", kind: modelString))], down: @[
+      MigrationOperation(kind: migrationDropTable, table: "users")])
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+
+    check parseMigrationCommand(["status"]).kind == migrationCommandStatus
+    check parseMigrationCommand(["up"]).kind == migrationCommandUp
+    check parseMigrationCommand(["rollback"]).kind == migrationCommandRollback
+    expect ValueError:
+      discard parseMigrationCommand(["unknown"])
+
+    let up = executeMigrationCommand(adapter, [first],
+      parseMigrationCommand(["up"]))
+    check up.applied == @["001_users"]
+    let status = executeMigrationCommand(adapter, [first],
+      parseMigrationCommand(["status"]))
+    check status.applied == @["001_users"]
+    let rollback = executeMigrationCommand(adapter, [first],
+      parseMigrationCommand(["rollback"]))
+    check rollback.rolledBack.get() == "001_users"
+
   test "database test fixture rolls back each isolated operation":
     let fixture = newDatabaseTestFixture(
       proc(): DatabaseAdapter {.gcsafe.} = newSqliteDatabaseAdapter(),

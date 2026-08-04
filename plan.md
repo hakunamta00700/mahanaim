@@ -170,7 +170,7 @@
 
 - [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
-- [ ] 프로젝트 생성 CLI, migration CLI, admin CLI를 제품 수준으로 확장한다.
+- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행을 추가했다. 프로젝트별 migration 정의 로딩, schema diff/check, fixture/seed, admin CLI는 남아 있다.
 
 ## 탄탄한 기반을 위한 설계 규칙
 
