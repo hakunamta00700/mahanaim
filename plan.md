@@ -125,7 +125,7 @@
 - [x] metadata 기반 patch projection과 partial update serializer를 제공한다.
 - [x] registry 기반 nested DTO serializer를 제공한다.
 - [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공한다.
-- [ ] date/UUID/file adapter를 제공한다.
+- [x] 표준 serialization adapter 확장점과 DateTime·UUID·file metadata 정규화/검증을 제공한다.
 - [ ] SQLite/PostgreSQL query adapter, migration up/down, transaction, relation query를 제공한다.
 
 ### API와 서버 렌더링

@@ -27,6 +27,7 @@ proc modelKind(typeNode: NimNode): NimNode =
   of "bool": ident("modelBoolean")
   of "DateTime": ident("modelDateTime")
   of "UUID": ident("modelUuid")
+  of "FileMetadata", "FileValue": ident("modelFile")
   of "JsonNode": ident("modelJson")
   else: error("Unsupported model field type in modelMetadata: " & name, typeNode)
 

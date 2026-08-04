@@ -169,7 +169,15 @@
 - [x] 민감 필드 제외·null 처리·잘못된 타입 회귀 테스트를 추가했다.
 - [x] 공통 serializer 경계에서 patch와 명시적 response projection을 추가했다.
 - [x] registry 기반 `nestedModel` metadata와 재귀 DTO serialization을 추가했다.
-- [ ] MessagePack·date/UUID/file adapter는 남아 있다.
+- [ ] MessagePack adapter는 남아 있다.
+
+### 2026-08-04 — P1 serializer adapter 1차
+
+- [x] serializer API에 기존 호출을 깨지 않는 `SerializationAdapter` 확장점을 추가했다.
+- [x] 표준 adapter가 UTC RFC3339 DateTime과 canonical UUID를 정규화하도록 구현했다.
+- [x] file metadata의 필수 키·타입·음수 크기를 검증하고 nested DTO 경계에도 adapter를 전달한다.
+- [x] DateTime·UUID·file metadata 성공/실패 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] MessagePack wire adapter와 외부 파일 저장소/서명 URL 정책은 남아 있다.
 
 ### 2026-08-04 — P1 model metadata macro 1차
 

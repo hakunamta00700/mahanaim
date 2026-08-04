@@ -4,7 +4,7 @@
 ## know about a database row, HTTP adapter, or template engine, which keeps the
 ## reflection contract reusable across every framework boundary.
 
-import std/[json, options, tables]
+import std/[json, options, strutils, tables, times]
 import ./models
 
 type
@@ -24,6 +24,59 @@ type
     document*: JsonNode
     errors*: seq[SerializationIssue]
 
+  SerializationAdapter* = ref object of RootObj
+    ## Extension point for domain values that cross the JSON boundary.
+
+  StandardSerializationAdapter* = ref object of SerializationAdapter
+    ## Canonical JSON representation for framework-supported scalar values.
+
+method encode*(adapter: SerializationAdapter, field: ModelField,
+               value: JsonNode): JsonNode {.base.} =
+  ## The base adapter is deliberately identity-preserving for custom fields.
+  value
+
+proc newStandardSerializationAdapter*(): StandardSerializationAdapter =
+  ## Keep date, UUID, and file conventions in one reusable boundary policy.
+  StandardSerializationAdapter()
+
+proc isCanonicalUuid(value: string): bool =
+  if value.len != 36:
+    return false
+  for index, character in value:
+    if index in [8, 13, 18, 23]:
+      if character != '-': return false
+    elif character notin {'0'..'9', 'a'..'f', 'A'..'F'}:
+      return false
+  true
+
+proc canonicalDateTime(value: string): string =
+  ## The core contract starts with UTC RFC3339 seconds; adapters can support
+  ## richer precision without changing ModelValueKind or serializer callers.
+  let parsed = parse(value, "yyyy-MM-dd'T'HH:mm:ss'Z'", utc())
+  parsed.format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+
+method encode*(adapter: StandardSerializationAdapter, field: ModelField,
+               value: JsonNode): JsonNode =
+  case field.kind
+  of modelDateTime:
+    if value.kind != JString:
+      raise newException(ValueError, "DateTime must be an RFC3339 UTC string")
+    newJString(canonicalDateTime(value.getStr()))
+  of modelUuid:
+    if value.kind != JString or not isCanonicalUuid(value.getStr()):
+      raise newException(ValueError, "UUID must use canonical 36-character form")
+    newJString(value.getStr().toLowerAscii())
+  of modelFile:
+    if value.kind != JObject or not value.hasKey("name") or
+        not value.hasKey("contentType") or not value.hasKey("size"):
+      raise newException(ValueError, "File metadata requires name, contentType, and size")
+    if value["name"].kind != JString or value["contentType"].kind != JString or
+        value["size"].kind != JInt or value["size"].getInt() < 0:
+      raise newException(ValueError, "File metadata contains an invalid field")
+    value
+  else:
+    value
+
 proc defaultSerializationPolicy*(): SerializationPolicy =
   ## Never expose sensitive fields unless a caller explicitly opts in.
   SerializationPolicy(excludeSensitive: true, includeNulls: false,
@@ -32,6 +85,7 @@ proc defaultSerializationPolicy*(): SerializationPolicy =
 proc expectedKind(kind: ModelValueKind): string =
   case kind
   of modelString, modelDateTime, modelUuid, modelReference: "string"
+  of modelFile: "file metadata object"
   of modelInteger: "integer"
   of modelFloat: "number"
   of modelBoolean: "boolean"
@@ -44,6 +98,8 @@ proc valueMatches(field: ModelField, value: JsonNode): bool =
   of modelString, modelDateTime, modelUuid, modelReference:
     value.kind == JString or (field.kind == modelReference and
       value.kind in {JInt, JNull})
+  of modelFile:
+    value.kind == JObject
   of modelInteger:
     value.kind == JInt
   of modelFloat:
@@ -61,7 +117,8 @@ proc serializeValues(metadata: ModelMetadata,
                      policy: SerializationPolicy,
                      requireAll: bool,
                      projection: seq[string],
-                     registry: Option[ModelRegistry] = none(ModelRegistry)): SerializationResult =
+                     registry: Option[ModelRegistry] = none(ModelRegistry),
+                     adapter: SerializationAdapter = nil): SerializationResult =
   ## One implementation serves full documents, patches, and projections. The
   ## caller selects whether absent fields are errors; type, null, sensitive,
   ## and unknown-field rules stay identical across every representation.
@@ -111,7 +168,8 @@ proc serializeValues(metadata: ModelMetadata,
             break
         nestedValues[resolvedName] = nestedValue
       let nested = serializeValues(nestedMetadata, nestedValues, policy,
-        requireAll = requireAll, projection = @[], registry = registry)
+        requireAll = requireAll, projection = @[], registry = registry,
+        adapter = adapter)
       for issue in nested.errors:
         result.errors.add(SerializationIssue(field: field.name & "." & issue.field,
           code: issue.code, message: issue.message))
@@ -122,7 +180,12 @@ proc serializeValues(metadata: ModelMetadata,
         code: "invalid_type",
         message: "Expected " & expectedKind(field.kind)))
       continue
-    result.document[field.jsonName] = value
+    try:
+      result.document[field.jsonName] = if adapter.isNil: value else:
+        adapter.encode(field, value)
+    except CatchableError as error:
+      result.errors.add(SerializationIssue(field: field.name,
+        code: "adapter_error", message: error.msg))
 
   if policy.rejectUnknownFields:
     for name in values.keys:
@@ -132,37 +195,43 @@ proc serializeValues(metadata: ModelMetadata,
 
 proc serializeModel*(metadata: ModelMetadata,
                      values: Table[string, JsonNode],
-                     policy = defaultSerializationPolicy()): SerializationResult =
+                     policy = defaultSerializationPolicy(),
+                     adapter: SerializationAdapter = nil): SerializationResult =
   ## Full document serialization keeps the original required-field contract.
-  serializeValues(metadata, values, policy, requireAll = true, projection = @[])
+  serializeValues(metadata, values, policy, requireAll = true, projection = @[],
+    adapter = adapter)
 
 proc serializePatch*(metadata: ModelMetadata,
                      values: Table[string, JsonNode],
-                     policy = defaultSerializationPolicy()): SerializationResult =
+                     policy = defaultSerializationPolicy(),
+                     adapter: SerializationAdapter = nil): SerializationResult =
   ## Partial updates validate only supplied fields, making it safe to merge the
   ## result into an existing record after authorization and persistence checks.
-  serializeValues(metadata, values, policy, requireAll = false, projection = @[])
+  serializeValues(metadata, values, policy, requireAll = false, projection = @[],
+    adapter = adapter)
 
 proc serializeModelGraph*(metadata: ModelMetadata,
                           values: Table[string, JsonNode],
                           registry: ModelRegistry,
-                          policy = defaultSerializationPolicy()): SerializationResult =
+                          policy = defaultSerializationPolicy(),
+                          adapter: SerializationAdapter = nil): SerializationResult =
   ## Serialize a DTO graph using registry-owned nested metadata. This explicit
   ## entry point prevents accidental recursive serialization when a caller only
   ## wants a flat model document.
   serializeValues(metadata, values, policy, requireAll = true, projection = @[],
-    registry = some(registry))
+    registry = some(registry), adapter = adapter)
 
 proc serializeProjection*(metadata: ModelMetadata,
                           values: Table[string, JsonNode],
                           fields: openArray[string],
-                          policy = defaultSerializationPolicy()): SerializationResult =
+                          policy = defaultSerializationPolicy(),
+                          adapter: SerializationAdapter = nil): SerializationResult =
   ## Response projections are explicit allow-lists and preserve metadata order.
   var projection: seq[string] = @[]
   for field in fields:
     projection.add(field)
   serializeValues(metadata, values, policy, requireAll = false,
-    projection = projection)
+    projection = projection, adapter = adapter)
 
 proc valid*(serialization: SerializationResult): bool =
   ## A document is usable only when all declared boundary values are valid.

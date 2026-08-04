@@ -1485,6 +1485,31 @@ suite "Mahanaim core contracts":
     check graph.valid
     check graph.document["profile"]["displayName"].getStr() == "Ada"
 
+  test "standard serializer adapter canonicalizes date UUID and file metadata":
+    var asset = newModelMetadata("Asset", "assets")
+    asset.addField(newModelField("created_at", modelDateTime,
+      jsonName = "createdAt"))
+    asset.addField(newModelField("owner_id", modelUuid,
+      jsonName = "ownerId"))
+    asset.addField(newModelField("file", modelFile))
+    var values = initTable[string, JsonNode]()
+    values["created_at"] = parseJson("\"2026-08-04T09:30:00Z\"")
+    values["owner_id"] = parseJson("\"550E8400-E29B-41D4-A716-446655440000\"")
+    values["file"] = parseJson("{\"name\":\"report.pdf\",\"contentType\":\"application/pdf\",\"size\":42}")
+
+    let serialized = serializeModel(asset, values,
+      adapter = newStandardSerializationAdapter())
+    check serialized.valid
+    check serialized.document["createdAt"].getStr() == "2026-08-04T09:30:00Z"
+    check serialized.document["ownerId"].getStr() == "550e8400-e29b-41d4-a716-446655440000"
+    check serialized.document["file"]["size"].getInt() == 42
+
+    values["owner_id"] = parseJson("\"not-a-uuid\"")
+    let invalid = serializeModel(asset, values,
+      adapter = newStandardSerializationAdapter())
+    check not invalid.valid
+    check invalid.errors[0].code == "adapter_error"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

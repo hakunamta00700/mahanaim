@@ -14,6 +14,7 @@ type
     modelBoolean
     modelDateTime
     modelUuid
+    modelFile
     modelJson
     modelReference
 
