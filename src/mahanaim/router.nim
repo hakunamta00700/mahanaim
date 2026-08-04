@@ -4,7 +4,7 @@
 ## server.  A route is registered once, then the same metadata can be used by
 ## dispatch, URL generation, inspection, and future OpenAPI generation.
 
-import std/[options, parseutils, strutils, tables, uri]
+import std/[algorithm, options, parseutils, strutils, tables, uri]
 import ./core
 
 type
@@ -13,20 +13,34 @@ type
     prefix*: string
     middleware*: seq[Middleware]
 
+  RouteTreeNode = object
+    ## The tree is an internal candidate index.  Route metadata remains in the
+    ## public registration-order sequence so matching semantics stay stable.
+    staticChildren: Table[string, int]
+    parameterChild: int
+    terminalRoutes: seq[int]
+    wildcardRoutes: seq[int]
+
   Router* = object
     ## Routes remain in registration order for deterministic tie breaking.
-    ## `routeNames` and the first-segment buckets are separate indexes so URL
-    ## generation and matching do not scan every route blindly.
+    ## `routeNames` and `routeTree` are separate indexes so URL generation and
+    ## matching do not scan every route blindly.
     routes*: seq[Route]
     routeNames: Table[string, int]
-    staticFirstSegments: Table[string, seq[int]]
-    dynamicFirstSegments: seq[int]
+    routeTree: seq[RouteTreeNode]
+
+proc newRouteTreeNode(): RouteTreeNode =
+  ## Every node owns its child table and route lists, avoiding shared mutable
+  ## state between applications and making Router values independently safe.
+  result.staticChildren = initTable[string, int]()
+  result.parameterChild = -1
+  result.terminalRoutes = @[]
+  result.wildcardRoutes = @[]
 
 proc initRouter*(): Router =
   result.routes = @[]
   result.routeNames = initTable[string, int]()
-  result.staticFirstSegments = initTable[string, seq[int]]()
-  result.dynamicFirstSegments = @[]
+  result.routeTree = @[newRouteTreeNode()]
 
 proc newRouteGroup*(prefix: string, middleware: seq[Middleware] = @[]): RouteGroup =
   ## Groups are values, making it safe to define reusable route conventions.
@@ -50,16 +64,35 @@ proc joinPrefix(prefix, pattern: string): string =
     return normalizePattern(left)
   normalizePattern(left & "/" & right)
 
-proc firstStaticSegment(pattern: string): Option[string] =
-  ## Index only an unambiguous first segment; parameters stay in a fallback
-  ## bucket because they can match many different request prefixes.
-  for segment in normalizePattern(pattern).split('/'):
-    if segment.len == 0:
-      continue
-    if segment[0] in {':', '*'}:
-      return none(string)
-    return some(segment)
-  some("")
+proc splitPath(value: string): seq[string] =
+  ## Normalize a path into non-empty segments for route matching and indexing.
+  for segment in value.split('/'):
+    if segment.len > 0:
+      result.add(segment)
+
+proc indexRoute(router: var Router, pattern: string, routeIndex: int) =
+  ## Insert route shape into a compact trie.  Parameter routes share one edge
+  ## because their type/name validation belongs to matchPattern; the tree only
+  ## narrows the candidate path shape before that semantic validation.
+  var nodeIndex = 0
+  let segments = splitPath(pattern)
+  for segmentIndex, segment in segments:
+    if segment.len > 0 and segment[0] == '*':
+      router.routeTree[nodeIndex].wildcardRoutes.add(routeIndex)
+      return
+    if segment.len > 0 and segment[0] == ':':
+      if router.routeTree[nodeIndex].parameterChild < 0:
+        let childIndex = router.routeTree.len
+        router.routeTree.add(newRouteTreeNode())
+        router.routeTree[nodeIndex].parameterChild = childIndex
+      nodeIndex = router.routeTree[nodeIndex].parameterChild
+    else:
+      if not router.routeTree[nodeIndex].staticChildren.hasKey(segment):
+        let childIndex = router.routeTree.len
+        router.routeTree.add(newRouteTreeNode())
+        router.routeTree[nodeIndex].staticChildren[segment] = childIndex
+      nodeIndex = router.routeTree[nodeIndex].staticChildren[segment]
+  router.routeTree[nodeIndex].terminalRoutes.add(routeIndex)
 
 proc addRoute*(router: var Router, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[],
@@ -78,11 +111,7 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
     executionKind: executionKind))
   if normalizedName.len > 0:
     router.routeNames[normalizedName] = index
-  let firstSegment = firstStaticSegment(pattern)
-  if firstSegment.isSome:
-    router.staticFirstSegments.mgetOrPut(firstSegment.get(), @[]).add(index)
-  else:
-    router.dynamicFirstSegments.add(index)
+  router.indexRoute(normalizePattern(pattern), index)
 
 proc addRoute*(router: var Router, group: RouteGroup, httpMethod, pattern,
                name: string, handler: Handler,
@@ -93,12 +122,6 @@ proc addRoute*(router: var Router, group: RouteGroup, httpMethod, pattern,
   ## handler, matching the same onion ordering as global middleware.
   router.addRoute(httpMethod, joinPrefix(group.prefix, pattern), name, handler,
     group.middleware & middleware, executionKind, syncHandler)
-
-proc splitPath(value: string): seq[string] =
-  ## Normalize a path into non-empty segments for route matching.
-  for segment in value.split('/'):
-    if segment.len > 0:
-      result.add(segment)
 
 type PathParameter = object
   name: string
@@ -182,27 +205,26 @@ proc routeScore(route: Route): int =
       result += 30
 
 proc candidateIndexes(router: Router, path: string): seq[int] =
-  ## Merge static-prefix and dynamic buckets by route index. Both buckets are
-  ## append-only, so registration order remains the tie breaker without a full
-  ## sort or a second copy of every Route.
+  ## Walk only static, parameter, and trailing-wildcard branches that can
+  ## consume this path.  Traversal order is not registration order, so the
+  ## final numeric sort explicitly preserves the existing tie-break contract.
   let segments = splitPath(path)
-  var staticIndexes: seq[int] = @[]
-  if segments.len > 0 and router.staticFirstSegments.hasKey(segments[0]):
-    staticIndexes = router.staticFirstSegments[segments[0]]
-  elif segments.len == 0 and router.staticFirstSegments.hasKey(""):
-    staticIndexes = router.staticFirstSegments[""]
-  var staticIndex = 0
-  var dynamicIndex = 0
-  while staticIndex < staticIndexes.len or
-        dynamicIndex < router.dynamicFirstSegments.len:
-    if dynamicIndex >= router.dynamicFirstSegments.len or
-       (staticIndex < staticIndexes.len and
-        staticIndexes[staticIndex] < router.dynamicFirstSegments[dynamicIndex]):
-      result.add(staticIndexes[staticIndex])
-      inc staticIndex
-    else:
-      result.add(router.dynamicFirstSegments[dynamicIndex])
-      inc dynamicIndex
+  type TreeState = tuple[nodeIndex: int, pathIndex: int]
+  var pending: seq[TreeState] = @[(nodeIndex: 0, pathIndex: 0)]
+  while pending.len > 0:
+    let state = pending.pop()
+    let node = router.routeTree[state.nodeIndex]
+    if state.pathIndex == segments.len:
+      result.add(node.terminalRoutes)
+      continue
+    for routeIndex in node.wildcardRoutes:
+      result.add(routeIndex)
+    if node.staticChildren.hasKey(segments[state.pathIndex]):
+      pending.add((node.staticChildren[segments[state.pathIndex]],
+        state.pathIndex + 1))
+    if node.parameterChild >= 0:
+      pending.add((node.parameterChild, state.pathIndex + 1))
+  result.sort(system.cmp[int])
 
 proc matchingRoute(router: Router, path: string,
                    requestedMethod: Option[string]): Option[Route] =

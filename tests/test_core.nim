@@ -412,6 +412,19 @@ suite "Mahanaim core contracts":
     check staticResponse.body == "static"
     check dynamicResponse.body == "dynamic:other"
 
+  test "router tree narrows nested static and parameter candidates":
+    let app = newApplication()
+    proc selected(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.pathParams.getOrDefault("id", "static"))
+    for index in 0 .. 30:
+      app.get("/api/v" & $index & "/users/:id", "api-user-" & $index, selected)
+    app.get("/api/v30/users/me", "api-user-me", selected)
+
+    let staticResponse = waitFor app.dispatch(newRequest("GET", "/api/v30/users/me"))
+    let parameterResponse = waitFor app.dispatch(newRequest("GET", "/api/v30/users/42"))
+    check staticResponse.body == "static"
+    check parameterResponse.body == "42"
+
   test "router dispatches the correct method when paths are shared":
     let app = newApplication()
     proc getResource(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
