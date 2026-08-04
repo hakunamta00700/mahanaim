@@ -95,6 +95,21 @@ proc verifyPassword*(hasher: Pbkdf2PasswordHasher, password, encoded: string): b
   let actual = hasher.derive(password, salt, iterations, expected.len)
   constantTimeEquals(actual, expected)
 
+proc passwordNeedsRehash*(hasher: Pbkdf2PasswordHasher,
+                          encoded: string): bool =
+  ## Password verification remains backward-compatible while callers can
+  ## upgrade weak work factors after a successful login.
+  if hasher.isNil:
+    return true
+  let parts = encoded.split('$')
+  if parts.len != 4 or parts[0] != passwordHashAlgorithm:
+    return true
+  let iterations = try: parseInt(parts[1]) except ValueError: return true
+  let salt = hexDecode(parts[2])
+  let digest = hexDecode(parts[3])
+  iterations < hasher.iterations or salt.len != hasher.saltBytes or
+    digest.len != hasher.derivedBytes
+
 proc issuePasswordResetTokenAt*(secret, subject: string, ttlSeconds,
                                 issuedAt: int64): string =
   ## A reset token is an HMAC-signed envelope, not a password or session. The

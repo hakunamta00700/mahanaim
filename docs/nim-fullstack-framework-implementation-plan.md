@@ -608,7 +608,7 @@ flowchart TB
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
 - [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
-- [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 PBKDF2 password hashing 및 stateless signed reset token 계약을 추가했다. Argon2id/bcrypt, token one-time store, password rotation/throttling과 session rotation은 남아 있다.
+- [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 PBKDF2 password hashing, work-factor rehash 판단 및 stateless signed reset token 계약을 추가했다. Argon2id/bcrypt, token one-time store, password rotation/throttling과 session rotation은 남아 있다.
 - [x] admin의 authorization callback/`AuthorizationPolicy` 권한 검사와 append-only audit log 저장을 별도 책임으로 보장한다.
 
 완료 기준:
@@ -702,7 +702,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
 | [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
-| [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, stateless signed reset token/expiry 검증을 제공한다. Argon2id/bcrypt adapter, one-time token store, password rotation, login throttling hook은 남아 있다. |
+| [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor rehash 판단, stateless signed reset token/expiry 검증을 제공한다. Argon2id/bcrypt adapter, one-time token store, password rotation, login throttling hook은 남아 있다. |
 | [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
 | [x] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
 | [ ] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS 배포 점검을 기본 설정/CLI check로 제공한다. |

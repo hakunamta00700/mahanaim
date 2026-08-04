@@ -749,6 +749,9 @@ suite "Mahanaim core contracts":
     let second = hasher.hashPassword("correct horse battery staple")
     check first != second
     check hasher.verifyPassword("correct horse battery staple", first)
+    check not hasher.passwordNeedsRehash(first)
+    let strongerHasher = newPbkdf2PasswordHasher(iterations = 20000)
+    check strongerHasher.passwordNeedsRehash(first)
     check not hasher.verifyPassword("wrong password", first)
     check not hasher.verifyPassword("correct horse battery staple",
       first[0 .. ^2] & (if first[^1] == '0': "1" else: "0"))
