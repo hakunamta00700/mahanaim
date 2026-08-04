@@ -147,7 +147,8 @@
 - [ ] structured logging backend, tracing/span propagation을 제공한다.
 - [ ] rate limit, timeout, retry/backpressure, graceful shutdown을 운영 정책으로 고정한다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
-- [ ] DI provider, command/admin extension point와 dependency resolution을 제공한다.
+- [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
+- [ ] command/admin extension point와 dependency graph resolution을 제공한다.
 - [ ] background task/job abstraction과 persistence·retry 정책을 제공한다.
 - [ ] test database transaction isolation, live-server fixture, WebSocket/SSE test client를 제공한다.
 

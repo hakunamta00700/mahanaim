@@ -8,6 +8,7 @@ import ./security
 import ./models
 import ./execution
 import ./observability
+import ./di
 
 type
   LifecycleHook* = proc ()
@@ -51,6 +52,7 @@ type
     executionPolicy*: ExecutionPolicy
     executor*: ThreadPoolExecutor
     observability*: Observability
+    services*: ServiceContainer
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -83,6 +85,7 @@ proc newApplication*(config = defaultConfig(),
     forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs,
     queueWaitMs = executionPolicy.queueWaitMs)
   result.observability = newObservability()
+  result.services = newServiceContainer()
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
@@ -196,6 +199,16 @@ proc registerModel*(app: Application, metadata: ModelMetadata) =
   ## Model registration follows the same isolated application ownership model
   ## as routes and plugins, which keeps test applications deterministic.
   app.models.registerModel(metadata)
+
+proc provide*(app: Application, name: string, scope: DependencyScope,
+              provider: DependencyProvider) =
+  ## Plugin-facing wrapper keeps service registration on the application owner.
+  app.services.provide(name, scope, provider)
+
+proc resolve*(app: Application, name: string): DependencyService =
+  ## Resolution remains explicit so request/task lifecycle owners can decide
+  ## when to create and release narrower-scope values.
+  app.services.resolve(name)
 
 proc wrapMiddleware(current: Middleware, next: Handler): Handler =
   ## A factory gives each closure its own immutable current/next bindings.

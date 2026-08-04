@@ -242,6 +242,14 @@
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] SQLite/PostgreSQL repository, transaction boundary, filtering/aggregate relation query와 admin UI는 남아 있다.
 
+### 2026-08-04 — P2 DI foundation 1차
+
+- [x] application/request/task dependency scope와 typed marker service/provider contract를 추가했다.
+- [x] application scope singleton cache와 request/task factory semantics를 구현했다.
+- [x] Application wrapper와 plugin에서 사용할 수 있는 explicit provide/resolve API를 연결했다.
+- [x] singleton identity, factory recreation, unknown/duplicate dependency 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] request/task container ownership, dependency graph resolution, lifecycle disposal과 command/admin extension은 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

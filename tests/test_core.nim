@@ -20,6 +20,11 @@ type MacroUser = object
   email: string
   active: bool
 
+type FakeDependencyService = ref object of DependencyService
+
+proc newFakeDependencyService(): DependencyService {.gcsafe.} =
+  FakeDependencyService()
+
 type FakeRateLimitCounterClient = ref object of RateLimitCounterClient
   calls: int
   failuresRemaining: int
@@ -290,6 +295,19 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard newPlugin(PluginManifest(name: "", version: "1.0.0"),
         installManifest)
+
+  test "DI container caches application scope and recreates task scope":
+    let app = newApplication()
+    app.provide("singleton", dependencyApplication, newFakeDependencyService)
+    app.provide("task", dependencyTask, newFakeDependencyService)
+    let first = app.resolve("singleton")
+    check first == app.resolve("singleton")
+    check app.resolve("task") != app.resolve("task")
+    check app.services.hasDependency("singleton")
+    expect ValueError:
+      discard app.resolve("missing")
+    expect ValueError:
+      app.provide("singleton", dependencyApplication, newFakeDependencyService)
 
   test "custom error handler receives route exceptions":
     let app = newApplication()
