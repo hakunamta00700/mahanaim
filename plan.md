@@ -46,7 +46,7 @@
 ### P0 — 안전한 기본 경계와 외부 검증
 
 - [ ] **P0-01 PostgreSQL live typed contract** — CI PostgreSQL service 또는 명시된 자격 증명으로 custom field codec, OID typed result, serializable transaction, repository CRUD/aggregate/relation, migration rollback을 실행한다. `tests/test_postgres_live.nim`의 skip/실행 로그를 보존하고 support 문서에 결과를 기록한다.
-- [ ] **P0-02 HTTPS deployment boundary** — forwarded scheme/host 신뢰 hop, secure cookie/header, allowed host와 TLS reverse-proxy 설정을 명시적 configuration/check contract로 연결한다. proxy staging wire test와 운영 복구 절차를 추가한 뒤 `nimble check`에 반영한다.
+- [-] **P0-02 HTTPS deployment boundary** — `Request`의 adapter scheme/peer와 명시적 `trustedProxies`를 통해 forwarded scheme/host를 제한하고, `requireHttps`·secure cookie/header·allowed host 계약과 회귀 테스트·운영 문서를 연결했다. 실제 proxy staging wire와 TLS 인증서/handshake 증거는 남아 있다.
 
 ### P1 — 핵심 제품 기능의 남은 범위
 

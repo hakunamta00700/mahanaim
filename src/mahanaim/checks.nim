@@ -101,6 +101,10 @@ proc checkRouter*(router: Router): CheckReport =
 proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
   ## Validate policy shape before middleware can reject every request.
   result = initCheckReport()
+  for proxy in policy.trustedProxies:
+    if proxy.strip().len == 0:
+      result.addError("security.trusted-proxy.empty",
+        "trusted proxy addresses must not be empty")
   if policy.maxBodyBytes < 0:
     result.addError("security.body-limit.negative",
       "maxBodyBytes must be zero or greater")
@@ -129,12 +133,19 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
     result.addError("security.csrf-cookie.empty", "CSRF cookie name must not be empty")
   if policy.csrfEnabled and policy.csrfHeaderName.strip().len == 0:
     result.addError("security.csrf-header.empty", "CSRF header name must not be empty")
+  if policy.requireHttps and policy.csrfEnabled and not policy.csrfCookieSecure:
+    result.addError("security.csrf-cookie.insecure",
+      "HTTPS policy requires CSRF cookies to use Secure")
   if policy.session.enabled and policy.session.secret.len < 32:
     result.addError("security.session-secret.weak",
       "enabled session policy requires a secret of at least 32 characters")
   if policy.session.enabled and policy.session.cookieName.strip().len == 0:
     result.addError("security.session-cookie.empty",
       "enabled session policy requires a cookie name")
+  if policy.requireHttps and policy.session.enabled and
+     not policy.session.secureCookie:
+    result.addError("security.session-cookie.insecure",
+      "HTTPS policy requires session cookies to use Secure")
   for legacySecret in policy.session.legacySecrets:
     if legacySecret.len < 32:
       result.addError("security.session-legacy-secret.weak",

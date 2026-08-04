@@ -85,6 +85,14 @@ type
 
   SecurityPolicy* = object
     ## Explicit policy values make deployment review possible.
+    ## `requireHttps` is opt-in because the framework's standard development
+    ## server is plain HTTP. Production applications should enable it when
+    ## the TLS terminator has been configured and tested.
+    requireHttps*: bool
+    ## Forwarded headers are accepted only when the adapter reports a direct
+    ## peer in this exact allow-list. An integer hop count alone is not enough
+    ## to establish trust because an untrusted client can forge that shape.
+    trustedProxies*: seq[string]
     allowedHosts*: seq[string]
     allowedOrigins*: seq[string]
     corsMethods*: string
@@ -117,6 +125,8 @@ type
 proc defaultSecurityPolicy*(): SecurityPolicy =
   ## Conservative headers that are safe for server-rendered applications.
   SecurityPolicy(
+    requireHttps: false,
+    trustedProxies: @[],
     allowedHosts: @[],
     allowedOrigins: @[],
     corsMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -155,6 +165,48 @@ proc allowedHost(policy: SecurityPolicy, host: string): bool =
     if normalized == hostWithoutPort(allowed).toLowerAscii():
       return true
   false
+
+proc isTrustedProxy(policy: SecurityPolicy, request: Request): bool =
+  ## Keep proxy trust explicit and adapter-owned. If no peer address is known,
+  ## forwarded headers remain untrusted instead of silently becoming a bypass.
+  let peer = request.remoteAddress.strip()
+  if peer.len == 0:
+    return false
+  for trusted in policy.trustedProxies:
+    if peer == trusted.strip():
+      return true
+  false
+
+proc firstForwardedValue(request: Request, headerName: string): Option[string] =
+  ## RFC-style forwarded headers may contain a comma-separated chain. The
+  ## first value is the client-facing value, and is used only after the direct
+  ## peer has passed `isTrustedProxy`.
+  let header = request.header(headerName)
+  if header.isNone:
+    return none(string)
+  let value = header.get().split(',')[0].strip()
+  if value.len == 0:
+    return none(string)
+  some(value)
+
+proc effectiveScheme(policy: SecurityPolicy, request: Request): string =
+  ## A framework-neutral request carries the adapter-observed scheme. A
+  ## trusted TLS terminator can override it with X-Forwarded-Proto.
+  result = request.scheme.strip().toLowerAscii()
+  if result.len == 0:
+    result = "http"
+  if policy.isTrustedProxy(request):
+    let forwarded = request.firstForwardedValue("x-forwarded-proto")
+    if forwarded.isSome:
+      result = forwarded.get().toLowerAscii()
+
+proc effectiveHost(policy: SecurityPolicy, request: Request): Option[string] =
+  ## Host validation uses the public host only after the direct peer is trusted.
+  if policy.isTrustedProxy(request):
+    let forwarded = request.firstForwardedValue("x-forwarded-host")
+    if forwarded.isSome:
+      return forwarded
+  request.header("host")
 
 proc addSecurityHeaders(response: var Response, policy: SecurityPolicy) =
   ## Do not overwrite application-specific values; policy supplies defaults.
@@ -579,26 +631,37 @@ proc addCsrfCookie(response: var Response, policy: SecurityPolicy,
     secure = policy.csrfCookieSecure, sameSite = "Lax")
 
 proc securityMiddleware*(policy: SecurityPolicy): Middleware =
-  ## Validate Host before invoking application code and decorate every result.
+  ## Establish effective transport metadata before validating Host. This keeps
+  ## TLS termination at the adapter boundary while preventing forged forwarded
+  ## headers from reaching handlers.
   let rateLimitState = newRateLimitState()
   result = proc(request: Request, next: Handler): Future[Response] {.async, gcsafe.} =
-    let host = request.header("host")
+    var requestWithProxy = request
+    requestWithProxy.scheme = policy.effectiveScheme(request)
+    let effectiveHostValue = policy.effectiveHost(request)
+    if effectiveHostValue.isSome:
+      requestWithProxy.headers["host"] = effectiveHostValue.get()
+    if policy.requireHttps and requestWithProxy.scheme != "https":
+      var rejected = textResponse("HTTPS Required", Http400)
+      addSecurityHeaders(rejected, policy)
+      return rejected
+    let host = requestWithProxy.header("host")
     if policy.allowedHosts.len > 0 and
        (host.isNone or not allowedHost(policy, host.get())):
       var rejected = textResponse("Invalid Host", Http400)
       addSecurityHeaders(rejected, policy)
       return rejected
-    let origin = request.header("origin")
+    let origin = requestWithProxy.header("origin")
     if origin.isSome and policy.allowedOrigins.len > 0 and
        not allowedOrigin(policy, origin.get()):
       var rejected = textResponse("Origin Not Allowed", Http403)
       addSecurityHeaders(rejected, policy)
       return rejected
-    if policy.maxBodyBytes > 0 and request.body.len > policy.maxBodyBytes:
+    if policy.maxBodyBytes > 0 and requestWithProxy.body.len > policy.maxBodyBytes:
       var rejected = textResponse("Request Entity Too Large", Http413)
       addSecurityHeaders(rejected, policy)
       return rejected
-    var requestWithAuth = request
+    var requestWithAuth = requestWithProxy
     var sessionRotation = none(SignedValueVerification)
     let authBackends = policy.configuredAuthBackends()
     if authBackends.len > 0:
@@ -622,7 +685,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       let authenticated = authentication.isSome
       ## CORS preflight has no application credentials by design; rejecting it
       ## here would prevent browsers from discovering the authenticated route.
-      let isCorsPreflight = request.httpMethod == "OPTIONS" and origin.isSome
+      let isCorsPreflight = requestWithProxy.httpMethod == "OPTIONS" and origin.isSome
       if policy.session.requireAuthentication and not authenticated and
          not isCorsPreflight:
         var rejected = textResponse("Authentication Required", Http401)
@@ -638,7 +701,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       let authenticated = requestWithAuth.bindSession(policy.session)
       ## CORS preflight has no application credentials by design; rejecting it
       ## here would prevent browsers from discovering the authenticated route.
-      let isCorsPreflight = request.httpMethod == "OPTIONS" and origin.isSome
+      let isCorsPreflight = requestWithProxy.httpMethod == "OPTIONS" and origin.isSome
       if policy.session.requireAuthentication and not authenticated and
          not isCorsPreflight:
         var rejected = textResponse("Authentication Required", Http401)
@@ -670,16 +733,16 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
         var rejected = textResponse("CSRF Policy Misconfigured", Http500)
         addSecurityHeaders(rejected, policy)
         return rejected
-      if csrfProtectedMethod(request.httpMethod):
-        let cookieToken = request.cookies.getOrDefault(policy.csrfCookieName)
-        let headerToken = request.header(policy.csrfHeaderName)
+      if csrfProtectedMethod(requestWithProxy.httpMethod):
+        let cookieToken = requestWithProxy.cookies.getOrDefault(policy.csrfCookieName)
+        let headerToken = requestWithProxy.header(policy.csrfHeaderName)
         if cookieToken.len == 0 or headerToken.isNone or
            not verifyCsrfToken(policy, cookieToken) or
            not constantTimeEquals(cookieToken, headerToken.get()):
           var rejected = textResponse("CSRF Validation Failed", Http403)
           addSecurityHeaders(rejected, policy)
           return rejected
-    if request.httpMethod == "OPTIONS" and origin.isSome:
+    if requestWithProxy.httpMethod == "OPTIONS" and origin.isSome:
       var preflight = newResponse(Http204)
       addCorsHeaders(preflight, policy, origin.get())
       addSecurityHeaders(preflight, policy)
@@ -688,7 +751,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
     if rateLimit.enabled:
       addRateLimitHeaders(response, policy, rateLimit.remaining)
     if policy.csrfEnabled and requestWithAuth.csrfToken.len > 0 and
-       request.cookies.getOrDefault(policy.csrfCookieName) !=
+       requestWithProxy.cookies.getOrDefault(policy.csrfCookieName) !=
          requestWithAuth.csrfToken:
       addCsrfCookie(response, policy, requestWithAuth.csrfToken)
     if sessionRotation.isSome and sessionRotation.get().needsRotation:

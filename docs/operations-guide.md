@@ -84,6 +84,11 @@ TLS 종료 지점과 애플리케이션의 책임을 분리한다. Mahanaim은 H
 처리하는 프레임워크이고, 인증서 발급·갱신과 외부 TLS wire는 reverse proxy 또는
 ingress가 소유한다. 다음 항목은 배포 전 반드시 확인한다.
 
+애플리케이션이 HTTPS를 강제해야 할 때는 `SecurityPolicy.requireHttps = true`를
+설정한다. `X-Forwarded-Proto`와 `X-Forwarded-Host`는 `Request.remoteAddress`가
+`SecurityPolicy.trustedProxies`에 정확히 포함될 때만 반영된다. proxy가 직접 peer
+주소를 전달하지 않는 adapter에서는 forwarded header를 신뢰하지 않는다.
+
 - [ ] 외부 listener가 HTTP를 HTTPS로 redirect하고, TLS 1.2 이상과 운영 도메인
   인증서 체인을 사용한다.
 - [ ] reverse proxy가 upstream 연결을 신뢰할 수 있는 private network 또는
@@ -98,7 +103,7 @@ ingress가 소유한다. 다음 항목은 배포 전 반드시 확인한다.
   `maxBodyBytes`와 `requestTimeoutMs`보다 느슨하지 않게 설정한다.
 - [ ] `/health`는 liveness, readiness endpoint는 traffic gate로 분리하고,
   readiness가 실패한 instance로 연결을 보내지 않도록 한다.
-- [ ] 원본 client IP가 필요한 경우 신뢰하는 proxy hop 수와 access-log redaction을
+- [ ] 원본 client IP가 필요한 경우 신뢰하는 proxy 주소와 access-log redaction을
   명시한다. 애플리케이션이 검증하지 않은 forwarded client IP를 rate limit key나
   authorization 판단에 직접 사용하지 않는다.
 - [ ] HSTS, CSP, frame/referrer 정책과 CORS allow-list를 실제 public origin에
@@ -106,9 +111,10 @@ ingress가 소유한다. 다음 항목은 배포 전 반드시 확인한다.
 - [ ] TLS termination 이후의 redirect loop, websocket upgrade, SSE streaming,
   chunked response, graceful shutdown을 실제 staging endpoint에서 wire 테스트한다.
 
-현재 저장소의 automated contract test는 secure cookie/header, body limit,
-timeout, health/readiness와 loopback HTTP/SSE/WebSocket을 검증한다. 실제 인증서,
-proxy hop, TLS handshake와 운영 ingress 설정은 배포 환경에서 수행해야 한다.
+현재 저장소의 automated contract test는 secure cookie/header, trusted proxy
+scheme/host, HTTPS rejection, body limit, timeout, health/readiness와 loopback
+HTTP/SSE/WebSocket을 검증한다. 실제 인증서, proxy hop, TLS handshake와 운영
+ingress 설정은 배포 환경에서 수행해야 한다.
 
 ## Background jobs
 

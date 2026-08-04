@@ -6,6 +6,7 @@
 - CLI migration contract에 `db migrate` 별칭을 추가하고 standalone `admin`/`jobs` 진입점을 embedding `runCli`와 같은 application-owned 경계에 연결했다.
 - Application config secret을 structured observability log record의 모든 문자열 필드에서 sink 전달 전에 재귀적으로 redaction하도록 연결했다.
 - `defaultConfig`에 30초 request timeout과 `defaultSecurityPolicy`에 60초당 1000건 bounded rate limit을 활성화해 기본 실행 경계를 추가했다.
+- `Request`의 adapter scheme/peer와 `SecurityPolicy.requireHttps`·`trustedProxies`를 연결해 신뢰된 reverse proxy의 forwarded scheme/host만 사용하도록 보안 경계를 추가했다.
 
 - model macro가 `newModelCustomField(name, wireType)`로 임의 Nim custom type을 명시적 metadata/wire contract에 연결하고 자동 타입 추측을 거부하도록 확장했다.
 - template engine이 명시적 `TemplateRenderContext` collection과 중첩 `{% for %}` loop를 조건문·자동 escaping과 함께 지원하도록 확장했다.

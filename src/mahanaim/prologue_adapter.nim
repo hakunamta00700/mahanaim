@@ -22,6 +22,10 @@ proc toFrameworkRequest*(request: prologueRequest.Request): core.Request =
   ## Convert method, path, query, headers, cookies, and body without exposing
   ## Prologue's Context or NativeRequest to the rest of the framework.
   result = newRequest($request.reqMethod, request.path(), request.body())
+  ## Preserve the adapter-observed scheme. The peer address remains empty for
+  ## this transport-neutral bridge unless a concrete Prologue backend exposes
+  ## it; that deliberately prevents forwarded headers from being trusted.
+  result.scheme = request.scheme()
   result.query = initTable[string, string]()
   for key, value in decodeQuery(request.query()):
     result.query[key] = value

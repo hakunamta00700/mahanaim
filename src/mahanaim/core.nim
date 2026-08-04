@@ -24,6 +24,13 @@ type
     ## HTTP server produced it.
     httpMethod*: string
     path*: string
+    ## The adapter's observed transport scheme. It defaults to HTTP for
+    ## socket-free tests and plain HTTP servers; a TLS adapter or a trusted
+    ## reverse proxy may establish HTTPS through the security policy.
+    scheme*: string
+    ## Direct peer address supplied by the adapter. Security middleware uses
+    ## this value to decide whether forwarded headers are trustworthy.
+    remoteAddress*: string
     query*: Table[string, string]
     headers*: Table[string, string]
     cookies*: Table[string, string]
@@ -158,6 +165,8 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   ## Build a request suitable for tests and non-network adapters.
   result.httpMethod = httpMethod.toUpperAscii()
   result.path = path
+  result.scheme = "http"
+  result.remoteAddress = ""
   result.body = body
   result.query = emptyTable()
   result.headers = emptyTable()

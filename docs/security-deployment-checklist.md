@@ -7,7 +7,10 @@
 
 ## 애플리케이션 설정
 
-- [ ] `SecurityPolicy.secureCookie`가 `true`인지 확인한다.
+- [ ] `SecurityPolicy.session.secureCookie`가 `true`인지 확인한다.
+- [ ] HTTPS를 강제하는 배포는 `SecurityPolicy.requireHttps = true`를 설정한다.
+- [ ] `SecurityPolicy.trustedProxies`에는 직접 연결되는 private proxy 주소만
+  등록하고, adapter가 `Request.remoteAddress`를 채우는지 확인한다.
 - [ ] 세션·서명·CSRF secret을 환경 변수 또는 secret store에서 주입한다.
 - [ ] secret을 소스, 설정 파일, 로그, 오류 응답에 저장하지 않는다.
 - [ ] `SecurityPolicy.allowedHosts`에 실제 public host만 등록한다.
@@ -24,7 +27,8 @@
 - [ ] TLS 1.2 이상과 안전한 cipher policy를 사용한다.
 - [ ] reverse proxy의 request body, header, idle timeout이 애플리케이션 제한보다 느슨하지 않은지 확인한다.
 - [ ] WebSocket과 SSE upgrade/streaming이 HTTPS 연결에서 유지되는지 smoke test한다.
-- [ ] proxy가 원본 host와 scheme을 위조할 수 없도록 trusted proxy 범위를 제한한다.
+- [ ] proxy가 원본 host와 scheme을 위조할 수 없도록 `trustedProxies` 범위를
+  제한하고, 외부 forwarded header를 proxy에서 제거 후 재작성한다.
 
 ## 배포 후 검증
 
@@ -36,6 +40,7 @@
 
 ## 자동화 범위
 
-현재 `check`는 설정·route·model·migration·security·execution의 정적 계약을
-검사한다. TLS 인증서, reverse proxy, 외부 DNS와 실제 HTTPS wire 동작은 배포
-환경 의존성이므로 이 점검표와 live smoke test에서 검증한다.
+현재 `check`와 core contract test는 설정·route·model·migration·security·execution,
+trusted proxy scheme/host와 HTTPS rejection을 검사한다. TLS 인증서, reverse
+proxy, 외부 DNS와 실제 HTTPS wire 동작은 배포 환경 의존성이므로 이 점검표와
+live smoke test에서 검증한다.

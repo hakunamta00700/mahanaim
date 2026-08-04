@@ -811,6 +811,73 @@ suite "Mahanaim core contracts":
     check response.body == "Invalid Host"
     check response.header("X-Frame-Options").get() == "DENY"
 
+  test "HTTPS policy rejects direct HTTP requests":
+    var policy = defaultSecurityPolicy()
+    policy.requireHttps = true
+    let app = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("should not run")
+    app.get("/https-only", "https-only", health)
+
+    var request = newRequest("GET", "/https-only")
+    request.scheme = "http"
+    let response = waitFor app.dispatch(request)
+    check response.status == Http400
+    check response.body == "HTTPS Required"
+
+  test "trusted proxy headers can establish HTTPS and public host":
+    var policy = defaultSecurityPolicy()
+    policy.requireHttps = true
+    policy.trustedProxies = @["10.0.0.2"]
+    policy.allowedHosts = @["public.example"]
+    let app = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.scheme & " " & request.header("host").get())
+    app.get("/proxied-https", "proxied-https", health)
+
+    var request = newRequest("GET", "/proxied-https")
+    request.scheme = "http"
+    request.remoteAddress = "10.0.0.2"
+    request.headers["host"] = "internal:8000"
+    request.headers["x-forwarded-host"] = "public.example"
+    request.headers["x-forwarded-proto"] = "https"
+    let response = waitFor app.dispatch(request)
+    check response.status == Http200
+    check response.body == "https public.example"
+
+  test "untrusted forwarded headers cannot bypass HTTPS policy":
+    var policy = defaultSecurityPolicy()
+    policy.requireHttps = true
+    policy.trustedProxies = @["10.0.0.2"]
+    let app = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("should not run")
+    app.get("/untrusted-forwarded", "untrusted-forwarded", health)
+
+    var request = newRequest("GET", "/untrusted-forwarded")
+    request.scheme = "http"
+    request.remoteAddress = "198.51.100.8"
+    request.headers["x-forwarded-proto"] = "https"
+    let response = waitFor app.dispatch(request)
+    check response.status == Http400
+    check response.body == "HTTPS Required"
+
+    var invalidPolicy = defaultSecurityPolicy()
+    invalidPolicy.trustedProxies = @["  "]
+    let report = checkSecurityPolicy(invalidPolicy)
+    check not report.passed
+    check report.issues[0].code == "security.trusted-proxy.empty"
+
+    var insecureHttpsPolicy = defaultSecurityPolicy()
+    insecureHttpsPolicy.requireHttps = true
+    insecureHttpsPolicy.csrfEnabled = true
+    insecureHttpsPolicy.csrfSecret = "01234567890123456789012345678901"
+    let secureReport = checkSecurityPolicy(insecureHttpsPolicy)
+    check not secureReport.passed
+    check secureReport.issues[0].code == "security.csrf-cookie.insecure"
+
   test "security policy handles CORS and request size limits":
     var policy = defaultSecurityPolicy()
     policy.allowedOrigins = @["https://client.example"]

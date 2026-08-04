@@ -581,7 +581,7 @@ flowchart TB
 - [ ] **계약 우선**: `Request`, `Response`, `Handler`, `Middleware`, `Plugin`, `ModelMetadata`, `Storage`를 먼저 정의하고 구현체는 adapter로 둔다.
 - [ ] **단일 메타데이터 원천**: 모델 메타데이터가 validation, serialization, form, admin, OpenAPI에 재사용되도록 한다. 기능별로 같은 필드를 중복 선언하지 않는다.
 - [ ] **명시적 실행 경계**: sync handler, async handler, blocking 작업, background task의 경계를 타입·문서·진단으로 드러낸다.
-- [ ] **안전한 기본값**: 비밀값 비노출, HTML escaping, CSRF, secure cookie, request size/timeout 제한을 기본값으로 둔다.
+- [-] **안전한 기본값**: 비밀값 비노출, HTML escaping, CSRF, secure cookie, request size/timeout 제한을 기본값으로 두고, 명시적 `requireHttps`와 `trustedProxies`를 통해 forwarded scheme/host를 제한한다. 실제 TLS wire는 배포 환경 gate다.
 - [ ] **Prologue 비종속 코어**: Prologue는 초기 HTTP adapter와 호환 계층으로 활용하되, 핵심 도메인 계약이 Prologue 내부 API에 종속되지 않도록 한다.
 - [ ] **기능마다 세 가지 산출물**: 구현 코드, 회귀 테스트, 사용자 문서를 하나의 작업으로 취급한다.
 
@@ -654,7 +654,7 @@ flowchart TB
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation은 남아 있으며, live-server fixture와 WebSocket/SSE test client 계약을 추가했다.
 - [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
-- [ ] 보안 회귀 테스트와 HTTPS deployment checklist를 공개한다.
+- [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. 실제 TLS 인증서·proxy staging wire 검증은 배포 환경 gate로 남아 있다.
 
 완료 기준:
 
@@ -735,7 +735,7 @@ flowchart TB
 | [-] | REQ-SEC-003 | P1 | algorithm-neutral `PasswordHasher` 계약과 표준 PBKDF2-HMAC-SHA256 reference adapter, C-backed Argon2id adapter, per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter, adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, 배포 호스트별 Argon2 hash/verify benchmark harness를 제공한다. bcrypt adapter와 production benchmark 결과 확정은 남아 있다. |
 | [x] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. rate limit·timeout은 별도 정책이다. |
 | [x] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
-| [-] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화했다. 실제 TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 남아 있다. |
+| [-] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화하고, `requireHttps`와 직접 peer 기반 `trustedProxies`로 forwarded scheme/host contract 및 회귀 테스트를 추가했다. 실제 TLS wire 검증과 staging 환경 연동은 남아 있다. |
 
 ### 운영·확장·검증
 

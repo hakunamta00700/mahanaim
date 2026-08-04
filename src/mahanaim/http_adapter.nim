@@ -41,6 +41,9 @@ proc parseCookies(headerValue: string): Table[string, string] =
 proc toFrameworkRequest*(request: asynchttpserver.Request): core.Request =
   ## Convert wire data into the framework-neutral request snapshot.
   result = newRequest($request.reqMethod, request.url.path, request.body)
+  ## Capture the direct peer at the network boundary. The security layer can
+  ## therefore accept forwarded scheme/host only from an explicit proxy list.
+  result.remoteAddress = request.client.getPeerAddr()[0]
   result.query = initTable[string, string]()
   for key, value in decodeQuery(request.url.query):
     result.query[key] = value
