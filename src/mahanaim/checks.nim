@@ -135,6 +135,10 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
   if policy.session.enabled and policy.session.cookieName.strip().len == 0:
     result.addError("security.session-cookie.empty",
       "enabled session policy requires a cookie name")
+  for legacySecret in policy.session.legacySecrets:
+    if legacySecret.len < 32:
+      result.addError("security.session-legacy-secret.weak",
+        "legacy session secrets must be at least 32 characters")
   for host in policy.allowedHosts:
     if host.strip().len == 0:
       result.addError("security.host.empty", "allowed hosts must not contain empty values")

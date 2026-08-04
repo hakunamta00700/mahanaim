@@ -46,6 +46,7 @@ type
     enabled*: bool
     cookieName*: string
     secret*: string
+    legacySecrets*: seq[string]
     secureCookie*: bool
     requireAuthentication*: bool
 
@@ -114,7 +115,8 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     csrfHeaderName: "x-csrf-token",
     csrfCookieSecure: false,
     session: SessionPolicy(enabled: false, cookieName: "mahanaim_session",
-      secret: "", secureCookie: true, requireAuthentication: false),
+      secret: "", legacySecrets: @[], secureCookie: true,
+      requireAuthentication: false),
     authBackend: nil,
     contentSecurityPolicy: "default-src 'self'",
     frameOptions: "DENY",
@@ -366,6 +368,22 @@ proc signedCookieValue*(request: Request, name, secret: string): Option[string] 
     return none(string)
   verifySignedValue(secret, request.cookies[name])
 
+proc sessionSecrets(policy: SessionPolicy): seq[string] =
+  ## The primary key is always tried first so rotation metadata is stable.
+  result.add(policy.secret)
+  for secret in policy.legacySecrets:
+    if secret.len > 0 and secret notin result:
+      result.add(secret)
+
+proc signedSessionVerification*(request: Request,
+                               policy: SessionPolicy):
+    Option[SignedValueVerification] =
+  ## Expose rotation metadata without exposing cookie serialization to callers.
+  if not request.cookies.hasKey(policy.cookieName):
+    return none(SignedValueVerification)
+  verifySignedValueWithKeyring(policy.sessionSecrets(),
+    request.cookies[policy.cookieName])
+
 method authenticate*(backend: AuthBackend,
                      request: Request): Option[AuthContext] {.base, gcsafe.} =
   ## Backends must return no context for invalid credentials; middleware then
@@ -385,8 +403,9 @@ proc newSessionCookieAuthBackend*(policy: SessionPolicy):
 
 method authenticate*(backend: SessionCookieAuthBackend,
                      request: Request): Option[AuthContext] {.gcsafe.} =
-  let subject = signedCookieValue(request, backend.policy.cookieName,
-    backend.policy.secret)
+  let verification = signedSessionVerification(request, backend.policy)
+  let subject = if verification.isSome: some(verification.get().value)
+                else: none(string)
   if subject.isSome and subject.get().strip().len > 0:
     return some(AuthContext(authenticated: true, subject: subject.get()))
   none(AuthContext)
@@ -431,9 +450,10 @@ proc bindSession*(request: var Request, policy: SessionPolicy): bool =
   request.auth = AuthContext(authenticated: false, subject: "")
   if not policy.enabled or policy.secret.len == 0:
     return false
-  let subject = signedCookieValue(request, policy.cookieName, policy.secret)
-  if subject.isSome and subject.get().strip().len > 0:
-    request.auth = AuthContext(authenticated: true, subject: subject.get())
+  let verification = signedSessionVerification(request, policy)
+  if verification.isSome and verification.get().value.strip().len > 0:
+    request.auth = AuthContext(authenticated: true,
+      subject: verification.get().value)
     return true
   false
 
@@ -496,6 +516,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       addSecurityHeaders(rejected, policy)
       return rejected
     var requestWithAuth = request
+    var sessionRotation = none(SignedValueVerification)
     if policy.authBackend != nil:
       let authentication = policy.authBackend.authenticate(requestWithAuth)
       requestWithAuth.auth = if authentication.isSome:
@@ -517,6 +538,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
         var rejected = textResponse("Session Policy Misconfigured", Http500)
         addSecurityHeaders(rejected, policy)
         return rejected
+      sessionRotation = signedSessionVerification(requestWithAuth, policy.session)
       let authenticated = requestWithAuth.bindSession(policy.session)
       ## CORS preflight has no application credentials by design; rejecting it
       ## here would prevent browsers from discovering the authenticated route.
@@ -563,6 +585,10 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
     if policy.csrfEnabled and
        request.cookies.getOrDefault(policy.csrfCookieName).len == 0:
       addCsrfCookie(response, policy, csrfToken(policy))
+    if sessionRotation.isSome and sessionRotation.get().needsRotation:
+      response.setRotatedSignedCookie(policy.session.cookieName,
+        policy.session.secret, sessionRotation.get(), httpOnly = true,
+        secure = policy.session.secureCookie, sameSite = "Lax")
     if origin.isSome and policy.allowedOrigins.len > 0:
       addCorsHeaders(response, policy, origin.get())
     addSecurityHeaders(response, policy)

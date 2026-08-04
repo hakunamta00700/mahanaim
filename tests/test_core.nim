@@ -649,6 +649,8 @@ suite "Mahanaim core contracts":
     policy.session.enabled = true
     policy.session.cookieName = "mahanaim_session"
     policy.session.secret = "session-secret-that-is-long-enough-for-checks"
+    policy.session.legacySecrets = @[
+      "legacy-session-secret-that-is-long-enough"]
     policy.session.requireAuthentication = true
     let app = newApplication(defaultConfig(), policy)
     proc me(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
@@ -665,6 +667,17 @@ suite "Mahanaim core contracts":
     let accepted = waitFor app.dispatch(authenticated)
     check accepted.status == Http200
     check accepted.body == "user-42"
+
+    var legacyAuthenticated = newRequest("GET", "/me")
+    legacyAuthenticated.cookies[policy.session.cookieName] =
+      signValue(policy.session.legacySecrets[0], "legacy-user")
+    let rotated = waitFor app.dispatch(legacyAuthenticated)
+    let rotatedCookie = rotated.header("Set-Cookie").get()
+    let rotatedStart = rotatedCookie.find('=')
+    let rotatedEnd = rotatedCookie.find(';')
+    let rotatedValue = rotatedCookie[rotatedStart + 1 ..< rotatedEnd]
+    check verifySignedValue(policy.session.secret, rotatedValue).get() ==
+      "legacy-user"
 
     var preflight = newRequest("OPTIONS", "/me")
     preflight.headers["origin"] = "https://app.example.com"

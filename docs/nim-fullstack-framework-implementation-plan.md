@@ -136,7 +136,7 @@
 - [x] `requireAuthentication` 정책을 추가해 인증되지 않은 route 요청을 401로 거부한다.
 - [x] session cookie 발급·삭제 helper와 secure cookie 속성, secret/cookie-name pre-flight 검사를 추가했다.
 - [x] 유효·위조·누락 session, 인증 route, cookie lifecycle 회귀 테스트를 추가했다.
-- [-] signed session cookie와 bearer token auth backend 계약을 추가했다. 분산 session 저장소, session rotation/탈취 대응, JWT·external introspection adapter는 남아 있다.
+- [-] signed session cookie와 bearer token auth backend 계약, primary/legacy session secret 검증과 응답 시 cookie rotation을 추가했다. 분산 session 저장소, 탈취 대응, JWT·external introspection adapter는 남아 있다.
 
 ### 2026-08-04 — P0 라우팅 기반 1차
 
@@ -700,7 +700,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
+| [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. SessionPolicy의 primary/legacy secret rotation도 제공하며 JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
 | [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
 | [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor rehash 판단, stateless signed reset token/expiry 검증, 교체 가능한 login throttling hook과 in-memory adapter를 제공한다. Argon2id/bcrypt adapter, one-time token store, password rotation, 분산 throttling은 남아 있다. |
 | [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
