@@ -46,6 +46,13 @@ task postgresCheck, "Compile the optional PostgreSQL adapter contract":
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_postgres_adapter_compile.nim"
 
+task postgresLiveCheck, "Compile the optional PostgreSQL live contract test":
+  ## Keep the live test source checked even on developer machines without
+  ## PostgreSQL credentials; execution remains the responsibility of CI or an
+  ## explicitly configured local environment.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_postgres_live.nim"
+
 task postgresLive, "Run the optional PostgreSQL live contract test":
   ## The test exits successfully with an explicit skip when credentials are
   ## absent, while credentialed CI environments execute the real connection.

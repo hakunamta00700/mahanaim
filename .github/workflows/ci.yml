@@ -53,6 +53,9 @@ jobs:
       - name: Compile PostgreSQL adapter contract
         run: nimble postgresCheck
 
+      - name: Compile PostgreSQL live contract source
+        run: nimble postgresLiveCheck
+
       - name: Run optional PostgreSQL live contract
         run: nimble postgresLive
 
