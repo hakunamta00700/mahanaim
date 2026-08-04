@@ -718,7 +718,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계를 추가했고 storage/cache·production reconnect 정책은 남아 있다. |
+| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가했다. storage/cache·production compatibility와 eviction 정책은 남아 있다. |
 | [ ] | REQ-OPS-002 | P2 | task contract와 queue adapter를 제공하며 응답 완료 후 enqueue, 재시도, idempotency를 문서화한다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |

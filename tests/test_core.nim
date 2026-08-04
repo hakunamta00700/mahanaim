@@ -3420,6 +3420,12 @@ suite "Mahanaim core contracts":
     check received == command
     check counter.count == 3
     check counter.ttlSeconds == 57
+    let stats = client.stats()
+    check stats.requests == 1
+    check stats.successes == 1
+    check stats.failures == 0
+    check stats.connections == 0
+    check stats.reconnects == 0
     expect ValueError:
       discard parseCounterResponse("*1\r\n:1\r\n")
     expect CatchableError:
@@ -3441,6 +3447,11 @@ suite "Mahanaim core contracts":
     check state.received.load()
     check counter.count == 4
     check counter.ttlSeconds == 56
+    let stats = client.stats()
+    check stats.requests == 1
+    check stats.successes == 1
+    check stats.connections == 1
+    check stats.reconnects == 0
 
   test "Redis rate limit store reconnects after a dropped socket":
     var state: RedisReconnectFixtureState
@@ -3459,6 +3470,12 @@ suite "Mahanaim core contracts":
     check state.connections.load() == 2
     check decision.allowed
     check decision.remaining == 1
+    let stats = client.stats()
+    check stats.requests == 2
+    check stats.successes == 1
+    check stats.failures == 1
+    check stats.connections == 2
+    check stats.reconnects == 1
 
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [

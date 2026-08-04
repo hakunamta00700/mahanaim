@@ -10,6 +10,15 @@ import ./security
 type
   RespCommandTransport* = proc(payload: string): string
 
+  RedisValkeyRespStats* = object
+    ## Counters are adapter diagnostics, not rate-limit policy. A snapshot can
+    ## be exported to any metrics system without coupling this module to one.
+    requests*: int
+    successes*: int
+    failures*: int
+    connections*: int
+    reconnects*: int
+
   RedisValkeyRespClient* = ref object of RateLimitCounterClient
     host*: string
     port*: Port
@@ -17,6 +26,8 @@ type
     transport*: RespCommandTransport
     socket: Socket
     lock: Lock
+    stats: RedisValkeyRespStats
+    everConnected: bool
 
 const fixedWindowScript* =
   "local count = redis.call('INCR', KEYS[1]); " &
@@ -90,6 +101,8 @@ proc newRedisValkeyRespClient*(host = "127.0.0.1", port = Port(6379),
   result.timeoutMs = timeoutMs
   result.transport = transport
   result.socket = nil
+  result.stats = RedisValkeyRespStats()
+  result.everConnected = false
   initLock(result.lock)
 
 proc connectIfNeeded(client: RedisValkeyRespClient) =
@@ -99,10 +112,26 @@ proc connectIfNeeded(client: RedisValkeyRespClient) =
     client.socket = newSocket()
     try:
       client.socket.connect(client.host, client.port)
+      inc client.stats.connections
+      if client.everConnected:
+        inc client.stats.reconnects
+      client.everConnected = true
     except CatchableError:
       client.socket.close()
       client.socket = nil
       raise
+
+proc stats*(client: RedisValkeyRespClient): RedisValkeyRespStats =
+  ## Return a copy while holding the same lock as socket operations. This keeps
+  ## monitoring snapshots coherent even when several request threads share a
+  ## client instance.
+  if client.isNil:
+    return RedisValkeyRespStats()
+  acquire(client.lock)
+  try:
+    return client.stats
+  finally:
+    release(client.lock)
 
 proc close*(client: RedisValkeyRespClient) =
   ## Closing a client is idempotent and never affects the security policy's
@@ -142,15 +171,19 @@ method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
   let command = encodeFixedWindowCommand(key, windowSeconds)
   acquire(client.lock)
   try:
+    inc client.stats.requests
     var response: string
     if client.transport != nil:
       response = client.transport(command)
+      result = parseCounterResponse(response)
     else:
       client.connectIfNeeded()
       client.socket.send(command)
-      return client.receiveCounterResponse()
-    parseCounterResponse(response)
+      result = client.receiveCounterResponse()
+    inc client.stats.successes
+    return result
   except CatchableError:
+    inc client.stats.failures
     if client.transport == nil and not client.socket.isNil:
       client.socket.close()
       client.socket = nil

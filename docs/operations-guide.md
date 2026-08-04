@@ -33,6 +33,9 @@
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.
 - remote store 오류는 fail-open하지 않고 bounded retry 후 `503`으로 반환한다.
   호출자는 retry storm을 막기 위해 작은 immediate retry 횟수만 사용한다.
+- RESP client의 `stats()` snapshot으로 requests, successes, failures,
+  connections, reconnects를 metrics sink에 연결한다. 이 수치는 정책 판단이
+  아니라 장애 관찰용이며, secret/key/payload를 포함하지 않는다.
 - production Redis/Valkey adapter는 atomic counter, server-side TTL, server clock,
   eviction 정책을 제공해야 한다. 현재 저장소는 RESP client, socket timeout,
   bounded retry와 loopback 검증을 제공하지만 실제 Redis/Valkey compatibility와
