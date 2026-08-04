@@ -146,7 +146,9 @@
 - [x] Prologue 0.6.8 의존성을 추가하고 framework-neutral request 변환을 구현했다.
 - [x] method·path·query·header·cookie·body와 response headers bridge를 추가했다.
 - [x] Prologue mocking request 기반 adapter 회귀 테스트를 추가했다.
-- [ ] Prologue application/server lifecycle wiring과 upload/form/WebSocket adapter는 남아 있다.
+- [x] catch-all Prologue server bridge와 core startup/shutdown lifecycle wrapper를 추가했다.
+- [x] mocking context에서 Prologue response와 core dispatcher integration을 검증했다.
+- [ ] upload/form/WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
 
 ### 2026-08-04 — P0 HTTP body parsing 1차
 

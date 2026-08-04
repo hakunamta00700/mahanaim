@@ -10,6 +10,7 @@ import std/httpclient as hc
 import pkg/cookiejar
 import prologue/core/httpcore/httplogue
 import prologue/core/request except Request
+import prologue/mocking/mocking
 import mahanaim
 
 suite "Mahanaim core contracts":
@@ -412,6 +413,29 @@ suite "Mahanaim core contracts":
     frameworkResponse.headers["x-adapter"] = "prologue"
     let prologueHeaders = toPrologueHeaders(frameworkResponse)
     check prologueHeaders["x-adapter", 0] == "prologue"
+
+  test "Prologue server bridge delegates mocking requests and lifecycle":
+    let app = newApplication()
+    proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("hello from bridge")
+    app.get("/bridge", "bridge-hello", hello)
+    let adapter = newPrologueServer(app)
+    adapter.server.mockApp()
+    adapter.startup()
+    adapter.startup()
+    check app.started
+
+    let nativeHeaders = newHttpHeaders()
+    let nativeRequest = request.initMockingRequest(
+      HttpGet, nativeHeaders, parseUri("/bridge"))
+    let context = adapter.server.runOnce(nativeRequest)
+    check context.response.code == Http200
+    check context.response.body == "hello from bridge"
+
+    adapter.shutdown()
+    adapter.shutdown()
+    check not app.started
 
   test "test client preserves request contract and cookie state":
     let app = newTestApplication()
