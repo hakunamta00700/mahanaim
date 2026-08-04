@@ -3,8 +3,8 @@
 
 import mahanaim/[core, router, application, config, http_adapter, generator,
                  security, validation, response_policy, checks, models,
-                 serialization, execution, prologue_adapter]
+                 serialization, execution, prologue_adapter, testing]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
-       prologue_adapter
+       prologue_adapter, testing

@@ -371,6 +371,40 @@ suite "Mahanaim core contracts":
     let prologueHeaders = toPrologueHeaders(frameworkResponse)
     check prologueHeaders["x-adapter", 0] == "prologue"
 
+  test "test client preserves request contract and cookie state":
+    let app = newTestApplication()
+    proc inspect(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      let query = request.query.getOrDefault("q")
+      let clientHeader = request.header("x-client").get("missing")
+      var response = textResponse(query & "|" & clientHeader)
+      response.setCookie("session", "abc")
+      return response
+    proc submit(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.cookies.getOrDefault("session") & ":" & request.body)
+    app.get("/client", "client-inspect", inspect)
+    app.post("/client-submit", "client-submit", submit)
+
+    let client = newTestClient(app)
+    let first = waitFor client.get("/client?q=nim", [("X-Client", "test")])
+    check first.status == Http200
+    check first.body == "nim|test"
+    check client.hasLastResponse
+    check client.lastResponse.body == first.body
+
+    let second = waitFor client.post("/client-submit", "payload")
+    check second.status == Http200
+    check second.body == "abc:payload"
+
+  test "test applications and clients are isolated by construction":
+    let firstApp = newTestApplication()
+    let secondApp = newTestApplication()
+    let firstClient = newTestClient(firstApp)
+    let secondClient = newTestClient(secondApp)
+    check firstApp.router.routes.len == 0
+    check secondApp.router.routes.len == 0
+    check not firstClient.hasLastResponse
+    check not secondClient.hasLastResponse
+
   test "project generator creates a safe starter project":
     let root = getTempDir() / "mahanaim_generated_test"
     if dirExists(root):

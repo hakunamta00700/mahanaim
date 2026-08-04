@@ -139,6 +139,13 @@
 - [x] Prologue mocking request 기반 adapter 회귀 테스트를 추가했다.
 - [ ] Prologue application/server lifecycle wiring과 upload/form/WebSocket adapter는 남아 있다.
 
+### 2026-08-04 — P0 test client 1차
+
+- [x] 격리된 `TestApplication`과 in-process `TestClient`를 추가했다.
+- [x] 실제 dispatcher 계약을 통해 route·middleware·security 동작을 네트워크 없이 검증할 수 있다.
+- [x] query·header·cookie persistence와 GET/POST contract test를 추가했다.
+- [ ] test database transaction isolation, WebSocket/SSE, live-server smoke fixture, CI fixture wiring은 남아 있다.
+
 검증 명령:
 
 ```powershell
