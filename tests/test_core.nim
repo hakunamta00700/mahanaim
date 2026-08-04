@@ -782,6 +782,15 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard issuePasswordResetTokenAt("short", "user-42", 60, 1000)
 
+  test "password reset token store consumes each token once":
+    let secret = "password-reset-store-secret-that-is-long-enough"
+    let token = issuePasswordResetTokenAt(secret, "user-42", 60, 1000)
+    let store = newInMemoryPasswordResetTokenStore()
+    check store.consumePasswordResetTokenAt(secret, token, "user-42", 1050)
+    check not store.consumePasswordResetTokenAt(secret, token, "user-42", 1051)
+    let expired = issuePasswordResetTokenAt(secret, "user-42", 10, 1000)
+    check not store.consumePasswordResetTokenAt(secret, expired, "user-42", 1010)
+
   test "login throttle blocks repeated failures and resets on success":
     let throttle = newInMemoryLoginThrottle(maxFailures = 2,
       windowSeconds = 60)

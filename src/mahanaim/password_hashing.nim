@@ -5,7 +5,7 @@
 ## supplied by nimcrypto; applications may replace it with Argon2id/bcrypt at
 ## this same API boundary without changing user or auth services.
 
-import std/[options, strutils, sysrand, times]
+import std/[locks, options, strutils, sysrand, tables, times]
 import nimcrypto/[pbkdf2, sha2]
 import ./security
 
@@ -15,9 +15,59 @@ type
     saltBytes*: int
     derivedBytes*: int
 
+  PasswordResetTokenStore* = ref object of RootObj
+    ## Token consumption is an adapter boundary because production systems
+    ## should atomically persist this state in their existing user/session DB.
+
+  InMemoryPasswordResetTokenStore* = ref object of PasswordResetTokenStore
+    ## The reference adapter is process-local and bounded for tests/dev only.
+    usedTokens: Table[string, int64]
+    maxEntries*: int
+    lock: Lock
+
 const
   defaultPasswordIterations* = 120000
   passwordHashAlgorithm = "pbkdf2-sha256"
+
+method consumeToken*(store: PasswordResetTokenStore, token: string,
+                     expiresAt, now: int64): bool {.base, gcsafe.} =
+  ## A backend must make check-and-record one atomic operation.
+  discard store
+  discard token
+  discard expiresAt
+  discard now
+  raise newException(ValueError, "Password reset token store is not implemented")
+
+proc newInMemoryPasswordResetTokenStore*(maxEntries = 10000):
+    InMemoryPasswordResetTokenStore =
+  ## Bound memory growth even if a deployment repeatedly issues reset tokens.
+  if maxEntries < 1:
+    raise newException(ValueError, "Password reset token store capacity is required")
+  new(result)
+  result.usedTokens = initTable[string, int64]()
+  result.maxEntries = maxEntries
+  initLock(result.lock)
+
+method consumeToken*(store: InMemoryPasswordResetTokenStore, token: string,
+                     expiresAt, now: int64): bool {.gcsafe.} =
+  ## The lock covers expiry cleanup and insertion so concurrent requests cannot
+  ## redeem the same signed token twice through this reference adapter.
+  if token.len == 0 or expiresAt <= now:
+    return false
+  acquire(store.lock)
+  defer: release(store.lock)
+  var expired: seq[string] = @[]
+  for existing, expiry in store.usedTokens:
+    if expiry <= now:
+      expired.add(existing)
+  for existing in expired:
+    store.usedTokens.del(existing)
+  if store.usedTokens.hasKey(token):
+    return false
+  if store.usedTokens.len >= store.maxEntries:
+    return false
+  store.usedTokens[token] = expiresAt
+  true
 
 proc hexEncode(value: openArray[byte]): string =
   const digits = "0123456789abcdef"
@@ -151,3 +201,36 @@ proc verifyPasswordResetTokenAt*(secret, token, expectedSubject: string,
 proc verifyPasswordResetToken*(secret, token, expectedSubject: string): bool =
   ## Production convenience wrapper uses the current Unix timestamp.
   verifyPasswordResetTokenAt(secret, token, expectedSubject, getTime().toUnix)
+
+proc resetTokenExpiryAt(secret, token: string): Option[int64] =
+  ## Extract only the expiry needed by the consumption store after signature
+  ## verification; malformed payloads remain indistinguishable from invalid.
+  let signedPayload = verifySignedValue(secret, token)
+  if signedPayload.isNone:
+    return none(int64)
+  let parts = signedPayload.get().split('|')
+  if parts.len != 5 or parts[0] != "password-reset":
+    return none(int64)
+  try:
+    some(parseInt(parts[3]).int64)
+  except ValueError:
+    none(int64)
+
+proc consumePasswordResetTokenAt*(store: PasswordResetTokenStore,
+                                  secret, token, expectedSubject: string,
+                                  now: int64): bool =
+  ## Verify first, then atomically consume. A successful return is the only
+  ## point at which a password-reset handler may mutate the account password.
+  if store.isNil or not verifyPasswordResetTokenAt(secret, token,
+      expectedSubject, now):
+    return false
+  let expiry = resetTokenExpiryAt(secret, token)
+  if expiry.isNone:
+    return false
+  store.consumeToken(token, expiry.get(), now)
+
+proc consumePasswordResetToken*(store: PasswordResetTokenStore,
+                                secret, token, expectedSubject: string): bool =
+  ## Production convenience wrapper uses the current Unix timestamp.
+  consumePasswordResetTokenAt(store, secret, token, expectedSubject,
+    getTime().toUnix)

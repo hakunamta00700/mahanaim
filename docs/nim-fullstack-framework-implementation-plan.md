@@ -709,7 +709,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. SessionPolicy의 primary/legacy secret rotation도 제공하며 JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
 | [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
-| [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor rehash 판단, stateless signed reset token/expiry 검증, 교체 가능한 login throttling hook과 in-memory adapter를 제공한다. Argon2id/bcrypt adapter, one-time token store, password rotation, 분산 throttling은 남아 있다. |
+| [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor rehash 판단, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory adapter를 제공한다. Argon2id/bcrypt adapter, password rotation, 분산 throttling은 남아 있다. |
 | [x] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. rate limit·timeout은 별도 정책이다. |
 | [x] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
 | [ ] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS 배포 점검을 기본 설정/CLI check로 제공한다. |
