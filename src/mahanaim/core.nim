@@ -27,11 +27,27 @@ type
     pathParams*: Table[string, string]
     cancellation*: CancellationToken
 
+  ResponseRepresentation* = enum
+    ## Adapters use this hint to choose buffered HTTP, stream, SSE, or
+    ## protocol-upgrade handling without changing the Handler contract.
+    rrBuffered
+    rrStream
+    rrServerSentEvents
+    rrWebSocket
+
   Response* = object
     ## A framework-neutral response that can be rendered by any adapter.
     status*: HttpCode
     headers*: Table[string, string]
     body*: string
+    representation*: ResponseRepresentation
+
+  SseEvent* = object
+    ## Structured SSE data keeps event metadata separate from wire framing.
+    event*: string
+    id*: string
+    retryMs*: int
+    data*: string
 
   Handler* = proc (request: Request): Future[Response] {.gcsafe.}
   SyncHandler* = proc (request: Request): Response {.gcsafe.}
@@ -92,6 +108,7 @@ proc newResponse*(status: HttpCode, body = ""): Response =
   result.status = status
   result.body = body
   result.headers = emptyTable()
+  result.representation = rrBuffered
 
 proc asyncHandler*(handler: SyncHandler): Handler =
   ## Adapt a synchronous, non-blocking handler to the async route contract.
@@ -119,6 +136,44 @@ proc jsonResponse*(body: string, status = Http200): Response =
 proc jsonResponse*(document: JsonNode, status = Http200): Response =
   ## Convenience overload keeps JSON serialization at the response boundary.
   jsonResponse($document, status)
+
+proc streamResponse*(body: string, contentType = "application/octet-stream",
+                     status = Http200): Response =
+  ## Represent a stream at the core boundary; concrete adapters may replace
+  ## the buffered body with chunked writes while preserving this metadata.
+  result = newResponse(status, body)
+  result.representation = rrStream
+  result.headers["content-type"] = contentType
+
+proc sseResponse*(events: openArray[SseEvent], status = Http200): Response =
+  ## Serialize SSE fields according to the line-oriented event protocol.
+  result = newResponse(status)
+  result.representation = rrServerSentEvents
+  result.headers["content-type"] = "text/event-stream; charset=utf-8"
+  result.headers["cache-control"] = "no-cache"
+  result.headers["connection"] = "keep-alive"
+  for event in events:
+    if event.event.len > 0:
+      result.body.add("event: " & event.event & "\n")
+    if event.id.len > 0:
+      result.body.add("id: " & event.id & "\n")
+    if event.retryMs >= 0:
+      result.body.add("retry: " & $event.retryMs & "\n")
+    let dataLines = event.data.splitLines()
+    if dataLines.len == 0:
+      result.body.add("data:\n")
+    else:
+      for line in dataLines:
+        result.body.add("data: " & line & "\n")
+    result.body.add("\n")
+
+proc webSocketResponse*(body = ""): Response =
+  ## Describe a WebSocket upgrade without coupling core code to a socket API.
+  result = newResponse(Http101, body)
+  result.representation = rrWebSocket
+  result.headers["upgrade"] = "websocket"
+  result.headers["connection"] = "Upgrade"
+  result.headers["content-type"] = "application/websocket"
 
 proc setCookie*(response: var Response, name, value: string,
                 httpOnly = true, secure = false, sameSite = "Lax",

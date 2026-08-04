@@ -775,6 +775,22 @@ suite "Mahanaim core contracts":
     let unavailable = negotiateResponse(request, [htmlResponse("<p>hello</p>")])
     check unavailable.status == Http406
 
+  test "stream and SSE responses expose representation metadata":
+    let stream = streamResponse("chunk", "text/plain")
+    check stream.representation == rrStream
+    check stream.header("Content-Type").get() == "text/plain"
+
+    let sse = sseResponse([
+      SseEvent(event: "message", id: "42", retryMs: 1000,
+        data: "first\nsecond")])
+    check sse.representation == rrServerSentEvents
+    check sse.header("Content-Type").get() == "text/event-stream; charset=utf-8"
+    check sse.body == "event: message\nid: 42\nretry: 1000\ndata: first\ndata: second\n\n"
+
+    let websocket = webSocketResponse()
+    check websocket.representation == rrWebSocket
+    check websocket.status == Http101
+
   test "response cookie helper applies safe defaults":
     var response = textResponse("ok")
     response.setCookie("session", "a;b", secure = true, maxAge = 3600)

@@ -48,7 +48,8 @@
 
 - [x] JSON, form-urlencoded, multipart body parser와 body-scoped validation error를 제공한다.
 - [x] HTML/JSON/text representation과 `Accept` 기반 406 응답을 제공한다.
-- [ ] stream/SSE/WebSocket representation과 content negotiation을 통합한다.
+- [x] stream/SSE/WebSocket representation metadata와 core response helper를 추가한다.
+- [ ] 실제 stream/SSE/WebSocket adapter와 content negotiation wire integration을 통합한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 
 ### 설정과 보안

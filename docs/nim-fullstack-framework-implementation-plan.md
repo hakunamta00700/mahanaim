@@ -43,6 +43,12 @@
 - [x] JSON body와 content negotiation 테스트 3개를 추가했고 전체 테스트가 통과했다.
 - [ ] stream/SSE/WebSocket representation의 통합 content negotiation은 남아 있다.
 
+### 2026-08-04 — P0 response representations
+
+- [x] buffered, stream, SSE, WebSocket representation metadata를 core Response에 추가했다.
+- [x] SSE event framing과 stream/WebSocket response helper contract 회귀 테스트를 추가했다.
+- [ ] 실제 adapter streaming, WebSocket upgrade, SSE content negotiation wire integration은 남아 있다.
+
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
 - [x] JSON response constructor와 `Set-Cookie` helper를 core contract에 추가했다.
