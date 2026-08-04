@@ -65,3 +65,9 @@ task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
 task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"
+
+task passwordBenchmark, "Measure Argon2id password hashing on this machine":
+  ## Production cost selection requires a release-like host and explicit
+  ## settings; the executable's defaults mirror the adapter policy.
+  exec "nim c -d:release --path:src" & dependencyPathArgs() &
+    " -r benchmarks/password_hash_benchmark.nim"

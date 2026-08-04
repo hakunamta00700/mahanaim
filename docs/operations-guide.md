@@ -37,6 +37,13 @@ cost parameter를 읽어 `verifyAndRehash`로 점진적 cost rotation을 수행�
 선택한다. bcrypt는 별도 adapter로 연결할 수 있고, PBKDF2는 호환성 reference
 adapter로 유지한다.
 
+Argon2 정책 측정은 `nimble passwordBenchmark`로 시작할 수 있다. 세부 값을 바꾸려면
+생성된 `benchmarks/password_hash_benchmark.exe`(또는 해당 플랫폼 실행 파일)에
+`--memory-kib`, `--iterations`, `--threads`, `--samples`를 명시해 hash/verify 평균
+latency를 기록하고, 동시 로그인 부하에서 메모리 사용량도 별도로 확인한 뒤 정책
+값을 확정한다. benchmark 기본값은 adapter 기본 policy를 반영하지만 보안·성능
+보증값은 아니다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.
