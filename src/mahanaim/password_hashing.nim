@@ -10,7 +10,11 @@ import nimcrypto/[pbkdf2, sha2]
 import ./security
 
 type
-  Pbkdf2PasswordHasher* = ref object
+  PasswordHasher* = ref object of RootObj
+    ## Algorithm-neutral boundary. Argon2id/bcrypt adapters implement these
+    ## methods without changing account stores or authentication routes.
+
+  Pbkdf2PasswordHasher* = ref object of PasswordHasher
     iterations*: int
     saltBytes*: int
     derivedBytes*: int
@@ -40,6 +44,46 @@ type
 const
   defaultPasswordIterations* = 120000
   passwordHashAlgorithm = "pbkdf2-sha256"
+
+method hashPassword*(hasher: PasswordHasher, password: string): string
+    {.base, gcsafe.} =
+  discard hasher
+  discard password
+  raise newException(ValueError, "Password hasher does not implement hashing")
+
+method verifyPassword*(hasher: PasswordHasher, password, encoded: string): bool
+    {.base, gcsafe.} =
+  discard hasher
+  discard password
+  discard encoded
+  false
+
+method passwordNeedsRehash*(hasher: PasswordHasher, encoded: string): bool
+    {.base, gcsafe.} =
+  discard hasher
+  discard encoded
+  true
+
+method verifyAndRehash*(hasher: PasswordHasher,
+                        password, encoded: string): PasswordVerification
+    {.base, gcsafe.} =
+  result.valid = hasher.verifyPassword(password, encoded)
+  if not result.valid:
+    return
+  if hasher.passwordNeedsRehash(encoded):
+    result.encoded = hasher.hashPassword(password)
+    result.rehashed = true
+  else:
+    result.encoded = encoded
+
+method changePassword*(hasher: PasswordHasher,
+                       currentPassword, newPassword, encoded: string):
+    PasswordChangeResult {.base, gcsafe.} =
+  if currentPassword.len == 0 or newPassword.len == 0 or
+      currentPassword == newPassword or
+      not hasher.verifyPassword(currentPassword, encoded):
+    return PasswordChangeResult(valid: false, encoded: "")
+  PasswordChangeResult(valid: true, encoded: hasher.hashPassword(newPassword))
 
 method consumeToken*(store: PasswordResetTokenStore, token: string,
                      expiresAt, now: int64): bool {.base, gcsafe.} =
@@ -121,7 +165,8 @@ proc derive(hasher: Pbkdf2PasswordHasher, password: string,
   if written != outputBytes:
     raise newException(ValueError, "PBKDF2 failed to derive the requested key")
 
-proc hashPassword*(hasher: Pbkdf2PasswordHasher, password: string): string =
+method hashPassword*(hasher: Pbkdf2PasswordHasher, password: string): string
+    {.gcsafe.} =
   ## Store algorithm parameters beside the digest so future work factors can
   ## be increased without invalidating existing accounts or guessing defaults.
   if hasher.isNil or password.len == 0:
@@ -139,7 +184,8 @@ proc constantTimeEquals(left, right: openArray[byte]): bool =
     difference = difference or (int(left[index]) xor int(right[index]))
   difference == 0
 
-proc verifyPassword*(hasher: Pbkdf2PasswordHasher, password, encoded: string): bool =
+method verifyPassword*(hasher: Pbkdf2PasswordHasher, password, encoded: string): bool
+    {.gcsafe.} =
   ## Invalid hashes fail closed and never escape as parsing exceptions to login
   ## routes, which keeps malformed database data from becoming an oracle.
   if hasher.isNil or password.len == 0:
@@ -157,8 +203,8 @@ proc verifyPassword*(hasher: Pbkdf2PasswordHasher, password, encoded: string): b
   let actual = hasher.derive(password, salt, iterations, expected.len)
   constantTimeEquals(actual, expected)
 
-proc passwordNeedsRehash*(hasher: Pbkdf2PasswordHasher,
-                          encoded: string): bool =
+method passwordNeedsRehash*(hasher: Pbkdf2PasswordHasher,
+                            encoded: string): bool {.gcsafe.} =
   ## Password verification remains backward-compatible while callers can
   ## upgrade weak work factors after a successful login.
   if hasher.isNil:
@@ -172,8 +218,9 @@ proc passwordNeedsRehash*(hasher: Pbkdf2PasswordHasher,
   iterations < hasher.iterations or salt.len != hasher.saltBytes or
     digest.len != hasher.derivedBytes
 
-proc verifyAndRehash*(hasher: Pbkdf2PasswordHasher,
-                      password, encoded: string): PasswordVerification =
+method verifyAndRehash*(hasher: Pbkdf2PasswordHasher,
+                        password, encoded: string): PasswordVerification
+    {.gcsafe.} =
   ## Combine verify-then-upgrade so failed attempts never replace stored hashes.
   result.valid = hasher.verifyPassword(password, encoded)
   if not result.valid:
@@ -184,9 +231,9 @@ proc verifyAndRehash*(hasher: Pbkdf2PasswordHasher,
   else:
     result.encoded = encoded
 
-proc changePassword*(hasher: Pbkdf2PasswordHasher,
-                     currentPassword, newPassword, encoded: string):
-    PasswordChangeResult =
+method changePassword*(hasher: Pbkdf2PasswordHasher,
+                       currentPassword, newPassword, encoded: string):
+    PasswordChangeResult {.gcsafe.} =
   ## Keep current-password verification and new-hash issuance together. The
   ## framework never persists accounts here; persistence remains the caller's
   ## transaction responsibility, preserving this module's single purpose.

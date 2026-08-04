@@ -38,7 +38,7 @@ type
     ## makes registration explicit and prevents routes from using mismatched
     ## hashers, session secrets, or throttle stores.
     store*: AccountCredentialStore
-    hasher*: Pbkdf2PasswordHasher
+    hasher*: PasswordHasher
     sessionPolicy*: SessionPolicy
     throttle*: LoginThrottleStore
     loginPath*: string
@@ -140,7 +140,7 @@ method updatePasswordHash*(store: InMemoryAccountCredentialStore,
   store.accounts[identifier] = account
 
 proc newAccountAuthentication*(store: AccountCredentialStore,
-                               hasher: Pbkdf2PasswordHasher,
+                               hasher: PasswordHasher,
                                sessionPolicy: SessionPolicy,
                                throttle: LoginThrottleStore = nil,
                                loginPath = "/login",
