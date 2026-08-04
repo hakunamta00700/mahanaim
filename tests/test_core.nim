@@ -2193,6 +2193,17 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.headers["content-type"] == "application/msgpack"
     check response.body == encoded
+    let defaultNegotiated = negotiateJsonMessagePack(
+      newRequest("GET", "/messages"), document)
+    check defaultNegotiated.headers["content-type"].startsWith("application/json")
+    var messagePackRequest = newRequest("GET", "/messages")
+    messagePackRequest.headers["accept"] = "application/msgpack"
+    let negotiatedMessagePack = negotiateJsonMessagePack(messagePackRequest, document)
+    check negotiatedMessagePack.headers["content-type"] == "application/msgpack"
+    check negotiatedMessagePack.body == encoded
+    var unsupportedRequest = newRequest("GET", "/messages")
+    unsupportedRequest.headers["accept"] = "application/xml"
+    check negotiateJsonMessagePack(unsupportedRequest, document).status == Http406
 
   test "database query compiler binds values for SQLite and PostgreSQL":
     let query = SelectQuery(

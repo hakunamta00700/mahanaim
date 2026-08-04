@@ -6,6 +6,7 @@
 
 import std/[algorithm, httpcore, json, strutils, tables]
 import ./core
+import ./response_policy
 import ./serialization
 
 type
@@ -235,3 +236,20 @@ proc messagePackResponse*(serialization: SerializationResult,
   ## Refuse invalid DTOs before bytes reach the network boundary.
   result = newResponse(status, serialization.serializeMessagePack())
   result.headers["content-type"] = "application/msgpack"
+
+proc negotiateJsonMessagePack*(request: Request, node: JsonNode,
+                               status = Http200): Response =
+  ## Offer both wire formats from one handler while keeping Accept parsing in
+  ## the shared response policy. JSON remains the server preference when the
+  ## client does not send an Accept header.
+  negotiateResponse(request, [jsonResponse(node, status),
+                              messagePackResponse(node, status)])
+
+proc negotiateJsonMessagePack*(request: Request,
+                               serialization: SerializationResult,
+                               status = Http200): Response =
+  ## Invalid DTOs are rejected before either representation reaches negotiation.
+  if not serialization.valid:
+    raise newException(ValueError,
+      "Cannot negotiate an invalid serialization result")
+  negotiateJsonMessagePack(request, serialization.document, status)
