@@ -468,6 +468,47 @@ suite "Mahanaim core contracts":
     check result.stringValue("name").get() == "Ada"
     check result.integerValue("age").get() == 37
 
+  test "form urlencoded body fields use the common validation contract":
+    var request = newRequest("POST", "/profile", "name=Ada&age=37")
+    request.headers["content-type"] = "application/x-www-form-urlencoded"
+    let result = request.validate([
+      stringField("name", flBody),
+      integerField("age", flBody, minValue = 1)
+    ])
+    check result.valid
+    check result.stringValue("name").get() == "Ada"
+    check result.integerValue("age").get() == 37
+
+  test "multipart body exposes fields and file metadata without adapter types":
+    var request = newRequest("POST", "/upload",
+      "--demo\r\n" &
+      "Content-Disposition: form-data; name=\"title\"\r\n\r\n" &
+      "avatar\r\n" &
+      "--demo\r\n" &
+      "Content-Disposition: form-data; name=\"file\"; filename=\"a.txt\"\r\n" &
+      "Content-Type: text/plain\r\n\r\n" &
+      "hello\r\n" &
+      "--demo--\r\n")
+    request.headers["content-type"] = "multipart/form-data; boundary=demo"
+    let parsed = parseRequestBody(request)
+    check parsed.valid
+    check parsed.fields["title"] == "avatar"
+    check parsed.parts.len == 2
+    check parsed.parts[1].filename == "a.txt"
+    check parsed.parts[1].contentType == "text/plain"
+    check parsed.parts[1].content == "hello"
+    let result = request.validate([stringField("title", flBody)])
+    check result.valid
+
+  test "malformed multipart body returns a body-scoped validation issue":
+    var request = newRequest("POST", "/upload", "name=value")
+    request.headers["content-type"] = "multipart/form-data"
+    let result = request.validate([stringField("name", flBody)])
+    check not result.valid
+    check result.errors.len == 1
+    check result.errors[0].location == "body"
+    check result.errors[0].code == "missing_multipart_boundary"
+
   test "invalid JSON body reports a body-scoped issue":
     let request = newRequest("POST", "/users", "not-json")
     let result = request.validate([stringField("name", flBody)])

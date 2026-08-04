@@ -139,6 +139,13 @@
 - [x] Prologue mocking request 기반 adapter 회귀 테스트를 추가했다.
 - [ ] Prologue application/server lifecycle wiring과 upload/form/WebSocket adapter는 남아 있다.
 
+### 2026-08-04 — P0 HTTP body parsing 1차
+
+- [x] `Content-Type` 기반 framework-neutral body parser를 추가했다.
+- [x] `application/x-www-form-urlencoded` field와 multipart field/file metadata를 validation contract에 연결했다.
+- [x] JSON·form·multipart 및 malformed multipart body의 body-scoped 오류 회귀 테스트를 추가했다.
+- [ ] upload storage, MIME/filename/path 보안 정책과 Prologue lifecycle/upload adapter는 남아 있다.
+
 ### 2026-08-04 — P0 test client 1차
 
 - [x] 격리된 `TestApplication`과 in-process `TestClient`를 추가했다.

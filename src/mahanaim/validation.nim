@@ -6,6 +6,7 @@
 
 import std/[httpcore, json, options, strutils, tables]
 import ./core
+import ./body_parser
 
 type
   FieldLocation* = enum
@@ -82,7 +83,8 @@ proc addIssue(result: var ValidationResult, spec: FieldSpec,
     location: locationName(spec.location), code: code, message: message))
 
 proc rawValue(request: Request, spec: FieldSpec,
-              bodyDocument: JsonNode = nil): Option[string] =
+              bodyDocument: JsonNode,
+              bodyFields: Table[string, string]): Option[string] =
   case spec.location
   of flPath:
     if request.pathParams.hasKey(spec.name): some(request.pathParams[spec.name])
@@ -99,6 +101,8 @@ proc rawValue(request: Request, spec: FieldSpec,
     elif bodyDocument != nil and bodyDocument.kind == JObject and
          bodyDocument.hasKey(spec.name):
       jsonScalar(bodyDocument[spec.name])
+    elif bodyFields.hasKey(spec.name):
+      some(bodyFields[spec.name])
     else:
       none(string)
 
@@ -106,24 +110,35 @@ proc validate*(request: Request, schema: openArray[FieldSpec]): ValidationResult
   ## Validate all fields and return every issue instead of failing fast.
   result.values = initTable[string, string]()
   result.errors = @[]
+  let parsedBody = parseRequestBody(request)
+  let bodyFields = parsedBody.fields
   var bodyDocument: JsonNode = nil
   var bodyDocumentInvalid = false
+  var bodyErrorCode = "invalid_json"
+  var bodyErrorMessage = "Request body must be valid JSON"
   var hasNamedBodyField = false
   for spec in schema:
     if spec.location == flBody and spec.name.len > 0:
       hasNamedBodyField = true
       break
   if hasNamedBodyField and request.body.len > 0:
-    try:
-      bodyDocument = parseJson(request.body)
-    except JsonParsingError:
-      bodyDocumentInvalid = true
+    case parsedBody.encoding
+    of beFormUrlEncoded, beMultipart:
+      if not parsedBody.valid:
+        bodyDocumentInvalid = true
+        bodyErrorCode = parsedBody.errorCode
+        bodyErrorMessage = parsedBody.errorMessage
+    of beJson, beNone:
+      try:
+        bodyDocument = parseJson(request.body)
+      except JsonParsingError:
+        bodyDocumentInvalid = true
 
   for spec in schema:
     if bodyDocumentInvalid and spec.location == flBody and spec.name.len > 0:
-      result.addIssue(spec, "invalid_json", "Request body must be valid JSON")
+      result.addIssue(spec, bodyErrorCode, bodyErrorMessage)
       continue
-    var value = rawValue(request, spec, bodyDocument)
+    var value = rawValue(request, spec, bodyDocument, bodyFields)
     if value.isNone and spec.hasDefault:
       value = some(spec.defaultValue)
     if value.isNone or value.get().len == 0:
