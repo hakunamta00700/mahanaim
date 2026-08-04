@@ -159,7 +159,8 @@
 - [x] catch-all Prologue server bridge와 core startup/shutdown lifecycle wrapper를 추가했다.
 - [x] mocking context에서 Prologue response와 core dispatcher integration을 검증했다.
 - [x] Prologue raw form body와 `Content-Type`을 core body parser로 연결하는 contract test를 추가했다.
-- [ ] upload/WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
+- [x] Prologue multipart upload body를 core parser/storage contract로 연결했다.
+- [ ] WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 
@@ -236,7 +237,8 @@
 - [x] multipart BodyPart를 framework-neutral local storage contract로 연결했다.
 - [x] filename traversal, size, MIME allow-list, overwrite 정책을 검증한다.
 - [x] 저장 결과에 원본 파일명과 실제 저장 경로를 분리해 보존하는 회귀 테스트를 추가했다.
-- [ ] Prologue upload adapter와 object-storage backend는 남아 있다.
+- [x] Prologue upload field 선택과 safe storage 위임 회귀 테스트를 추가했다.
+- [ ] object-storage backend와 WebSocket adapter는 남아 있다.
 
 ### 2026-08-04 — P0 test client 1차
 

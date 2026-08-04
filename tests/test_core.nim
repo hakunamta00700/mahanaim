@@ -549,6 +549,26 @@ suite "Mahanaim core contracts":
     check parsed.fields["name"] == "Ada"
     check parsed.fields["role"] == "admin"
 
+  test "Prologue multipart upload crosses the adapter into safe storage":
+    var nativeHeaders = newHttpHeaders()
+    nativeHeaders["Content-Type"] = "multipart/form-data; boundary=demo"
+    var nativeRequest = request.initMockingRequest(
+      HttpPost, nativeHeaders, parseUri("/upload"))
+    nativeRequest.nativeRequest.body =
+      "--demo\r\n" &
+      "Content-Disposition: form-data; name=\"file\"; filename=\"a.txt\"\r\n" &
+      "Content-Type: text/plain\r\n\r\n" &
+      "hello\r\n" &
+      "--demo--\r\n"
+    let root = getTempDir() / "mahanaim_prologue_upload_test"
+    if dirExists(root):
+      removeDir(root)
+    let stored = savePrologueUpload(nativeRequest, "file",
+      newUploadPolicy(root, allowedContentTypes = @["text/plain"]))
+    check stored.originalFilename == "a.txt"
+    check readFile(stored.path) == "hello"
+    removeDir(root)
+
   test "Prologue server bridge delegates mocking requests and lifecycle":
     let app = newApplication()
     proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

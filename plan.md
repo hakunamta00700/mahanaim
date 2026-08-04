@@ -67,7 +67,8 @@
 - [x] Prologue 0.6.8 의존성과 lockfile을 고정한다.
 - [x] mocking request 및 mocking context에서 adapter와 lifecycle을 검증한다.
 - [x] Prologue form body를 core body parser 계약으로 변환한다.
-- [ ] Prologue upload/WebSocket API를 core 계약으로 변환한다.
+- [x] Prologue multipart upload API를 core BodyPart/upload storage 계약으로 변환한다.
+- [ ] Prologue WebSocket API를 core 계약으로 변환한다.
 - [ ] 실제 TCP 요청·응답과 graceful shutdown을 검증할 fixture를 만든다. Prologue 기본 backend의 비공개 서버 소유권 문제를 먼저 해결한다.
 
 ### 개발 품질

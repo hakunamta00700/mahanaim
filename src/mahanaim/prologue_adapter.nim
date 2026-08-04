@@ -8,7 +8,9 @@ import std/[asyncdispatch, httpcore, strutils, tables, uri]
 import pkg/cookiejar
 import prologue/core/httpcore/httplogue
 import prologue/core/request as prologueRequest
+import ./body_parser
 import ./core
+import ./upload_storage
 
 proc copyPrologueHeaders(headers: HttpHeaders): Table[string, string] =
   ## Normalize headers once, matching the standard-library adapter behavior.
@@ -27,6 +29,23 @@ proc toFrameworkRequest*(request: prologueRequest.Request): core.Request =
   result.cookies = initTable[string, string]()
   for name, value in request.cookies.pairs:
     result.cookies[name] = value
+
+proc parsePrologueBody*(request: prologueRequest.Request): BodyParseResult =
+  ## Keep Prologue multipart/form data on the same parser contract as every
+  ## other adapter; callers never need to inspect NativeRequest internals.
+  parseRequestBody(toFrameworkRequest(request))
+
+proc savePrologueUpload*(request: prologueRequest.Request, fieldName: string,
+                         policy: UploadPolicy): StoredUpload =
+  ## Locate one file part and delegate validation/storage to the shared policy.
+  let parsed = parsePrologueBody(request)
+  if not parsed.valid:
+    raise newException(UploadValidationError, parsed.errorMessage)
+  for part in parsed.parts:
+    if part.name == fieldName and part.filename.len > 0:
+      return saveUpload(part, policy)
+  raise newException(UploadValidationError,
+    "Multipart upload field not found: " & fieldName)
 
 proc toPrologueHeaders*(response: core.Response): ResponseHeaders =
   ## Translate response headers while preserving repeated-header semantics at
