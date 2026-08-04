@@ -2116,6 +2116,9 @@ suite "Mahanaim core contracts":
     var metadata = newModelMetadata("AdminItem", "admin_items")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
     metadata.addField(newModelField("title", modelString))
+    ## A server-managed field may be omitted from the client payload; the
+    ## storage layer can supply its value or preserve null as the default.
+    metadata.addField(newModelField("status", modelString, nullable = true))
     let registry = newAdminRegistry()
     var adminQueryOptions = defaultQueryComponentOptions()
     adminQueryOptions.defaultPageSize = 2
@@ -2128,7 +2131,10 @@ suite "Mahanaim core contracts":
       request.headers.getOrDefault("x-admin") == "yes"
     registry.registerAdminResource("items", "/admin/items", metadata,
       newInMemoryResourceStore(metadata), authorize,
-      defaultSecurityPolicy(), adminPolicy, adminQueryOptions)
+      defaultSecurityPolicy(), adminPolicy, adminQueryOptions,
+      @["status"], @["title"])
+    check registry.resources[0].readOnlyFields == @["status"]
+    check registry.resources[0].customColumns == @["title"]
     let app = newApplication()
     registerAdminRoutes(app, registry)
 
@@ -2149,23 +2155,35 @@ suite "Mahanaim core contracts":
     let form = waitFor app.dispatch(authorized)
     check form.status == Http200
     check form.body.contains("name=\"title\"")
+    check form.body.contains("name=\"status\"") == false
 
     var createRequest = newRequest("POST", "/admin/items",
-      "{\"title\":\"first\"}")
+      "{\"title\":\"first\",\"status\":\"forged\"}")
     createRequest.headers["x-admin"] = "yes"
     createRequest.auth = AuthContext(authenticated: true, subject: "admin-1")
     let created = waitFor app.dispatch(createRequest)
     check created.status == Http201
-    let id = parseJson(created.body)["id"].getInt()
+    let createdDocument = parseJson(created.body)
+    let id = createdDocument["id"].getInt()
+    check not (createdDocument.hasKey("status") and
+      createdDocument["status"].kind == JString and
+      createdDocument["status"].getStr() == "forged")
     check registry.auditLog.len == 1
     check registry.auditLog[0].action == "create"
     check registry.auditEvents()[0].actor == "admin-1"
+    var customList = newRequest("GET", "/admin/items")
+    customList.headers["x-admin"] = "yes"
+    customList.auth = authorized.auth
+    let customListResponse = waitFor app.dispatch(customList)
+    check parseJson(customListResponse.body)[0].hasKey("title")
+    check parseJson(customListResponse.body)[0].hasKey("id") == false
+    check parseJson(customListResponse.body)[0].hasKey("status") == false
     var snapshot = registry.auditEvents()
     snapshot[0].action = "tampered"
     check registry.auditEvents()[0].action == "create"
 
     var updateRequest = newRequest("PUT", "/admin/items/" & $id,
-      "{\"title\":\"updated\"}")
+      "{\"title\":\"updated\",\"status\":\"forged-again\"}")
     updateRequest.headers["x-admin"] = "yes"
     updateRequest.auth = authorized.auth
     check (waitFor app.dispatch(updateRequest)).status == Http200

@@ -6,7 +6,7 @@
 ## HTML create form, and an in-memory audit trail; richer permissions and
 ## layouts remain extension points.
 
-import std/[asyncdispatch, httpcore, strutils, tables]
+import std/[asyncdispatch, httpcore, json, strutils, tables]
 import ./application
 import ./authorization
 import ./core
@@ -53,6 +53,11 @@ type
     ## Admin list behavior is configurable per resource while parsing and
     ## validating query syntax remains owned by the shared component.
     queryOptions*: QueryComponentOptions
+    ## These fields are enforced at the admin boundary, not left to a store
+    ## implementation, so every backend gets the same write protection.
+    readOnlyFields*: seq[string]
+    ## Canonical metadata names used when no explicit `fields` query is given.
+    customColumns*: seq[string]
 
   AdminRegistry* = ref object
     ## Registration is application-owned and isolated from global plugin state.
@@ -107,7 +112,9 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
                             authorize: AdminAuthorization,
                             formPolicy = defaultSecurityPolicy(),
                             authorizationPolicy: AuthorizationPolicy = nil,
-                            queryOptions = defaultQueryComponentOptions()) =
+                            queryOptions = defaultQueryComponentOptions(),
+                            readOnlyFields: seq[string] = @[],
+                            customColumns: seq[string] = @[]) =
   ## Requiring an authorization callback prevents an accidentally public admin
   ## surface when a developer forgets to configure authentication.
   if registry.isNil or name.strip().len == 0 or prefix.len == 0 or
@@ -117,11 +124,27 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
   for existing in registry.resources:
     if existing.name == name or existing.prefix == prefix:
       raise newException(ValueError, "Duplicate admin resource: " & name)
+  proc canonicalFields(names: seq[string], label: string): seq[string] =
+    for requested in names:
+      var found = false
+      for field in metadata.fields:
+        if field.name == requested or field.jsonName == requested or
+            field.columnName == requested:
+          if field.name in result:
+            raise newException(ValueError, "Duplicate admin " & label & ": " & requested)
+          result.add(field.name)
+          found = true
+          break
+      if not found:
+        raise newException(ValueError, "Unknown admin " & label & ": " & requested)
+  let canonicalReadOnly = canonicalFields(readOnlyFields, "read-only field")
+  let canonicalColumns = canonicalFields(customColumns, "custom column")
   registry.resources.add(AdminResource(name: name, prefix: prefix,
     metadata: metadata, resource: newCrudResource(metadata, store),
     authorize: authorize, authorizationPolicy: authorizationPolicy,
     permissionResource: name, formPolicy: formPolicy,
-    queryOptions: queryOptions))
+    queryOptions: queryOptions, readOnlyFields: canonicalReadOnly,
+    customColumns: canonicalColumns))
 
 proc recordAudit(registry: AdminRegistry, resource, action, identifier,
                  actor: string) =
@@ -152,11 +175,30 @@ proc adminForm(resource: AdminResource): Response =
   var form = FormState(fields: @[], errors: @[])
   for field in modelInputSchema(resource.metadata, flBody,
                                 includePrimaryKey = false):
+    if field.name in resource.readOnlyFields:
+      continue
     form.fields.add(FormFieldState(name: field.name, label: field.name,
       inputType: field.inputType, required: field.required, value: "",
       errors: @[]))
   htmlResponse(renderForm(form, action = resource.prefix,
     csrfPolicy = resource.formPolicy))
+
+proc adminWritableBody(resource: AdminResource, body: string): string =
+  ## Strip protected fields before a CRUD resource sees input. Parsing errors
+  ## remain the resource's responsibility so its existing problem envelope is
+  ## preserved for malformed JSON and non-object bodies.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject:
+      return body
+    for field in resource.metadata.fields:
+      if field.name in resource.readOnlyFields:
+        document.delete(field.name)
+        if field.jsonName != field.name:
+          document.delete(field.jsonName)
+    $document
+  except CatchableError:
+    body
 
 proc registerResourceRoutes(app: Application, registry: AdminRegistry,
                             resource: AdminResource) =
@@ -167,11 +209,13 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "list", ""):
         return forbiddenResponse()
-      let parsed = request.parseQueryComponent(current.metadata.fields,
+      var parsed = request.parseQueryComponent(current.metadata.fields,
         current.queryOptions)
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",
           "One or more query parameters are invalid", parsed.errors)
+      if parsed.query.columns.len == 0 and current.customColumns.len > 0:
+        parsed.query.columns = current.customColumns
       return listResponse(current.resource, parsed.query))
   app.get(current.prefix & "/new", "admin." & current.name & ".form",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
@@ -182,7 +226,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
         return forbiddenResponse()
-      let response = createResponse(current.resource, request.body)
+      let response = createResponse(current.resource,
+        current.adminWritableBody(request.body))
       if response.status == Http201:
         registry.recordAudit(current.name, "create", "", request.auth.subject)
       return response)
@@ -199,7 +244,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
           request.pathParams.getOrDefault("id")):
         return forbiddenResponse()
       let identifier = request.pathParams.getOrDefault("id")
-      let response = updateResponse(current.resource, identifier, request.body)
+      let response = updateResponse(current.resource, identifier,
+        current.adminWritableBody(request.body))
       if response.status == Http200:
         registry.recordAudit(current.name, "update", identifier,
           request.auth.subject)
