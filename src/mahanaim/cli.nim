@@ -5,10 +5,11 @@
 ## separate lets a generated project and an embedding host use the same CLI
 ## behavior without hidden module discovery.
 
-import std/[asyncdispatch, options, strutils, tables]
+import std/[asyncdispatch, json, options, strutils, tables]
 import ./application
 import ./checks
 import ./migration_commands
+import ./openapi
 import ./sqlite_adapter
 import ./seed_commands
 import ./durable_jobs
@@ -91,6 +92,27 @@ proc runJobsCli*(app: Application, arguments: openArray[string]): int =
     raise newException(ValueError, "unknown jobs command: " & arguments[0])
   0
 
+proc runOpenApiCli*(app: Application, arguments: openArray[string]): int =
+  ## Generate a document from the application's already-registered HTTP routes.
+  ## The collector intentionally emits empty schemas for plain routes; typed
+  ## routes remain authoritative when an application uses addDocumentedRoute.
+  ## An optional path makes this command usable in CI artifact generation while
+  ## stdout remains convenient for local inspection and shell pipelines.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  if arguments.len > 1:
+    raise newException(ValueError, "openapi command accepts at most one output path")
+  let registry = newOpenApiRegistry("Mahanaim API", "0.1.0")
+  discard registry.collectRoutes(app.router)
+  let output = $registry.document()
+  if arguments.len == 1:
+    if arguments[0].strip().len == 0:
+      raise newException(ValueError, "OpenAPI output path cannot be empty")
+    writeFile(arguments[0], output & "\n")
+  else:
+    echo output
+  0
+
 proc runCli*(app: Application, arguments: openArray[string]): int =
   ## Dispatch built-in database commands first, then application-owned
   ## extension commands. Unknown commands fail instead of being ignored.
@@ -102,6 +124,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "  db status|up|rollback [sqlite-path]  Run application migrations"
     echo "  db seed [sqlite-path]  Run application seed providers"
     echo "  jobs run [max]|recover Run or recover durable jobs"
+    echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
     echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
@@ -127,6 +150,8 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
       raise newException(ValueError,
         "jobs command must be: jobs run [max]|recover")
     return runJobsCli(app, copied[1 .. ^1])
+  of "openapi":
+    return runOpenApiCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):
       return app.runCommand(copied[0], copied[1 .. ^1])

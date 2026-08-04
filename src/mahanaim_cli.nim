@@ -11,6 +11,7 @@ proc printUsage() =
   echo "mahanaim <command>"
   echo "  new NAME [PATH]  Generate a new project"
   echo "  db status|up|rollback [PATH]  Run application migrations"
+  echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"
@@ -67,6 +68,16 @@ proc main() =
         arguments.add(paramStr(index))
     try:
       quit(runCli(newApplication(), @["db"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
+  of "openapi":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @["openapi"] & arguments))
     except CatchableError as error:
       stderr.writeLine(error.msg)
       quit(1)

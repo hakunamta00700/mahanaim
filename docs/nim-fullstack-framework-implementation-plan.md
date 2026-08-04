@@ -22,6 +22,12 @@
 - [x] enum 값을 공통 `FieldSpec` validation과 OpenAPI `enum` schema로 투영해 입력·문서 경계를 일치시켰다.
 - [x] MessagePack JSON-compatible decode, malformed/trailing payload 검증, JSON/MessagePack `Accept` negotiation을 추가했다. stream framing과 enum 전용 custom wire type은 후속 범위다.
 
+### 2026-08-05 — P1 OpenAPI CLI contract
+
+- [x] embedding/standalone CLI에 등록된 router를 수집해 OpenAPI 3.1 문서를 stdout 또는 지정 파일로 생성하는 `openapi [PATH]` 명령을 추가했다.
+- [x] 출력 경로와 인자 개수 오류를 명시적으로 거부하고, 등록 route의 `operationId`가 문서에 보존되는 회귀 테스트를 추가했다.
+- [ ] `dev`, `db migrate`, `admin create-user`, `static collect`, `test` subcommand를 같은 application/검사 경계에 연결한다.
+
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차
 
 - [x] Nim manifest와 public package entry point를 추가했다.
@@ -659,7 +665,7 @@ flowchart TB
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·redaction logger로 로그·오류·빌드 노출을 차단한다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
-| [-] | NFR-APP-004 | P1 | `dev`, `db migrate`, `admin create-user`, `static collect`, `test`, `openapi`, `check` subcommand를 단계별로 추가한다. |
+| [-] | NFR-APP-004 | P1 | `openapi [PATH]`를 embedding/standalone CLI에 추가해 등록 route 기반 OpenAPI 3.1 문서를 stdout/파일로 생성한다. `dev`, `db migrate`, `admin create-user`, `static collect`, `test`, `check` subcommand 연결은 남아 있다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |
 
 ### HTTP·라우팅·응답

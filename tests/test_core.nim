@@ -3942,6 +3942,24 @@ suite "Mahanaim core contracts":
     check profileDocument["responses"]["201"]["content"]["application/json"][
       "schema"]["required"][0].getStr() == "displayName"
 
+  test "OpenAPI CLI exports collected application routes":
+    let app = newApplication()
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("ok")
+    app.get("/cli-health", "cli-health", health)
+    let outputPath = getTempDir() / "mahanaim_cli_openapi.json"
+    try:
+      check app.runCli(["openapi", outputPath]) == 0
+      let document = parseJson(readFile(outputPath))
+      check document["openapi"].getStr() == "3.1.0"
+      check document["paths"]["/cli-health"]["get"][
+        "operationId"].getStr() == "cli-health"
+      expect ValueError:
+        discard app.runCli(["openapi", "one", "too-many"])
+    finally:
+      if fileExists(outputPath): removeFile(outputPath)
+
   test "OpenAPI route collection discovers plain routes and preserves schemas":
     let app = newApplication()
     proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
