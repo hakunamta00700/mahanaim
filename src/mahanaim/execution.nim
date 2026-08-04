@@ -40,6 +40,10 @@ type
     ## process-wide, matching Nim's former threadpool behavior and avoiding a
     ## worker-pool leak for every short-lived test application.
     pollIntervalMs*: int
+    ## Zero preserves an unlimited queue; positive values reject new work once
+    ## the configured number of worker jobs is in flight.
+    maxConcurrentJobs*: int
+    activeJobs: int
     pool: Taskpool
 
 var sharedPool: Taskpool
@@ -88,11 +92,16 @@ proc defaultExecutionPolicy*(): ExecutionPolicy =
     warnOnSynchronousHandlers: true,
     offloadSynchronousHandlers: true)
 
-proc newThreadPoolExecutor*(pollIntervalMs = 1): ThreadPoolExecutor =
+proc newThreadPoolExecutor*(pollIntervalMs = 1,
+                            maxConcurrentJobs = 0): ThreadPoolExecutor =
   ## Polling keeps the event loop responsive while a FlowVar is pending.
   ## Zero is useful for low-latency tests; positive values avoid busy waiting.
+  if maxConcurrentJobs < 0:
+    raise newException(ValueError, "maxConcurrentJobs must not be negative")
   new(result)
   result.pollIntervalMs = max(0, pollIntervalMs)
+  result.maxConcurrentJobs = maxConcurrentJobs
+  result.activeJobs = 0
   result.pool = processPool()
 
 proc toSharedBuffer(value: string): SharedBuffer =
@@ -164,15 +173,28 @@ proc runRegisteredJob(jobId: int): SyncJobResult {.gcsafe, raises: [].} =
 
 proc execute*(executor: ThreadPoolExecutor, job: SyncJob): Future[Response] {.async.} =
   ## Run blocking-capable sync work away from the async event-loop thread.
+  if executor.maxConcurrentJobs > 0 and
+     executor.activeJobs >= executor.maxConcurrentJobs:
+    let overload = newException(FrameworkError,
+      "Synchronous executor capacity exhausted")
+    overload.status = Http503
+    overload.code = "executor_overloaded"
+    raise overload
+  ## execute is entered on the event-loop thread, so this counter is an
+  ## event-loop-owned admission gate rather than a second worker lock.
+  inc executor.activeJobs
   let jobId = registerJob(job)
-  let flow = spawn(executor.pool, runRegisteredJob(jobId))
-  while not flow.isReady:
-    await sleepAsync(executor.pollIntervalMs)
-  let outcome = sync(flow)
-  if outcome.failed:
-    let message = fromSharedBuffer(outcome.errorMessage)
-    if outcome.errorKind == 1:
-      raise newException(ValueError, message)
-    raise newException(CatchableError, message)
-  result = newResponse(HttpCode(outcome.status), fromSharedBuffer(outcome.body))
-  decodeHeaders(fromSharedBuffer(outcome.headers), result.headers)
+  try:
+    let flow = spawn(executor.pool, runRegisteredJob(jobId))
+    while not flow.isReady:
+      await sleepAsync(executor.pollIntervalMs)
+    let outcome = sync(flow)
+    if outcome.failed:
+      let message = fromSharedBuffer(outcome.errorMessage)
+      if outcome.errorKind == 1:
+        raise newException(ValueError, message)
+      raise newException(CatchableError, message)
+    result = newResponse(HttpCode(outcome.status), fromSharedBuffer(outcome.body))
+    decodeHeaders(fromSharedBuffer(outcome.headers), result.headers)
+  finally:
+    dec executor.activeJobs

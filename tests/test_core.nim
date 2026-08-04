@@ -73,6 +73,18 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard waitFor executor.execute(failJob)
 
+  test "thread pool executor rejects work beyond its configured capacity":
+    let executor = newThreadPoolExecutor(pollIntervalMs = 1, maxConcurrentJobs = 1)
+    proc slowJob(): mahanaim.Response {.gcsafe.} =
+      sleep(100)
+      textResponse("slow")
+    let first = executor.execute(slowJob)
+    expect FrameworkError:
+      discard waitFor executor.execute(proc(): mahanaim.Response {.gcsafe.} =
+        textResponse("rejected"))
+    check first.isNil == false
+    check (waitFor first).body == "slow"
+
   test "request timeout returns 504 and marks cooperative cancellation":
     var config = defaultConfig()
     config.requestTimeoutMs = 5
