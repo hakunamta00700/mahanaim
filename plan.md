@@ -197,5 +197,5 @@
 - [ ] P0의 미완료 항목이 없고, 전체 테스트·verify·check가 통과한다.
 - [ ] P1에서 SQLite/PostgreSQL CRUD와 migration 회귀 테스트가 통과한다.
 - [x] 구현된 운영 기능은 [운영 정책 문서](docs/operations-guide.md)에 실패 시나리오와 복구 절차를 기록한다.
-- [ ] 각 릴리스가 지원 버전, 의존성 lock, 보안 기본값, 변경 로그를 명시한다.
+- [-] 지원 Nim/OS, 의존성 lock, 보안 기본값, 외부 live gate와 변경 로그 규칙을 [`docs/support-policy.md`](docs/support-policy.md)와 `CHANGELOG.md`에 고정했다. 실제 릴리스별 gate 증거와 변경 항목 누적은 진행 중이다.
 - [x] 관계 로딩: 기존 JOIN 기반 `listRelation` 계약은 유지하고, `listRelationWithRelated`로 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. one-to-many와 through metadata 기반 many-to-many 모두 parent page 기준 batched query를 지원한다.
