@@ -60,6 +60,24 @@ proc registerOperation*(registry: OpenApiRegistry,
     operation.successStatus else: 200
   registry.operations.add(normalized)
 
+proc addDocumentedRoute*(app: Application, registry: OpenApiRegistry,
+                         operation: OpenApiOperation, handler: Handler,
+                         middleware: seq[Middleware] = @[]) =
+  ## Couple route registration and OpenAPI registration at one declaration
+  ## boundary. The rollback keeps the two registries consistent if the router
+  ## rejects a duplicate route or malformed handler registration.
+  if app.isNil or registry.isNil or handler.isNil:
+    raise newException(ValueError,
+      "Application, OpenAPI registry, and route handler are required")
+  let operationCount = registry.operations.len
+  registry.registerOperation(operation)
+  try:
+    app.addRoute(operation.httpMethod, operation.path,
+      operation.operationId, handler, middleware)
+  except CatchableError:
+    registry.operations.setLen(operationCount)
+    raise
+
 proc fieldSchema(field: FieldSpec): JsonNode =
   result = newJObject()
   result["type"] = newJString(case field.inputType

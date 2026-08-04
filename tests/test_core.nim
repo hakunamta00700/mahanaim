@@ -2921,6 +2921,26 @@ suite "Mahanaim core contracts":
     check (waitFor app.dispatch(newRequest("GET", "/swagger"))).body.contains("swagger-ui")
     check (waitFor app.dispatch(newRequest("GET", "/redoc-ui"))).body.contains("redoc")
 
+  test "documented route registration keeps router and OpenAPI registry aligned":
+    let registry = newOpenApiRegistry("Documented API", "1.0.0")
+    let app = newApplication()
+    proc documentedHandler(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return jsonResponse(parseJson("{\"ok\":true}"))
+    app.addDocumentedRoute(registry, OpenApiOperation(
+      httpMethod: "GET", path: "/documented", operationId: "documented",
+      summary: "Documented route", requestSchema: @[], responseSchema: @[],
+      successStatus: 200), documentedHandler)
+    check (waitFor app.dispatch(newRequest("GET", "/documented"))).status == Http200
+    check registry.document()["paths"]["/documented"]["get"]["operationId"].getStr() ==
+      "documented"
+    expect ValueError:
+      app.addDocumentedRoute(registry, OpenApiOperation(
+        httpMethod: "GET", path: "/documented", operationId: "duplicate",
+        requestSchema: @[], responseSchema: @[], successStatus: 200),
+        documentedHandler)
+    check registry.operations.len == 1
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed
