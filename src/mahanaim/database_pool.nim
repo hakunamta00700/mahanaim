@@ -8,8 +8,8 @@ import std/[locks, tables]
 import ./database
 
 type
-  DatabaseAdapterFactory* = proc(): DatabaseAdapter
-  DatabaseAdapterCloser* = proc(adapter: DatabaseAdapter)
+  DatabaseAdapterFactory* = proc(): DatabaseAdapter {.gcsafe.}
+  DatabaseAdapterCloser* = proc(adapter: DatabaseAdapter) {.gcsafe.}
 
   DatabaseConnectionPool* = ref object
     ## A pool is deliberately independent from a concrete driver. The factory
@@ -41,11 +41,11 @@ proc newDatabaseConnectionPool*(factory: DatabaseAdapterFactory,
   initLock(result.lock)
 
 proc closeAdapter(pool: DatabaseConnectionPool,
-                  adapter: DatabaseAdapter) =
+                  adapter: DatabaseAdapter) {.gcsafe.} =
   if pool.closer != nil and adapter != nil:
     pool.closer(adapter)
 
-proc acquire*(pool: DatabaseConnectionPool): DatabaseAdapter =
+proc acquire*(pool: DatabaseConnectionPool): DatabaseAdapter {.gcsafe.} =
   ## Borrow an existing connection or create one while capacity remains.
   ## Factory execution is kept inside the admission lock to prevent two
   ## callers from exceeding the native connection bound.
@@ -75,7 +75,7 @@ proc acquire*(pool: DatabaseConnectionPool): DatabaseAdapter =
     release(pool.lock)
 
 proc release*(pool: DatabaseConnectionPool,
-              adapter: DatabaseAdapter) =
+              adapter: DatabaseAdapter) {.gcsafe.} =
   ## Return a connection exactly once. Connections returned after pool close
   ## are closed immediately so shutdown does not leave native handles alive.
   if pool.isNil or adapter.isNil:
@@ -127,7 +127,7 @@ proc close*(pool: DatabaseConnectionPool) =
   for adapter in idle:
     pool.closeAdapter(adapter)
 
-proc idleCount*(pool: DatabaseConnectionPool): int =
+proc idleCount*(pool: DatabaseConnectionPool): int {.gcsafe.} =
   if pool.isNil:
     return 0
   acquire(pool.lock)
@@ -136,7 +136,7 @@ proc idleCount*(pool: DatabaseConnectionPool): int =
   finally:
     release(pool.lock)
 
-proc activeCount*(pool: DatabaseConnectionPool): int =
+proc activeCount*(pool: DatabaseConnectionPool): int {.gcsafe.} =
   if pool.isNil:
     return 0
   acquire(pool.lock)

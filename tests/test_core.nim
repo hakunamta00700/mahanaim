@@ -1931,6 +1931,27 @@ suite "Mahanaim core contracts":
     check repository.delete("1")
     check repository.find("1").isNone
 
+  test "application wires and releases request-scoped database connections":
+    var closed = 0
+    let pool = newDatabaseConnectionPool(
+      proc(): DatabaseAdapter = newSqliteDatabaseAdapter(), 1,
+      proc(adapter: DatabaseAdapter) =
+        inc closed
+        cast[SqliteDatabaseAdapter](adapter).close())
+    let app = newApplication()
+    app.configureDatabasePool(pool)
+    proc databaseRoute(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      check request.database != nil
+      check request.database.dialect == dialectSqlite
+      return textResponse("database-bound")
+    app.get("/database-bound", "database-bound", databaseRoute)
+    check (waitFor app.dispatch(newRequest("GET", "/database-bound"))).body ==
+      "database-bound"
+    check pool.idleCount() == 1
+    app.startup()
+    app.shutdown()
+    check closed == 1
+
   test "Redis RESP client encodes atomic counter and parses server TTL":
     let command = encodeFixedWindowCommand("rate:user", 60)
     check command.startsWith("*5\r\n$4\r\nEVAL\r\n")

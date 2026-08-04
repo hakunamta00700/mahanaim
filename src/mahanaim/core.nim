@@ -6,6 +6,7 @@
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import std/concurrency/atomics
+import ./database
 import ./tracing
 
 type
@@ -29,6 +30,9 @@ type
     body*: string
     pathParams*: Table[string, string]
     cancellation*: CancellationToken
+    ## Optional request-scoped database connection. Application dispatch owns
+    ## borrow/release; handlers only consume the adapter contract.
+    database*: DatabaseAdapter
     ## Authentication is adapter-neutral: security middleware binds a verified
     ## session subject here, while handlers never inspect cookie syntax.
     auth*: AuthContext

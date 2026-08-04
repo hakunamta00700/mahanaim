@@ -2,6 +2,7 @@
 
 import std/[asyncdispatch, httpcore, options, strutils, tables]
 import ./core
+import ./database_pool
 import ./router
 import ./config
 import ./security
@@ -74,6 +75,7 @@ type
     observability*: Observability
     services*: ServiceContainer
     jobs*: BackgroundJobQueue
+    databasePool*: DatabaseConnectionPool
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -126,6 +128,17 @@ proc defaultErrorHandler(request: Request,
 proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
   app.middlewares.add(middleware)
+
+proc configureDatabasePool*(app: Application,
+                            pool: DatabaseConnectionPool) =
+  ## Inject the pool before startup. The application then owns request-scoped
+  ## borrowing and closes idle/active connections during shutdown.
+  if app.isNil or pool.isNil:
+    raise newException(ValueError, "Application and database pool are required")
+  if app.started:
+    raise newException(ValueError,
+      "Database pool must be configured before application startup")
+  app.databasePool = pool
 
 proc registerCommand*(app: Application, command: CommandDefinition) =
   ## Registration is fail-fast so duplicate CLI names cannot shadow commands.
@@ -375,8 +388,8 @@ proc fallback(app: Application, request: Request,
   ## Apply global middleware to 404/405 responses as well as matched routes.
   return await app.invoke(request, compose(app.middlewares, handler))
 
-proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
-  ## Dispatch an in-process request. Network adapters can delegate to this API.
+proc dispatchInternal(app: Application, request: Request): Future[Response] {.async.} =
+  ## Dispatch an in-process request after request-scoped resources are attached.
   let matchedRoute = app.router.find(request)
   if matchedRoute.isNone:
     # A path match with another method is a 405, while no path match is a 404.
@@ -399,6 +412,19 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
     endpoint = app.syncEndpoint(route.syncHandler)
   return await app.invoke(requestWithParams, compose(layers, endpoint))
 
+proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
+  ## Network adapters delegate here. A borrowed connection is released on every
+  ## route, 404, 405, timeout, and exception path through the finally block.
+  if app.databasePool.isNil:
+    return await app.dispatchInternal(request)
+  let database = app.databasePool.acquire()
+  var requestWithDatabase = request
+  requestWithDatabase.database = database
+  try:
+    return await app.dispatchInternal(requestWithDatabase)
+  finally:
+    app.databasePool.release(database)
+
 proc startup*(app: Application) =
   ## Hooks execute once and in registration order.
   if app.started:
@@ -415,4 +441,6 @@ proc shutdown*(app: Application) =
   for index in countdown(app.shutdownHooks.high, 0):
     app.shutdownHooks[index]()
   app.observability.setReady(false)
+  if app.databasePool != nil:
+    app.databasePool.close()
   app.started = false
