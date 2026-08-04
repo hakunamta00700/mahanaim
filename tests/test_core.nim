@@ -2315,10 +2315,14 @@ suite "Mahanaim core contracts":
     adminPolicy.assignRole("admin-1", "admin")
     proc authorize(request: Request): bool {.gcsafe.} =
       request.headers.getOrDefault("x-admin") == "yes"
+    let customLayout: AdminFormLayoutRenderer = proc(
+        context: AdminFormLayoutContext): mahanaim.Response {.gcsafe.} =
+      htmlResponse("<section data-resource=\"" & context.resourceName &
+        "\">custom layout</section>")
     registry.registerAdminResource("items", "/admin/items", metadata,
       newInMemoryResourceStore(metadata), authorize,
       defaultSecurityPolicy(), adminPolicy, adminQueryOptions,
-      @["status"], @["title"])
+      @["status"], @["title"], customLayout)
     check registry.resources[0].readOnlyFields == @["status"]
     check registry.resources[0].customColumns == @["title"]
     let app = newApplication()
@@ -2340,8 +2344,8 @@ suite "Mahanaim core contracts":
     authorized.auth = AuthContext(authenticated: true, subject: "admin-1")
     let form = waitFor app.dispatch(authorized)
     check form.status == Http200
-    check form.body.contains("name=\"title\"")
-    check form.body.contains("name=\"status\"") == false
+    check form.body.contains("data-resource=\"items\"")
+    check form.body.contains("custom layout")
 
     var createRequest = newRequest("POST", "/admin/items",
       "{\"title\":\"first\",\"status\":\"forged\"}")

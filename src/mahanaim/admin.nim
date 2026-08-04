@@ -20,6 +20,14 @@ import ./validation
 
 type
   AdminAuthorization* = proc(request: Request): bool {.gcsafe.}
+  AdminFormLayoutContext* = object
+    ## A renderer receives only the normalized form and resource identity; it
+    ## cannot bypass authorization or persistence by mutating AdminResource.
+    resourceName*: string
+    action*: string
+    form*: FormState
+  AdminFormLayoutRenderer* = proc(context: AdminFormLayoutContext): Response
+    {.gcsafe.}
 
   AdminAuditEvent* = object
     ## Audit records contain the stable resource/action identity, not request
@@ -58,6 +66,9 @@ type
     readOnlyFields*: seq[string]
     ## Canonical metadata names used when no explicit `fields` query is given.
     customColumns*: seq[string]
+    ## Optional presentation hook. Route, authorization, and audit ownership
+    ## remain in this module while applications control the final HTML shell.
+    formLayout*: AdminFormLayoutRenderer
 
   AdminRegistry* = ref object
     ## Registration is application-owned and isolated from global plugin state.
@@ -114,7 +125,8 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
                             authorizationPolicy: AuthorizationPolicy = nil,
                             queryOptions = defaultQueryComponentOptions(),
                             readOnlyFields: seq[string] = @[],
-                            customColumns: seq[string] = @[]) =
+                            customColumns: seq[string] = @[],
+                            formLayout: AdminFormLayoutRenderer = nil) =
   ## Requiring an authorization callback prevents an accidentally public admin
   ## surface when a developer forgets to configure authentication.
   if registry.isNil or name.strip().len == 0 or prefix.len == 0 or
@@ -144,7 +156,7 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
     authorize: authorize, authorizationPolicy: authorizationPolicy,
     permissionResource: name, formPolicy: formPolicy,
     queryOptions: queryOptions, readOnlyFields: canonicalReadOnly,
-    customColumns: canonicalColumns))
+    customColumns: canonicalColumns, formLayout: formLayout))
 
 proc recordAudit(registry: AdminRegistry, resource, action, identifier,
                  actor: string) =
@@ -180,6 +192,9 @@ proc adminForm(resource: AdminResource): Response =
     form.fields.add(FormFieldState(name: field.name, label: field.name,
       inputType: field.inputType, required: field.required, value: "",
       errors: @[]))
+  if resource.formLayout != nil:
+    return resource.formLayout(AdminFormLayoutContext(
+      resourceName: resource.name, action: resource.prefix, form: form))
   htmlResponse(renderForm(form, action = resource.prefix,
     csrfPolicy = resource.formPolicy))
 
