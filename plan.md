@@ -5,7 +5,7 @@
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
 - [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
 - [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
-- [-] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory와 compile gate를 추가했으며, SCRAM 자격 증명이 필요한 live integration/isolation 실행은 남아 있다.
+- [-] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했으며, credential이 제공되지 않은 현재 환경에서는 live 실행을 건너뛴다.
 
 ## 2026-08-04 executor lifecycle 안정화
 

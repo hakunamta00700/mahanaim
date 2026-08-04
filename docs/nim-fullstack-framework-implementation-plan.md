@@ -198,7 +198,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. SCRAM credentials가 필요한 live integration/isolation 실행과 repository route 연결은 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. `postgresLive` 선택적 contract task도 제공하며 credential이 있는 환경의 live repository/isolation 실행과 route 연결은 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 

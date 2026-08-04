@@ -59,9 +59,10 @@ unless all required credentials are supplied. Configure the live fixture with
 using another port must set it explicitly (for example `5433`).
 
 The fixture wraps each operation in a transaction and rolls it back before the
-connection is returned to the pool. `nimble postgresCheck` only compiles this
-optional contract; a live isolation task must run in an environment that owns
-the PostgreSQL credentials and database.
+connection is returned to the pool. `nimble postgresCheck` compiles the
+optional adapter contract, while `nimble postgresLive` executes the real
+parameterized query and transaction-isolation contract when credentials are
+available; otherwise it reports an explicit skip.
 
 ## Graceful shutdown
 

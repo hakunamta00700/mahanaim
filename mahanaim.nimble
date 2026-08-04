@@ -44,6 +44,17 @@ task postgresCheck, "Compile the optional PostgreSQL adapter contract":
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_postgres_adapter_compile.nim"
 
+task postgresLive, "Run the optional PostgreSQL live contract test":
+  ## The test exits successfully with an explicit skip when credentials are
+  ## absent, while credentialed CI environments execute the real connection.
+  if getEnv("MAHANAIM_POSTGRES_USER").len == 0 or
+      getEnv("MAHANAIM_POSTGRES_PASSWORD").len == 0 or
+      getEnv("MAHANAIM_POSTGRES_DATABASE").len == 0:
+    echo "PostgreSQL live test skipped: credentials are not configured"
+  else:
+    exec "nim c --path:src" & dependencyPathArgs() &
+      " -r tests/test_postgres_live.nim"
+
 task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"
