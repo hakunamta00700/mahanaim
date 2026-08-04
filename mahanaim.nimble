@@ -5,6 +5,9 @@ author        = "Mahanaim contributors"
 description   = "A low-magic full-stack web framework for Nim"
 license       = "MIT"
 srcDir        = "src"
+bin           = @[
+  "mahanaim_cli"
+]
 
 requires "nim >= 2.2.0"
 requires "nimcrypto >= 0.7.3"
@@ -14,7 +17,7 @@ task test, "Run the framework test suite":
   exec "nim c --path:src -r tests/test_core.nim"
 
 task check, "Compile the framework CLI":
-  exec "nim c --path:src src/mahanaim_cli.nim"
+  exec "nimble build"
 
 task verify, "Compile the CLI and validate package contracts":
-  exec "nim c --path:src src/mahanaim_cli.nim"
+  exec "nimble build"

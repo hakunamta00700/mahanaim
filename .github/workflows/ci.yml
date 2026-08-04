@@ -1,0 +1,28 @@
+name: Mahanaim CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    container: nimlang/nim:2.2.4
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install locked dependencies
+        run: nimble install -y --depsOnly
+
+      - name: Run contract tests
+        run: nimble test
+
+      - name: Compile verification targets
+        run: nimble verify
+
+      - name: Validate package and dependency contracts
+        run: nimble check

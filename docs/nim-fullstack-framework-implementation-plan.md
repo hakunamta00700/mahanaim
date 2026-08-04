@@ -155,6 +155,12 @@
 - [x] query·header·cookie persistence와 GET/POST contract test를 추가했다.
 - [ ] test database transaction isolation, WebSocket/SSE, live-server smoke fixture, CI fixture wiring은 남아 있다.
 
+### 2026-08-04 — P0 dependency and CI 1차
+
+- [x] Nimble lockfile에 Nim 패키지 버전·VCS revision·checksum을 기록했다.
+- [x] CI에서 lockfile 기반 dependency install과 `test`·`verify`·`check`를 동일하게 실행한다.
+- [ ] 지원 OS/Nim 버전 matrix와 release artifact checksum 검증은 남아 있다.
+
 검증 명령:
 
 ```powershell
