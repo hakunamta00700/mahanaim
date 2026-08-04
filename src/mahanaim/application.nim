@@ -15,7 +15,16 @@ type
     middlewares*: seq[Middleware]
     startupHooks*: seq[LifecycleHook]
     shutdownHooks*: seq[LifecycleHook]
+    errorHandler*: ErrorHandler
+    plugins*: seq[Plugin]
     started*: bool
+
+  ErrorHandler* = proc (request: Request,
+                        error: ref CatchableError): Future[Response] {.gcsafe.}
+  Plugin* = proc (app: Application)
+
+proc defaultErrorHandler(request: Request,
+                         error: ref CatchableError): Future[Response] {.async, gcsafe.}
 
 proc newApplication*(config = defaultConfig()): Application =
   ## Construct an isolated app instance; this is important for test isolation.
@@ -25,7 +34,17 @@ proc newApplication*(config = defaultConfig()): Application =
   result.middlewares = @[]
   result.startupHooks = @[]
   result.shutdownHooks = @[]
+  result.errorHandler = defaultErrorHandler
+  result.plugins = @[]
   result.started = false
+
+proc defaultErrorHandler(request: Request,
+                         error: ref CatchableError): Future[Response] {.async, gcsafe.} =
+  ## Never expose exception text by default; custom handlers can log it safely
+  ## after passing through the application's secret redaction policy.
+  discard request
+  discard error
+  return textResponse("Internal Server Error", Http500)
 
 proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
@@ -56,6 +75,16 @@ proc onStartup*(app: Application, hook: LifecycleHook) =
 proc onShutdown*(app: Application, hook: LifecycleHook) =
   app.shutdownHooks.add(hook)
 
+proc onError*(app: Application, handler: ErrorHandler) =
+  ## Install an explicit application-level exception policy.
+  app.errorHandler = handler
+
+proc use*(app: Application, plugin: Plugin) =
+  ## Plugins are installed before startup and can register routes, middleware,
+  ## commands, or future extension points through the Application contract.
+  app.plugins.add(plugin)
+  plugin(app)
+
 proc compose(middlewares: seq[Middleware], endpoint: Handler): Handler =
   ## Compose middleware from right to left, making each layer responsible for
   ## exactly one concern and preserving onion-style request/response flow.
@@ -75,6 +104,14 @@ proc methodNotAllowedHandler(request: Request): Future[Response] {.async, gcsafe
   discard request
   return textResponse("Method Not Allowed", Http405)
 
+proc invoke(app: Application, request: Request, handler: Handler): Future[Response] {.async.} =
+  ## One guarded invocation path prevents sync, async, and plugin routes from
+  ## drifting into different exception behavior.
+  try:
+    return await handler(request)
+  except CatchableError as error:
+    return await app.errorHandler(request, error)
+
 proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   ## Dispatch an in-process request. Network adapters can delegate to this API.
   var matchedRoute: Option[Route] = none(Route)
@@ -93,7 +130,7 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
           requestWithParams.pathParams = params.get()
           var layers = app.middlewares
           layers.add(route.middleware)
-          return await compose(layers, route.handler)(requestWithParams)
+          return await app.invoke(requestWithParams, compose(layers, route.handler))
     return await notFoundHandler(request)
 
   let route = matchedRoute.get()
@@ -101,7 +138,7 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
     return await methodNotAllowedHandler(request)
   var layers = app.middlewares
   layers.add(route.middleware)
-  return await compose(layers, route.handler)(request)
+  return await app.invoke(request, compose(layers, route.handler))
 
 proc startup*(app: Application) =
   ## Hooks execute once and in registration order.

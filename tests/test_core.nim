@@ -42,6 +42,46 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "sync ok"
 
+  test "plugin can register a route through the application contract":
+    let app = newApplication()
+    proc pluginRoot(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("from plugin")
+    proc registerPlugin(app: Application) =
+      app.get("/plugin", "plugin-root", pluginRoot)
+    app.use(registerPlugin)
+
+    let response = waitFor app.dispatch(newRequest("GET", "/plugin"))
+    check response.status == Http200
+    check response.body == "from plugin"
+
+  test "custom error handler receives route exceptions":
+    let app = newApplication()
+    proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      raise newException(ValueError, "secret failure detail")
+    proc handleError(request: Request,
+                     error: ref CatchableError): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("handled: " & error.msg, Http418)
+    app.onError(handleError)
+    app.get("/failure", "failure", failure)
+
+    let response = waitFor app.dispatch(newRequest("GET", "/failure"))
+    check response.status == Http418
+    check response.body.startsWith("handled: secret failure detail")
+
+  test "default error handler does not expose exception details":
+    let app = newApplication()
+    proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      raise newException(ValueError, "private detail")
+    app.get("/default-failure", "default-failure", failure)
+
+    let response = waitFor app.dispatch(newRequest("GET", "/default-failure"))
+    check response.status == Http500
+    check response.body == "Internal Server Error"
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

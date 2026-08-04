@@ -64,6 +64,13 @@
 - [x] 설정 병합·TOML secrets section·redaction 테스트 2개를 추가했다.
 - [ ] 완전한 TOML 문법, JSON/TOML schema validation, CI 재현 설치는 남아 있다.
 
+### 2026-08-04 — P0 application extension 1차
+
+- [x] application-level custom error handler와 안전한 기본 500 handler를 추가했다.
+- [x] plugin registration API를 추가하고 plugin이 route를 등록하는 contract test를 추가했다.
+- [x] 예외 상세가 기본 응답에 노출되지 않는지 검증했다.
+- [ ] plugin manifest, DI provider, command/admin extension point와 redacted error logging은 남아 있다.
+
 검증 명령:
 
 ```powershell
