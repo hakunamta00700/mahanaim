@@ -3488,6 +3488,46 @@ suite "Mahanaim core contracts":
     check (waitFor app.dispatch(newRequest("GET",
       "/route-items/" & $id))).status == Http404
 
+  test "admin registry composes database repository store with SQLite":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"admin_route_items\" (" &
+      "\"id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"title\" TEXT)",
+      parameters: @[]))
+    var metadata = newModelMetadata("AdminRouteItem", "admin_route_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("title", modelString))
+    let repository = newDatabaseRepository(metadata, adapter)
+    let registry = newAdminRegistry()
+    proc authorize(request: Request): bool {.gcsafe.} =
+      request.headers.getOrDefault("x-admin") == "yes"
+    registry.registerAdminResource("route-items", "/admin/route-items", metadata,
+      newDatabaseRepositoryResourceStore(repository), authorize)
+    let app = newApplication()
+    registerAdminRoutes(app, registry)
+
+    var createRequest = newRequest("POST", "/admin/route-items",
+      "{\"title\":\"stored in sqlite\"}")
+    createRequest.headers["x-admin"] = "yes"
+    createRequest.auth = AuthContext(authenticated: true, subject: "admin-db")
+    let created = waitFor app.dispatch(createRequest)
+    check created.status == Http201
+    let id = parseJson(created.body)["id"].getInt()
+
+    var listRequest = newRequest("GET", "/admin/route-items")
+    listRequest.headers["x-admin"] = "yes"
+    listRequest.auth = createRequest.auth
+    let listed = waitFor app.dispatch(listRequest)
+    check listed.status == Http200
+    check parseJson(listed.body)[0]["title"].getStr() == "stored in sqlite"
+
+    var deleteRequest = newRequest("DELETE", "/admin/route-items/" & $id)
+    deleteRequest.headers["x-admin"] = "yes"
+    deleteRequest.auth = createRequest.auth
+    check (waitFor app.dispatch(deleteRequest)).status == Http204
+    check registry.auditEvents().len == 2
+
   test "database repository executes metadata-driven relation joins":
     let adapter = newSqliteDatabaseAdapter()
     defer: adapter.close()

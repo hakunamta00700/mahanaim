@@ -699,7 +699,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [-] | REQ-UI-001 | P1 | auto-escaping renderer와 inheritance·partial(include)·filter registry, nested conditional block, `registerTag` custom helper registry, locale catalog 기반 translation helper와 deterministic JSON catalog directory loader를 구현했다. loop·AST 기반 확장 helper는 후속 범위다. |
 | [x] | REQ-UI-002 | P1 | model metadata를 form schema와 `bindModelForm`/`bindModelFormSet`에 연결하고 CSRF·오류 표시 및 field widget registry를 제공한다. |
-| [-] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action과 명시적 inline PATCH route를 지원하며 custom layout은 남아 있다. |
+| [x] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 custom layout hook을 지원하고 SQLite `DatabaseRepositoryResourceStore` 통합 회귀를 검증했다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |
 | [x] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 append-only audit event 저장소 계약 및 기본 in-memory adapter를 제공한다. |
 | [x] | REQ-UI-003 | P1 | `htmlJsonResponse`로 HTML 전체 문서·HTMX partial·JSON response를 같은 route contract에서 선택하고 `Vary: Accept, HX-Request` 및 HTMX 예제를 제공한다. |
