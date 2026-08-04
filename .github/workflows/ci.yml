@@ -26,3 +26,9 @@ jobs:
 
       - name: Validate package and dependency contracts
         run: nimble check
+
+      - name: Compile PostgreSQL adapter contract
+        run: nimble postgresCheck
+
+      - name: Run optional PostgreSQL live contract
+        run: nimble postgresLive
