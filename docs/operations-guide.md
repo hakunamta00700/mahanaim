@@ -37,6 +37,14 @@ cost parameter를 읽어 `verifyAndRehash`로 점진적 cost rotation을 수행�
 선택한다. bcrypt는 별도 adapter로 연결할 수 있고, PBKDF2는 호환성 reference
 adapter로 유지한다.
 
+## Template extensions
+
+Template 확장은 `engine.registerTag("name", callback)`으로 등록하며 `{% tag name
+arg %}` 문법으로 호출한다. tag 결과도 변수와 동일하게 HTML escaping을 거치므로
+신뢰할 수 없는 값을 반환하는 helper가 raw HTML 주입구가 되지 않는다. 조건부 출력은
+`{% if key %}...{% else %}...{% endif %}`를 사용하며 빈 문자열·`false`·`no`·`off`·`0`은
+false로 처리된다.
+
 날짜·시간 표시에서 DST가 필요한 경우 `newIanaLocaleFormatPolicy("en-US",
 "America/New_York")`처럼 IANA 이름을 application 설정 단계에서 resolve한다. 잘못된
 zone은 startup에서 거부되며, formatter는 UTC instant를 기준으로 해당 시점의

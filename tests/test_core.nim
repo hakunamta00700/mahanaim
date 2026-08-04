@@ -2935,6 +2935,19 @@ suite "Mahanaim core contracts":
       engine.registerTemplate("base", "duplicate")
     expect ValueError:
       discard engine.render("missing", context)
+    engine.registerTag("greet", proc(arguments: seq[string], values: TemplateContext): string =
+      let name = if arguments.len == 1: values.getOrDefault(arguments[0]) else: ""
+      "Hello <" & name & ">")
+    engine.registerTemplate("tags", "{% if visible %}{% tag greet title %}{% else %}hidden{% endif %}")
+    context["visible"] = "true"
+    check engine.render("tags", context) == "Hello &lt;&lt;Ada&gt;&gt;"
+    context["visible"] = "false"
+    check engine.render("tags", context) == "hidden"
+    expect ValueError:
+      engine.registerTag("greet", proc(arguments: seq[string], values: TemplateContext): string = "again")
+    engine.registerTemplate("unknown-tag", "{% tag missing value %}")
+    expect ValueError:
+      discard engine.render("unknown-tag", context)
     engine.registerTemplate("cycle-a", "{% include \"cycle-b\" %}")
     engine.registerTemplate("cycle-b", "{% include \"cycle-a\" %}")
     expect ValueError:

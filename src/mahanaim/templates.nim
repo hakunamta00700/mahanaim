@@ -10,10 +10,12 @@ import std/[json, os, strutils, tables]
 type
   TemplateContext* = Table[string, string]
   TemplateFilter* = proc(value: string): string
+  TemplateTag* = proc(arguments: seq[string], context: TemplateContext): string
 
   TemplateEngine* = ref object
     templates: Table[string, string]
     filters: Table[string, TemplateFilter]
+    tags: Table[string, TemplateTag]
     ## Locale catalogs are kept separate from template source so deployment
     ## can replace translations without changing rendering or escaping.
     translations: Table[string, Table[string, string]]
@@ -35,6 +37,7 @@ proc newTemplateEngine*(maxInheritanceDepth = 16): TemplateEngine =
   new(result)
   result.templates = initTable[string, string]()
   result.filters = initTable[string, TemplateFilter]()
+  result.tags = initTable[string, TemplateTag]()
   result.translations = initTable[string, Table[string, string]]()
   result.defaultLocale = "en"
   result.maxInheritanceDepth = maxInheritanceDepth
@@ -61,6 +64,16 @@ proc registerFilter*(engine: TemplateEngine, name: string,
   if engine.filters.hasKey(name):
     raise newException(ValueError, "Duplicate template filter: " & name)
   engine.filters[name] = filter
+
+proc registerTag*(engine: TemplateEngine, name: string, tag: TemplateTag) =
+  ## Tags are the explicit extension point for application helpers. A tag
+  ## receives parsed arguments and a context snapshot, while the renderer
+  ## retains ownership of escaping and template state.
+  if engine.isNil or name.strip().len == 0 or tag.isNil:
+    raise newException(ValueError, "Template tag name and callback are required")
+  if engine.tags.hasKey(name):
+    raise newException(ValueError, "Duplicate template tag: " & name)
+  engine.tags[name] = tag
 
 proc registerTranslation*(engine: TemplateEngine, locale, key, value: string) =
   ## Translation keys are explicit and duplicate registration is rejected so
@@ -183,6 +196,94 @@ proc extendsName(source: string): string =
     raise newException(ValueError, "Malformed template extends directive")
   source[nameStart ..< nameEnd]
 
+proc truthy(value: string): bool =
+  ## Empty, false, no, off, and zero are false; other values are true.
+  let normalized = value.strip().toLowerAscii()
+  normalized notin ["", "0", "false", "no", "off"]
+
+proc renderConditionals(engine: TemplateEngine, source: string,
+                        context: TemplateContext, depth: int): string =
+  ## Resolve nested `{% if %}` blocks with a depth-bounded scanner. A scanner
+  ## is used instead of greedy substring replacement so nested endif markers
+  ## cannot consume their parent's block.
+  if depth > engine.maxInheritanceDepth:
+    raise newException(ValueError, "Template conditional depth exceeded")
+  var cursor = 0
+  const ifPrefix = "{% if "
+  const elseMarker = "{% else %}"
+  const endMarker = "{% endif %}"
+  while true:
+    let start = source.find(ifPrefix, cursor)
+    if start < 0:
+      result.add(source[cursor .. ^1])
+      break
+    result.add(source[cursor ..< start])
+    let openEnd = source.find("%}", start + ifPrefix.len)
+    if openEnd < 0:
+      raise newException(ValueError, "Malformed template if directive")
+    let condition = source[start + ifPrefix.len ..< openEnd].strip()
+    if condition.len == 0:
+      raise newException(ValueError, "Template if condition cannot be empty")
+    var scan = openEnd + 2
+    var nested = 1
+    var elseStart = -1
+    var endStart = -1
+    while scan < source.len:
+      let marker = source.find("{%", scan)
+      if marker < 0:
+        break
+      let markerEnd = source.find("%}", marker + 2)
+      if markerEnd < 0:
+        raise newException(ValueError, "Malformed template control directive")
+      let directive = source[marker + 2 ..< markerEnd].strip()
+      if directive.startsWith("if "):
+        inc nested
+      elif directive == "endif":
+        dec nested
+        if nested == 0:
+          endStart = marker
+          break
+      elif directive == "else" and nested == 1:
+        if elseStart >= 0:
+          raise newException(ValueError, "Duplicate template else directive")
+        elseStart = marker
+      scan = markerEnd + 2
+    if endStart < 0:
+      raise newException(ValueError, "Template if block has no endif")
+    let bodyEnd = if elseStart >= 0: elseStart else: endStart
+    let bodyStart = openEnd + 2
+    let selected = if truthy(context.getOrDefault(condition)):
+      source[bodyStart ..< bodyEnd]
+    elif elseStart >= 0:
+      source[elseStart + elseMarker.len ..< endStart]
+    else:
+      ""
+    result.add(renderConditionals(engine, selected, context, depth + 1))
+    cursor = endStart + endMarker.len
+
+proc renderTags(engine: TemplateEngine, source: string,
+                context: TemplateContext): string =
+  ## Expand custom tags after structural selection. Tag output is escaped just
+  ## like variable output, preventing a helper from becoming raw HTML output.
+  var cursor = 0
+  const tagPrefix = "{% tag "
+  while true:
+    let start = source.find(tagPrefix, cursor)
+    if start < 0:
+      result.add(source[cursor .. ^1])
+      break
+    result.add(source[cursor ..< start])
+    let tagEnd = source.find("%}", start + tagPrefix.len)
+    if tagEnd < 0:
+      raise newException(ValueError, "Malformed template tag directive")
+    let arguments = source[start + tagPrefix.len ..< tagEnd].strip().splitWhitespace()
+    if arguments.len == 0 or not engine.tags.hasKey(arguments[0]):
+      let tagName = if arguments.len > 0: arguments[0] else: ""
+      raise newException(ValueError, "Template tag not found: " & tagName)
+    let tagArgs = if arguments.len > 1: arguments[1 .. ^1] else: @[]
+    result.add(escapeHtml(engine.tags[arguments[0]](tagArgs, context)))
+    cursor = tagEnd + 2
+
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext, depth: int,
                  inherited: BlockMap): string
@@ -193,22 +294,23 @@ proc renderFragment(engine: TemplateEngine, source: string,
   ## context while keeping the recursion limit centralized.
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template recursion depth exceeded")
+  let structured = renderConditionals(engine, source, context, depth)
   var cursor = 0
   const includePrefix = "{% include \""
   while true:
-    let includeStart = source.find(includePrefix, cursor)
+    let includeStart = structured.find(includePrefix, cursor)
     if includeStart < 0:
-      result.add(source[cursor .. ^1])
+      result.add(structured[cursor .. ^1])
       break
-    result.add(source[cursor ..< includeStart])
+    result.add(structured[cursor ..< includeStart])
     let nameStart = includeStart + includePrefix.len
-    let nameEnd = source.find("\" %}", nameStart)
+    let nameEnd = structured.find("\" %}", nameStart)
     if nameEnd < 0:
       raise newException(ValueError, "Malformed template include directive")
-    result.add(renderNamed(engine, source[nameStart ..< nameEnd],
+    result.add(renderNamed(engine, structured[nameStart ..< nameEnd],
       context, depth + 1, initTable[string, string]()))
     cursor = nameEnd + 4
-  var rendered = result
+  var rendered = renderTags(engine, result, context)
   result = ""
   cursor = 0
   while true:
