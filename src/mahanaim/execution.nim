@@ -33,6 +33,9 @@ type
     ## the request token first; a concrete executor may add a safe backend
     ## cancellation implementation through the hook.
     forceCancellationAfterMs*: int
+    ## A bounded wait absorbs short bursts without allowing an unbounded queue.
+    ## Zero preserves immediate overload rejection.
+    queueWaitMs*: int
 
   SyncJob* = proc (): Response {.gcsafe.}
 
@@ -64,6 +67,7 @@ type
     pool: Taskpool
     blockingDetectionMs*: int
     forceCancellationAfterMs*: int
+    queueWaitMs*: int
     hooks*: ExecutorHooks
 
 var sharedPool: Taskpool
@@ -112,12 +116,14 @@ proc defaultExecutionPolicy*(): ExecutionPolicy =
     warnOnSynchronousHandlers: true,
     offloadSynchronousHandlers: true,
     blockingDetectionMs: 0,
-    forceCancellationAfterMs: 0)
+    forceCancellationAfterMs: 0,
+    queueWaitMs: 0)
 
 proc newThreadPoolExecutor*(pollIntervalMs = 1,
                             maxConcurrentJobs = 0,
                             blockingDetectionMs = 0,
                             forceCancellationAfterMs = 0,
+                            queueWaitMs = 0,
                             onBlockingDetected: BlockingDetectedHook = nil,
                             backendCancellation: BackendCancellationHook = nil): ThreadPoolExecutor =
   ## Polling keeps the event loop responsive while a FlowVar is pending.
@@ -128,11 +134,14 @@ proc newThreadPoolExecutor*(pollIntervalMs = 1,
     raise newException(ValueError, "blockingDetectionMs must not be negative")
   if forceCancellationAfterMs < 0:
     raise newException(ValueError, "forceCancellationAfterMs must not be negative")
+  if queueWaitMs < 0:
+    raise newException(ValueError, "queueWaitMs must not be negative")
   new(result)
   result.pollIntervalMs = max(0, pollIntervalMs)
   result.maxConcurrentJobs = maxConcurrentJobs
   result.blockingDetectionMs = blockingDetectionMs
   result.forceCancellationAfterMs = forceCancellationAfterMs
+  result.queueWaitMs = queueWaitMs
   new(result.hooks)
   result.hooks.onBlockingDetected = onBlockingDetected
   result.hooks.backendCancellation = backendCancellation
@@ -209,13 +218,22 @@ proc runRegisteredJob(jobId: int): SyncJobResult {.gcsafe, raises: [].} =
 proc execute*(executor: ThreadPoolExecutor, job: SyncJob,
               cancellation: CancellationToken = nil): Future[Response] {.async.} =
   ## Run blocking-capable sync work away from the async event-loop thread.
-  if executor.maxConcurrentJobs > 0 and
-     executor.activeJobs >= executor.maxConcurrentJobs:
-    let overload = newException(FrameworkError,
-      "Synchronous executor capacity exhausted")
-    overload.status = Http503
-    overload.code = "executor_overloaded"
-    raise overload
+  if executor.maxConcurrentJobs > 0:
+    let admissionStarted = getMonoTime()
+    while executor.activeJobs >= executor.maxConcurrentJobs:
+      let waitedMs = (getMonoTime() - admissionStarted).inMilliseconds
+      if executor.queueWaitMs <= 0 or waitedMs >= executor.queueWaitMs:
+        let overload = newException(FrameworkError,
+          if executor.queueWaitMs > 0:
+            "Synchronous executor queue wait exhausted"
+          else:
+            "Synchronous executor capacity exhausted")
+        overload.status = Http503
+        overload.code = if executor.queueWaitMs > 0:
+          "executor_queue_timeout" else: "executor_overloaded"
+        raise overload
+      await sleepAsync(min(executor.pollIntervalMs,
+        max(1, executor.queueWaitMs - waitedMs).int))
   ## execute is entered on the event-loop thread, so this counter is an
   ## event-loop-owned admission gate rather than a second worker lock.
   inc executor.activeJobs

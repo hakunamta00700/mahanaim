@@ -74,7 +74,8 @@
 - [x] TOML 전체 문법 파서를 연결하고 AppConfig scalar schema validation을 구현한다.
 - [x] signed session cookie를 `AuthContext`에 바인딩하고 required authentication route의 401 정책을 구현한다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
-- [ ] Redis/Valkey 등 production distributed store adapter와 retry/backpressure 정책을 구현한다.
+- [ ] Redis/Valkey 등 production distributed store adapter와 retry 정책을 구현한다.
+- [x] executor에 bounded queue wait backpressure 정책을 연결한다.
 
 ### Prologue 호환 계층
 

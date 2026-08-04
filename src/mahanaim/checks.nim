@@ -188,6 +188,9 @@ proc checkExecution*(router: Router,
   if policy.forceCancellationAfterMs < 0:
     result.addError("execution.force-cancellation.negative",
       "forceCancellationAfterMs must be zero or greater")
+  if policy.queueWaitMs < 0:
+    result.addError("execution.queue-wait.negative",
+      "queueWaitMs must be zero or greater")
   if policy.forceCancellationAfterMs > 0 and
      policy.blockingDetectionMs > 0 and
      policy.forceCancellationAfterMs < policy.blockingDetectionMs:

@@ -51,7 +51,8 @@ proc newApplication*(config = defaultConfig(),
   result.executor = newThreadPoolExecutor(
     maxConcurrentJobs = config.executorMaxConcurrentJobs,
     blockingDetectionMs = executionPolicy.blockingDetectionMs,
-    forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs)
+    forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs,
+    queueWaitMs = executionPolicy.queueWaitMs)
   result.started = false
 
 proc defaultErrorHandler(request: Request,

@@ -146,6 +146,19 @@ suite "Mahanaim core contracts":
     check first.isNil == false
     check (waitFor first).body == "slow"
 
+  test "executor queue wait absorbs a short capacity burst":
+    let executor = newThreadPoolExecutor(
+      pollIntervalMs = 1, maxConcurrentJobs = 1, queueWaitMs = 80)
+    proc shortJob(): mahanaim.Response {.gcsafe.} =
+      sleep(20)
+      textResponse("first")
+    let first = executor.execute(shortJob)
+    waitFor sleepAsync(2)
+    let second = executor.execute(proc(): mahanaim.Response {.gcsafe.} =
+      textResponse("second"))
+    check (waitFor first).body == "first"
+    check (waitFor second).body == "second"
+
   test "request timeout returns 504 and marks cooperative cancellation":
     var config = defaultConfig()
     config.requestTimeoutMs = 5
@@ -191,6 +204,11 @@ suite "Mahanaim core contracts":
     let report = checkExecution(initRouter(), policy)
     check not report.passed
     check report.issues[0].code == "execution.blocking-detection.negative"
+
+    policy.queueWaitMs = -1
+    let queueReport = checkExecution(initRouter(), policy)
+    check not queueReport.passed
+    check queueReport.issues[^1].code == "execution.queue-wait.negative"
 
   test "execution policy can reject synchronous handlers before invocation":
     var policy = defaultExecutionPolicy()

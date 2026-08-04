@@ -230,6 +230,13 @@
 - [x] store backend 오류를 fail-open하지 않고 retryable 503으로 변환하는 회귀 경로를 추가했다.
 - [ ] Redis/Valkey 등 원격 atomic counter adapter와 분산 clock/eviction 운영 정책은 남아 있다.
 
+### 2026-08-04 — P0 executor backpressure 1차
+
+- [x] executor capacity 포화 시 무제한 대기 대신 configurable `queueWaitMs`를 적용했다.
+- [x] 짧은 burst는 대기해 처리하고 budget 초과는 `executor_queue_timeout` 503으로 구분한다.
+- [x] queue wait 성공과 음수 정책 pre-flight 회귀 테스트를 추가했다.
+- [ ] idempotency를 보장하는 작업별 retry policy와 외부 queue adapter는 남아 있다.
+
 ### 2026-08-04 — P0 executor backend 1차
 
 - [x] deprecated std threadpool 대신 lockfile에 고정한 `taskpools`를 사용한다.
