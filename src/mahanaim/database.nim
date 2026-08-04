@@ -86,7 +86,10 @@ type
     ## Driver adapters implement execution and transaction methods here.
     dialect*: DatabaseDialect
 
-  TransactionCallback* = proc () {.gcsafe.}
+  ## Transactions execute on the caller's connection thread; callbacks do
+  ## not cross a worker boundary and therefore need no artificial gcsafe
+  ## restriction that would prevent adapters from being captured safely.
+  TransactionCallback* = proc ()
 
 method execute*(adapter: DatabaseAdapter,
                 query: CompiledQuery): seq[seq[SqlValue]] {.base.} =

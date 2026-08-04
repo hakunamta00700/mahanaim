@@ -187,7 +187,16 @@
 - [x] query binding·unsafe identifier 거부·index migration SQL 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] transaction guard가 성공 시 commit, 예외 시 rollback을 보장하고 savepoint 미지원 상태를 명시적으로 반환한다.
 - [x] fake adapter의 commit/rollback 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] 실제 SQLite/PostgreSQL driver, connection pool, relation query, migration history/up/down 실행기는 남아 있다.
+- [x] 공식 `db_connector` 기반 SQLite adapter의 bound execute, transaction, savepoint, migration up 실행을 추가했다.
+- [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] PostgreSQL adapter, connection pool/isolation, relation query, migration history/down 실행기는 남아 있다.
+
+### 2026-08-04 — P1 SQLite driver adapter 1차
+
+- [x] `db_connector` dependency와 lockfile을 추가하고 `SqliteDatabaseAdapter`를 공개했다.
+- [x] compiled query parameter를 SQLite prepared statement에 타입별로 bind하고 결과를 neutral row contract로 변환한다.
+- [x] transaction, savepoint, migration up 경계를 adapter에 연결하고 닫힌 connection을 명시적으로 거부한다.
+- [ ] PostgreSQL 동일 adapter, connection pooling, typed NULL/result metadata와 migration history/down은 남아 있다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -249,7 +258,7 @@
 - [x] create/update 입력에서 required/type/unknown-field 검증을 저장 전에 적용하고 auto-generated primary key 예외를 분리했다.
 - [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] SQLite/PostgreSQL repository, transaction boundary, filtering/aggregate relation query와 admin UI는 남아 있다.
+- [-] SQLite repository/transaction 기반을 추가했다. PostgreSQL repository, filtering/aggregate relation query와 admin UI는 남아 있다.
 
 ### 2026-08-04 — P2 DI foundation 1차
 
@@ -664,7 +673,7 @@ flowchart TB
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
 | [ ] | REQ-DATA-003 | P1 | schema diff, migration artifact, up/down/status/check와 fixture/seed 명령을 제공한다. |
 | [ ] | REQ-DATA-004 | P1 | unit-of-work와 connection pool을 request context에 연결하고 savepoint·locking capability를 명시한다. |
-| [ ] | REQ-DATA-005 | P1 | SQLite를 기준 backend로 완성한 뒤 PostgreSQL adapter와 backend capability matrix를 추가한다. |
+| [-] | REQ-DATA-005 | P1 | SQLite adapter를 추가했고 PostgreSQL adapter와 backend capability matrix를 추가한다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 
 ### HTML·폼·관리자
@@ -754,7 +763,7 @@ flowchart TB
 - [-] **P0-05**: test client, contract test, secret redaction, secure defaults
 - [ ] **P1-01**: typed extraction, validation, DTO, JSON serialization
 - [ ] **P1-02**: OpenAPI generator, Swagger UI, ReDoc
-- [ ] **P1-03**: 모델 metadata와 SQLite CRUD/migration
+- [-] **P1-03**: 모델 metadata와 SQLite CRUD/migration 기반을 구현했고 PostgreSQL/relation 확장이 남아 있다.
 
 각 항목은 구현·테스트·문서가 모두 완료되어야 Done으로 이동한다. P0 작업에서 API 계약이 바뀌면 후속 작업을 시작하기 전에 ADR(Architecture Decision Record)을 남긴다.
 

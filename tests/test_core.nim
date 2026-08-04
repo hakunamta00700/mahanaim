@@ -1784,6 +1784,56 @@ suite "Mahanaim core contracts":
         raise newException(ValueError, "transaction failure"))
     check adapter.events == @["begin", "commit", "begin", "rollback"]
 
+  test "SQLite adapter executes bound CRUD and transactional migrations":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?)",
+      parameters: @[integerValue(1), textValue("Ada")]))
+    let selected = adapter.execute(CompiledQuery(sql:
+      "SELECT \"id\", \"name\" FROM \"users\"", parameters: @[]))
+    check selected.len == 1
+    check selected[0][0].kind == sqlText
+    check selected[0][0].text == "1"
+    check selected[0][1].text == "Ada"
+
+    adapter.withTransaction(proc() =
+      discard adapter.execute(CompiledQuery(sql:
+        "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?)",
+        parameters: @[integerValue(2), textValue("Grace")])))
+    let failingTransaction: TransactionCallback = proc() =
+      discard adapter.execute(CompiledQuery(sql:
+        "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?)",
+        parameters: @[integerValue(3), textValue("Rollback")]))
+      raise newException(ValueError, "rollback test")
+    expect ValueError:
+      adapter.withTransaction(failingTransaction)
+    adapter.begin()
+    adapter.savepoint("before_insert")
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" (\"id\", \"name\") VALUES (?, ?)",
+      parameters: @[integerValue(4), textValue("Savepoint")] ))
+    adapter.rollbackToSavepoint("before_insert")
+    adapter.releaseSavepoint("before_insert")
+    adapter.commit()
+    let afterRollback = adapter.execute(CompiledQuery(sql:
+      "SELECT \"id\" FROM \"users\"", parameters: @[]))
+    check afterRollback.len == 2
+
+    let migrationAdapter = newSqliteDatabaseAdapter()
+    defer: migrationAdapter.close()
+    migrationAdapter.applyMigration(Migration(name: "audit", up: @[
+      MigrationOperation(kind: migrationCreateTable, table: "audit",
+        field: ModelField(name: "message", kind: modelString))], down: @[]))
+    discard migrationAdapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"audit\" (\"message\") VALUES (?)",
+      parameters: @[textValue("created")]))
+    check migrationAdapter.execute(CompiledQuery(sql:
+      "SELECT \"message\" FROM \"audit\"", parameters: @[]))[0][0].text == "created"
+
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
       integerField("userId", flPath),
