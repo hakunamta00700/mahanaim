@@ -69,7 +69,7 @@
 - [x] 표준 HTTP adapter에서 buffered/stream/SSE representation variant를 `Accept` 기준으로 wire 선택했다.
 - [x] Windows Prologue live fixture에서 variant 선택과 WebSocket upgrade `Accept` bypass를 검증했다.
 - [x] stdlib와 Beast/httpx native socket을 공통 WebSocket byte transport와 session contract로 연결했다.
-- [ ] Beast backend의 실제 live fixture와 backend 공통 WebSocket representation policy는 남아 있다.
+- [-] Beast/httpx adapter overload의 Linux compile contract와 stdlib/Beast 공통 WebSocket representation boundary를 추가했다. 실제 Beast live fixture와 socket ownership/shutdown wire 검증은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
@@ -332,7 +332,7 @@
 - [x] Prologue multipart upload body를 core parser/storage contract로 연결했다.
 - [x] WebSocket frame kind와 adapter-owned session callback core contract를 추가했다.
 - [x] Windows stdlib Prologue backend에 adapter-owned transport와 ephemeral-port/graceful-close live fixture를 추가했다.
-- [ ] Beast backend의 WebSocket adapter와 backend별 socket ownership fixture는 남아 있다.
+- [-] Beast/httpx ownership overload를 `beastCheck` compile gate로 검증한다. 실제 backend별 socket ownership fixture는 남아 있다.
 
 ### 2026-08-04 — 표준 TCP chunked stream wire
 
@@ -349,13 +349,13 @@
 - [x] `responseVariants`가 buffered/stream/SSE 후보를 보존하고 표준 HTTP adapter가 실제 chunked wire로 선택한다.
 - [x] Windows Prologue bridge가 JSON variant와 WebSocket echo를 실제 TCP wire에서 처리하고 `Accept`를 upgrade에 적용하지 않음을 검증했다.
 - [x] stdlib AsyncSocket과 Beast/httpx SocketHandle을 공통 WebSocket byte transport로 분리하고 httpx `forget()` ownership handoff를 연결했다.
-- [ ] Beast backend live fixture는 Linux target C runtime 환경에서 다음 slice로 검증한다.
+- [-] Beast backend live fixture는 Linux target C runtime 환경에서 다음 slice로 검증한다. 현재는 `beastCheck` compile contract만 CI에 연결되어 있다.
 - [ ] backend 공통 WebSocket representation policy와 Beast live fixture는 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 Prologue socket fixture 상태 정정
 
 - [x] Windows stdlib Prologue backend의 adapter-owned socket, 실제 TCP 응답, WebSocket echo, idempotent graceful close를 live fixture로 검증했다.
-- [ ] Beast backend의 socket ownership과 Linux target C runtime live fixture는 별도 환경에서 검증해야 한다.
+- [-] Beast backend의 socket ownership과 Linux target C runtime live fixture는 별도 환경에서 검증해야 한다. compile-only gate는 추가되었다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 

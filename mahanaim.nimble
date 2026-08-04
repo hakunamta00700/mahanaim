@@ -55,6 +55,12 @@ task postgresLive, "Run the optional PostgreSQL live contract test":
     exec "nim c --path:src" & dependencyPathArgs() &
       " -r tests/test_postgres_live.nim"
 
+task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
+  ## The live server requires a Linux runner; compileOnly still catches
+  ## overload drift and ownership API changes before that fixture is added.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_beast_adapter_compile.nim"
+
 task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"

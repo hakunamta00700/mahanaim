@@ -80,7 +80,7 @@
 - [x] 표준 HTTP adapter에서 buffered/stream/SSE representation variant를 `Accept` 기준으로 wire 선택한다.
 - [x] Windows Prologue live fixture에서 variant 선택과 WebSocket upgrade `Accept` bypass를 검증한다.
 - [x] stdlib와 Beast/httpx native socket을 공통 WebSocket byte transport와 session contract로 연결한다.
-- [ ] Beast backend의 실제 live fixture와 backend 공통 WebSocket representation policy를 완성한다.
+- [-] Beast/httpx adapter overload의 Linux compile contract와 stdlib/Beast 공통 WebSocket representation boundary를 추가했다. 실제 Beast live fixture와 socket ownership/shutdown wire 검증은 남아 있다.
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 
@@ -116,7 +116,7 @@
 - [x] Windows stdlib Prologue backend에 adapter-owned transport, ephemeral port, graceful close smoke fixture를 추가한다.
 - [x] Windows stdlib Prologue backend의 socket ownership과 종료 가능한 socket-level smoke fixture를 완성한다.
 - [x] Windows stdlib backend의 실제 TCP 요청·응답과 graceful shutdown을 fixture로 검증한다.
-- [ ] Beast backend의 socket ownership과 실제 TCP/WebSocket live fixture를 추가한다.
+- [-] Beast/httpx ownership overload를 `beastCheck` compile gate로 검증한다. 실제 Beast backend의 socket ownership과 TCP/WebSocket live fixture는 Linux runner에서 후속 구현한다.
 
 ### 개발 품질
 

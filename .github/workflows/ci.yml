@@ -104,6 +104,10 @@ jobs:
       - name: Validate package and dependency contracts
         run: nimble check
 
+      - name: Compile Beast/httpx adapter contract (Unix)
+        if: runner.os != 'Windows'
+        run: nimble beastCheck
+
       - name: Build release candidate
         run: nimble build
 
