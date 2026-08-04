@@ -804,3 +804,4 @@ flowchart TB
 
 이 기준을 충족한 뒤 SHOULD와 MAY 기능을 확장한다. 구현 중 외부 프레임워크의 현재 지원 기능이 바뀌면 요구사항 문서의 조사 기준일·버전·추적성 메모를 함께 갱신한다.
 - [x] Relation loading: 기존 JOIN 기반 `listRelation`은 base row 계약으로 유지하고, `listRelationWithRelated`가 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. many-to-many through metadata와 lazy loading은 후속 범위다.
+- [ ] OS/Nim matrix와 cross-platform release artifact checksum pipeline을 실제 GitHub runner에서 검증한다.
