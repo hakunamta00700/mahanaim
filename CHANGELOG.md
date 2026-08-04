@@ -42,6 +42,7 @@
 - PostgreSQL 결과를 공통 `DatabaseResult`와 column metadata로 노출하고 libpq type OID 기반 typed scalar mapping을 추가했다.
 - PostgreSQL live contract에 typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback 검증과 `postgresLiveCheck` compile gate를 연결했다.
 - PostgreSQL 16 live contract에서 JSONB OID typed metadata와 명시적 custom field wire codec, serializable/repository/migration rollback 경로를 검증했다.
+- PostgreSQL migration live contract에 shared command의 status/up/idempotency/schema-history/rollback과 SQLite/PostgreSQL capability matrix evidence를 연결했다.
 - `new` 생성기가 `.env.example`, 안전한 `.gitignore`, health route와 실제 dispatch 테스트를 포함한 starter project를 생성하도록 확장했다.
 - 릴리스 지원 범위와 외부 live gate는 [`docs/support-policy.md`](docs/support-policy.md)를 따른다.
 

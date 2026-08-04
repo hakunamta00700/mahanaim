@@ -216,6 +216,21 @@ The live command prints `PostgreSQL live contract passed`; this evidence covers
 the database adapter contract, not a production connection pool or live HTTP
 server deployment.
 
+### Database capability contract
+
+The framework exposes backend capability data instead of silently emulating a
+feature with different semantics. The current contract is:
+
+| Backend | Transactions | Savepoints | Isolation levels | Row locks |
+| --- | --- | --- | --- | --- |
+| SQLite | supported | supported | unsupported by adapter contract | unsupported |
+| PostgreSQL | supported | supported | `READ COMMITTED`, `REPEATABLE READ`, `SERIALIZABLE` | `FOR UPDATE`/`FOR SHARE` |
+
+SQLite unsupported isolation and row-lock requests fail explicitly. The
+PostgreSQL live fixture applies `SERIALIZABLE` inside its transaction and
+exercises migration command status/up/idempotency/history/rollback. The matrix
+is also pinned by the common unit contract in `tests/test_core.nim`.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and

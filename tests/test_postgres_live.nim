@@ -7,8 +7,8 @@
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
-                postgres_adapter, postgres_testing, resources, serialization,
-                testing]
+                migration_commands, postgres_adapter, postgres_testing,
+                resources, serialization, testing]
 
 proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
   ## The live contract uses an application-owned codec rather than teaching
@@ -36,15 +36,40 @@ proc runLiveMigrationContract(configuration: PostgresTestConfiguration) =
     MigrationOperation(kind: migrationCreateTable, table: tableName,
       field: newModelField("message", modelString))], down: @[
     MigrationOperation(kind: migrationDropTable, table: tableName)])
-  let applied = adapter.migrate([migration])
-  if applied != @[migration.name] or adapter.appliedMigrations() != @[migration.name]:
+  ## Exercise the same command overload used by embedding and standalone CLI
+  ## callers. Calling only `adapter.migrate` would leave that public boundary
+  ## unproven even though the underlying SQL happened to succeed.
+  let statusBefore = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["status"]))
+  if statusBefore.applied.len != 0:
+    raise newException(ValueError, "PostgreSQL migration status was not empty")
+  let applied = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["up"]))
+  if applied.applied != @[migration.name] or
+      adapter.appliedMigrations() != @[migration.name]:
     raise newException(ValueError, "PostgreSQL migration history mismatch")
-  if adapter.migrate([migration]).len != 0:
+  let historyRows = adapter.execute(CompiledQuery(sql:
+    "SELECT \"name\" FROM \"__mahanaim_migrations\" ORDER BY \"sequence\"",
+    parameters: @[]))
+  if historyRows.len != 1 or historyRows[0][0].text != migration.name:
+    raise newException(ValueError, "PostgreSQL migration schema history mismatch")
+  let idempotent = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["migrate"]))
+  if idempotent.applied.len != 0:
     raise newException(ValueError, "PostgreSQL migration was not idempotent")
-  let rolledBack = adapter.rollbackLatest([migration])
-  if rolledBack.isNone or rolledBack.get() != migration.name or
+  let statusAfterUp = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["status"]))
+  if statusAfterUp.applied != @[migration.name]:
+    raise newException(ValueError, "PostgreSQL migration status mismatch")
+  let rolledBack = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["rollback"]))
+  if rolledBack.rolledBack.isNone or rolledBack.rolledBack.get() != migration.name or
       adapter.appliedMigrations().len != 0:
     raise newException(ValueError, "PostgreSQL migration rollback mismatch")
+  let statusAfterRollback = executeMigrationCommand(adapter, [migration],
+    parseMigrationCommand(["status"]))
+  if statusAfterRollback.applied.len != 0:
+    raise newException(ValueError, "PostgreSQL rollback status mismatch")
   ## The history table is framework-owned test state; remove it after proving
   ## status/up/rollback so repeated live runs do not accumulate metadata.
   discard adapter.execute(CompiledQuery(sql:

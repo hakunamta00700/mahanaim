@@ -221,7 +221,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory와 `newPostgresTestFixtureFromEnv` convenience API, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. CI PostgreSQL service가 `postgresCheck`와 실제 `postgresLive` task를 실행하며, live task에 serializable isolation·repository CRUD route·DDL rollback 검증을 연결했지만 credential 부재로 local live 결과는 아직 확인하지 못했다.
+- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory와 `newPostgresTestFixtureFromEnv` convenience API, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. PostgreSQL 16 `postgresLive` task가 serializable isolation·repository CRUD route·custom codec·migration command/history·DDL rollback을 실제로 통과했으며 pool/session·live-server 범위는 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -619,9 +619,9 @@ flowchart TB
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
-- [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
+- [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix와 PostgreSQL 16 live fixture evidence를 추가했으며 pool/session·live-server 검증은 남아 있다.
 - [x] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many와 many-to-many parent page에 bound `IN` 기반 batching을 적용했다.
-- [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 registry 로딩을 제공했다. Application-aware `db status|migrate|up|rollback`와 atomic `db seed` CLI wiring, standalone `admin`/`jobs` 진입점, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했으며 live fixture 증거는 남아 있다.
+- [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 registry 로딩을 제공했다. Application-aware `db status|migrate|up|rollback`와 atomic `db seed` CLI wiring, standalone `admin`/`jobs` 진입점, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했고 PostgreSQL 16 live fixture에서 shared command/status/history evidence를 통과했다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
@@ -629,7 +629,7 @@ flowchart TB
 
 - [-] SQLite repository CRUD와 metadata-driven CRUD route가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture와 admin route는 남아 있다.
 - [ ] 관계 query와 migration up/down 테스트가 통과한다.
-- [-] 환경 기반 PostgreSQL fixture factory와 compile contract를 추가하고 CI task를 연결했다. SCRAM credentials가 제공되는 환경에서 live transaction isolation 테스트를 실행하는 단계는 남아 있다.
+- [-] 환경 기반 PostgreSQL fixture factory와 compile contract를 추가하고 CI task를 연결했다. PostgreSQL 16 컨테이너에서 SCRAM credentials 기반 live transaction isolation과 migration/repository contract를 통과했으며 CI matrix wiring은 남아 있다.
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
@@ -710,7 +710,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. macro는 필드를 source order로 읽고 추가 선언은 명시적 constructor로 받아 AST 추측을 피한다. `seq[T]`/`array[N,T]`는 JSON collection metadata로 투영한다. |
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
-| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL live fixture 증거는 남아 있다. |
+| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL 16 live fixture에서 shared command status/up/idempotency/history/rollback evidence를 통과했으며 CLI/provider wiring의 남은 범위는 별도 기록한다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback을 검증했다. pool/session과 live-server 검증은 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
@@ -747,7 +747,7 @@ flowchart TB
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
-| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·DDL rollback, in-process SSE/WebSocket test client를 추가했다. live-server smoke fixture는 남아 있다. |
+| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·migration command/history·DDL rollback, in-process SSE/WebSocket test client를 추가했다. live-server smoke fixture는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [-] | REQ-DOC-001 | P0 | Definition of Done, 지원 버전 정책, 변경 로그 규칙을 문서화했다. 기능별 Nim 예제·API reference·migration/security guide와 릴리스 gate 증거 누적은 남아 있다. |
 
