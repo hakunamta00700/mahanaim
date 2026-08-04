@@ -27,6 +27,14 @@
 - [x] 생성 프로젝트의 파일 구성과 기존 파일 덮어쓰기 방지를 테스트했다.
 - [ ] Prologue 전용 adapter, typed extraction, JSON/TOML 설정, CI는 남아 있다.
 
+### 2026-08-04 — P0 API 검증 1차
+
+- [x] 명시적 `FieldSpec` schema와 path/query/header/body 입력 위치를 추가했다.
+- [x] 문자열·정수 coercion, 기본값, 길이·범위 제약, 다중 오류 수집을 구현했다.
+- [x] `application/problem+json` 응답과 field-level 오류 envelope을 추가했다.
+- [x] API 검증·오류 응답 테스트 3개를 추가했고 전체 테스트가 통과했다.
+- [ ] macro 기반 schema 생성, JSON body field extraction, content negotiation은 남아 있다.
+
 검증 명령:
 
 ```powershell
@@ -206,7 +214,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [ ] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
+| [-] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [ ] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [ ] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [ ] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3를 생성하고 Swagger UI·ReDoc route를 붙인다. |

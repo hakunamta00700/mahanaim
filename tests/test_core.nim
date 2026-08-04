@@ -4,7 +4,7 @@
 ## keeps failures deterministic while still covering the same dispatch pipeline
 ## a future Prologue/ASGI adapter will call.
 
-import std/[asyncdispatch, httpcore, options, os, tables, times, unittest]
+import std/[asyncdispatch, httpcore, json, options, os, tables, times, unittest]
 import std/httpclient as hc
 import mahanaim
 
@@ -123,3 +123,44 @@ suite "Mahanaim core contracts":
     expect IOError:
       generateProject(ProjectSpec(name: "sample_app", root: root))
     removeDir(root)
+
+  test "explicit schema validates path query and header values":
+    var request = newRequest("GET", "/users/42")
+    request.pathParams["id"] = "42"
+    request.query["page"] = "2"
+    request.headers["x-api-key"] = "secret"
+    let result = request.validate([
+      integerField("id", flPath, minValue = 1),
+      integerField("page", flQuery, defaultValue = "1", minValue = 1),
+      stringField("x-api-key", flHeader, minLength = 6)
+    ])
+    check result.valid
+    check result.integerValue("id").get() == 42
+    check result.integerValue("page").get() == 2
+    check result.stringValue("x-api-key").get() == "secret"
+
+  test "validation returns all errors with source locations":
+    var request = newRequest("GET", "/users/not-an-int")
+    request.pathParams["id"] = "not-an-int"
+    request.query["page"] = "0"
+    let result = request.validate([
+      integerField("id", flPath, minValue = 1),
+      integerField("page", flQuery, minValue = 1),
+      stringField("token", flHeader)
+    ])
+    check not result.valid
+    check result.errors.len == 3
+    check result.errors[0].location == "path"
+    check result.errors[0].code == "invalid_integer"
+    check result.errors[1].location == "query"
+    check result.errors[2].code == "required"
+
+  test "validation response uses problem json envelope":
+    let issue = ValidationIssue(field: "page", location: "query",
+      code: "invalid_integer", message: "Value must be an integer")
+    let response = problemResponse(Http400, "Bad request", "Invalid input", [issue])
+    let document = parseJson(response.body)
+    check response.status == Http400
+    check response.header("Content-Type").get() == "application/problem+json"
+    check document["errors"][0]["field"].getStr() == "page"
+    check document["errors"][0]["location"].getStr() == "query"
