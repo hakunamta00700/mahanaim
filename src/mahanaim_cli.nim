@@ -5,7 +5,7 @@
 ## without changing the Application API.
 
 import std/[os, osproc, strutils]
-import mahanaim/[config, generator]
+import mahanaim/[application, checks, config, generator]
 
 proc printUsage() =
   echo "mahanaim <command>"
@@ -13,6 +13,22 @@ proc printUsage() =
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"
+
+proc printCheckReport(report: CheckReport): bool =
+  ## Keep human-readable output in the CLI while the report remains reusable by
+  ## CI integrations and embedding applications.
+  for issue in report.issues:
+    let severity = if issue.severity == checkError: "ERROR" else: "WARN"
+    let line = severity & " [" & issue.code & "] " & issue.message
+    if issue.severity == checkError:
+      stderr.writeLine(line)
+    else:
+      echo line
+  if report.passed:
+    echo "Mahanaim framework checks passed"
+    return true
+  stderr.writeLine("Mahanaim framework checks failed")
+  false
 
 proc main() =
   let command = if paramCount() == 0: "help" else: paramStr(1).toLowerAscii()
@@ -27,10 +43,15 @@ proc main() =
     echo "Generated Mahanaim project: ", root
   of "dev":
     let config = loadConfig()
+    let report = checkApplication(newApplication(config))
+    if not printCheckReport(report):
+      quit(1)
     echo "Mahanaim development configuration loaded: ", config.host, ":", config.port
   of "check":
-    discard loadConfig()
-    echo "Mahanaim configuration check passed"
+    let config = loadConfig()
+    let report = checkApplication(newApplication(config))
+    if not printCheckReport(report):
+      quit(1)
   of "test":
     # Delegate to the package's canonical test task so CLI and CI execute the
     # same suite instead of maintaining two subtly different test paths.

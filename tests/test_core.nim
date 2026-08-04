@@ -461,3 +461,26 @@ suite "Mahanaim core contracts":
     let config = defaultConfig()
     check config.secrets.len == 0
     check redactSecrets("nothing sensitive", config) == "nothing sensitive"
+
+  test "framework checks aggregate config route and security failures":
+    let validReport = checkApplication(newApplication())
+    check validReport.passed
+    check validReport.issues.len == 0
+
+    var invalidPolicy = defaultSecurityPolicy()
+    invalidPolicy.csrfEnabled = true
+    invalidPolicy.csrfSecret = "too-short"
+    let app = newApplication(defaultConfig(), invalidPolicy)
+    app.config.port = 0
+    proc route(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("route")
+    app.get("/checked", "checked-a", route)
+    app.get("/checked", "checked-b", route)
+
+    let report = checkApplication(app, invalidPolicy)
+    check not report.passed
+    check report.issues.len == 3
+    check report.issues[0].code == "config.port.invalid"
+    check report.issues[1].code == "route.declaration.duplicate"
+    check report.issues[2].code == "security.csrf-secret.weak"

@@ -102,6 +102,13 @@
 - [x] 정적 경로 우선순위와 동일 path의 HTTP method dispatch 회귀를 고정했다.
 - [ ] radix/tree 기반 매칭 최적화, wildcard 인코딩 정책, Prologue adapter 연동은 남아 있다.
 
+### 2026-08-04 — P0 pre-flight check 1차
+
+- [x] config·route·security를 공통 `CheckReport` 계약으로 검사하도록 추가했다.
+- [x] CLI `check`와 `dev`가 동일한 검사 결과를 사용하고 오류 시 non-zero로 종료하도록 변경했다.
+- [x] 정상 설정과 invalid port·중복 route·약한 CSRF secret 실패 회귀 테스트를 추가했다.
+- [ ] model·migration 검사와 CI/deployment 환경의 동일한 실행 wiring은 남아 있다.
+
 검증 명령:
 
 ```powershell
@@ -331,7 +338,7 @@ flowchart TB
 | [ ] | REQ-OPS-005 | P2 | locale/timezone context와 날짜·시간·숫자 formatter를 template/form/API에 공통 적용한다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
 | [-] | REQ-TEST-001 | P0 | test client와 test app을 먼저 만들고 DB isolation, WebSocket/SSE, live-server smoke fixture를 단계별로 추가한다. |
-| [ ] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
+| [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [ ] | REQ-DOC-001 | P0 | 기능을 merge할 때 Nim 예제·API reference·migration/security guide·지원 버전 정책을 함께 갱신한다. |
 
 ## 6. SHOULD/MAY 우선순위
