@@ -56,7 +56,7 @@
 ### P2/P3 — 운영 호환성과 선택적 확장
 
 - [x] **P2-01 Redis/Valkey compatibility** — TCP coalescing frame buffer와 환경 기반 `redisLive` contract를 추가하고, `INFO server`, `CONFIG GET maxmemory-policy/maxmemory`, `COMMAND INFO`로 Redis/Valkey flavor·version·필수 RESP command·bounded eviction 상태를 진단하는 probe와 회귀 테스트·운영 문서를 추가했다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9의 server-side TTL·command·bounded eviction을 실제 socket으로 확인했고 reconnect/fail-closed는 loopback contract로 검증했다.
-- [ ] **P3-01 Beast/httpx live adapter** — Linux runner에서 socket ownership, graceful shutdown, TCP/WebSocket wire fixture를 실행하고 현재 compile-only gate를 live gate로 승격한다.
+- [-] **P3-01 Beast/httpx live adapter** — Linux runner용 실제 TCP/WebSocket fixture와 `beastLiveCheck`/`beastLive` gate를 추가하고 `forget()` 후 async selector 등록·`AsyncSocket` lifetime을 명시했다. 현재 httpx callback에서 asyncnet handshake write가 완료되지 않는 runtime 이슈가 남아 live gate 승격은 보류한다.
 
 ### 완료 판정
 
@@ -154,7 +154,7 @@
 - [x] Windows stdlib Prologue backend에 adapter-owned transport, ephemeral port, graceful close smoke fixture를 추가한다.
 - [x] Windows stdlib Prologue backend의 socket ownership과 종료 가능한 socket-level smoke fixture를 완성한다.
 - [x] Windows stdlib backend의 실제 TCP 요청·응답과 graceful shutdown을 fixture로 검증한다.
-- [-] Beast/httpx ownership overload를 `beastCheck` compile gate로 검증한다. 실제 Beast backend의 socket ownership과 TCP/WebSocket live fixture는 Linux runner에서 후속 구현한다.
+- [-] Beast/httpx ownership overload를 `beastCheck`/`beastLiveCheck` compile gate로 검증하고 Linux TCP/WebSocket fixture를 추가했다. httpx callback과 asyncdispatch selector 간 handshake write completion 문제를 해결한 뒤 live gate를 필수 릴리스 증거로 승격한다.
 
 ### 개발 품질
 

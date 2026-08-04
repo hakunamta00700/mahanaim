@@ -22,6 +22,9 @@ type
     sendBytes: proc (data: string): Future[void] {.gcsafe.}
     receiveBytes: proc (size: int): Future[string] {.gcsafe.}
     closeSocket: proc () {.gcsafe.}
+    when not defined(windows):
+      ## Keep the asyncnet owner alive after the httpx callback returns.
+      beastSocket: AsyncSocket
 
   ParsedFrame = object
     opcode: byte
@@ -212,11 +215,17 @@ when not defined(windows):
     ## adapter takes over reads and writes for a WebSocket session.
     let fd = AsyncFD(request.client)
     request.forget()
+    ## httpx and asyncdispatch have separate selector ownership.  Removing
+    ## the descriptor from httpx is not enough; register it before asyncnet
+    ## operations or epoll rejects the first send/receive as unregistered.
+    asyncdispatch.register(fd)
+    let socket = newAsyncSocket(fd, buffered = false)
     new(result)
+    result.beastSocket = socket
     result.sendBytes = proc(data: string): Future[void] {.async, gcsafe.} =
-      await fd.send(data)
+      await socket.send(data)
     result.receiveBytes = proc(size: int): Future[string] {.async, gcsafe.} =
-      return await fd.recv(size)
+      return await socket.recv(size)
     result.closeSocket = proc() {.gcsafe.} = fd.closeSocket()
 
   proc serveWebSocket*(socketRequest: httpx.Request,

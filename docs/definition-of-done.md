@@ -34,7 +34,7 @@ backend·OS·Nim 버전·외부 서비스가 요구되는 기능은 해당 환�
 
 - [ ] PostgreSQL live contract 또는 명시적인 credential 기반 skip 증거
 - [ ] Redis/Valkey compatibility와 eviction 검증
-- [ ] Linux Beast/httpx live socket 및 shutdown wire 검증
+- [-] Linux Beast/httpx live socket 및 shutdown wire fixture와 gate는 추가했지만, httpx callback의 asyncnet handshake write completion 문제 해결 전까지 릴리스 증거로 승격하지 않는다.
 - [x] Docker nginx와 Nim 2.2.4 upstream을 이용한 로컬 HTTPS reverse-proxy/TLS wire 검증
 - [ ] 실제 staging endpoint의 HTTPS reverse-proxy/TLS wire 및 인증서 갱신 검증
 

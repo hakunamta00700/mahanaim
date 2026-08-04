@@ -85,6 +85,17 @@ task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_beast_adapter_compile.nim"
 
+task beastLiveCheck, "Compile the Linux Beast/httpx WebSocket wire fixture":
+  ## Keep the fixture source in the normal gate so Linux CI catches API drift
+  ## before attempting a network run.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " tests/test_beast_live.nim"
+
+task beastLive, "Run the Linux Beast/httpx WebSocket wire fixture":
+  ## The executable has server/client modes; the Linux runner orchestrates
+  ## them separately so httpx's process-owned listener can be stopped safely.
+  exec "sh tests/run_beast_live.sh"
+
 task httpsLiveUpstream, "Compile the HTTPS reverse-proxy upstream fixture":
   ## The upstream is a real framework server; the TLS terminator remains an
   ## external proxy so this gate can exercise both ownership boundaries.

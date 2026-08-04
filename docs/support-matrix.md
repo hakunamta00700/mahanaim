@@ -33,4 +33,4 @@ sha256=<64 hexadecimal characters>
 - [ ] 생성 직후 SHA-256 manifest를 저장하고 배포 전에 검증한다.
 - [ ] `nimble.lock` 변경은 dependency review와 함께 수행한다.
 - [ ] 지원 matrix 밖의 OS/Nim 조합은 experimental로 표시하고 stable release에 포함하지 않는다.
-- [ ] Beast/httpx live fixture와 macOS release runner를 CI에 연결한다.
+- [-] Beast/httpx live fixture와 `beastLiveCheck`/`beastLive` gate를 추가했다. httpx/asyncdispatch handshake write completion을 해결한 뒤 Linux CI 필수 gate와 macOS release runner를 연결한다.
