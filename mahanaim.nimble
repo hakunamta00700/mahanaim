@@ -85,6 +85,26 @@ task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_beast_adapter_compile.nim"
 
+task httpsLiveUpstream, "Compile the HTTPS reverse-proxy upstream fixture":
+  ## The upstream is a real framework server; the TLS terminator remains an
+  ## external proxy so this gate can exercise both ownership boundaries.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " tests/test_https_upstream.nim"
+
+task httpsLiveCheck, "Compile the optional HTTPS wire contract":
+  ## Keep the staging client source checked even when no endpoint is supplied.
+  exec "nim c -d:ssl --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_https_live.nim"
+
+task httpsLive, "Run the optional HTTPS reverse-proxy wire contract":
+  ## A missing URL is an explicit safe skip; release automation should provide
+  ## a trusted staging endpoint and leave insecure verification disabled.
+  if getEnv("MAHANAIM_HTTPS_URL").len == 0:
+    echo "HTTPS live test skipped: MAHANAIM_HTTPS_URL is not configured"
+  else:
+    exec "nim c -d:ssl --path:src" & dependencyPathArgs() &
+      " -r tests/test_https_live.nim"
+
 task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"

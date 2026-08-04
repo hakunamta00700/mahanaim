@@ -14,6 +14,7 @@
 - Redis/Valkey RESP client가 하나의 TCP read에 합쳐진 여러 response frame을 보존하도록 개선하고, 환경 기반 `redisLive` contract gate를 추가했다.
 - Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9의 PING·필수 command·bounded eviction·server-side TTL live contract를 통과시켰다.
 - rate-limit dynamic dispatch와 Redis transport callback에 `gcsafe` 경계를 명시해 Linux C runtime build에서도 async security middleware를 컴파일하도록 정리했다.
+- Docker nginx TLS 1.2/1.3과 Linux Nim 2.2.4 upstream을 연결하는 HTTPS reverse-proxy wire fixture 및 외부 endpoint용 `httpsLive` client를 추가했다.
 
 - model macro가 `newModelCustomField(name, wireType)`로 임의 Nim custom type을 명시적 metadata/wire contract에 연결하고 자동 타입 추측을 거부하도록 확장했다.
 - template engine이 명시적 `TemplateRenderContext` collection과 중첩 `{% for %}` loop를 조건문·자동 escaping과 함께 지원하도록 확장했다.

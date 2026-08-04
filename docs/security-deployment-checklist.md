@@ -41,6 +41,8 @@
 ## 자동화 범위
 
 현재 `check`와 core contract test는 설정·route·model·migration·security·execution,
-trusted proxy scheme/host와 HTTPS rejection을 검사한다. TLS 인증서, reverse
-proxy, 외부 DNS와 실제 HTTPS wire 동작은 배포 환경 의존성이므로 이 점검표와
-live smoke test에서 검증한다.
+trusted proxy scheme/host와 HTTPS rejection을 검사한다. `tests/run_https_wire.ps1`는
+Docker nginx TLS 1.2/1.3과 Linux Nim upstream을 연결해 로컬 certificate/
+handshake/proxy/cookie wire를 검증한다. 운영 TLS 인증서, reverse proxy,
+외부 DNS와 redirect 동작은 배포 환경 의존성이므로 별도 staging live smoke
+test에서 검증한다.

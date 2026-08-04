@@ -134,6 +134,30 @@ scheme/host, HTTPS rejection, body limit, timeout, health/readiness와 loopback
 HTTP/SSE/WebSocket을 검증한다. 실제 인증서, proxy hop, TLS handshake와 운영
 ingress 설정은 배포 환경에서 수행해야 한다.
 
+재현 가능한 로컬 wire gate는 Docker nginx와 Linux Nim upstream을 함께
+사용한다. Windows Docker 환경에서 다음 명령은 ephemeral self-signed
+certificate를 만들고 TLS 1.2/1.3 handshake, reverse-proxy hop, trusted
+forwarded scheme/host, `Secure`·`HttpOnly` cookie를 실제 HTTPS client로
+검증한 뒤 모든 컨테이너와 인증서를 정리한다.
+
+```powershell
+powershell -NoProfile -Command "& '.\tests\run_https_wire.ps1'"
+```
+
+외부 staging endpoint는 인증서 검증을 기본 활성화한 별도 gate로 실행한다.
+`MAHANAIM_HTTPS_INSECURE=1`은 self-signed 로컬 fixture에서만 허용한다.
+
+```powershell
+$env:MAHANAIM_HTTPS_URL = 'https://public.example/wire'
+nimble httpsLiveCheck
+nimble httpsLive
+```
+
+2026-08-05 로컬 wire 결과: Docker nginx 1.27.5, Nim/Linux 2.2.4
+upstream에서 `HTTPS reverse-proxy live contract passed`. 운영 staging의
+공인 인증서 체인, HTTP→HTTPS redirect, 갱신 자동화와 외부 DNS는 여전히
+배포 환경에서 별도로 확인해야 한다.
+
 ## Background jobs
 
 - job은 event loop에서 직접 실행하지 않고 `BackgroundJobQueue`를 통해 executor로
