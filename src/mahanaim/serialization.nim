@@ -56,19 +56,31 @@ proc valueMatches(field: ModelField, value: JsonNode): bool =
 proc hasField(metadata: ModelMetadata, name: string): bool =
   metadata.field(name).isSome
 
-proc serializeModel*(metadata: ModelMetadata,
+proc serializeValues(metadata: ModelMetadata,
                      values: Table[string, JsonNode],
-                     policy = defaultSerializationPolicy()): SerializationResult =
-  ## Serialize declared fields in metadata order for deterministic output.
+                     policy: SerializationPolicy,
+                     requireAll: bool,
+                     projection: seq[string]): SerializationResult =
+  ## One implementation serves full documents, patches, and projections. The
+  ## caller selects whether absent fields are errors; type, null, sensitive,
+  ## and unknown-field rules stay identical across every representation.
   result.document = newJObject()
   result.errors = @[]
+  if projection.len > 0:
+    for name in projection:
+      if not metadata.hasField(name):
+        result.errors.add(SerializationIssue(field: name,
+          code: "unknown_projection",
+          message: "Projection field is not declared by model metadata"))
   for field in metadata.fields:
+    if projection.len > 0 and field.name notin projection:
+      continue
     if field.sensitive and policy.excludeSensitive:
       continue
     if not values.hasKey(field.name):
-      if policy.includeNulls and field.nullable:
+      if requireAll and policy.includeNulls and field.nullable:
         result.document[field.jsonName] = newJNull()
-      elif not field.nullable:
+      elif requireAll and not field.nullable:
         result.errors.add(SerializationIssue(field: field.name,
           code: "required", message: "Required model field is missing"))
       continue
@@ -89,6 +101,30 @@ proc serializeModel*(metadata: ModelMetadata,
       if not metadata.hasField(name):
         result.errors.add(SerializationIssue(field: name,
           code: "unknown_field", message: "Field is not declared by model metadata"))
+
+proc serializeModel*(metadata: ModelMetadata,
+                     values: Table[string, JsonNode],
+                     policy = defaultSerializationPolicy()): SerializationResult =
+  ## Full document serialization keeps the original required-field contract.
+  serializeValues(metadata, values, policy, requireAll = true, projection = @[])
+
+proc serializePatch*(metadata: ModelMetadata,
+                     values: Table[string, JsonNode],
+                     policy = defaultSerializationPolicy()): SerializationResult =
+  ## Partial updates validate only supplied fields, making it safe to merge the
+  ## result into an existing record after authorization and persistence checks.
+  serializeValues(metadata, values, policy, requireAll = false, projection = @[])
+
+proc serializeProjection*(metadata: ModelMetadata,
+                          values: Table[string, JsonNode],
+                          fields: openArray[string],
+                          policy = defaultSerializationPolicy()): SerializationResult =
+  ## Response projections are explicit allow-lists and preserve metadata order.
+  var projection: seq[string] = @[]
+  for field in fields:
+    projection.add(field)
+  serializeValues(metadata, values, policy, requireAll = false,
+    projection = projection)
 
 proc valid*(serialization: SerializationResult): bool =
   ## A document is usable only when all declared boundary values are valid.

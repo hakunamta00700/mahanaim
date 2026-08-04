@@ -1377,6 +1377,23 @@ suite "Mahanaim core contracts":
     check not unknown.valid
     check unknown.errors[^1].code == "unknown_field"
 
+    var patchValues = initTable[string, JsonNode]()
+    patchValues["display_name"] = parseJson("\"Grace\"")
+    let patch = serializePatch(account, patchValues)
+    check patch.valid
+    check patch.document["displayName"].getStr() == "Grace"
+    check patch.document.hasKey("id") == false
+
+    let projection = serializeProjection(account, values,
+      ["display_name", "email"])
+    check projection.valid
+    check projection.document.hasKey("displayName")
+    check projection.document.hasKey("email")
+    check projection.document.hasKey("id") == false
+    let invalidProjection = serializeProjection(account, values, ["missing"])
+    check not invalidProjection.valid
+    check invalidProjection.errors[0].code == "unknown_projection"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed
