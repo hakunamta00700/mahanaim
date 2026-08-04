@@ -164,7 +164,7 @@
 - [x] `requireAuthentication` 정책을 추가해 인증되지 않은 route 요청을 401로 거부한다.
 - [x] session cookie 발급·삭제 helper와 secure cookie 속성, secret/cookie-name pre-flight 검사를 추가했다.
 - [x] 유효·위조·누락 session, 인증 route, cookie lifecycle 회귀 테스트를 추가했다.
-- [-] signed session cookie와 bearer token auth backend 계약, primary/legacy session secret 검증과 응답 시 cookie rotation을 추가했다. 분산 session 저장소, 탈취 대응, JWT·external introspection adapter는 남아 있다.
+- [x] signed session cookie와 bearer token auth backend 계약, `authBackends` provider 조합, primary/legacy session secret 검증과 응답 시 cookie rotation을 추가했다. 두 credential transport가 동일 `AuthContext`와 route guard를 공유하는 회귀 테스트를 제공한다. 분산 session 저장소, 탈취 대응, JWT·external introspection adapter는 남아 있다.
 
 ### 2026-08-04 — P0 라우팅 기반 1차
 
@@ -637,7 +637,7 @@ flowchart TB
 - [x] model metadata에서 validation `FieldSpec`, `bindModelForm`/`bindModelFormSet`, OpenAPI schema와 field widget registry를 생성하는 bridge를 추가했다.
 - [x] CSRF token과 FieldSpec 기반 form validation을 request-aware 서버 렌더링 흐름에 통합한다. hidden input과 response cookie가 동일 token을 사용하며 POST 제출 회귀 테스트를 제공한다.
 - [-] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. resource별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 권한 경계 밖의 안전한 form layout renderer hook을 지원한다.
-- [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
+- [x] 세션 cookie와 bearer token을 동일 `AuthBackend`/`AuthContext`/route guard contract로 제공하고, `authBackends` provider 목록으로 한 route에서 두 방식을 수용한다. JWT·external introspection adapter는 후속 범위다.
 - [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 algorithm-neutral `PasswordHasher` 계약, PBKDF2 reference adapter, C-backed Argon2id adapter, work-factor rehash 판단, stateless signed reset token, atomic one-time token store, password rotation, 교체 가능한 login throttle 계약과 session key rotation을 추가했다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, 배포 호스트별 Argon2 hash/verify benchmark harness도 추가했으며 bcrypt adapter와 production benchmark 결과 확정은 남아 있다.
 - [x] admin의 authorization callback/`AuthorizationPolicy` 권한 검사와 append-only audit log 저장을 별도 책임으로 보장한다.
 
@@ -730,7 +730,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. SessionPolicy의 primary/legacy secret rotation도 제공하며 JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
+| [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고, `authBackends` provider 목록으로 두 방식을 한 route에서 middleware의 공통 `AuthContext` 바인딩과 route guard에 연결한다. SessionPolicy의 primary/legacy secret rotation도 제공하며 JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
 | [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
 | [-] | REQ-SEC-003 | P1 | algorithm-neutral `PasswordHasher` 계약과 표준 PBKDF2-HMAC-SHA256 reference adapter, C-backed Argon2id adapter, per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter, adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, 배포 호스트별 Argon2 hash/verify benchmark harness를 제공한다. bcrypt adapter와 production benchmark 결과 확정은 남아 있다. |
 | [x] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. rate limit·timeout은 별도 정책이다. |

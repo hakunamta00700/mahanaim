@@ -97,6 +97,11 @@ type
     csrfHeaderName*: string
     csrfCookieSecure*: bool
     session*: SessionPolicy
+    ## Multiple credential transports can be composed for one application.
+    ## The legacy singular authBackend remains supported for source
+    ## compatibility, while this list lets browser sessions and API bearer
+    ## tokens reach the same AuthContext/route-guard boundary.
+    authBackends*: seq[AuthBackend]
     authBackend*: AuthBackend
     contentSecurityPolicy*: string
     frameOptions*: string
@@ -122,6 +127,7 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     session: SessionPolicy(enabled: false, cookieName: "mahanaim_session",
       secret: "", legacySecrets: @[], secureCookie: true,
       requireAuthentication: false),
+    authBackends: @[],
     authBackend: nil,
     contentSecurityPolicy: "default-src 'self'",
     frameOptions: "DENY",
@@ -448,6 +454,29 @@ proc newSessionCookieAuthBackend*(policy: SessionPolicy):
     raise newException(ValueError, "Session auth backend requires an enabled policy")
   SessionCookieAuthBackend(policy: policy)
 
+proc addAuthBackend*(policy: var SecurityPolicy, backend: AuthBackend) =
+  ## Compose credential transports explicitly while preserving the old
+  ## `authBackend` field for applications that configure one provider only.
+  if backend.isNil:
+    raise newException(ValueError, "Authentication backend is required")
+  if policy.authBackends.len == 0 and policy.authBackend != nil:
+    policy.authBackends.add(policy.authBackend)
+    policy.authBackend = nil
+  for existing in policy.authBackends:
+    if existing == backend:
+      raise newException(ValueError, "Duplicate authentication backend")
+  policy.authBackends.add(backend)
+
+proc configuredAuthBackends(policy: SecurityPolicy): seq[AuthBackend] =
+  ## Normalize singular and plural configuration at the middleware boundary so
+  ## all downstream authentication decisions use one deterministic provider
+  ## order and one anonymous fallback.
+  if policy.authBackend != nil:
+    result.add(policy.authBackend)
+  for backend in policy.authBackends:
+    if backend != nil and backend notin result:
+      result.add(backend)
+
 method authenticate*(backend: SessionCookieAuthBackend,
                      request: Request): Option[AuthContext] {.gcsafe.} =
   let verification = signedSessionVerification(request, backend.policy)
@@ -564,12 +593,25 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       return rejected
     var requestWithAuth = request
     var sessionRotation = none(SignedValueVerification)
-    if policy.authBackend != nil:
-      let authentication = policy.authBackend.authenticate(requestWithAuth)
+    let authBackends = policy.configuredAuthBackends()
+    if authBackends.len > 0:
+      var authentication = none(AuthContext)
+      for backend in authBackends:
+        let candidate = backend.authenticate(requestWithAuth)
+        if candidate.isSome:
+          authentication = candidate
+          break
       requestWithAuth.auth = if authentication.isSome:
         authentication.get()
       else:
         AuthContext(authenticated: false, subject: "")
+      ## A composed provider list may still contain the session backend. Keep
+      ## legacy-key rotation independent from which provider authenticated the
+      ## request so adding bearer support cannot silently disable cookie
+      ## maintenance for browser sessions.
+      if policy.session.enabled:
+        sessionRotation = signedSessionVerification(requestWithAuth,
+          policy.session)
       let authenticated = authentication.isSome
       ## CORS preflight has no application credentials by design; rejecting it
       ## here would prevent browsers from discovering the authenticated route.

@@ -1070,6 +1070,42 @@ suite "Mahanaim core contracts":
       authenticated.headers["Authorization"][0 .. ^2] & "0"
     check (waitFor app.dispatch(tampered)).status == Http401
 
+  test "one protected route accepts session and bearer auth providers":
+    ## Both credential transports must end at the same AuthContext boundary;
+    ## applications should not need duplicate routes just to support browser
+    ## sessions and API clients.
+    var policy = defaultSecurityPolicy()
+    policy.session.enabled = true
+    policy.session.cookieName = "mahanaim_session"
+    policy.session.secret = "combined-session-secret-that-is-long-enough"
+    policy.session.requireAuthentication = true
+    let sessionBackend = newSessionCookieAuthBackend(policy.session)
+    let bearerBackend = newBearerTokenAuthBackend(
+      "combined-bearer-secret-that-is-long-enough")
+    policy.addAuthBackend(sessionBackend)
+    policy.addAuthBackend(bearerBackend)
+    expect ValueError:
+      policy.addAuthBackend(bearerBackend)
+    let app = newApplication(defaultConfig(), policy)
+    proc profile(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.auth.subject)
+    app.get("/profile", "combined-profile", profile)
+
+    check (waitFor app.dispatch(newRequest("GET", "/profile"))).status == Http401
+    var sessionRequest = newRequest("GET", "/profile")
+    sessionRequest.cookies[policy.session.cookieName] =
+      signValue(policy.session.secret, "session-user")
+    let sessionResponse = waitFor app.dispatch(sessionRequest)
+    check sessionResponse.status == Http200
+    check sessionResponse.body == "session-user"
+
+    var bearerRequest = newRequest("GET", "/profile")
+    bearerRequest.headers["Authorization"] = "Bearer " &
+      bearerBackend.issueBearerToken("api-user")
+    let bearerResponse = waitFor app.dispatch(bearerRequest)
+    check bearerResponse.status == Http200
+    check bearerResponse.body == "api-user"
+
   test "authorization policy composes roles groups object checks and route guards":
     let policy = newAuthorizationPolicy()
     policy.grantPermission("editor", "documents", "read")
