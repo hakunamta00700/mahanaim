@@ -81,6 +81,16 @@ proc postgresValueKindForOid*(oid: int): SqlValueKind =
   of 700, 701, 1700: sqlFloat       # float4, float8, numeric
   else: sqlText                     # dates, UUID, JSON, and extensions
 
+proc postgresColumnMetadataForOid*(name: string, oid: int):
+    DatabaseColumnMetadata =
+  ## Keep OID-to-column metadata construction pure so applications and compile
+  ## contract tests can reason about the neutral result boundary without a
+  ## running server. The live response path supplies the actual libpq name.
+  if name.strip().len == 0:
+    raise newException(ValueError, "PostgreSQL result column name is required")
+  DatabaseColumnMetadata(name: name, kind: postgresValueKindForOid(oid),
+    backendTypeId: oid)
+
 proc postgresValueForOid(value: string, oid: int): SqlValue =
   ## Convert only unambiguous scalar OIDs. Values that do not parse are kept as
   ## text rather than being silently coerced into a misleading JSON number.
@@ -95,10 +105,12 @@ proc postgresValueForOid(value: string, oid: int): SqlValue =
     except ValueError: textValue(value)
   else: textValue(value)
 
-method execute*(adapter: PostgresDatabaseAdapter,
-                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
+method executeResult*(adapter: PostgresDatabaseAdapter,
+                      query: CompiledQuery): DatabaseResult {.gcsafe.} =
   ## Execute one parameterized command/query through libpq's extended query
-  ## protocol. Values never get interpolated into SQL source text.
+  ## protocol. Values never get interpolated into SQL source text. Metadata is
+  ## captured from the same PGresult as rows so aliases and typed scalars can
+  ## never drift apart between separate executions.
   if adapter.isNil or adapter.connection.isNil:
     raise newException(ValueError, "PostgreSQL adapter is closed")
   if query.sql.strip().len == 0:
@@ -116,6 +128,10 @@ method execute*(adapter: PostgresDatabaseAdapter,
       raise newException(CatchableError,
         "PostgreSQL query failed: " & $pqresultErrorMessage(response))
     if status == PGRES_TUPLES_OK:
+      for columnIndex in 0 ..< pqnfields(response).int:
+        let oid = pqftype(response, columnIndex.int32).int
+        result.columns.add(postgresColumnMetadataForOid(
+          $pqfname(response, columnIndex.int32), oid))
       for rowIndex in 0 ..< pqntuples(response).int:
         var row: seq[SqlValue] = @[]
         for columnIndex in 0 ..< pqnfields(response).int:
@@ -125,9 +141,15 @@ method execute*(adapter: PostgresDatabaseAdapter,
             let oid = pqftype(response, columnIndex.int32).int
             row.add(postgresValueForOid($pqgetvalue(response,
               rowIndex.int32, columnIndex.int32), oid))
-        result.add(row)
+        result.rows.add(row)
   finally:
     releaseParameters(bound.values, bound.allocated)
+
+method execute*(adapter: PostgresDatabaseAdapter,
+                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
+  ## Preserve the original row-only API while using one metadata-aware wire
+  ## execution path. This avoids duplicate binding and response parsing logic.
+  adapter.executeResult(query).rows
 
 proc execControl(adapter: PostgresDatabaseAdapter, statement: string) {.gcsafe.} =
   ## Transaction and savepoint statements contain only framework-generated

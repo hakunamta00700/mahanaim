@@ -208,7 +208,7 @@
 - [x] SQLite migration history와 latest down rollback을 제공한다.
 - [x] PostgreSQL libpq adapter가 extended query parameter binding, NULL transport, transaction/savepoint lifecycle을 제공한다.
 - [x] backend-neutral connection pool이 factory/borrow/release/close와 capacity exhaustion을 보장한다.
-- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. PostgreSQL type OID 기반 typed scalar mapping을 추가했으며 typed column metadata와 live server fixture는 남아 있다.
+- [-] Application dispatch가 request-scoped adapter를 borrow/release하고 shutdown 시 pool을 닫는다. 공통 `DatabaseResult`/column metadata contract와 PostgreSQL type OID 기반 typed scalar mapping을 추가했으며 live server fixture는 남아 있다.
 - [x] DatabaseSession이 borrowed connection의 begin/commit/rollback/release unit-of-work를 보장하고 SQLite 회귀 테스트를 통과했다.
 - [x] metadata-driven repository가 relation metadata와 target metadata로 one-hop JOIN execution을 수행하고 SQLite 통합 테스트를 통과했다.
 - [x] SQLite/PostgreSQL capability matrix가 transaction/savepoint/typed NULL/isolation 지원 범위를 명시하고 unsupported isolation을 거부한다.
@@ -689,7 +689,7 @@ flowchart TB
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 CI PostgreSQL service에서 live compatibility, serializable isolation, repository CRUD route, DDL rollback contract를 실행한다. local credential 부재로 live 결과는 CI에서 확인해야 하며 typed column metadata와 filtering/aggregate relation execution은 남아 있다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata contract, type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 CI PostgreSQL service에서 live compatibility, serializable isolation, repository CRUD route, DDL rollback contract를 실행한다. local credential 부재로 live 결과는 CI에서 확인해야 하며 filtering/aggregate relation execution은 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
 ### HTML·폼·관리자

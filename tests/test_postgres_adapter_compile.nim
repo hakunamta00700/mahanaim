@@ -20,3 +20,8 @@ static:
   doAssert postgresValueKindForOid(23) == sqlInteger
   doAssert postgresValueKindForOid(701) == sqlFloat
   doAssert postgresValueKindForOid(3802) == sqlText
+  let integerColumn = postgresColumnMetadataForOid("user_id", 23)
+  doAssert integerColumn.name == "user_id"
+  doAssert integerColumn.kind == sqlInteger
+  doAssert integerColumn.backendTypeId == 23
+  doAssert compiles(DatabaseResult(columns: @[], rows: @[]))

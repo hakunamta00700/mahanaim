@@ -46,6 +46,22 @@ type
     of sqlBoolean: boolean*: bool
     of sqlList: values*: seq[SqlValue]
 
+  DatabaseColumnMetadata* = object
+    ## Result metadata is kept separate from row values so callers can inspect
+    ## aliases and backend types without guessing from the first row. The
+    ## backend type id is optional and is primarily useful for adapter-specific
+    ## diagnostics such as PostgreSQL's libpq OID.
+    name*: string
+    kind*: SqlValueKind
+    backendTypeId*: int
+
+  DatabaseResult* = object
+    ## A single execution result keeps column order and row order together.
+    ## Existing `execute` callers remain source-compatible; new consumers can
+    ## opt into metadata through `executeResult`.
+    columns*: seq[DatabaseColumnMetadata]
+    rows*: seq[seq[SqlValue]]
+
   FilterOperator* = enum
     filterEqual
     filterNotEqual
@@ -184,6 +200,13 @@ method execute*(adapter: DatabaseAdapter,
   discard adapter
   discard query
   raise newException(ValueError, "Database adapter does not implement execute")
+
+method executeResult*(adapter: DatabaseAdapter,
+                      query: CompiledQuery): DatabaseResult {.base, gcsafe.} =
+  ## Compatibility extension for adapters that can expose result metadata.
+  ## The base implementation deliberately preserves the old row-only contract
+  ## so third-party adapters do not break when the framework adds metadata.
+  result.rows = adapter.execute(query)
 
 method begin*(adapter: DatabaseAdapter) {.base, gcsafe.} =
   discard adapter
