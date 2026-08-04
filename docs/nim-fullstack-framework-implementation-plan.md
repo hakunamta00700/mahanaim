@@ -240,7 +240,7 @@
 - [x] supplied/invalid request ID, counter lifecycle, readiness 200/503 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] W3C `traceparent` 검증·전파와 response trace header를 추가했다.
 - [x] JSON `StructuredLogSink`와 deterministic request log record를 추가하고 회귀 테스트를 통과했다.
-- [ ] Logue/OpenTelemetry exporter와 production metrics exporter 연결은 남아 있다.
+- [x] vendor-neutral `prometheusMetrics` text exposition과 `metricsResponse` helper를 추가해 request/error counter, in-flight/readiness gauge를 application-owned `/metrics` route에서 노출할 수 있게 했다. `RequestEventSink`/`StructuredLogSink`와 W3C trace propagation은 Logue/OpenTelemetry adapter가 연결할 수 있는 core boundary로 유지한다. 실제 vendor exporter 배포 검증은 환경별 gate다.
 
 ### 2026-08-04 — P1 MessagePack serializer 1차
 
@@ -731,7 +731,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge, Redis/Valkey RESP rate-limit·cache 구현체와 오류/재시도 경계를 추가하고 request/success/failure/connection/reconnect snapshot metrics와 in-memory monotonic TTL·bounded eviction을 제공했다. S3 signing/retry와 cache eviction 운영 정책은 남아 있다. |
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
-| [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
+| [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation과 vendor-neutral Prometheus text exporter를 구현했고 Logue/OpenTelemetry·production exporter 배포 검증은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |

@@ -126,3 +126,46 @@ proc readinessResponse*(observability: Observability): Response =
   let ready = not observability.isNil and observability.ready
   var document = %*{"status": if ready: "ready" else: "not_ready"}
   result = jsonResponse($document, if ready: Http200 else: Http503)
+
+const prometheusContentType* = "text/plain; version=0.0.4; charset=utf-8"
+
+proc validPrometheusPrefix(prefix: string): bool =
+  ## Metric names are a public boundary: reject arbitrary input instead of
+  ## allowing a caller-controlled prefix to inject labels or new samples.
+  if prefix.len == 0 or
+      prefix[0] notin {'a'..'z', 'A'..'Z', '_', ':'}:
+    return false
+  for character in prefix:
+    if character notin {'a'..'z', 'A'..'Z', '0'..'9', '_', ':'}:
+      return false
+  true
+
+proc prometheusMetrics*(observability: Observability,
+                        namespace = "mahanaim"): string =
+  ## Export only framework-owned aggregate gauges/counters. The text format is
+  ## intentionally dependency-free; a host can expose this string through an
+  ## HTTP route or translate the same values to Logue/OpenTelemetry metrics.
+  if observability.isNil:
+    raise newException(ValueError, "Observability instance is required")
+  let prefix = namespace.strip()
+  if not validPrometheusPrefix(prefix):
+    raise newException(ValueError, "Prometheus namespace is not a valid metric prefix")
+  let ready = if observability.ready: 1 else: 0
+  result = "# HELP " & prefix & "_requests_total Total HTTP requests.\n" &
+    "# TYPE " & prefix & "_requests_total counter\n" &
+    prefix & "_requests_total " & $observability.requestCount & "\n" &
+    "# HELP " & prefix & "_errors_total Total HTTP responses with status 500 or greater.\n" &
+    "# TYPE " & prefix & "_errors_total counter\n" &
+    prefix & "_errors_total " & $observability.errorCount & "\n" &
+    "# HELP " & prefix & "_requests_in_flight Current requests being processed.\n" &
+    "# TYPE " & prefix & "_requests_in_flight gauge\n" &
+    prefix & "_requests_in_flight " & $observability.inFlight & "\n" &
+    "# HELP " & prefix & "_ready Whether the application is ready to receive traffic.\n" &
+    "# TYPE " & prefix & "_ready gauge\n" &
+    prefix & "_ready " & $ready & "\n"
+
+proc metricsResponse*(observability: Observability): Response =
+  ## Keep endpoint wiring application-owned while making content type and
+  ## exposition semantics identical for every HTTP adapter.
+  result = textResponse(prometheusMetrics(observability))
+  result.headers["content-type"] = prometheusContentType

@@ -1434,6 +1434,26 @@ suite "Mahanaim core contracts":
     let generated = waitFor app.dispatch(request)
     check generated.headers["x-request-id"].startsWith("mahanaim-")
 
+  test "observability exports bounded Prometheus text without vendor coupling":
+    let observability = newObservability()
+    observability.requestCount = 12
+    observability.errorCount = 2
+    observability.inFlight = 1
+    observability.setReady(true)
+    let metrics = prometheusMetrics(observability, "mahanaim")
+    check metrics.contains("# TYPE mahanaim_requests_total counter")
+    check metrics.contains("mahanaim_requests_total 12")
+    check metrics.contains("mahanaim_errors_total 2")
+    check metrics.contains("mahanaim_requests_in_flight 1")
+    check metrics.contains("mahanaim_ready 1")
+    let response = metricsResponse(observability)
+    check response.status == Http200
+    check response.headers["content-type"] ==
+      "text/plain; version=0.0.4; charset=utf-8"
+    check response.body.contains("mahanaim_requests_total 12")
+    expect ValueError:
+      discard prometheusMetrics(observability, "bad metric name")
+
   test "observability propagates traceparent and emits structured logs":
     var logCount: Atomic[int]
     logCount.store(0)

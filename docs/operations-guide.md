@@ -172,6 +172,15 @@ operator-controlled deployment or drain workflows, and an application should
 wrap it with its own authorization and release procedure when exposed by a
 larger control plane.
 
+## Prometheus metrics
+
+Expose `metricsResponse(app.observability)` from an application-owned `GET /metrics`
+route. The core exporter emits only request/error counters, in-flight gauge, and
+readiness gauge; it never includes request IDs, trace IDs, secrets, cache keys, or
+payloads. Prometheus text exposition is vendor-neutral. Logue and OpenTelemetry
+integrations should consume the existing `RequestEventSink`, `StructuredLogSink`,
+and W3C trace propagation boundaries in an application-owned adapter.
+
 ## Graceful shutdown
 
 1. readiness를 false로 전환해 새 traffic을 차단한다.
