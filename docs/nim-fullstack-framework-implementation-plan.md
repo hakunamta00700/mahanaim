@@ -5,7 +5,7 @@
 - [x] taskpool job registry에서 GC 관리 `Table/seq`를 shared memory에 저장하지 않고 raw slot registry로 분리했다.
 - [x] job closure의 명시적 GC root 해제를 worker thread가 아닌 event-loop의 Flowvar 완료 이후로 제한했다.
 - [x] executor backend를 실제 sync 작업 시점에 lazy 초기화하고 반복 application lifecycle 회귀 테스트를 추가했다.
-- [ ] taskpools backend가 보장하는 실제 worker 강제 cancellation adapter는 여전히 안전성 검토가 필요하다.
+- [-] executor cancellation hook과 cooperative escalation 경계를 제공한다. taskpools가 보장하는 임의 worker 강제 종료 API는 없으므로 실제 native cancellation adapter는 안전성 검토·backend API 제공 전까지 보류한다.
 
 상태: 진행 전  
 작성일: 2026-08-04  
@@ -414,7 +414,7 @@
 - [x] 취소된 sync request가 user handler를 호출하지 않는 회귀 테스트를 추가했다.
 - [x] CancellationToken을 atomic flag로 전환하고 실행 중 cooperative worker exit 회귀 테스트를 추가했다.
 - [x] blocking 자동 감지와 실행 중 atomic cancellation escalation을 추가했다.
-- [ ] backend가 보장하는 실제 worker 강제 cancellation은 남아 있다.
+- [-] backend cancellation hook과 cooperative worker exit는 구현했지만, backend가 보장하는 실제 worker 강제 cancellation은 안전한 native API가 제공될 때까지 남아 있다.
 
 ### 2026-08-04 — P0 executor capacity 1차
 

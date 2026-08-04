@@ -53,7 +53,7 @@
 - [x] 취소된 sync 작업이 worker에서 user handler에 진입하지 않는 cooperative pre-start cancellation을 추가한다.
 - [x] 실행 중 cooperative cancellation 신호를 atomic token으로 전달하고 worker가 안전 지점에서 종료하도록 한다.
 - [x] blocking 자동 감지와 atomic cooperative cancellation escalation 정책을 추가한다.
-- [ ] executor backend가 안전하게 제공하는 실제 강제 cancellation adapter를 추가한다.
+- [-] executor backend cancellation hook, blocking escalation과 cooperative token 경계를 추가했다. taskpools가 임의 native worker 종료를 안전하게 보장하지 않으므로 실제 강제 cancellation adapter는 안전한 backend API가 제공될 때까지 보류한다.
 
 ### HTTP와 라우팅
 
