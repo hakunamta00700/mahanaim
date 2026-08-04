@@ -604,7 +604,7 @@ flowchart TB
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
 - [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했다. i18n과 고급 tag/helper는 후속 범위다.
-- [-] model metadata에서 validation `FieldSpec`, `bindModelForm`, OpenAPI schema를 생성하는 bridge를 추가했다. widget registry와 model formset은 남아 있다.
+- [-] model metadata에서 validation `FieldSpec`, `bindModelForm`, OpenAPI schema와 field widget registry를 생성하는 bridge를 추가했다. model formset은 남아 있다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
 - [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
