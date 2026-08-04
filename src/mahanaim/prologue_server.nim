@@ -4,10 +4,12 @@
 ## A catch-all route converts the native request once and delegates matching,
 ## middleware, security, errors, and lifecycle semantics to Mahanaim's core.
 
-import std/asyncdispatch
+import std/[asyncdispatch, httpcore, options]
 import prologue/core/application as prologueApplication
 import ./application
 import ./prologue_adapter
+import ./router
+import ./websocket_adapter
 
 type
   PrologueServer* = ref object
@@ -20,6 +22,19 @@ proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
   ## Adapt one Prologue Context without duplicating route registration.
   result = proc(ctx: prologueApplication.Context) {.async, gcsafe.} =
     let frameworkRequest = toFrameworkRequest(ctx.request)
+    when defined(windows):
+      ## Prologue's Windows/native backend exposes the same AsyncSocket owned
+      ## by the request. Transfer ownership to the shared WebSocket adapter
+      ## before Prologue writes a normal HTTP response for the context.
+      let websocketRoute = app.router.findWebSocket(frameworkRequest.path)
+      if websocketRoute.isSome:
+        if frameworkRequest.httpMethod != "GET" or
+           not isWebSocketUpgrade(frameworkRequest):
+          await ctx.request.respond(Http426, "WebSocket upgrade required")
+        else:
+          await serveWebSocket(ctx.request.nativeRequest, frameworkRequest,
+            websocketRoute.get())
+        return
     let frameworkResponse = await app.dispatch(frameworkRequest)
     # Populate Prologue's response object and let its normal central response
     # phase write to the socket. This also keeps mocking contexts socket-free.
