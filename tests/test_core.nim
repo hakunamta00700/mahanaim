@@ -29,6 +29,13 @@ type CollectionMacroUser = object
   tags: seq[string]
   scores: Option[array[3, int]]
 
+type CustomProfile = object
+  nickname: string
+
+type CustomMacroUser = object
+  id: int
+  profile: CustomProfile
+
 type AnnotatedMacroUser = object
   id: int
   email: string
@@ -4300,6 +4307,14 @@ suite "Mahanaim core contracts":
     let invalid = serializeModel(generated, values)
     check not invalid.valid
     check invalid.errors[0].code == "invalid_type"
+
+  test "model macro maps explicitly declared custom fields to wire metadata":
+    let generated = modelMetadata(CustomMacroUser, "CustomMacroUser",
+      "custom_macro_users", newModelCustomField("profile", "profile"))
+    let profile = generated.field("profile").get()
+    check profile.kind == modelJson
+    check profile.wireType == "profile"
+    check not profile.collection
 
   test "input schema macro generates ordered FieldSpec values":
     let generated = inputSchema(MacroUser)

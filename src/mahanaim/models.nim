@@ -113,6 +113,18 @@ proc newModelField*(name: string, kind: ModelValueKind,
     collection: collection,
     wireType: wireType)
 
+proc newModelCustomField*(name, wireType: string,
+                          nullable = false): ModelField =
+  ## Custom Nim values cross the metadata boundary as JSON only when the
+  ## application names their wire contract explicitly. The serializer codec
+  ## registry can then own the value conversion without coupling this module
+  ## to the custom type's implementation.
+  if name.strip().len == 0 or wireType.strip().len == 0:
+    raise newException(ValueError,
+      "Custom model field requires a name and wire type")
+  result = newModelField(name, modelJson, nullable = nullable,
+    wireType = wireType)
+
 proc newModelIndex*(name: string, fields: openArray[string],
                     unique = false): ModelIndex =
   ## Index declarations are values so a macro or a runtime registry can use

@@ -1,5 +1,11 @@
 # Nim 풀스택 웹 프레임워크 구현 계획
 
+## Custom model field foundation
+
+- [x] 임의 Nim custom type은 `newModelCustomField(name, wireType)` 명시 선언으로만 JSON metadata와 serializer codec 경계에 연결한다.
+- [x] model macro가 custom field 선언의 중복·미존재 필드를 compile time에 거부한다.
+- [ ] PostgreSQL live 환경에서 custom field codec과 typed result mapping을 검증한다.
+
 ### 2026-08-04 — P0 executor lifecycle/GC 안정화
 
 - [x] taskpool job registry에서 GC 관리 `Table/seq`를 shared memory에 저장하지 않고 raw slot registry로 분리했다.
@@ -177,7 +183,7 @@
 - [x] application-owned model registry와 중복 선언 방지를 추가했다.
 - [x] check report가 model field·index·relation 참조를 검증하도록 연결했다.
 - [x] metadata lookup과 registry·invalid reference 회귀 테스트를 추가했다.
-- [-] model macro 생성과 query/backend adapter, migration compiler 및 serializer/form/admin/OpenAPI 소비자 연결을 추가했다. JSON collection과 명시적 serializer custom `wireType` codec registry를 추가했으며 임의 Nim custom type의 macro 자동 추론과 PostgreSQL live 증거는 남아 있다.
+- [-] model macro 생성과 query/backend adapter, migration compiler 및 serializer/form/admin/OpenAPI 소비자 연결을 추가했다. JSON collection, 명시적 `newModelCustomField` 선언, serializer custom `wireType` codec registry를 추가했으며 임의 Nim custom type 자동 추론은 의도적으로 거부한다. PostgreSQL live 증거는 남아 있다.
 
 ### 2026-08-04 — P0 model serializer 1차
 
@@ -323,7 +329,7 @@
 - [x] string·integer·float·boolean·DateTime·UUID·JsonNode 타입 매핑을 명시적으로 고정했다.
 - [x] 상속 object와 지원하지 않는 field type은 compile-time 오류로 거부한다.
 - [x] 생성 metadata의 이름·table·field order·kind 회귀 테스트를 추가했다.
-- [-] `Option[T]`를 nullable model metadata와 optional input/response `FieldSpec`로 매핑하고, 명시적 index/constraint/relation declaration 및 `seq[T]`/`array[N,T]` JSON collection projection과 회귀 테스트를 추가했다. custom type adapter는 남아 있다.
+- [-] `Option[T]`를 nullable model metadata와 optional input/response `FieldSpec`로 매핑하고, 명시적 index/constraint/relation declaration 및 `seq[T]`/`array[N,T]` JSON collection projection과 회귀 테스트를 추가했다. 임의 custom Nim type은 `newModelCustomField(name, wireType)` 선언으로만 metadata에 연결하며 자동 추론은 지원하지 않는다.
 
 ### 2026-08-04 — P0 handler execution 1차
 

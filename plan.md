@@ -2,6 +2,12 @@
 
 > 체크박스 규칙: `[x]`는 구현·테스트·문서화까지 완료한 항목이고, `[ ]`는 미완료 또는 진행 중인 항목이다. 부분 완료 항목은 본문에 남은 범위를 기록한다.
 
+### Custom model field foundation
+
+- [x] `newModelCustomField(name, wireType)`로 임의 Nim custom type을 명시적 JSON/wire metadata 경계에 연결한다.
+- [x] custom field 선언의 중복·미존재 필드를 model macro 단계에서 거부한다.
+- [ ] PostgreSQL live 환경에서 custom field codec과 typed result mapping을 검증한다.
+
 ## 2026-08-04 transaction contract
 
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.

@@ -86,8 +86,18 @@ proc metadataDeclarationName(node: NimNode): string =
   if node.kind != nnkCall or node.len == 0:
     error("Model metadata declarations must call a supported constructor", node)
   result = $node[0]
-  if result notin ["newModelIndex", "newModelConstraint", "newModelRelation"]:
+  if result notin ["newModelIndex", "newModelConstraint", "newModelRelation",
+                   "newModelCustomField"]:
     error("Unsupported model metadata declaration: " & result, node)
+
+proc customDeclarationFieldName(node: NimNode): string =
+  ## A custom declaration must identify its model field with a literal name.
+  ## This lets the macro detect typos before runtime metadata is consumed.
+  if node.len < 3 or node[1].kind != nnkStrLit:
+    error("Custom model field declaration requires a literal field name and wire type", node)
+  result = node[1].strVal
+  if result.strip().len == 0:
+    error("Custom model field declaration requires a non-empty field name", node)
 
 macro modelMetadata*(modelType: typedesc,
                      modelName: static[string] = "",
@@ -98,21 +108,40 @@ macro modelMetadata*(modelType: typedesc,
   let typeDesc = getTypeInst(modelType)
   let objectType = getImpl(typeDesc[1])
   let fields = recordFields(objectType)
+  var customDeclarations: seq[(string, NimNode)] = @[]
+  for declaration in declarations:
+    if metadataDeclarationName(declaration) == "newModelCustomField":
+      let customName = customDeclarationFieldName(declaration)
+      for (existingName, _) in customDeclarations:
+        if existingName == customName:
+          error("Duplicate custom model field declaration: " & customName,
+            declaration)
+      customDeclarations.add((customName, declaration))
   let resolvedName = if modelName.len > 0: modelName else: $typeNode
   let resolvedTable = if tableName.len > 0: tableName else: resolvedName
   let generated = genSym(nskVar, "metadata")
   result = newStmtList()
   result.add quote do:
     var `generated` = newModelMetadata(`resolvedName`, `resolvedTable`)
+  var matchedCustomFields: seq[string] = @[]
   for (name, typeNode) in fields:
     let fieldLiteral = newLit(name)
-    let kindNode = modelKind(typeNode)
-    let typeInfo = unwrapModelType(typeNode)
-    let optionalLiteral = newLit(typeInfo.optional)
-    let collectionLiteral = newLit(typeInfo.collection)
-    result.add quote do:
-      `generated`.addField(newModelField(`fieldLiteral`, `kindNode`,
-        nullable = `optionalLiteral`, collection = `collectionLiteral`))
+    var customDeclaration: NimNode = nil
+    for (customName, declaration) in customDeclarations:
+      if customName == name:
+        customDeclaration = declaration
+        matchedCustomFields.add(name)
+    if not customDeclaration.isNil:
+      result.add quote do:
+        `generated`.addField(`customDeclaration`)
+    else:
+      let kindNode = modelKind(typeNode)
+      let typeInfo = unwrapModelType(typeNode)
+      let optionalLiteral = newLit(typeInfo.optional)
+      let collectionLiteral = newLit(typeInfo.collection)
+      result.add quote do:
+        `generated`.addField(newModelField(`fieldLiteral`, `kindNode`,
+          nullable = `optionalLiteral`, collection = `collectionLiteral`))
   for declaration in declarations:
     case metadataDeclarationName(declaration)
     of "newModelIndex":
@@ -124,8 +153,14 @@ macro modelMetadata*(modelType: typedesc,
     of "newModelRelation":
       result.add quote do:
         `generated`.addRelation(`declaration`)
+    of "newModelCustomField":
+      discard
     else:
       discard
+  for (customName, declaration) in customDeclarations:
+    if customName notin matchedCustomFields:
+      error("Custom model field is not declared by the model object: " &
+        customName, declaration)
   result.add generated
 
 proc inputFieldConstructor(typeNode: NimNode): NimNode =
