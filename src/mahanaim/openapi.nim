@@ -71,6 +71,10 @@ proc fieldSchema(field: FieldSpec): JsonNode =
   if field.inputType == itString:
     if field.minLength >= 0: result["minLength"] = newJInt(field.minLength)
     if field.maxLength >= 0: result["maxLength"] = newJInt(field.maxLength)
+    if field.enumValues.len > 0:
+      result["enum"] = newJArray()
+      for value in field.enumValues:
+        result["enum"].add(newJString(value))
   else:
     if field.minValue > low(int): result["minimum"] = newJInt(field.minValue)
     if field.maxValue < high(int): result["maximum"] = newJInt(field.maxValue)

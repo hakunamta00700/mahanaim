@@ -19,6 +19,7 @@
 
 - [x] 기존 metadata serializer의 rename·patch·projection·nested DTO·sensitive exclusion 계약을 REQ-API-002 완료로 정리했다.
 - [x] string-backed enum field metadata와 허용 값 검증을 추가하고 invalid enum 회귀 테스트를 작성했다.
+- [x] enum 값을 공통 `FieldSpec` validation과 OpenAPI `enum` schema로 투영해 입력·문서 경계를 일치시켰다.
 - [ ] MessagePack decode/stream negotiation과 enum 전용 custom wire type은 후속 범위다.
 
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차

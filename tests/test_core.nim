@@ -1849,6 +1849,19 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard newEnumModelField("empty", [])
 
+  test "model enum metadata reaches validation and OpenAPI":
+    var metadata = newModelMetadata("Ticket")
+    metadata.addField(newEnumModelField("state", ["open", "closed"]))
+    let schema = modelInputSchema(metadata)
+    check schema[0].enumValues == @["open", "closed"]
+    var invalidRequest = newRequest("POST", "/tickets", "{\"state\":\"pending\"}")
+    let validation = validate(invalidRequest, schema)
+    check not validation.valid
+    check validation.errors[0].code == "invalid_enum"
+    let document = modelOpenApiDocument("Tickets", "1.0.0", metadata)
+    let stateSchema = document["paths"]["/generated"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["state"]
+    check stateSchema["enum"][0].getStr() == "open"
+
     var profile = newModelMetadata("Profile", "profiles")
     profile.addField(newModelField("display_name", modelString,
       jsonName = "displayName"))

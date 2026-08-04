@@ -139,7 +139,7 @@
 - [x] registry 기반 nested DTO serializer를 제공한다.
 - [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공한다.
 - [x] 표준 serialization adapter 확장점과 DateTime·UUID·file metadata 정규화/검증을 제공한다.
-- [x] model metadata를 validation/form/OpenAPI 공통 `FieldSpec` schema로 변환하고 float/boolean/JSON 입력 타입, 교체 가능한 widget registry와 model formset을 연결했다.
+- [x] model metadata를 validation/form/OpenAPI 공통 `FieldSpec` schema로 변환하고 float/boolean/JSON 입력 타입, string-backed enum, 교체 가능한 widget registry와 model formset을 연결했다.
 - [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩하는 adapter를 제공한다.
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.

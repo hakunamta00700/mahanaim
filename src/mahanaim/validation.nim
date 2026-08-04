@@ -28,6 +28,8 @@ type
     maxLength*: int
     minValue*: int
     maxValue*: int
+    ## Optional closed set shared by generated model schemas and OpenAPI.
+    enumValues*: seq[string]
 
   ValidationIssue* = object
     ## Machine-readable issue information for forms and API clients.
@@ -47,7 +49,7 @@ proc stringField*(name: string, location: FieldLocation,
   result = FieldSpec(name: name, location: location, inputType: itString,
     required: required, hasDefault: defaultValue.len > 0,
     defaultValue: defaultValue, minLength: minLength, maxLength: maxLength,
-    minValue: low(int), maxValue: high(int))
+    minValue: low(int), maxValue: high(int), enumValues: @[])
 
 proc integerField*(name: string, location: FieldLocation,
                    required = true, defaultValue = "",
@@ -56,7 +58,7 @@ proc integerField*(name: string, location: FieldLocation,
   result = FieldSpec(name: name, location: location, inputType: itInteger,
     required: required, hasDefault: defaultValue.len > 0,
     defaultValue: defaultValue, minLength: -1, maxLength: -1,
-    minValue: minValue, maxValue: maxValue)
+    minValue: minValue, maxValue: maxValue, enumValues: @[])
 
 proc locationName(location: FieldLocation): string =
   case location
@@ -147,6 +149,9 @@ proc validate*(request: Request, schema: openArray[FieldSpec]): ValidationResult
       continue
 
     let raw = value.get()
+    if spec.enumValues.len > 0 and raw notin spec.enumValues:
+      result.addIssue(spec, "invalid_enum", "Value is not declared by enum metadata")
+      continue
     case spec.inputType
     of itString:
       if spec.minLength >= 0 and raw.len < spec.minLength:

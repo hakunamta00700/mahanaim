@@ -36,7 +36,7 @@ proc modelFieldSpec*(field: ModelField, location = flBody,
     inputType: inputTypeFor(field.kind), required: required and not field.nullable,
     hasDefault: false, defaultValue: "", minLength: -1,
     maxLength: if field.maxLength > 0: field.maxLength else: -1,
-    minValue: low(int), maxValue: high(int))
+    minValue: low(int), maxValue: high(int), enumValues: field.enumValues)
 
 proc modelInputSchema*(metadata: ModelMetadata,
                        location = flBody,
