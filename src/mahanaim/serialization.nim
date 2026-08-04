@@ -27,6 +27,15 @@ type
   SerializationAdapter* = ref object of RootObj
     ## Extension point for domain values that cross the JSON boundary.
 
+  SerializationCodec* = proc(field: ModelField, value: JsonNode): JsonNode
+    {.gcsafe.}
+
+  SerializationAdapterRegistry* = ref object of SerializationAdapter
+    ## Field metadata selects an application-owned codec by stable wire key.
+    ## The registry deliberately rejects missing keys instead of silently
+    ## returning an unencoded domain value.
+    codecs: Table[string, SerializationCodec]
+
   StandardSerializationAdapter* = ref object of SerializationAdapter
     ## Canonical JSON representation for framework-supported scalar values.
 
@@ -38,6 +47,34 @@ method encode*(adapter: SerializationAdapter, field: ModelField,
 proc newStandardSerializationAdapter*(): StandardSerializationAdapter =
   ## Keep date, UUID, and file conventions in one reusable boundary policy.
   StandardSerializationAdapter()
+
+proc newSerializationAdapterRegistry*(): SerializationAdapterRegistry =
+  ## A fresh registry keeps plugin/application codec state isolated and makes
+  ## test fixtures deterministic.
+  new(result)
+  result.codecs = initTable[string, SerializationCodec]()
+
+proc registerCodec*(registry: SerializationAdapterRegistry, wireType: string,
+                    codec: SerializationCodec) =
+  ## Duplicate keys are rejected so load order cannot change wire semantics.
+  if registry.isNil or wireType.strip().len == 0 or codec.isNil:
+    raise newException(ValueError,
+      "Serialization registry requires a wire type and codec")
+  if registry.codecs.hasKey(wireType):
+    raise newException(ValueError,
+      "Serialization codec already registered: " & wireType)
+  registry.codecs[wireType] = codec
+
+method encode*(registry: SerializationAdapterRegistry, field: ModelField,
+               value: JsonNode): JsonNode =
+  ## Fields without a custom key remain identity values; a declared key must
+  ## resolve to a codec, which prevents accidental untyped serialization.
+  if field.wireType.strip().len == 0:
+    return value
+  if not registry.codecs.hasKey(field.wireType):
+    raise newException(ValueError,
+      "No serialization codec registered: " & field.wireType)
+  registry.codecs[field.wireType](field, value)
 
 proc isCanonicalUuid(value: string): bool =
   if value.len != 36:

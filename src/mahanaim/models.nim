@@ -47,6 +47,9 @@ type
     ## The element type remains intentionally open for the JSON adapter until
     ## a typed collection codec is registered by the application.
     collection*: bool
+    ## Optional application-owned wire type key. Keeping this key in metadata
+    ## lets serializer registries select a codec without guessing Nim types.
+    wireType*: string
 
   ModelIndex* = object
     ## Composite indexes remain backend-neutral until a migration compiler reads
@@ -91,7 +94,7 @@ proc newModelField*(name: string, kind: ModelValueKind,
                     columnName = "", jsonName = "", nullable = false,
                     primaryKey = false, unique = false, indexed = false,
                     maxLength = 0, sensitive = false, nestedModel = "",
-                    collection = false): ModelField =
+                    collection = false, wireType = ""): ModelField =
   ## Nim, database, and JSON names are independent so each adapter can use the
   ## naming convention appropriate to its boundary.
   result = ModelField(
@@ -107,7 +110,8 @@ proc newModelField*(name: string, kind: ModelValueKind,
     sensitive: sensitive,
     nestedModel: nestedModel,
     enumValues: @[],
-    collection: collection)
+    collection: collection,
+    wireType: wireType)
 
 proc newModelIndex*(name: string, fields: openArray[string],
                     unique = false): ModelIndex =

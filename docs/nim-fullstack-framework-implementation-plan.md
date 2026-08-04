@@ -20,7 +20,7 @@
 - [x] 기존 metadata serializer의 rename·patch·projection·nested DTO·sensitive exclusion 계약을 REQ-API-002 완료로 정리했다.
 - [x] string-backed enum field metadata와 허용 값 검증을 추가하고 invalid enum 회귀 테스트를 작성했다.
 - [x] enum 값을 공통 `FieldSpec` validation과 OpenAPI `enum` schema로 투영해 입력·문서 경계를 일치시켰다.
-- [x] MessagePack JSON-compatible decode, malformed/trailing payload 검증, JSON/MessagePack `Accept` negotiation을 추가했다. stream framing과 enum 전용 custom wire type은 후속 범위다.
+- [x] MessagePack JSON-compatible decode, malformed/trailing payload 검증, JSON/MessagePack `Accept` negotiation을 추가했다. 명시적 serializer `wireType` codec registry를 추가했으며 schema-level custom wire type은 후속 범위다.
 
 ### 2026-08-05 — P1 OpenAPI CLI contract
 
@@ -177,7 +177,7 @@
 - [x] application-owned model registry와 중복 선언 방지를 추가했다.
 - [x] check report가 model field·index·relation 참조를 검증하도록 연결했다.
 - [x] metadata lookup과 registry·invalid reference 회귀 테스트를 추가했다.
-- [-] model macro 생성과 query/backend adapter, migration compiler 및 serializer/form/admin/OpenAPI 소비자 연결을 추가했다. collection·custom type adapter와 PostgreSQL live 증거는 남아 있다.
+- [-] model macro 생성과 query/backend adapter, migration compiler 및 serializer/form/admin/OpenAPI 소비자 연결을 추가했다. JSON collection과 명시적 serializer custom `wireType` codec registry를 추가했으며 임의 Nim custom type의 macro 자동 추론과 PostgreSQL live 증거는 남아 있다.
 
 ### 2026-08-04 — P0 model serializer 1차
 
@@ -194,6 +194,7 @@
 - [x] serializer API에 기존 호출을 깨지 않는 `SerializationAdapter` 확장점을 추가했다.
 - [x] 표준 adapter가 UTC RFC3339 DateTime과 canonical UUID를 정규화하도록 구현했다.
 - [x] file metadata의 필수 키·타입·음수 크기를 검증하고 nested DTO 경계에도 adapter를 전달한다.
+- [x] field metadata의 명시적 `wireType`을 codec registry로 연결하고 누락·중복 codec을 거부하는 custom serializer contract를 추가했다.
 - [x] DateTime·UUID·file metadata 성공/실패 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] MessagePack wire adapter와 외부 파일 저장소/서명 URL 정책은 남아 있다.
 
@@ -688,7 +689,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [x] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
-| [x] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. JSON-compatible decode와 JSON/MessagePack `Accept` negotiation을 포함한다. schema-level custom wire type은 후속 범위다. |
+| [x] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. JSON-compatible decode와 JSON/MessagePack `Accept` negotiation, 명시적 field `wireType` codec registry를 포함한다. schema-level custom wire type은 후속 범위다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. operation별 다중 request/response content type, scalar input/response object용 `inputSchema`·`responseSchema` macro, typed DTO `addTypedDocumentedRoute`, registry 기반 nested DTO component schema/cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했으며 type-erased generic handler closure의 무리한 자동 body schema 추론과 runtime negotiation은 남아 있다. |
 | [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |
 

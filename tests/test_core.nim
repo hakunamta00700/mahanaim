@@ -49,6 +49,14 @@ type FakePasswordHasher = ref object of PasswordHasher
 
 proc fakePasswordHash(password: string): string = "fake$" & password
 
+proc encodeMoneyWire(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
+  ## A test-only domain codec proves that custom wire types stay outside the
+  ## serializer core while still receiving the field metadata context.
+  discard field
+  if value.kind != JInt:
+    raise newException(ValueError, "Money amount must be an integer")
+  %*{"amount": value.getInt(), "currency": "KRW"}
+
 method hashPassword(hasher: FakePasswordHasher, password: string): string
     {.gcsafe.} =
   discard hasher
@@ -2568,6 +2576,24 @@ suite "Mahanaim core contracts":
       adapter = newStandardSerializationAdapter())
     check not invalid.valid
     check invalid.errors[0].code == "adapter_error"
+
+  test "custom serialization registry encodes declared wire types explicitly":
+    var metadata = newModelMetadata("Invoice", "invoices")
+    metadata.addField(newModelField("price", modelJson, wireType = "money"))
+    let adapter = newSerializationAdapterRegistry()
+    adapter.registerCodec("money", encodeMoneyWire)
+    var values = initTable[string, JsonNode]()
+    values["price"] = %*1250
+    let encoded = serializeModel(metadata, values, adapter = adapter)
+    check encoded.valid
+    check encoded.document["price"]["amount"].getInt() == 1250
+    check encoded.document["price"]["currency"].getStr() == "KRW"
+    expect ValueError:
+      adapter.registerCodec("money", encodeMoneyWire)
+    let missing = serializeModel(metadata, values,
+      adapter = newSerializationAdapterRegistry())
+    check not missing.valid
+    check missing.errors[0].code == "adapter_error"
 
   test "metadata CRUD resource convention works with an adapter store":
     var metadata = newModelMetadata("Item", "items")
