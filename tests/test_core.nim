@@ -2339,6 +2339,21 @@ suite "Mahanaim core contracts":
     check registry.auditLog[1].action == "update"
     check registry.auditLog[2].action == "delete"
 
+    var bulkCreate = newRequest("POST", "/admin/items",
+      "{\"title\":\"second\"}")
+    bulkCreate.headers["x-admin"] = "yes"
+    bulkCreate.auth = authorized.auth
+    let secondCreated = waitFor app.dispatch(bulkCreate)
+    let secondId = parseJson(secondCreated.body)["id"].getInt()
+    var bulkDelete = newRequest("POST", "/admin/items/bulk-delete",
+      "{\"ids\":[\"" & $secondId & "\",\"missing\"]}")
+    bulkDelete.headers["x-admin"] = "yes"
+    bulkDelete.auth = authorized.auth
+    let bulkDeleted = waitFor app.dispatch(bulkDelete)
+    check bulkDeleted.status == Http200
+    check parseJson(bulkDeleted.body)["deleted"].getInt() == 1
+    check registry.auditLog[^1].action == "delete"
+
     var invalidQuery = newRequest("GET", "/admin/items")
     invalidQuery.headers["x-admin"] = "yes"
     invalidQuery.auth = authorized.auth

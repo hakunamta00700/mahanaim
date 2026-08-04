@@ -6,7 +6,7 @@
 ## HTML create form, and an in-memory audit trail; richer permissions and
 ## layouts remain extension points.
 
-import std/[asyncdispatch, httpcore, json, strutils, tables]
+import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import ./application
 import ./authorization
 import ./core
@@ -200,6 +200,30 @@ proc adminWritableBody(resource: AdminResource, body: string): string =
   except CatchableError:
     body
 
+proc bulkDeleteIds(body: string): Option[seq[string]] =
+  ## Parse the bulk command before mutating anything so authorization and
+  ## validation can be completed for the whole batch atomically at the route
+  ## boundary. Persistence adapters still own transaction semantics.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject or not document.hasKey("ids") or
+        document["ids"].kind != JArray or document["ids"].len == 0 or
+        document["ids"].len > 100:
+      return none(seq[string])
+    result = some(newSeq[string]())
+    for item in document["ids"]:
+      case item.kind
+      of JString:
+        if item.getStr().strip().len == 0: return none(seq[string])
+        result.get().add(item.getStr())
+      of JInt:
+        result.get().add($item.getInt())
+      else:
+        return none(seq[string])
+    return result
+  except CatchableError:
+    none(seq[string])
+
 proc registerResourceRoutes(app: Application, registry: AdminRegistry,
                             resource: AdminResource) =
   ## Route closures capture one immutable definition so loop registration cannot
@@ -231,6 +255,22 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       if response.status == Http201:
         registry.recordAudit(current.name, "create", "", request.auth.subject)
       return response)
+  app.post(current.prefix & "/bulk-delete", "admin." & current.name & ".bulk-delete",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      let identifiers = bulkDeleteIds(request.body)
+      if identifiers.isNone:
+        return textResponse("Invalid bulk delete payload", Http400)
+      for identifier in identifiers.get():
+        if not adminAuthorized(current, request, "delete", identifier):
+          return forbiddenResponse()
+      var deleted = 0
+      for identifier in identifiers.get():
+        if current.resource.store.delete(identifier):
+          inc deleted
+          registry.recordAudit(current.name, "delete", identifier,
+            request.auth.subject)
+      return jsonResponse(%*{"deleted": deleted})
+    )
   app.get(current.prefix & "/:id", "admin." & current.name & ".get",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "read",
