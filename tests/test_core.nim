@@ -2205,6 +2205,55 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard repository.list(query.toSelectQuery())
 
+  test "aggregate route exposes repository results and structured failures":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"report_items\" (\"id\" INTEGER, " &
+      "\"category\" TEXT, \"amount\" INTEGER)", parameters: @[]))
+    var metadata = newModelMetadata("ReportItem", "report_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("category", modelString))
+    metadata.addField(newModelField("amount", modelInteger))
+    let repository = newDatabaseRepository(metadata, adapter)
+    for values in @[(1, "a", 2), (2, "a", 3), (3, "b", 7)]:
+      var row: ResourceRow
+      row["id"] = newJInt(values[0])
+      row["category"] = newJString(values[1])
+      row["amount"] = newJInt(values[2])
+      discard repository.create(row)
+
+    proc reportFactory(request: Request): QuerySet {.gcsafe.} =
+      discard request
+      newQuerySet("report_items")
+        .selectFields(@["category"])
+        .addAggregate(aggregateSum, "amount", "total")
+        .groupByFields(@["category"])
+        .orderByField("category")
+    proc invalidReportFactory(request: Request): QuerySet {.gcsafe.} =
+      discard request
+      newQuerySet("report_items").addAggregate(aggregateSum,
+        "missing", "total")
+
+    let app = newApplication()
+    registerAggregateRoute(app, repository, "/reports/items", "reports.items",
+      reportFactory)
+    registerAggregateRoute(app, repository, "/reports/invalid", "reports.invalid",
+      invalidReportFactory)
+    let response = waitFor app.dispatch(newRequest("GET", "/reports/items"))
+    check response.status == Http200
+    let document = parseJson(response.body)
+    check document.len == 2
+    check document[0]["category"].getStr() == "a"
+    check document[0]["total"].getInt() == 5
+    check document[1]["total"].getInt() == 7
+
+    let rejected = waitFor app.dispatch(newRequest("GET", "/reports/invalid"))
+    check rejected.status == Http400
+    check rejected.headers["content-type"] == "application/problem+json"
+    check parseJson(rejected.body)["errors"][0]["code"].getStr() ==
+      "invalid_aggregate"
+
   test "database repository store connects CRUD routes to SQLite":
     let adapter = newSqliteDatabaseAdapter()
     defer: adapter.close()

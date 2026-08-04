@@ -246,7 +246,7 @@
 - [x] query contract에 page/pageSize/maxPageSize와 deterministic SQL offset 계산을 추가했다.
 - [x] 음수·0 page/size와 maximum 초과를 사전 거부하고 base query 복사 semantics를 유지했다.
 - [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler와 repository JSON result mapping을 추가했다. cursor pagination, count/total metadata, aggregate API/filter expression route는 남아 있다.
+- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler, repository JSON result mapping, explicit aggregate route adapter를 추가했다. cursor pagination과 count/total metadata는 남아 있다.
 
 ### 2026-08-04 — P2 plugin manifest 1차
 
