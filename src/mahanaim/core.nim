@@ -36,6 +36,10 @@ type
     ## Authentication is adapter-neutral: security middleware binds a verified
     ## session subject here, while handlers never inspect cookie syntax.
     auth*: AuthContext
+    ## Locale negotiation is a request value, not a template-engine concern.
+    ## Localization middleware may populate it from Accept-Language before
+    ## handlers render a response.
+    locale*: string
     ## Trace context is populated by observability middleware and propagated
     ## through adapters without coupling handlers to a tracing SDK.
     trace*: TraceContext
@@ -152,6 +156,7 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   result.cookies = emptyTable()
   result.pathParams = emptyTable()
   result.auth = AuthContext(authenticated: false, subject: "")
+  result.locale = ""
   result.trace = TraceContext()
   new(result.cancellation)
   result.cancellation.cancelled.store(false)

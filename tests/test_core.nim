@@ -1138,6 +1138,19 @@ suite "Mahanaim core contracts":
     let response = waitFor app.dispatch(newRequest("GET", "/"))
     check response.header("X-Framework").get() == "mahanaim"
 
+  test "locale middleware negotiates Accept-Language into the request":
+    let policy = newLocalePolicy(["en", "ko", "ja"], "en")
+    check policy.negotiateLocale("ja;q=0.4, ko-KR;q=0.9, en;q=0.8") == "ko"
+    check policy.negotiateLocale("fr, *;q=0.5") == "en"
+    let app = newApplication()
+    app.addMiddleware(localeMiddleware(policy))
+    proc localized(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.locale)
+    app.get("/localized", "localized", localized)
+    var request = newRequest("GET", "/localized")
+    request.headers["accept-language"] = "ja-JP, ko;q=0.8"
+    check (waitFor app.dispatch(request)).body == "ja"
+
   test "lifecycle hooks are ordered and idempotent":
     let app = newApplication()
     var events: seq[string] = @[]
