@@ -58,7 +58,9 @@
 - [x] worker 예외 복원·sync route offload·실패 전파 회귀 테스트를 추가했다.
 - [x] `AppConfig.requestTimeoutMs`와 환경변수 provider를 추가하고 dispatch timeout을 504로 변환했다.
 - [x] Nim의 비선점 실행 모델에 맞춘 cooperative cancellation token과 회귀 테스트를 추가했다.
-- [ ] taskpools 등 executor backend 교체와 blocking 자동 감지는 남아 있다.
+- [x] deprecated `std/concurrency/threadpool`을 lockfile 기반 `taskpools` backend로 교체했다.
+- [x] GC-managed `Response`를 worker에서 copy-safe shared buffer로 변환하고 event loop에서 복원했다.
+- [ ] blocking 자동 감지와 executor queue/cancellation 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 
@@ -165,6 +167,13 @@
 - [x] 초과 요청을 429로 거부하고 `Retry-After` 및 quota headers를 반환한다.
 - [x] 정책 범위와 invalid window pre-flight 검사를 회귀 테스트로 검증했다.
 - [ ] session binding, auth-cookie rotation, 분산 rate limit 저장소와 retry/backpressure 정책은 남아 있다.
+
+### 2026-08-04 — P0 executor backend 1차
+
+- [x] deprecated std threadpool 대신 lockfile에 고정한 `taskpools`를 사용한다.
+- [x] closure는 synchronized registry로 보관하고 worker에는 copy-safe ID만 전달한다.
+- [x] response/header/error buffer 복원과 worker 예외 전파 회귀 테스트를 유지한다.
+- [ ] blocking 자동 감지, queue limit, backend cancellation 정책은 남아 있다.
 
 ### 2026-08-04 — P0 HTTP body parsing 1차
 

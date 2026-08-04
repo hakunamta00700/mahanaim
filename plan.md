@@ -26,7 +26,8 @@
 - [x] `Application`이 router, middleware, lifecycle, security, error policy를 소유하도록 한다.
 - [x] sync handler를 명시적 adapter와 executor 경계로 감싼다.
 - [x] 요청 timeout과 cooperative cancellation token을 공통 dispatch 경계에 추가한다.
-- [ ] executor backend 교체(taskpools 등)와 blocking 자동 감지를 추가한다.
+- [x] deprecated std threadpool을 taskpools backend로 교체하고 GC-managed response를 copy-safe worker buffer로 bridge한다.
+- [ ] blocking 자동 감지와 executor queue/cancellation 운영 정책을 추가한다.
 
 ### HTTP와 라우팅
 

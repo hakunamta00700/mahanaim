@@ -49,6 +49,7 @@ suite "Mahanaim core contracts":
     check route.executionKind == hekSync
     check route.syncHandler != nil
     check app.executor != nil
+    check response.header("Content-Type").get() == "text/plain; charset=utf-8"
     let executionReport = checkExecution(app.router, app.executionPolicy)
     check executionReport.passed
     check executionReport.issues[0].code == "execution.sync.handler"

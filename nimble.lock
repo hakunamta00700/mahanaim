@@ -114,6 +114,16 @@
       "checksums": {
         "sha1": "9d96efa3031d56684d13bcb3cce116af0d502ef3"
       }
+    },
+    "taskpools": {
+      "version": "0.1.0",
+      "vcsRevision": "9e8ccc754631ac55ac2fd495e167e74e86293edb",
+      "url": "https://github.com/status-im/nim-taskpools",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "09e1b2fdad55b973724d61227971afc0df0b7a81"
+      }
     }
   },
   "tasks": {}
