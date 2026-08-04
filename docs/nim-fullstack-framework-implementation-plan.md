@@ -188,7 +188,14 @@
 - [x] static first-segment prefix index와 dynamic fallback bucket을 추가했다.
 - [x] 후보 index를 registration order로 merge해 score와 method precedence를 보존했다.
 - [x] static/dynamic route precedence 회귀 테스트를 추가했다.
-- [ ] full radix/tree matching, wildcard encoding policy와 benchmark suite는 남아 있다.
+- [ ] full radix/tree matching과 benchmark suite는 남아 있다.
+
+### 2026-08-04 — P0 wildcard URL encoding
+
+- [x] 일반 path parameter는 단일 URL segment로 percent-encode한다.
+- [x] wildcard parameter는 `/` 구분자를 보존하면서 각 segment를 encode한다.
+- [x] 빈 wildcard segment와 연속 `/`를 거부하는 URL builder 회귀 테스트를 추가했다.
+- [ ] full radix/tree matching과 benchmark suite는 남아 있다.
 
 ### 2026-08-04 — P0 HTTP body parsing 1차
 

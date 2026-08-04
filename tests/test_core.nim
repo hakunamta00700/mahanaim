@@ -366,6 +366,16 @@ suite "Mahanaim core contracts":
     routeParams["id"] = "42"
     check app.router.urlFor("typed-user", routeParams) == "/users/42"
     check app.router.urlFor("api-health") == "/api/health"
+    routeParams["id"] = "Ada Lovelace/?"
+    expect ValueError:
+      discard app.router.urlFor("typed-user", routeParams)
+
+    var wildcardParams = initTable[string, string]()
+    wildcardParams["path"] = "css/site sheet.css"
+    check app.router.urlFor("asset-file", wildcardParams) == "/assets/css/site%20sheet.css"
+    wildcardParams["path"] = "css//site.css"
+    expect ValueError:
+      discard app.router.urlFor("asset-file", wildcardParams)
 
   test "router prefix index preserves static and dynamic precedence":
     let app = newApplication()

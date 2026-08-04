@@ -4,7 +4,7 @@
 ## server.  A route is registered once, then the same metadata can be used by
 ## dispatch, URL generation, inspection, and future OpenAPI generation.
 
-import std/[options, parseutils, strutils, tables]
+import std/[options, parseutils, strutils, tables, uri]
 import ./core
 
 type
@@ -257,10 +257,24 @@ proc urlFor*(router: Router, name: string,
       if not validParameter(value, parsed.kind):
         raise newException(ValueError, "Invalid route parameter: " & parsed.name)
       if parsed.wildcard:
-        for part in splitPath(value):
-          segments.add(part)
+        ## Keep wildcard slashes as path separators, but encode each part so
+        ## user data cannot introduce query, fragment, or encoded separators.
+        let parts = value.split('/')
+        var hasEmptyPart = parts.len == 0
+        for part in parts:
+          if part.len == 0:
+            hasEmptyPart = true
+            break
+        if hasEmptyPart:
+          raise newException(ValueError,
+            "Wildcard route parameter must contain non-empty path segments: " &
+            parsed.name)
+        for part in parts:
+          segments.add(encodeUrl(part, usePlus = false))
       else:
-        segments.add(value)
+        ## A named parameter occupies exactly one path segment.  In
+        ## particular, '/' and '?' must never alter the generated route shape.
+        segments.add(encodeUrl(value, usePlus = false))
     else:
       segments.add(segment)
   if segments.len == 0:
