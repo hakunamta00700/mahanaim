@@ -1099,6 +1099,28 @@ suite "Mahanaim core contracts":
     delEnv("MAHANAIM_DEBUG")
     delEnv("MAHANAIM_PORT")
 
+  test "release checks validate runtime matrix and artifact checksums":
+    let artifactPath = getTempDir() / "mahanaim-release-check.txt"
+    writeFile(artifactPath, "artifact bytes")
+    defer:
+      if fileExists(artifactPath): removeFile(artifactPath)
+    let checksum = sha256File(artifactPath)
+    check checksum.len == 64
+    check verifyArtifactChecksum(ReleaseArtifact(path: artifactPath,
+      sha256: checksum))
+    check not verifyArtifactChecksum(ReleaseArtifact(path: artifactPath,
+      sha256: checksum[0 ..< 63] & "0"))
+    check validateReleaseArtifacts(@[
+      ReleaseArtifact(path: artifactPath, sha256: checksum)]).len == 0
+    check validateReleaseArtifacts(@[
+      ReleaseArtifact(path: artifactPath, sha256: "invalid")]).len == 1
+    let matrix = RuntimeSupportMatrix(minimumNim: currentNimVersion(),
+      operatingSystems: @[currentOperatingSystem()])
+    check validateRuntimeSupport(matrix).len == 0
+    check validateRuntimeSupport(RuntimeSupportMatrix(
+      minimumNim: NimVersionSpec(major: 999, minor: 0, patch: 0),
+      operatingSystems: @[currentOperatingSystem()])).len > 0
+
   test "network adapter serves an application over HTTP":
     let app = newApplication()
     proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

@@ -120,7 +120,7 @@
 
 - [x] `nimble test`, `nimble verify`, `nimble check`를 CI와 동일하게 실행한다.
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
-- [ ] 지원 OS/Nim matrix와 release artifact checksum 검증을 추가한다.
+- [-] 지원 OS/Nim matrix 계약과 cross-platform release artifact SHA-256 검증을 추가했다. OS별 CI matrix와 artifact 생성 pipeline 연결은 남아 있다.
 - [ ] 모든 기능의 Definition of Done을 적용한다: 구현, 단위/통합 테스트, 문서, 회귀 검증.
 
 ### 2026-08-04 구현 기록
