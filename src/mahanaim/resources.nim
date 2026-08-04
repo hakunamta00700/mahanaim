@@ -340,6 +340,46 @@ proc listResponseWithTotal*(resource: CrudResource,
   document["total"] = newJInt(page.total)
   jsonResponse(document)
 
+proc listResponseWithCursor*(resource: CrudResource,
+                             query: SelectQuery,
+                             cursor: CursorPagination,
+                             includeTotal = false): Response {.gcsafe.} =
+  ## Fetch one look-ahead row so the next cursor is emitted only when another
+  ## page exists. The extra row is never serialized to the client.
+  if query.limit < 1:
+    raise newException(ValueError, "Cursor response requires a positive page size")
+  var lookAhead = query
+  lookAhead.limit = query.limit + 1
+  var rows = resource.store.list(lookAhead)
+  let hasNext = rows.len > query.limit
+  if hasNext:
+    rows.setLen(query.limit)
+  var items = newJArray()
+  var cursorField: Option[ModelField] = none(ModelField)
+  for field in resource.metadata.fields:
+    if field.name == cursor.field:
+      cursorField = some(field)
+      break
+  for row in rows:
+    if query.columns.len == 0:
+      items.add(responseDocument(resource, row))
+    else:
+      let serialized = serializeProjection(resource.metadata, row, query.columns,
+        resource.responsePolicy)
+      if not serialized.valid:
+        raise newException(ValueError, "Stored resource row failed projection")
+      items.add(serialized.document)
+  var document = newJObject()
+  document["items"] = items
+  document["next_cursor"] = newJNull()
+  if hasNext and cursorField.isSome and rows.len > 0 and
+     rows[^1].hasKey(cursor.field):
+    document["next_cursor"] = newJString(
+      cursorTokenFor(cursorField.get(), rows[^1][cursor.field]))
+  if includeTotal:
+    document["total"] = newJInt(resource.store.listWithTotal(query).total)
+  jsonResponse(document)
+
 proc getResponse*(resource: CrudResource, id: string): Response {.gcsafe.} =
   let row = resource.store.find(id)
   if row.isNone:
@@ -387,10 +427,15 @@ proc registerCrudRoutes*(app: Application, resource: CrudResource,
     raise newException(ValueError, "CRUD route requires prefix and name")
   app.get(prefix, name & ".list",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      let parsed = request.parseQueryComponent(resource.metadata.fields)
+      var options = defaultQueryComponentOptions()
+      options.cursorField = primaryKey(resource.metadata)
+      let parsed = request.parseQueryComponent(resource.metadata.fields, options)
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",
           "One or more query parameters are invalid", parsed.errors)
+      if parsed.cursor.isSome:
+        return listResponseWithCursor(resource, parsed.query,
+          parsed.cursor.get(), parsed.includeTotal)
       if parsed.includeTotal:
         return listResponseWithTotal(resource, parsed.query)
       return listResponse(resource, parsed.query))

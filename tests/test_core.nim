@@ -1811,6 +1811,27 @@ suite "Mahanaim core contracts":
     check totalDocument["items"].len == 1
     check totalDocument["total"].getInt() == 2
 
+    var cursorRequest = newRequest("GET", "/ranked-items")
+    cursorRequest.query["cursor"] = encodeCursor(integerValue(1))
+    cursorRequest.query["sort"] = "id"
+    cursorRequest.query["page_size"] = "1"
+    let cursorPage = waitFor app.dispatch(cursorRequest)
+    check cursorPage.status == Http200
+    let cursorDocument = parseJson(cursorPage.body)
+    check cursorDocument["items"].len == 1
+    check cursorDocument["items"][0]["name"].getStr() == "high"
+    check cursorDocument["next_cursor"].kind == JString
+    check decodeCursor(cursorDocument["next_cursor"].getStr()).get().integer == 2
+
+    var lastCursorRequest = newRequest("GET", "/ranked-items")
+    lastCursorRequest.query["cursor"] = cursorDocument["next_cursor"].getStr()
+    lastCursorRequest.query["sort"] = "id"
+    lastCursorRequest.query["page_size"] = "1"
+    let lastCursorPage = waitFor app.dispatch(lastCursorRequest)
+    let lastCursorDocument = parseJson(lastCursorPage.body)
+    check lastCursorDocument["items"][0]["name"].getStr() == "inactive"
+    check lastCursorDocument["next_cursor"].kind == JNull
+
   test "admin registry protects and audits metadata CRUD routes":
     var metadata = newModelMetadata("AdminItem", "admin_items")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
@@ -1902,6 +1923,8 @@ suite "Mahanaim core contracts":
     check cursorParsed.cursor.get().value.integer == 20
     check cursorParsed.query.filters[^1].operator == filterLess
     check cursorParsed.query.orderBy[0].field == "id"
+    let cursorToken = encodeCursor(integerValue(20))
+    check decodeCursor(cursorToken).get().integer == 20
 
     var invalidCursor = newRequest("GET", "/users")
     invalidCursor.query["cursor"] = "20"

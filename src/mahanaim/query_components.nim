@@ -5,7 +5,7 @@
 ## admin pages, and future controllers share one safe pagination/filter/sort/
 ## field-selection contract without concatenating user input into SQL.
 
-import std/[options, strutils, tables]
+import std/[json, options, strutils, tables]
 import ./core
 import ./database
 import ./models
@@ -69,6 +69,95 @@ proc parseBoolean(parsed: var QueryComponentResult,
     return false
   normalized in ["true", "1"]
 
+proc encodeCursor*(value: SqlValue): string =
+  ## Cursor tokens are opaque at the HTTP boundary but retain the neutral SQL
+  ## type so a decoded value can be bound without string interpolation.
+  let payload = case value.kind
+    of sqlText: "s:" & value.text
+    of sqlInteger: "i:" & $value.integer
+    of sqlFloat: "f:" & $value.floating
+    of sqlBoolean: "b:" & (if value.boolean: "1" else: "0")
+    of sqlNull: raise newException(ValueError, "Null values cannot be cursors")
+  ## Hex encoding avoids delimiters and external codec state, which also keeps
+  ## this parser safe to call from the framework's gcsafe async route boundary.
+  const digits = "0123456789abcdef"
+  var encoded = ""
+  for character in payload:
+    let value = ord(character)
+    encoded.add(digits[value shr 4])
+    encoded.add(digits[value and 0x0f])
+  "m1." & encoded
+
+proc decodeCursor*(token: string): Option[SqlValue] =
+  ## Decode only the framework-owned token format. Legacy raw values are
+  ## intentionally handled by typedValue for backwards compatibility.
+  if not token.startsWith("m1."):
+    return none(SqlValue)
+  let encoded = token[3 .. ^1]
+  if encoded.len == 0 or encoded.len mod 2 != 0:
+    return none(SqlValue)
+  proc hexValue(character: char): int =
+    if character in {'0'..'9'}: ord(character) - ord('0')
+    elif character in {'a'..'f'}: ord(character) - ord('a') + 10
+    elif character in {'A'..'F'}: ord(character) - ord('A') + 10
+    else: -1
+  var payload = ""
+  var index = 0
+  while index < encoded.len:
+    let high = hexValue(encoded[index])
+    let low = hexValue(encoded[index + 1])
+    if high < 0 or low < 0:
+      return none(SqlValue)
+    payload.add(char((high shl 4) or low))
+    inc index, 2
+  if payload.len < 3 or payload[1] != ':':
+    return none(SqlValue)
+  try:
+    case payload[0]
+    of 's': some(textValue(payload[2 .. ^1]))
+    of 'i': some(integerValue(parseInt(payload[2 .. ^1]).int64))
+    of 'f': some(floatValue(parseFloat(payload[2 .. ^1])))
+    of 'b':
+      if payload[2 .. ^1] notin ["0", "1"]: none(SqlValue)
+      else: some(booleanValue(payload[2 .. ^1] == "1"))
+    else: none(SqlValue)
+  except CatchableError:
+    none(SqlValue)
+
+proc typedValue(field: ModelField, raw: string,
+                parsed: var QueryComponentResult, key: string): SqlValue {.gcsafe.}
+
+proc cursorValue(field: ModelField, raw: string,
+                 parsed: var QueryComponentResult, key: string): SqlValue {.gcsafe.} =
+  ## Prefer an encoded cursor, then accept the original typed raw form.
+  if raw.startsWith("m1."):
+    let decoded = decodeCursor(raw)
+    if decoded.isNone:
+      parsed.addQueryIssue(key, "invalid_cursor", "Cursor token is invalid")
+      return nullValue()
+    let expected = case field.kind
+      of modelInteger: sqlInteger
+      of modelFloat: sqlFloat
+      of modelBoolean: sqlBoolean
+      else: sqlText
+    if decoded.get().kind != expected:
+      parsed.addQueryIssue(key, "invalid_cursor_type",
+        "Cursor token type does not match the cursor field")
+      return nullValue()
+    return decoded.get()
+  typedValue(field, raw, parsed, key)
+
+proc cursorTokenFor*(field: ModelField, value: JsonNode): string =
+  ## Convert a serialized row value back to the field's typed cursor token.
+  let typed = case field.kind
+    of modelInteger: integerValue(value.getInt().int64)
+    of modelFloat:
+      if value.kind == JInt: floatValue(value.getInt().float)
+      else: floatValue(value.getFloat())
+    of modelBoolean: booleanValue(value.getBool())
+    else: textValue(if value.kind == JString: value.getStr() else: $value)
+  encodeCursor(typed)
+
 proc findField(fields: openArray[ModelField], name: string): Option[ModelField] =
   ## Accept Nim, database, and JSON names while returning one canonical field.
   for field in fields:
@@ -77,7 +166,7 @@ proc findField(fields: openArray[ModelField], name: string): Option[ModelField] 
   none(ModelField)
 
 proc typedValue(field: ModelField, raw: string,
-                parsed: var QueryComponentResult, key: string): SqlValue =
+                parsed: var QueryComponentResult, key: string): SqlValue {.gcsafe.} =
   ## Convert query text to a bound SqlValue according to model metadata.
   case field.kind
   of modelInteger:
@@ -189,7 +278,7 @@ proc parseQueryComponent*(request: Request,
           result.query.orderBy.add(QueryOrder(field: canonical,
             descending: false))
         result.cursor = some(CursorPagination(field: canonical,
-          value: typedValue(cursorField.get(), request.query["cursor"],
+          value: cursorValue(cursorField.get(), request.query["cursor"],
             result, "cursor"), descending: descending))
         result.query.filters.add(QueryFilter(field: canonical,
           operator: if descending: filterLess else: filterGreater,
