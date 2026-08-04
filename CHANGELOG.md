@@ -10,6 +10,7 @@
 - template engine의 marker 재검색 렌더링을 `TemplateNode` 구조형 AST parser/render 경계로 전환해 중첩 if/for/block/include, typed helper argument, quoted literal과 교차 종료 태그 검증을 일관되게 처리한다.
 - PostgreSQL adapter에 migration history, transactional up/down, idempotent migrate, status와 latest rollback을 추가하고 공통 migration command contract에 연결했다.
 - Redis/Valkey RESP client에 읽기 전용 `INFO server`·`CONFIG GET` compatibility probe를 추가해 vendor/version과 bounded eviction 설정을 운영 진단에서 확인하도록 했다.
+- Redis/Valkey compatibility probe가 `COMMAND INFO`로 fixed-window·cache에 필요한 RESP 명령 지원 여부와 RESP2/RESP3 null 응답을 함께 진단하도록 확장했다.
 
 - model macro가 `newModelCustomField(name, wireType)`로 임의 Nim custom type을 명시적 metadata/wire contract에 연결하고 자동 타입 추측을 거부하도록 확장했다.
 - template engine이 명시적 `TemplateRenderContext` collection과 중첩 `{% for %}` loop를 조건문·자동 escaping과 함께 지원하도록 확장했다.

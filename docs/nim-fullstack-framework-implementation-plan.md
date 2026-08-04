@@ -414,7 +414,7 @@
 - [x] transport library를 핵심에 강제하지 않는 `RateLimitCounterClient` atomic increment/TTL 계약을 추가했다.
 - [x] `RedisValkeyRateLimitStore`가 server-side count/TTL을 quota decision으로 변환하고 bounded immediate retry를 적용한다.
 - [x] retry 성공, quota 초과, retry exhaustion의 fail-closed 503 회귀 테스트를 추가했다.
-- [-] 실제 RESP/network client, server TTL 파싱과 loopback live socket fixture를 추가했고 reconnect와 in-memory bounded eviction을 검증했다. `INFO server`와 `CONFIG GET` 기반 Redis/Valkey flavor/version/maxmemory/eviction probe도 추가했으며 실제 compatibility matrix와 분산 clock/eviction 운영 정책은 남아 있다.
+- [-] 실제 RESP/network client, server TTL 파싱과 loopback live socket fixture를 추가했고 reconnect와 in-memory bounded eviction을 검증했다. `INFO server`, `CONFIG GET`, `COMMAND INFO` 기반 Redis/Valkey flavor/version/필수 command/maxmemory/eviction probe도 추가했으며 실제 compatibility matrix와 분산 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backpressure 1차
 
@@ -741,7 +741,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge, Redis/Valkey RESP rate-limit·cache 구현체와 오류/재시도 경계를 추가하고 request/success/failure/connection/reconnect snapshot metrics, `INFO`/`CONFIG` compatibility probe와 in-memory monotonic TTL·bounded eviction을 제공했다. 실제 version matrix, S3 signing/retry와 cache eviction 운영 정책은 남아 있다. |
+| [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge, Redis/Valkey RESP rate-limit·cache 구현체와 오류/재시도 경계를 추가하고 request/success/failure/connection/reconnect snapshot metrics, `INFO`/`CONFIG`/`COMMAND INFO` compatibility probe와 in-memory monotonic TTL·bounded eviction을 제공했다. 실제 version matrix, S3 signing/retry와 cache eviction 운영 정책은 남아 있다. |
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch, `ExternalDurableJobStore` callback bridge를 제공했다. 실제 외부 provider protocol·visibility timeout·ack 운영 검증은 application-owned 범위다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation과 vendor-neutral Prometheus text exporter를 구현했고 Logue/OpenTelemetry·production exporter 배포 검증은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |

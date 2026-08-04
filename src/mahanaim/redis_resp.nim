@@ -29,6 +29,8 @@ type
     evictionPolicy*: string
     maxmemoryBytes*: int64
     boundedEviction*: bool
+    missingCommands*: seq[string]
+    supportsRequiredCommands*: bool
 
   RedisValkeyRespStats* = object
     ## Counters are adapter diagnostics, not rate-limit policy. A snapshot can
@@ -53,6 +55,9 @@ const fixedWindowScript* =
   "local count = redis.call('INCR', KEYS[1]); " &
   "if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]); end; " &
   "return {count, redis.call('TTL', KEYS[1])}"
+
+const redisRequiredCommands* = [
+  "EVAL", "INCR", "EXPIRE", "TTL", "GET", "SETEX", "SET", "DEL"]
 
 proc respBulk(value: string): string =
   "$" & $value.len & "\r\n" & value & "\r\n"
@@ -265,6 +270,11 @@ proc respFrameEnd(payload: string, cursor: var int): int =
       return cursor
     for _ in 0 ..< count:
       discard respFrameEnd(payload, cursor)
+  of '_':
+    ## RESP3 null is accepted for command capability probes. The default
+    ## client currently speaks RESP2, but accepting this frame keeps the
+    ## parser safe when a transport negotiates RESP3 in the future.
+    discard readRespLine(payload, cursor)
   else:
     raise newException(ValueError, "unsupported RESP response type")
   cursor
@@ -315,6 +325,32 @@ proc executeCommand*(client: RedisValkeyRespClient, command: string): string =
   finally:
     release(client.lock)
 
+proc parseCommandInfoSupport(payload: string,
+                             required: openArray[string]): seq[string] =
+  ## COMMAND INFO returns one nested frame per requested command. Preserve the
+  ## request order so the result remains deterministic across Redis and Valkey
+  ## versions, and treat RESP2 nil/RESP3 null as an unsupported command.
+  var cursor = 0
+  if cursor >= payload.len or payload[cursor] != '*':
+    raise newException(ValueError, "expected Redis COMMAND INFO array")
+  inc cursor
+  let lineEnd = payload.find("\r\n", cursor)
+  if lineEnd < 0:
+    raise newException(ValueError, "incomplete Redis COMMAND INFO length")
+  let count = parseInt(payload[cursor ..< lineEnd])
+  if count != required.len:
+    raise newException(ValueError, "Redis COMMAND INFO response length mismatch")
+  cursor = lineEnd + 2
+  for index in 0 ..< count:
+    let frameStart = cursor
+    let frameEnd = respFrameEnd(payload, cursor)
+    let frame = payload[frameStart ..< frameEnd]
+    if frame.len == 0 or frame[0] == '_' or frame.startsWith("$-1") or
+        frame.startsWith("*-") or frame.startsWith("*0"):
+      result.add(required[index])
+  if cursor != payload.len:
+    raise newException(ValueError, "trailing Redis COMMAND INFO response")
+
 proc inspectRedisCompatibility*(client: RedisValkeyRespClient):
     RedisCompatibilityReport =
   ## Run the small, read-only compatibility probe used by the operations gate.
@@ -329,12 +365,19 @@ proc inspectRedisCompatibility*(client: RedisValkeyRespClient):
     "maxmemory-policy")
   let maxmemoryText = parseRedisConfigPair(client.executeCommand(
     encodeRedisCommand(["CONFIG", "GET", "maxmemory"])), "maxmemory")
+  var commandArguments = @["COMMAND", "INFO"]
+  for commandName in redisRequiredCommands:
+    commandArguments.add(commandName)
+  let missingCommands = parseCommandInfoSupport(client.executeCommand(
+    encodeRedisCommand(commandArguments)), redisRequiredCommands)
   result.flavor = info.flavor
   result.version = info.version
   result.evictionPolicy = evictionPolicy
   result.maxmemoryBytes = parseBiggestInt(maxmemoryText)
   result.boundedEviction = result.maxmemoryBytes > 0 and
     evictionPolicy.toLowerAscii() != "noeviction"
+  result.missingCommands = missingCommands
+  result.supportsRequiredCommands = missingCommands.len == 0
 
 method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
                              windowSeconds: int): RateLimitCounterResult =

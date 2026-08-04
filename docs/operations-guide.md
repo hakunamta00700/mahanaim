@@ -68,8 +68,8 @@ latency를 기록하고, 동시 로그인 부하에서 메모리 사용량도 �
   아니라 장애 관찰용이며, secret/key/payload를 포함하지 않는다.
 - production Redis/Valkey adapter는 atomic counter, server-side TTL, server clock,
   eviction 정책을 제공해야 한다. `inspectRedisCompatibility(client)`는 읽기 전용
-  `INFO server`와 `CONFIG GET maxmemory-policy/maxmemory`를 실행해 vendor/version,
-  maxmemory 및 bounded eviction 여부를 보고한다. 현재 저장소는 RESP client,
+  `INFO server`, `CONFIG GET maxmemory-policy/maxmemory`, `COMMAND INFO`를 실행해
+  vendor/version, 필수 RESP command, maxmemory 및 bounded eviction 여부를 보고한다. 현재 저장소는 RESP client,
   socket timeout, bounded retry와 loopback 검증을 제공하지만 실제 Redis/Valkey
   버전 matrix와 eviction 운영 검증은 별도 배포 gate다. 해당 조건을 검증하기 전
   `InMemoryRateLimitStore`를 수평 확장 정책으로 사용하지 않는다.

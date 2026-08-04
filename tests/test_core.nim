@@ -4171,6 +4171,11 @@ suite "Mahanaim core contracts":
     let client = newRedisValkeyRespClient(transport =
       proc(payload: string): string =
         requested.add(payload)
+        if payload.contains("COMMAND"):
+          var commandInfo = "*8\r\n"
+          for _ in 0 ..< 8:
+            commandInfo.add("*1\r\n$1\r\nx\r\n")
+          return commandInfo
         if payload.contains("INFO"):
           let body = "# Server\r\nvalkey_version:8.0.1\r\nredis_mode:standalone\r\n\r\n"
           return "$" & $body.len & "\r\n" & body & "\r\n"
@@ -4185,7 +4190,9 @@ suite "Mahanaim core contracts":
     check report.evictionPolicy == "allkeys-lru"
     check report.maxmemoryBytes == 10485760
     check report.boundedEviction
-    check requested.len == 3
+    check report.supportsRequiredCommands
+    check report.missingCommands.len == 0
+    check requested.len == 4
 
     let redisBody = "# Server\r\nredis_version:7.2.5\r\n\r\n"
     let redisInfo = parseRedisServerInfo(
