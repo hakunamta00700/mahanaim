@@ -1510,6 +1510,34 @@ suite "Mahanaim core contracts":
     check not invalid.valid
     check invalid.errors[0].code == "adapter_error"
 
+  test "database query compiler binds values for SQLite and PostgreSQL":
+    let query = SelectQuery(
+      table: "users",
+      columns: @[
+        "id", "email"],
+      filters: @[
+        QueryFilter(field: "active", operator: filterEqual,
+          value: booleanValue(true)),
+        QueryFilter(field: "email", operator: filterLike,
+          value: textValue("%@example.test"))],
+      orderBy: @[QueryOrder(field: "id", descending: true)],
+      limit: 20,
+      offset: 40)
+    let sqlite = compileSelect(query)
+    check sqlite.sql == "SELECT \"id\", \"email\" FROM \"users\" WHERE \"active\" = ? AND \"email\" LIKE ? ORDER BY \"id\" DESC LIMIT 20 OFFSET 40"
+    check sqlite.parameters.len == 2
+    let postgres = compileSelect(query, dialectPostgres)
+    check postgres.sql.contains("= $1")
+    check postgres.sql.contains("LIKE $2")
+    expect ValueError:
+      discard compileSelect(SelectQuery(table: "users; DROP TABLE users", columns: @["id"]))
+
+    let migration = migrationSql(MigrationOperation(
+      kind: migrationCreateIndex,
+      table: "users",
+      index: ModelIndex(name: "users_email_idx", fields: @["email"], unique: true)))
+    check migration == "CREATE UNIQUE INDEX \"users_email_idx\" ON \"users\" (\"email\")"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

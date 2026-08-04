@@ -179,6 +179,14 @@
 - [x] DateTime·UUID·file metadata 성공/실패 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] MessagePack wire adapter와 외부 파일 저장소/서명 URL 정책은 남아 있다.
 
+### 2026-08-04 — P1 database contract 1차
+
+- [x] SQLite/PostgreSQL 공통 dialect, parameterized select query, filter/order/pagination 계약을 추가했다.
+- [x] identifier whitelist/quoting과 SQLite `?`·PostgreSQL `$n` placeholder를 테스트했다.
+- [x] migration operation/compiler와 DatabaseAdapter의 begin/commit/rollback/execute 경계를 추가했다.
+- [x] query binding·unsafe identifier 거부·index migration SQL 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] 실제 SQLite/PostgreSQL driver, connection pool, relation query, migration history/up/down 실행기는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
