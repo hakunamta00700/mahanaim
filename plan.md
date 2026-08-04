@@ -1,5 +1,11 @@
 # Mahanaim 구현 계획
 
+## 2026-08-04 executor lifecycle 안정화
+
+- [x] taskpool job registry에서 GC 관리 `Table/seq`를 shared memory에 저장하지 않도록 raw slot registry로 분리한다.
+- [x] job closure의 GC root 해제를 event-loop의 Flowvar 완료 이후로 제한한다.
+- [x] executor backend를 실제 sync 작업 시점에 lazy 초기화하고 반복 application lifecycle 회귀 테스트를 추가한다.
+
 상태: 진행 중  
 작성일: 2026-08-04  
 상세 요구사항: [docs/nim-fullstack-framework-requirements.md](docs/nim-fullstack-framework-requirements.md)  

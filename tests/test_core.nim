@@ -139,6 +139,19 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard waitFor executor.execute(failJob)
 
+  test "executor job registry survives repeated application lifecycles":
+    ## Regression coverage for the taskpool/GC boundary: applications are
+    ## short-lived values, but the native worker pool is process-owned.
+    for index in 0 ..< 24:
+      let app = newApplication()
+      proc repeated(request: Request): mahanaim.Response {.gcsafe.} =
+        discard request
+        textResponse("iteration")
+      app.getSync("/repeated", "repeated-" & $index, repeated)
+      let response = waitFor app.dispatch(newRequest("GET", "/repeated"))
+      check response.status == Http200
+      check response.body == "iteration"
+
   test "thread pool executor rejects work beyond its configured capacity":
     let executor = newThreadPoolExecutor(pollIntervalMs = 1, maxConcurrentJobs = 1)
     proc slowJob(): mahanaim.Response {.gcsafe.} =

@@ -1,5 +1,12 @@
 # Nim 풀스택 웹 프레임워크 구현 계획
 
+### 2026-08-04 — P0 executor lifecycle/GC 안정화
+
+- [x] taskpool job registry에서 GC 관리 `Table/seq`를 shared memory에 저장하지 않고 raw slot registry로 분리했다.
+- [x] job closure의 명시적 GC root 해제를 worker thread가 아닌 event-loop의 Flowvar 완료 이후로 제한했다.
+- [x] executor backend를 실제 sync 작업 시점에 lazy 초기화하고 반복 application lifecycle 회귀 테스트를 추가했다.
+- [ ] taskpools backend가 보장하는 실제 worker 강제 cancellation adapter는 여전히 안전성 검토가 필요하다.
+
 상태: 진행 전  
 작성일: 2026-08-04  
 기준 문서: [풀스택 Nim 웹 프레임워크 기능 요구사항](nim-fullstack-framework-requirements.md)

@@ -55,6 +55,21 @@ type
     errorKind: int
     errorMessage: SharedBuffer
 
+  JobBox = ref object
+    ## The taskpool receives only a raw pointer. This GC-managed box keeps
+    ## the closure alive while it is temporarily outside the GC scan.
+    job: SyncJob
+
+  JobSlot = object
+    ## Raw registry slots must not contain GC-managed seq/ref state.
+    id: int
+    box: pointer
+
+  JobRegistryState = object
+    slots: ptr UncheckedArray[JobSlot]
+    capacity: int
+    lock: Lock
+
   ThreadPoolExecutor* = ref object
     ## The executor owns scheduling policy while the taskpool backend remains
     ## process-wide, matching Nim's former threadpool behavior and avoiding a
@@ -71,44 +86,75 @@ type
     hooks*: ExecutorHooks
 
 var sharedPool: Taskpool
-var jobRegistry: ptr Table[int, SyncJob]
-var jobRegistryLock: Lock
+var jobRegistry: ptr JobRegistryState
 var nextJobId = 0
-
-initLock(jobRegistryLock)
 
 proc processPool(): Taskpool =
   ## Lazily initialize one backend on the event-loop/root thread. Taskpools
   ## associates spawned work with the calling thread's worker context, so a
   ## single shared pool is safer than constructing one inside every Application.
   if jobRegistry.isNil:
-    # The pointer keeps the registry out of Nim's GC global scan. Access is
-    # still serialized by jobRegistryLock, and the process owns it until exit.
-    jobRegistry = cast[ptr Table[int, SyncJob]](
-      allocShared0(sizeof(Table[int, SyncJob])))
-    jobRegistry[] = initTable[int, SyncJob]()
+    ## A fixed raw slot table avoids placing Nim's GC-managed Table/seq state
+    ## in shared memory. The process owns this registry until exit.
+    jobRegistry = cast[ptr JobRegistryState](
+      allocShared0(sizeof(JobRegistryState)))
+    jobRegistry.capacity = 4096
+    jobRegistry.slots = cast[ptr UncheckedArray[JobSlot]](
+      allocShared0(sizeof(JobSlot) * jobRegistry.capacity))
+    initLock(jobRegistry.lock)
   if sharedPool.isNil:
     sharedPool = Taskpool.new()
   sharedPool
 
 proc registerJob(job: SyncJob): int =
   ## Keep the closure alive while only a copy-safe ID crosses taskpools.
-  acquire(jobRegistryLock)
+  inc nextJobId
+  result = nextJobId
+  let box = JobBox(job: job)
+  ## The event-loop owner releases this root only after the Flowvar is done.
+  GC_ref(box)
+  acquire(jobRegistry.lock)
   try:
-    inc nextJobId
-    result = nextJobId
-    jobRegistry[][result] = job
+    for index in 0 ..< jobRegistry.capacity:
+      if jobRegistry.slots[index].id == 0:
+        jobRegistry.slots[index].id = result
+        jobRegistry.slots[index].box = cast[pointer](box)
+        return
+    GC_unref(box)
+    raise newException(ResourceExhaustedError,
+      "Synchronous executor job registry is full")
   finally:
-    release(jobRegistryLock)
+    release(jobRegistry.lock)
 
-proc takeJob(jobId: int): SyncJob {.gcsafe, raises: [].} =
-  ## Transfer ownership out of the registry exactly once on the worker.
-  acquire(jobRegistryLock)
+proc takeJob(jobId: int): JobBox {.gcsafe, raises: [].} =
+  ## Read the pointer while the raw registry lock is held. The slot remains
+  ## occupied until the event-loop has consumed the Flowvar result.
+  var raw: pointer
+  acquire(jobRegistry.lock)
+  for index in 0 ..< jobRegistry.capacity:
+    if jobRegistry.slots[index].id == jobId:
+      raw = jobRegistry.slots[index].box
+      break
+  release(jobRegistry.lock)
+  if raw != nil:
+    result = cast[JobBox](raw)
+
+proc releaseJob(jobId: int) =
+  ## Release the explicit GC root on the event-loop thread after the worker
+  ## result has crossed back through the Flowvar.
+  var raw: pointer
+  acquire(jobRegistry.lock)
   try:
-    result = jobRegistry[].getOrDefault(jobId)
-    jobRegistry[].del(jobId)
+    for index in 0 ..< jobRegistry.capacity:
+      if jobRegistry.slots[index].id == jobId:
+        raw = jobRegistry.slots[index].box
+        jobRegistry.slots[index].id = 0
+        jobRegistry.slots[index].box = nil
+        break
   finally:
-    release(jobRegistryLock)
+    release(jobRegistry.lock)
+  if raw != nil:
+    GC_unref(cast[JobBox](raw))
 
 proc defaultExecutionPolicy*(): ExecutionPolicy =
   ## Keep the existing developer experience while making the decision explicit.
@@ -146,7 +192,11 @@ proc newThreadPoolExecutor*(pollIntervalMs = 1,
   result.hooks.onBlockingDetected = onBlockingDetected
   result.hooks.backendCancellation = backendCancellation
   result.activeJobs = 0
-  result.pool = processPool()
+  ## Do not initialize native worker threads while an Application is merely
+  ## being configured. The event-loop execute path initializes the backend
+  ## once, which keeps construction side-effect free and simplifies GC/close
+  ## ownership for short-lived test and CLI applications.
+  result.pool = nil
 
 proc toSharedBuffer(value: string): SharedBuffer =
   ## Allocate a stable byte copy that can be transferred through a Flowvar.
@@ -211,13 +261,25 @@ proc runSyncJob(job: SyncJob): SyncJobResult {.gcsafe, raises: [].} =
     result.errorMessage = toSharedBuffer(error.msg)
 
 proc runRegisteredJob(jobId: int): SyncJobResult {.gcsafe, raises: [].} =
-  ## Taskpools sees only the integer ID, while the synchronized registry keeps
-  ## closure capture and GC ownership explicit at the adapter boundary.
-  runSyncJob(takeJob(jobId))
+  ## Taskpools sees only the integer ID, while the registry keeps closure
+  ## capture and GC ownership explicit at the adapter boundary.
+  let box = takeJob(jobId)
+  if box == nil:
+    result.failed = true
+    result.errorKind = 3
+    result.errorMessage = toSharedBuffer("Synchronous executor job missing")
+    return
+  try:
+    result = runSyncJob(box.job)
+  finally:
+    ## The registry root remains until releaseJob runs on the event loop.
+    discard box
 
 proc execute*(executor: ThreadPoolExecutor, job: SyncJob,
               cancellation: CancellationToken = nil): Future[Response] {.async.} =
   ## Run blocking-capable sync work away from the async event-loop thread.
+  if executor.pool.isNil:
+    executor.pool = processPool()
   if executor.maxConcurrentJobs > 0:
     let admissionStarted = getMonoTime()
     while executor.activeJobs >= executor.maxConcurrentJobs:
@@ -273,4 +335,5 @@ proc execute*(executor: ThreadPoolExecutor, job: SyncJob,
     result = newResponse(HttpCode(outcome.status), fromSharedBuffer(outcome.body))
     decodeHeaders(fromSharedBuffer(outcome.headers), result.headers)
   finally:
+    releaseJob(jobId)
     dec executor.activeJobs
