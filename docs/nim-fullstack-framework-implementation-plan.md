@@ -239,7 +239,7 @@
 - [x] field value/error/required 상태를 HTML input context로 변환하고 attribute/text escaping을 적용했다.
 - [x] CSRF enabled policy를 사용할 때 signed hidden input을 생성하도록 연결했다.
 - [x] URL-encoded invalid input, escaped value, CSRF field 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] template inheritance/include/filter/i18n과 model formset은 남아 있다.
+- [-] template inheritance/include/filter의 독립 엔진은 구현했다. i18n과 model formset은 남아 있다.
 
 ### 2026-08-04 — P1 API pagination contract 1차
 
@@ -602,7 +602,7 @@ flowchart TB
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
 
-- [ ] 안전한 기본 escaping, inheritance, include/partial, filter/tag/helper를 갖춘 template engine을 adapter 경계 뒤에 둔다.
+- [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했다. i18n과 고급 tag/helper는 후속 범위다.
 - [ ] 모델/DTO에서 form, widget, model form, formset을 생성하고 field/form 오류를 표준화한다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
 - [ ] 모델 등록만으로 CRUD admin을 생성하고 검색, 필터, 정렬, pagination, bulk action, inline, read-only field, custom layout을 추가한다.
@@ -688,7 +688,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [ ] | REQ-UI-001 | P1 | escaping을 기본 활성화한 template AST/renderer와 inheritance·partial·helper·i18n을 구현한다. |
+| [-] | REQ-UI-001 | P1 | auto-escaping renderer와 inheritance·partial(include)·filter registry를 구현했다. AST 기반 확장 helper와 i18n은 후속 범위다. |
 | [ ] | REQ-UI-002 | P1 | form schema와 widget registry를 만들고 model form/formset, CSRF, 오류 표시를 renderer에 연결한다. |
 | [ ] | REQ-ADMIN-001 | P1 | metadata에서 CRUD route·template·form을 생성하는 admin registry를 제공한다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |

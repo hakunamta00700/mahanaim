@@ -147,7 +147,7 @@
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
 - [-] explicit typed response schema를 OpenAPI에 투영했다. macro 기반 schema와 interactive UI는 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
-- [ ] template inheritance/include/filter와 독립 template engine을 제공한다.
+- [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공한다. i18n과 확장 helper는 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
 - [-] metadata-driven SQLite/PostgreSQL repository CRUD 기반을 추가했다. 기존 CRUD route 연결과 admin extension point는 남아 있다.
 

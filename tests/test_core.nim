@@ -1817,6 +1817,26 @@ suite "Mahanaim core contracts":
         raise newException(ValueError, "transaction failure"))
     check adapter.events == @["begin", "commit", "begin", "rollback"]
 
+  test "template engine escapes context and composes inheritance includes filters":
+    let engine = newTemplateEngine()
+    engine.registerTemplate("base", "<main>{% block content %}fallback{% endblock %}</main>")
+    engine.registerTemplate("badge", "<span>{{ label|upper }}</span>")
+    engine.registerTemplate("page", "{% extends \"base\" %}" &
+      "{% block content %}<h1>{{ title }}</h1>{% include \"badge\" %}{% endblock %}")
+    var context: TemplateContext
+    context["title"] = "<Ada>"
+    context["label"] = "nim"
+    let output = engine.render("page", context)
+    check output == "<main><h1>&lt;Ada&gt;</h1><span>NIM</span></main>"
+    expect ValueError:
+      engine.registerTemplate("base", "duplicate")
+    expect ValueError:
+      discard engine.render("missing", context)
+    engine.registerTemplate("cycle-a", "{% include \"cycle-b\" %}")
+    engine.registerTemplate("cycle-b", "{% include \"cycle-a\" %}")
+    expect ValueError:
+      discard engine.render("cycle-a", context)
+
   test "relation query compiler emits safe deterministic joins":
     let query = RelationSelectQuery(
       table: "users", alias: "u", columns: @["u.id", "posts.title"],
