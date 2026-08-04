@@ -87,6 +87,14 @@
 - [x] CORS 허용·거부·preflight·oversized body 회귀 테스트를 추가했다.
 - [ ] CSRF, signed token, rate limit, timeout policy는 남아 있다.
 
+### 2026-08-04 — P0 라우팅 기반 1차
+
+- [x] route name registry와 중복 이름 검증을 추가했다.
+- [x] typed parameter(`int`, `uint`, `float`, `bool`)와 trailing wildcard를 추가했다.
+- [x] route group prefix·middleware와 named URL builder를 추가했다.
+- [x] 정적 경로 우선순위와 동일 path의 HTTP method dispatch 회귀를 고정했다.
+- [ ] radix/tree 기반 매칭 최적화, wildcard 인코딩 정책, Prologue adapter 연동은 남아 있다.
+
 검증 명령:
 
 ```powershell

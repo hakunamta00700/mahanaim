@@ -155,6 +155,65 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "42"
 
+  test "router supports typed parameters, wildcard paths, groups, and URL building":
+    let app = newApplication()
+    proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.pathParams["id"])
+    proc asset(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.pathParams["path"])
+    proc addGroupHeader(request: Request,
+                        next: Handler): Future[mahanaim.Response] {.async, gcsafe.} =
+      var response = await next(request)
+      response.headers["x-route-group"] = "api"
+      return response
+    proc groupHealth(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("group ok")
+
+    app.get("/users/:id<int>", "typed-user", user)
+    app.get("/assets/*path", "asset-file", asset)
+    var groupMiddleware: seq[Middleware] = @[]
+    groupMiddleware.add(proc(request: Request,
+                             next: Handler): Future[mahanaim.Response] {.async, gcsafe.} =
+      await addGroupHeader(request, next))
+    let api = app.group("/api", groupMiddleware)
+    app.get(api, "/health", "api-health", groupHealth)
+
+    let typedResponse = waitFor app.dispatch(newRequest("GET", "/users/42"))
+    check typedResponse.status == Http200
+    check typedResponse.body == "42"
+    let invalidTyped = waitFor app.dispatch(newRequest("GET", "/users/not-an-int"))
+    check invalidTyped.status == Http404
+
+    let wildcardResponse = waitFor app.dispatch(newRequest("GET", "/assets/css/site.css"))
+    check wildcardResponse.status == Http200
+    check wildcardResponse.body == "css/site.css"
+
+    let groupedResponse = waitFor app.dispatch(newRequest("GET", "/api/health"))
+    check groupedResponse.status == Http200
+    check groupedResponse.header("X-Route-Group").get() == "api"
+
+    var routeParams = initTable[string, string]()
+    routeParams["id"] = "42"
+    check app.router.urlFor("typed-user", routeParams) == "/users/42"
+    check app.router.urlFor("api-health") == "/api/health"
+
+  test "router dispatches the correct method when paths are shared":
+    let app = newApplication()
+    proc getResource(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("get")
+    proc postResource(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("post")
+    app.get("/resource", "get-resource", getResource)
+    app.post("/resource", "post-resource", postResource)
+
+    let getResponse = waitFor app.dispatch(newRequest("GET", "/resource"))
+    let postResponse = waitFor app.dispatch(newRequest("POST", "/resource"))
+    check getResponse.body == "get"
+    check postResponse.body == "post"
+
   test "unknown route returns structured status":
     let app = newApplication()
     let response = waitFor app.dispatch(newRequest("GET", "/missing"))

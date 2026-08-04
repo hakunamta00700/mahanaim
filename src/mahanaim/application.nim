@@ -54,13 +54,39 @@ proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
   app.middlewares.add(middleware)
 
+proc addRoute*(app: Application, httpMethod, pattern, name: string,
+               handler: Handler, middleware: seq[Middleware] = @[]) =
+  ## The generic registration API keeps less common methods available without
+  ## multiplying application-specific wrappers for every HTTP verb.
+  app.router.addRoute(httpMethod, pattern, name, handler, middleware)
+
 proc get*(app: Application, pattern, name: string, handler: Handler,
           middleware: seq[Middleware] = @[]) =
-  app.router.addRoute("GET", pattern, name, handler, middleware)
+  app.addRoute("GET", pattern, name, handler, middleware)
 
 proc post*(app: Application, pattern, name: string, handler: Handler,
            middleware: seq[Middleware] = @[]) =
-  app.router.addRoute("POST", pattern, name, handler, middleware)
+  app.addRoute("POST", pattern, name, handler, middleware)
+
+proc group*(app: Application, prefix: string,
+            middleware: seq[Middleware] = @[]): RouteGroup =
+  ## Return a reusable route declaration scope.  The application remains the
+  ## owner of registration, while the group only carries shared policy.
+  newRouteGroup(prefix, middleware)
+
+proc addRoute*(app: Application, group: RouteGroup, httpMethod, pattern,
+               name: string, handler: Handler,
+               middleware: seq[Middleware] = @[]) =
+  ## Grouped routes use the same generic method contract as top-level routes.
+  app.router.addRoute(group, httpMethod, pattern, name, handler, middleware)
+
+proc get*(app: Application, group: RouteGroup, pattern, name: string,
+          handler: Handler, middleware: seq[Middleware] = @[]) =
+  app.addRoute(group, "GET", pattern, name, handler, middleware)
+
+proc post*(app: Application, group: RouteGroup, pattern, name: string,
+           handler: Handler, middleware: seq[Middleware] = @[]) =
+  app.addRoute(group, "POST", pattern, name, handler, middleware)
 
 proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
               middleware: seq[Middleware] = @[]) =
@@ -127,31 +153,21 @@ proc fallback(app: Application, request: Request,
 
 proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   ## Dispatch an in-process request. Network adapters can delegate to this API.
-  var matchedRoute: Option[Route] = none(Route)
-  for route in app.router.routes:
-    if route.pattern == request.path:
-      matchedRoute = some(route)
-      break
-
+  let matchedRoute = app.router.find(request)
   if matchedRoute.isNone:
-    # Try parameterized routes after the cheap exact-path check.
-    for route in app.router.routes:
-      if route.httpMethod == request.httpMethod:
-        let params = extractParams(route.pattern, request.path)
-        if params.isSome:
-          var requestWithParams = request
-          requestWithParams.pathParams = params.get()
-          var layers = app.middlewares
-          layers.add(route.middleware)
-          return await app.invoke(requestWithParams, compose(layers, route.handler))
+    # A path match with another method is a 405, while no path match is a 404.
+    if app.router.findPath(request.path).isSome:
+      return await app.fallback(request, methodNotAllowedHandler)
     return await app.fallback(request, notFoundHandler)
 
   let route = matchedRoute.get()
-  if route.httpMethod != request.httpMethod:
-    return await app.fallback(request, methodNotAllowedHandler)
+  let params = extractParams(route.pattern, request.path)
+  var requestWithParams = request
+  if params.isSome:
+    requestWithParams.pathParams = params.get()
   var layers = app.middlewares
   layers.add(route.middleware)
-  return await app.invoke(request, compose(layers, route.handler))
+  return await app.invoke(requestWithParams, compose(layers, route.handler))
 
 proc startup*(app: Application) =
   ## Hooks execute once and in registration order.
