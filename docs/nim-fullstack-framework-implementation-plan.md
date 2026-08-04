@@ -657,7 +657,7 @@ flowchart TB
 - [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
-- [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
+- [x] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다. Application 소유 serialization codec registry, named object storage registry, ordered auth backend 등록 API를 추가하고 duplicate registration을 거부한다.
 - [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. `checkApplication`은 HTTPS 강제 정책의 공개 host 미고정 상태를 warning으로 보고한다. Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 외부 endpoint용 `httpsLive` client로 HTTP→HTTPS redirect, handshake·proxy hop·secure cookie를 검증했고, cold Docker cache의 의존성 설치·컴파일을 고려한 bounded readiness window도 추가했다. 운영 staging 인증서/renewal 증거는 배포 환경 gate로 남아 있다.
 
 완료 기준:
@@ -750,7 +750,7 @@ flowchart TB
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation과 vendor-neutral Prometheus text exporter를 구현했고 Logue/OpenTelemetry·production exporter 배포 검증은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
-| [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
+| [x] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. Application 소유 registry와 중복 등록 검증, plugin contract test를 포함한다. |
 | [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·migration command/history·DDL rollback, in-process SSE/WebSocket test client를 추가했다. live-server smoke fixture는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [-] | REQ-DOC-001 | P0 | Definition of Done, 지원 버전 정책, 변경 로그 규칙을 문서화했다. 기능별 Nim 예제·API reference·migration/security guide와 릴리스 gate 증거 누적은 남아 있다. |

@@ -514,6 +514,38 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard resolvePluginManifests([cycleA, cycleB])
 
+  test "plugin registers serializer storage and auth extension points":
+    let app = newApplication()
+    let metadataField = newModelField("price", modelJson,
+      wireType = "money")
+    proc installPlugin(app: Application) {.gcsafe.} =
+      app.registerSerializationCodec("money",
+        proc(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
+          discard field
+          result = value)
+      app.registerStorage("assets", newInMemoryObjectStorage())
+      app.registerAuthBackend(newBearerTokenAuthBackend(
+        "plugin-auth-secret-that-is-long-enough"))
+    app.use(newPlugin(PluginManifest(name: "extensions", version: "1.0.0",
+      phase: pluginSerialization), installPlugin))
+    check app.serializationRegistry.encode(metadataField, %*{"amount": 10}) ==
+      %*{"amount": 10}
+    check app.storage("assets") != nil
+    check app.securityPolicy.authBackends.len == 1
+    proc authProbe(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.auth.subject, Http200)
+    app.get("/plugin-auth", "plugin-auth", authProbe)
+    let bearer = cast[BearerTokenAuthBackend](
+      app.securityPolicy.authBackends[0])
+    var authRequest = newRequest("GET", "/plugin-auth")
+    authRequest.headers["authorization"] = "Bearer " &
+      bearer.issueBearerToken("plugin-user")
+    let authResponse = waitFor app.dispatch(authRequest)
+    check authResponse.status == Http200
+    check authResponse.body == "plugin-user"
+    expect ValueError:
+      app.registerStorage("assets", newInMemoryObjectStorage())
+
   test "command and admin extension points reject duplicate registrations":
     let app = newApplication()
     proc command(arguments: seq[string]): int {.gcsafe.} =

@@ -24,3 +24,6 @@ nimcache/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local example application (managed separately from the framework package)
+/examples/forum/

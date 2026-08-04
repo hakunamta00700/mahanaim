@@ -15,6 +15,8 @@ import ./migration_commands
 import ./seed_commands
 import ./durable_jobs
 import ./response_policy
+import ./serialization
+import ./storage
 
 type
   LifecycleHook* = proc ()
@@ -97,6 +99,10 @@ type
     seedRegistry*: SeedRegistry
     durableJobStore*: DurableJobStore
     durableJobRegistry*: DurableJobRegistry
+    ## Plugin-owned codecs and stores live on the application instance so
+    ## tests and embedded hosts never share mutable global extension state.
+    serializationRegistry*: SerializationAdapterRegistry
+    storageAdapters*: Table[string, ObjectStorage]
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -144,6 +150,8 @@ proc newApplication*(config = defaultConfig(),
   result.migrationRegistry = newMigrationRegistry()
   result.migrationDatabasePath = ".mahanaim.sqlite"
   result.seedRegistry = newSeedRegistry()
+  result.serializationRegistry = newSerializationAdapterRegistry()
+  result.storageAdapters = initTable[string, ObjectStorage]()
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
@@ -397,6 +405,43 @@ proc resolve*(app: Application, name: string): DependencyService =
   ## Resolution remains explicit so request/task lifecycle owners can decide
   ## when to create and release narrower-scope values.
   app.services.resolve(name)
+
+proc registerSerializationCodec*(app: Application, wireType: string,
+                                 codec: SerializationCodec) =
+  ## Serialization plugins register against the application-owned registry;
+  ## model serializers can then consume the same codec without a global hook.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  app.serializationRegistry.registerCodec(wireType, codec)
+
+proc registerStorage*(app: Application, name: string, store: ObjectStorage) =
+  ## Storage names are explicit dependency keys. A duplicate is rejected so a
+  ## plugin cannot silently replace an application's upload or cache backend.
+  if app.isNil or name.strip().len == 0 or store.isNil:
+    raise newException(ValueError, "Storage requires an application, name, and adapter")
+  if app.storageAdapters.hasKey(name):
+    raise newException(ValueError, "Duplicate storage adapter: " & name)
+  app.storageAdapters[name] = store
+
+proc storage*(app: Application, name: string): ObjectStorage =
+  ## Lookup remains explicit and returns a stable application-owned adapter.
+  if app.isNil or not app.storageAdapters.hasKey(name):
+    raise newException(ValueError, "Unknown storage adapter: " & name)
+  app.storageAdapters[name]
+
+proc registerAuthBackend*(app: Application, backend: AuthBackend) =
+  ## Authentication plugins enter the same ordered policy list used by the
+  ## security middleware, preserving one credential negotiation boundary.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  app.securityPolicy.addAuthBackend(backend)
+  ## `securityMiddleware` captures an immutable policy snapshot by design. It
+  ## must be rebuilt after plugin registration so the new backend is effective
+  ## for dispatch, rather than merely visible in application metadata.
+  if app.middlewares.len == 0:
+    app.middlewares.add(securityMiddleware(app.securityPolicy))
+  else:
+    app.middlewares[0] = securityMiddleware(app.securityPolicy)
 
 proc wrapMiddleware(current: Middleware, next: Handler): Handler =
   ## A factory gives each closure its own immutable current/next bindings.

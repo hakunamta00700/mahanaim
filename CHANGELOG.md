@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- plugin이 Application 소유 serialization codec registry, named object storage registry, ordered auth backend를 명시적으로 등록할 수 있는 확장 API를 추가했다. 중복 등록과 실제 plugin 연결 회귀 테스트를 포함했다.
 - admin detail HTML 화면과 metadata 기반 edit form, URL-encoded create/update, 명시적 POST delete/redirect 흐름을 추가해 별도 SPA 없이 CRUD 화면을 사용할 수 있게 했다. JSON API와 기존 권한·감사 경계는 유지한다.
 - admin list route가 기존 JSON 응답을 유지하면서 `Accept: text/html` 요청에 escaped HTML table과 신규 항목 링크를 제공하도록 확장했다. 공통 query/projection/권한 경계와 JSON·HTML 협상 회귀 테스트를 추가했다.
 
