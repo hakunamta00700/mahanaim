@@ -5,7 +5,7 @@
 ## the real libpq connection, transaction boundary, parameter binding, and
 ## isolation contract through the same fixture used by application tests.
 
-import std/[asyncdispatch, atomics, httpcore, httpclient, json, options,
+import std/[asyncdispatch, asyncnet, atomics, httpcore, httpclient, json, options,
             strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
                 database_pool, database_session, migration_commands,
@@ -191,6 +191,15 @@ proc runLiveServerContract(configuration: PostgresTestConfiguration) =
       return textResponse("missing live row", Http500)
     return textResponse(rows[0][0].text)
   app.get("/postgres-live", "postgres-live", liveRoute)
+  app.get("/postgres-live-sse", "postgres-live-sse",
+    proc(request: Request): Future[core.Response] {.async, gcsafe.} =
+      discard request
+      return sseResponse([SseEvent(event: "database", data: "ready", retryMs: -1)]))
+  app.websocket("/postgres-live-ws", "postgres-live-ws",
+    proc(request: Request, session: WebSocketSession): Future[void]
+        {.async, gcsafe.} =
+      discard request
+      await session.send(await session.receive()))
 
   let network = newNetworkServer(app, "127.0.0.1", 0)
   asyncCheck network.serve()
@@ -210,7 +219,58 @@ proc runLiveServerContract(configuration: PostgresTestConfiguration) =
   let client = newAsyncHttpClient()
   let response = waitFor client.getContent(
     "http://127.0.0.1:" & $network.boundPort().uint16 & "/postgres-live")
+  var sseHeaders = newHttpHeaders()
+  sseHeaders["Accept"] = "text/event-stream"
+  let sseResponse = waitFor client.request(
+    "http://127.0.0.1:" & $network.boundPort().uint16 & "/postgres-live-sse",
+    HttpGet, headers = sseHeaders)
+  let sseBody = waitFor sseResponse.body()
+  if sseResponse.code != Http200 or
+      sseResponse.headers["content-type"] != "text/event-stream; charset=utf-8" or
+      sseBody != "event: database\ndata: ready\n\n":
+    client.close()
+    network.close()
+    raise newException(ValueError, "PostgreSQL live SSE response mismatch: " &
+      $sseResponse.code & " / " & sseResponse.headers.getOrDefault("content-type") &
+      " / " & sseBody)
   client.close()
+
+  ## Use the same raw client shape as the production wire boundary so the
+  ## PostgreSQL fixture also exercises upgrade and frame ownership.
+  let socket = newAsyncSocket(buffered = false)
+  waitFor socket.connect("127.0.0.1", network.boundPort())
+  let key = "dGhlIHNhbXBsZSBub25jZQ=="
+  waitFor socket.send("GET /postgres-live-ws HTTP/1.1\r\n" &
+    "Host: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" &
+    "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: " & key & "\r\n\r\n")
+  var handshake = ""
+  while not handshake.endsWith("\r\n\r\n"):
+    handshake.add(waitFor socket.recv(1))
+  if not handshake.contains("101 Switching Protocols"):
+    socket.close()
+    network.close()
+    raise newException(ValueError, "PostgreSQL live WebSocket handshake mismatch")
+  let message = "postgres-ws"
+  let mask = [byte(1), byte(2), byte(3), byte(4)]
+  var frame = "\x81" & char(0x80 or message.len)
+  for value in mask:
+    frame.add(char(value))
+  for index, value in message:
+    frame.add(char(ord(value) xor int(mask[index mod 4])))
+  waitFor socket.send(frame)
+  let echoHeader = waitFor socket.recv(2)
+  let echo = waitFor socket.recv(ord(echoHeader[1]) and 0x7f)
+  if (ord(echoHeader[0]) and 0x0f) != 0x1 or echo != message:
+    socket.close()
+    network.close()
+    raise newException(ValueError, "PostgreSQL live WebSocket echo mismatch")
+  let closeHeader = waitFor socket.recv(2)
+  let closePayload = waitFor socket.recv(ord(closeHeader[1]) and 0x7f)
+  if (ord(closeHeader[0]) and 0x0f) != 0x8 or closePayload.len != 2:
+    socket.close()
+    network.close()
+    raise newException(ValueError, "PostgreSQL live WebSocket close mismatch")
+  socket.close()
   network.close()
   if response != "postgres-live-server":
     raise newException(ValueError, "PostgreSQL live server response mismatch")

@@ -18,7 +18,7 @@
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
 - [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
 - [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
-- [-] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했고 PostgreSQL 16 live task에 shared migration command의 status/up/idempotency/schema-history/rollback, repository CRUD route·serializable isolation·DDL rollback, real pool/session commit·rollback·isolation·close, HTTP live-server request/response 검증을 연결했다. WebSocket/SSE live-server 범위는 남아 있다.
+- [x] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했고 PostgreSQL 16 live task에 shared migration command의 status/up/idempotency/schema-history/rollback, repository CRUD route·serializable isolation·DDL rollback, real pool/session commit·rollback·isolation·close, HTTP/SSE/WebSocket live-server request/response 검증을 연결했다.
 
 ## 2026-08-04 executor lifecycle 안정화
 
@@ -186,7 +186,7 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [-] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, typed metadata, custom JSONB wire codec, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session commit·rollback·close, HTTP live-server request 검증을 연결했고 source compile gate도 추가했다. PostgreSQL 16 컨테이너에서 live contract를 통과했으며 WebSocket/SSE live-server 범위는 남아 있다.
+- [x] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, typed metadata, custom JSONB wire codec, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session commit·rollback·close, HTTP/SSE/WebSocket live-server request 검증을 연결했고 source compile gate도 추가했다. PostgreSQL 16 컨테이너에서 live contract를 통과했다.
 
 ### API와 서버 렌더링
 
@@ -217,7 +217,7 @@
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [-] background job에 `IdempotencyStore`/in-memory·append-only file·SQLite claim-release adapter와 `enqueueIdempotent`, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner, application-owned `jobs run [max]|recover` bounded drain CLI를 추가했다. 외부 queue callback bridge도 제공하며, 실제 provider protocol·visibility timeout·ack 정책은 application-owned 범위다.
-- [-] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory 및 `newPostgresTestFixtureFromEnv` convenience API를 추가했다. PostgreSQL live fixture에 isolation·repository route·custom codec·DDL rollback·pool/session·HTTP live-server contract를 연결했고 PostgreSQL 16 컨테이너에서 통과했다. WebSocket/SSE live-server 및 test client 계약은 남아 있다.
+- [x] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory 및 `newPostgresTestFixtureFromEnv` convenience API를 추가했다. PostgreSQL live fixture에 isolation·repository route·custom codec·DDL rollback·pool/session·HTTP/SSE/WebSocket live-server contract를 연결했고 PostgreSQL 16 컨테이너에서 통과했다.
 
 ## P3 — 선택 확장
 

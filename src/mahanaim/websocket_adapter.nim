@@ -192,7 +192,8 @@ proc serveWebSocketTransport(transport: WebSocketByteTransport,
   finally:
     await session.close()
 
-proc stdTransport(socket: AsyncSocket): WebSocketByteTransport =
+proc stdTransport(socket: AsyncSocket,
+                  closeOnSession: bool): WebSocketByteTransport =
   ## Adapt stdlib's owned AsyncSocket without exposing it to core handlers.
   let fd = socketFd(socket)
   new(result)
@@ -200,13 +201,21 @@ proc stdTransport(socket: AsyncSocket): WebSocketByteTransport =
     await fd.send(data)
   result.receiveBytes = proc(size: int): Future[string] {.async, gcsafe.} =
     return await fd.recv(size)
-  result.closeSocket = proc() {.gcsafe.} = fd.closeSocket()
+  result.closeSocket = proc() {.gcsafe.} =
+    ## An AsyncHttpServer parent may still own this descriptor after the
+    ## callback returns. In that mode the parent performs the final close;
+    ## direct adapters retain the session-owned close behavior.
+    if closeOnSession:
+      fd.closeSocket()
 
 proc serveWebSocket*(socketRequest: asynchttpserver.Request,
                      frameworkRequest: core.Request,
-                     route: WebSocketRoute): Future[void] {.async, gcsafe.} =
-  ## stdlib adapter entry point.
-  await serveWebSocketTransport(stdTransport(socketRequest.client),
+                     route: WebSocketRoute,
+                     closeOnSession = true): Future[void] {.async, gcsafe.} =
+  ## stdlib adapter entry point. The network server can defer final close to
+  ## its request parent while standalone callers retain session ownership.
+  await serveWebSocketTransport(stdTransport(socketRequest.client,
+    closeOnSession),
     frameworkRequest, route)
 
 when not defined(windows):

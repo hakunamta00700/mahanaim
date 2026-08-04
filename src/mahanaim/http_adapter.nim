@@ -91,10 +91,14 @@ proc handleRequest(network: NetworkServer,
   let websocketRoute = network.app.router.findWebSocket(frameworkRequest.path)
   if websocketRoute.isSome:
     if frameworkRequest.httpMethod != "GET" or
-       not isWebSocketUpgrade(frameworkRequest):
+         not isWebSocketUpgrade(frameworkRequest):
       await request.respond(Http426, "WebSocket upgrade required")
     else:
-      await serveWebSocket(request, frameworkRequest, websocketRoute.get())
+      ## AsyncHttpServer remains the parent owner of this request socket. The
+      ## WebSocket session closes its protocol, then the parent closes the FD.
+      await serveWebSocket(request, frameworkRequest, websocketRoute.get(),
+        closeOnSession = false)
+      request.headers["connection"] = "close"
     return
   let response = negotiateResponse(frameworkRequest,
     await network.app.dispatch(frameworkRequest))
