@@ -54,6 +54,21 @@ suite "Mahanaim core contracts":
     check executionReport.passed
     check executionReport.issues[0].code == "execution.sync.handler"
 
+  test "cancelled sync request does not enter user handler":
+    let app = newApplication()
+    var invoked = false
+    proc syncHandler(request: Request): mahanaim.Response {.gcsafe.} =
+      discard request
+      invoked = true
+      textResponse("should not run")
+    app.getSync("/cancelled-sync", "cancelled-sync", syncHandler)
+    var request = newRequest("GET", "/cancelled-sync")
+    request.cancellation.cancel()
+    let response = waitFor app.dispatch(request)
+    check response.status == Http408
+    check response.body == "Request cancelled"
+    check not invoked
+
   test "thread pool executor keeps the async loop available while sync work runs":
     let executor = newThreadPoolExecutor(pollIntervalMs = 1)
     proc blockingJob(): mahanaim.Response {.gcsafe.} =

@@ -190,7 +190,16 @@ proc syncEndpoint(app: Application, handler: SyncHandler): Handler =
   ## context while keeping the event loop free for other requests.
   result = proc(request: Request): Future[Response] {.gcsafe.} =
     if app.executionPolicy.offloadSynchronousHandlers and app.executor != nil:
-      return app.executor.execute(proc(): Response {.gcsafe.} = handler(request))
+      return app.executor.execute(proc(): Response {.gcsafe.} =
+        ## A queued task can outlive its request deadline.  Nim cannot safely
+        ## preempt a running worker, so avoid entering user code when the
+        ## cooperative token was already cancelled before worker start.
+        if request.isCancelled():
+          return textResponse("Request cancelled", Http408)
+        handler(request))
+    if request.isCancelled():
+      return asyncHandler(proc(_: Request): Response {.gcsafe.} =
+        textResponse("Request cancelled", Http408))(request)
     asyncHandler(handler)(request)
 
 proc fallback(app: Application, request: Request,

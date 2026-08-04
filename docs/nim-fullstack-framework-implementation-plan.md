@@ -184,6 +184,12 @@
 - [x] response/header/error buffer 복원과 worker 예외 전파 회귀 테스트를 유지한다.
 - [ ] blocking 자동 감지, queue limit, backend cancellation 정책은 남아 있다.
 
+### 2026-08-04 — P0 executor cooperative cancellation
+
+- [x] worker 시작 전에 request cancellation token을 확인해 취소된 sync handler 진입을 건너뛴다.
+- [x] 취소된 sync request가 user handler를 호출하지 않는 회귀 테스트를 추가했다.
+- [ ] blocking 자동 감지와 실행 중 worker 강제 cancellation은 남아 있다.
+
 ### 2026-08-04 — P0 executor capacity 1차
 
 - [x] `maxConcurrentJobs` admission gate와 `executor_overloaded` 503 계약을 추가했다.
