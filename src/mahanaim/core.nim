@@ -6,6 +6,7 @@
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import std/concurrency/atomics
+import ./tracing
 
 type
   CancellationToken* = ref object
@@ -31,6 +32,9 @@ type
     ## Authentication is adapter-neutral: security middleware binds a verified
     ## session subject here, while handlers never inspect cookie syntax.
     auth*: AuthContext
+    ## Trace context is populated by observability middleware and propagated
+    ## through adapters without coupling handlers to a tracing SDK.
+    trace*: TraceContext
 
   AuthContext* = object
     ## An empty subject means anonymous. The boolean makes the contract
@@ -140,6 +144,7 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   result.cookies = emptyTable()
   result.pathParams = emptyTable()
   result.auth = AuthContext(authenticated: false, subject: "")
+  result.trace = TraceContext()
   new(result.cancellation)
   result.cancellation.cancelled.store(false)
 

@@ -794,6 +794,33 @@ suite "Mahanaim core contracts":
     let generated = waitFor app.dispatch(request)
     check generated.headers["x-request-id"].startsWith("mahanaim-")
 
+  test "observability propagates traceparent and emits structured logs":
+    var logCount: Atomic[int]
+    logCount.store(0)
+    let observability = newObservability(logSink = proc(record: JsonNode) {.gcsafe.} =
+      discard record
+      logCount.store(logCount.load() + 1))
+    let app = newApplication()
+    app.observability = observability
+    app.middlewares[^1] = observabilityMiddleware(observability)
+    proc traced(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      check request.trace.traceId.len == 32
+      return textResponse("traced")
+    app.get("/traced", "traced", traced)
+    var request = newRequest("GET", "/traced")
+    request.headers["traceparent"] =
+      "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    let response = waitFor app.dispatch(request)
+    check response.status == Http200
+    check response.headers["traceparent"] == request.headers["traceparent"]
+    check logCount.load() == 1
+    let record = requestEventJson(RequestEvent(requestId: "request-1",
+      httpMethod: "GET", path: "/traced", status: 200,
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736", spanId: "00f067aa0ba902b7"))
+    check record["event"].getStr() == "http.request"
+    check record["traceId"].getStr() == "4bf92f3577b34da6a3ce929d0e0e4736"
+    check parseTraceParent("00-00000000000000000000000000000000-00f067aa0ba902b7-01").isNone
+
   test "environment configuration is parsed without logging secrets":
     putEnv("MAHANAIM_ENV", "test")
     putEnv("MAHANAIM_DEBUG", "false")

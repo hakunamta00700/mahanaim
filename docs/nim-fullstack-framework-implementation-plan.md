@@ -202,7 +202,9 @@
 - [x] request/error/in-flight 기본 metrics와 구조화 `RequestEventSink` extension point를 추가했다.
 - [x] lifecycle readiness 상태와 JSON health/readiness response를 추가했다.
 - [x] supplied/invalid request ID, counter lifecycle, readiness 200/503 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] Logue/structured logging backend, tracing context/span propagation, production metrics exporter는 남아 있다.
+- [x] W3C `traceparent` 검증·전파와 response trace header를 추가했다.
+- [x] JSON `StructuredLogSink`와 deterministic request log record를 추가하고 회귀 테스트를 통과했다.
+- [ ] Logue/OpenTelemetry exporter와 production metrics exporter 연결은 남아 있다.
 
 ### 2026-08-04 — P1 MessagePack serializer 1차
 
@@ -681,7 +683,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [ ] | REQ-OPS-001 | P2 | storage/cache protocol과 local·S3·memory·Redis 구현체를 분리하고 오류/재시도 정책을 정의한다. |
 | [ ] | REQ-OPS-002 | P2 | task contract와 queue adapter를 제공하며 응답 완료 후 enqueue, 재시도, idempotency를 문서화한다. |
-| [ ] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. |
+| [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [ ] | REQ-OPS-005 | P2 | locale/timezone context와 날짜·시간·숫자 formatter를 template/form/API에 공통 적용한다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |

@@ -153,7 +153,7 @@
 ## P2 — 운영·확장성
 
 - [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
-- [ ] structured logging backend, tracing/span propagation을 제공한다.
+- [x] structured request logging sink과 W3C trace/span propagation 기반을 제공한다.
 - [x] 구현된 rate limit/timeout/retry/backpressure/graceful shutdown의 실패·복구 운영 정책을 문서화한다.
 - [ ] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
