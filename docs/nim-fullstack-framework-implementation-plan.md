@@ -606,10 +606,10 @@ flowchart TB
 
 ### Phase 1 — 타입 안전 HTTP/API 기반 (P0/P1)
 
-- [ ] path/query/header/body 선언에서 변환, 기본값, 제약, 오류 위치를 도출한다.
-- [ ] request DTO와 response DTO를 분리하고 rename, partial update, nested object, 민감 필드 제외를 지원한다.
-- [ ] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다.
-- [ ] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
+- [x] path/query/header/body 선언에서 변환, 기본값, 제약, 오류 위치를 도출한다. `FieldSpec` validation과 typed route/OpenAPI contract가 위치별 coercion·default·constraint·error path를 공유한다.
+- [x] request DTO와 response DTO를 분리하고 rename, partial update, nested object, 민감 필드 제외를 지원한다. typed documented route의 request/response schema 분리와 metadata serializer 회귀 테스트를 포함한다.
+- [x] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다. content negotiation과 buffered/stream response contract를 함께 검증한다.
+- [x] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
 - [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. registry 기반 nested DTO component schema, cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`, typed DTO macro `addTypedDocumentedRoute`를 추가했으며 type-erased generic handler closure의 무리한 자동 body schema 추론은 남아 있다.
 - [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata와 query validation 오류 형식을 제공한다. metadata-driven aggregate expression parser도 추가했고 annotate/loading 전략은 후속 범위다.
 
@@ -806,7 +806,7 @@ flowchart TB
 - [-] **P0-03**: Prologue HTTP adapter, router, middleware, lifecycle
 - [-] **P0-04**: `new/dev/test/check` CLI와 최소 HTML/JSON 예제
 - [-] **P0-05**: test client, contract test, secret redaction, secure defaults
-- [ ] **P1-01**: typed extraction, validation, DTO, JSON serialization
+- [x] **P1-01**: typed extraction, validation, DTO, JSON serialization을 `FieldSpec`, model metadata, typed documented route와 공통 serializer contract로 검증했다.
 - [-] **P1-02**: OpenAPI registry generator, Swagger UI, ReDoc route, nested DTO component `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`를 추가했고 generic handler closure의 자동 body schema 추론은 남아 있다.
 - [-] **P1-03**: 모델 metadata, SQLite/PostgreSQL adapter, pool/session과 repository/relation execution 기반을 구현했고 PostgreSQL live repository/isolation과 route 연결을 검증했다. 공통 typed result와 `affectedRows` 계약도 추가했으며, 추가 backend 확장과 production matrix evidence가 남아 있다.
 

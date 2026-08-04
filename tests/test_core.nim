@@ -4506,8 +4506,12 @@ suite "Mahanaim core contracts":
     check typedOperation.requestSchema.len == 2
     check typedOperation.requestSchema[0].name == "displayName"
     check typedOperation.requestSchema[1].inputType == itInteger
+    check typedOperation.requestSchema[0].name != "id"
+    check typedOperation.requestSchema[1].name == "age"
     check typedOperation.responseSchema.len == 2
     check typedOperation.responseSchema[0].name == "id"
+    check typedOperation.responseSchema[1].name == "displayName"
+    check typedOperation.responseSchema[0].name != "age"
 
     var profile = newModelMetadata("DocumentedProfile", "documented_profiles")
     profile.addField(newModelField("id", modelInteger, primaryKey = true))
