@@ -348,3 +348,99 @@ proc parseQueryComponent*(request: Request,
 proc valid*(queryResult: QueryComponentResult): bool =
   ## Invalid query input must never reach a repository or SQL compiler.
   queryResult.errors.len == 0
+
+type
+  AggregateComponentOptions* = object
+    ## Bound aggregate count prevents a report endpoint from creating an
+    ## unreviewable projection or unexpectedly expensive query.
+    maxAggregates*: int
+
+  AggregateComponentResult* = object
+    query*: QuerySet
+    errors*: seq[ValidationIssue]
+
+proc defaultAggregateComponentOptions*(): AggregateComponentOptions =
+  AggregateComponentOptions(maxAggregates: 8)
+
+proc addAggregateIssue(result: var AggregateComponentResult,
+                       field, code, message: string) =
+  ## Aggregate input uses the same query-scoped error envelope as CRUD filters.
+  result.errors.add(ValidationIssue(field: field, location: "query",
+    code: code, message: message))
+
+proc aggregateFunction(raw: string): Option[QueryAggregateFunction] =
+  case raw.toLowerAscii()
+  of "count": some(aggregateCount)
+  of "sum": some(aggregateSum)
+  of "avg": some(aggregateAverage)
+  of "min": some(aggregateMinimum)
+  of "max": some(aggregateMaximum)
+  else: none(QueryAggregateFunction)
+
+proc parseAggregateComponent*(request: Request, table: string,
+                              fields: openArray[ModelField],
+                              options = defaultAggregateComponentOptions()):
+                              AggregateComponentResult =
+  ## Translate a small declarative query syntax into QuerySet data. No part of
+  ## the request is copied into SQL; identifiers are resolved through metadata
+  ## and values remain in the existing bound-filter/aggregate contracts.
+  if table.strip().len == 0:
+    raise newException(ValueError, "Aggregate query table is required")
+  if options.maxAggregates < 1:
+    raise newException(ValueError, "Aggregate maximum must be positive")
+  result.query = newQuerySet(table)
+  var groups: seq[string] = @[]
+  if request.query.hasKey("group_by"):
+    for rawName in request.query["group_by"].split(','):
+      let name = rawName.strip()
+      if name.len == 0: continue
+      let field = findField(fields, name)
+      if field.isNone:
+        result.addAggregateIssue("group_by", "unknown_field",
+          "Unknown aggregate group field: " & name)
+      elif field.get().name notin groups:
+        groups.add(field.get().name)
+  result.query = result.query.groupByFields(groups)
+  if groups.len > 0:
+    result.query = result.query.selectFields(groups)
+
+  ## Reuse the established typed filter parser instead of creating a second
+  ## interpretation of `filter.<field>__<operator>` for report endpoints.
+  let filterResult = request.parseQueryComponent(fields)
+  result.errors.add(filterResult.errors)
+  result.query.query.filters = filterResult.query.filters
+
+  var aggregateTotal = 0
+  ## Fixed function order makes generated SQL and response columns deterministic
+  ## regardless of hash-table iteration order in the incoming request.
+  for functionName in ["count", "sum", "avg", "min", "max"]:
+    let key = "aggregate." & functionName
+    if not request.query.hasKey(key):
+      continue
+    let function = aggregateFunction(functionName).get()
+    for rawField in request.query[key].split(','):
+      let name = rawField.strip()
+      if name.len == 0: continue
+      if aggregateTotal >= options.maxAggregates:
+        result.addAggregateIssue(key, "too_many_aggregates",
+          "Aggregate count exceeds configured maximum")
+        break
+      var canonical = "*"
+      if name != "*":
+        let field = findField(fields, name)
+        if field.isNone:
+          result.addAggregateIssue(key, "unknown_field",
+            "Unknown aggregate field: " & name)
+          continue
+        canonical = field.get().name
+      elif function != aggregateCount:
+        result.addAggregateIssue(key, "invalid_wildcard",
+          "Only count accepts wildcard aggregate fields")
+        continue
+      let alias = functionName & "_" & (if canonical == "*": "all" else: canonical)
+      result.query = result.query.addAggregate(function, canonical, alias)
+      inc aggregateTotal
+
+proc valid*(aggregateResult: AggregateComponentResult): bool =
+  ## Callers must reject invalid declarative reports before repository execution.
+  aggregateResult.errors.len == 0

@@ -1949,6 +1949,24 @@ suite "Mahanaim core contracts":
     check decodeCursor(signedToken, "query-secret", 1029).get().text == "Ada"
     check decodeCursor(signedToken, "query-secret", 1030).isNone
 
+    var aggregateRequest = newRequest("GET", "/users/report")
+    aggregateRequest.query["group_by"] = "active"
+    aggregateRequest.query["aggregate.count"] = "*"
+    aggregateRequest.query["aggregate.sum"] = "score"
+    let aggregateParsed = parseAggregateComponent(aggregateRequest,
+      "query_users", metadata.fields)
+    check aggregateParsed.valid
+    check aggregateParsed.query.query.groupBy == @["active"]
+    check aggregateParsed.query.query.aggregates.len == 2
+    check aggregateParsed.query.compile().sql ==
+      "SELECT \"active\", COUNT(*) AS \"count_all\", SUM(\"score\") AS \"sum_score\" FROM \"query_users\" GROUP BY \"active\""
+    var invalidAggregate = newRequest("GET", "/users/report")
+    invalidAggregate.query["aggregate.sum"] = "*"
+    let rejectedAggregate = parseAggregateComponent(invalidAggregate,
+      "query_users", metadata.fields)
+    check not rejectedAggregate.valid
+    check rejectedAggregate.errors[0].code == "invalid_wildcard"
+
     var invalidCursor = newRequest("GET", "/users")
     invalidCursor.query["cursor"] = "20"
     let rejectedCursor = invalidCursor.parseQueryComponent(metadata.fields)
@@ -2329,6 +2347,19 @@ suite "Mahanaim core contracts":
     check rows[1]["total"].getInt() == 2
     check rows[1]["gross"].getInt() == 25
     check rows[1]["mean"].getFloat() == 12.5
+
+    var reportRequest = newRequest("GET", "/orders/report")
+    reportRequest.query["group_by"] = "status"
+    reportRequest.query["filter.active"] = "true"
+    reportRequest.query["aggregate.count"] = "*"
+    reportRequest.query["aggregate.sum"] = "amount"
+    let parsedReport = parseAggregateComponent(reportRequest, "orders",
+      metadata.fields)
+    check parsedReport.valid
+    let parsedRows = repository.aggregate(parsedReport.query)
+    check parsedRows.len == 2
+    check parsedRows[1]["count_all"].getInt() == 2
+    check parsedRows[1]["sum_amount"].getInt() == 25
     expect ValueError:
       discard repository.list(query.toSelectQuery())
 

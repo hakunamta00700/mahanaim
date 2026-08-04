@@ -578,7 +578,7 @@ flowchart TB
 - [ ] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다.
 - [ ] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
 - [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. route 자동 수집은 남아 있다.
-- [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata와 query validation 오류 형식을 제공한다. aggregate 표현식은 후속 범위다.
+- [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata와 query validation 오류 형식을 제공한다. metadata-driven aggregate expression parser도 추가했고 annotate/loading 전략은 후속 범위다.
 
 완료 기준:
 
@@ -589,7 +589,7 @@ flowchart TB
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
-- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, grouped aggregate SQL compiler/result mapping을 연결했다. annotate, eager/lazy loading은 후속 범위다.
+- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping을 연결했다. annotate, eager/lazy loading은 후속 범위다.
 - [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행을 제공했다. 프로젝트별 migration 정의 로딩, 생성·검토, schema diff/check, fixture/seed, 실제 `db` CLI wiring은 남아 있다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
@@ -671,14 +671,14 @@ flowchart TB
 | [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route를 붙였다. route 자동 수집과 schema macro는 남아 있다. |
-| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, 공통 validation 오류 형식을 제공했다. aggregate 표현식은 남아 있다. |
+| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |
 
 ### 데이터·ORM·마이그레이션
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
-| [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST로 조건·정렬·pagination·grouping·aggregate SQL과 repository JSON result mapping을 제공한다. annotate와 loading 전략은 남아 있다. |
+| [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL 및 repository JSON result mapping을 제공한다. annotate와 loading 전략은 남아 있다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status 일부를 제공했고, 프로젝트별 정의 로딩·실제 `db` CLI wiring·schema diff/check·fixture/seed는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
