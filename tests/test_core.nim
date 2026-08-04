@@ -31,6 +31,11 @@ type RespFixtureState = object
   ready: Atomic[bool]
   received: Atomic[bool]
 
+proc discardResetDelivery(subject, token: string) {.gcsafe.} =
+  ## The route test focuses on token semantics; delivery is an adapter seam.
+  discard subject
+  discard token
+
 proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
   ## Minimal loopback RESP server: enough protocol surface to test the real
   ## socket adapter without requiring an externally installed Redis daemon.
@@ -885,8 +890,13 @@ suite "Mahanaim core contracts":
       passwordHash: accountHasher.hashPassword("correct horse battery staple"),
       enabled: true))
     let rotatingHasher = newPbkdf2PasswordHasher(iterations = 12000)
+    let resetStore = newInMemoryPasswordResetTokenStore()
+    let resetSecret = "account-reset-secret-that-is-long-enough"
     let authentication = newAccountAuthentication(accountStore, rotatingHasher,
-      policy.session, newInMemoryLoginThrottle(maxFailures = 2))
+      policy.session, newInMemoryLoginThrottle(maxFailures = 2),
+      resetSecret = resetSecret,
+      resetTtlSeconds = 60, resetTokenStore = resetStore,
+      resetDelivery = discardResetDelivery)
     let app = newTestApplication(securityPolicy = policy)
     app.registerAccountAuthenticationRoutes(authentication)
     let client = newTestClient(app)
@@ -929,6 +939,26 @@ suite "Mahanaim core contracts":
     let logout = waitFor client.post("/logout")
     check logout.status == Http204
     check logout.header("set-cookie").get().contains("Max-Age=0")
+
+    let resetRequested = waitFor client.post("/password-reset",
+      "{\"identifier\":\"user@example.test\"}")
+    check resetRequested.status == Http202
+    check resetRequested.body.len == 0
+    let unknownReset = waitFor client.post("/password-reset",
+      "{\"identifier\":\"missing@example.test\"}")
+    check unknownReset.status == Http202
+    let resetToken = issuePasswordResetTokenAt(resetSecret, "user-42", 60,
+      getTime().toUnix)
+    let resetConfirmed = waitFor client.post("/password-reset/confirm",
+      "{\"subject\":\"user-42\",\"token\":\"" & resetToken &
+      "\",\"newPassword\":\"reset password\"}")
+    check resetConfirmed.status == Http204
+    check rotatingHasher.verifyPassword("reset password",
+      accountStore.findBySubject("user-42").get().passwordHash)
+    let replayedReset = waitFor client.post("/password-reset/confirm",
+      "{\"subject\":\"user-42\",\"token\":\"" & resetToken &
+      "\",\"newPassword\":\"another password\"}")
+    check replayedReset.status == Http400
 
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"

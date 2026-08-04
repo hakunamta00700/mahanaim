@@ -13,6 +13,8 @@ import ./password_hashing
 import ./security
 
 type
+  PasswordResetDelivery* = proc(subject, token: string) {.gcsafe.}
+
   AccountCredential* = object
     ## Only the password hash crosses this boundary; plaintext is request-local
     ## and is never stored in the account record or returned in a response.
@@ -42,6 +44,12 @@ type
     loginPath*: string
     logoutPath*: string
     changePasswordPath*: string
+    resetRequestPath*: string
+    resetConfirmPath*: string
+    resetSecret*: string
+    resetTtlSeconds*: int64
+    resetTokenStore*: PasswordResetTokenStore
+    resetDelivery*: PasswordResetDelivery
 
 method findByIdentifier*(store: AccountCredentialStore,
                          identifier: string): Option[AccountCredential] {.base, gcsafe.} =
@@ -137,7 +145,13 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
                                throttle: LoginThrottleStore = nil,
                                loginPath = "/login",
                                logoutPath = "/logout",
-                               changePasswordPath = "/account/password"):
+                               changePasswordPath = "/account/password",
+                               resetRequestPath = "/password-reset",
+                               resetConfirmPath = "/password-reset/confirm",
+                               resetSecret = "",
+                               resetTtlSeconds: int64 = 0,
+                               resetTokenStore: PasswordResetTokenStore = nil,
+                               resetDelivery: PasswordResetDelivery = nil):
                                AccountAuthentication =
   ## Validate all dependencies at composition time so an application cannot
   ## boot with a public login route and a missing session or throttle policy.
@@ -147,8 +161,16 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
       "Account authentication requires store, hasher, and enabled session policy")
   if loginPath.len == 0 or loginPath[0] != '/' or logoutPath.len == 0 or
       logoutPath[0] != '/' or changePasswordPath.len == 0 or
-      changePasswordPath[0] != '/':
+      changePasswordPath[0] != '/' or resetRequestPath.len == 0 or
+      resetRequestPath[0] != '/' or resetConfirmPath.len == 0 or
+      resetConfirmPath[0] != '/':
     raise newException(ValueError, "Account authentication paths must be absolute")
+  let resetConfigured = resetSecret.len > 0 or resetTtlSeconds > 0 or
+    not resetTokenStore.isNil or not resetDelivery.isNil
+  if resetConfigured and (resetSecret.len < 32 or resetTtlSeconds <= 0 or
+      resetTokenStore.isNil or resetDelivery.isNil):
+    raise newException(ValueError,
+      "Password reset requires secret, TTL, token store, and delivery")
   new(result)
   result.store = store
   result.hasher = hasher
@@ -157,6 +179,12 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
   result.loginPath = loginPath
   result.logoutPath = logoutPath
   result.changePasswordPath = changePasswordPath
+  result.resetRequestPath = resetRequestPath
+  result.resetConfirmPath = resetConfirmPath
+  result.resetSecret = resetSecret
+  result.resetTtlSeconds = resetTtlSeconds
+  result.resetTokenStore = resetTokenStore
+  result.resetDelivery = resetDelivery
 
 proc credentialsFromBody(body: string): Option[(string, string)] =
   ## Keep request parsing local to the route adapter; persistence never sees a
@@ -193,6 +221,39 @@ proc passwordChangeFromBody(body: string): Option[(string, string)] =
     some((currentPassword, newPassword))
   except CatchableError:
     none((string, string))
+
+proc resetRequestFromBody(body: string): Option[string] =
+  ## Reset requests accept only an identifier; the response never reveals
+  ## whether that identifier maps to an account.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject or not document.hasKey("identifier") or
+        document["identifier"].kind != JString:
+      return none(string)
+    let identifier = document["identifier"].getStr().strip()
+    if identifier.len == 0: none(string) else: some(identifier)
+  except CatchableError:
+    none(string)
+
+proc resetConfirmationFromBody(body: string): Option[(string, string, string)] =
+  ## The subject is carried inside the signed token as well; requiring it here
+  ## lets the store lookup remain backend-neutral without trusting it alone.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject or not document.hasKey("subject") or
+        not document.hasKey("token") or not document.hasKey("newPassword") or
+        document["subject"].kind != JString or
+        document["token"].kind != JString or
+        document["newPassword"].kind != JString:
+      return none((string, string, string))
+    let subject = document["subject"].getStr().strip()
+    let token = document["token"].getStr()
+    let newPassword = document["newPassword"].getStr()
+    if subject.len == 0 or token.len == 0 or newPassword.len == 0:
+      return none((string, string, string))
+    some((subject, token, newPassword))
+  except CatchableError:
+    none((string, string, string))
 
 proc failedLoginResponse(): Response =
   ## One response shape prevents callers from distinguishing unknown, disabled,
@@ -265,3 +326,30 @@ proc registerAccountAuthenticationRoutes*(app: Application,
         return textResponse("Current password is invalid", Http400)
       current.store.updatePasswordHash(account.get().subject, changed.encoded)
       return newResponse(Http204))
+  if not current.resetTokenStore.isNil:
+    app.post(current.resetRequestPath, "auth.password-reset-request",
+      proc(request: Request): Future[Response] {.async, gcsafe.} =
+        ## Always return the same accepted response. Delivery failures remain
+        ## adapter errors and are not converted into account enumeration.
+        let identifier = resetRequestFromBody(request.body)
+        if identifier.isSome:
+          let account = current.store.findByIdentifier(identifier.get())
+          if account.isSome and account.get().enabled:
+            let token = issuePasswordResetToken(current.resetSecret,
+              account.get().subject, current.resetTtlSeconds)
+            current.resetDelivery(account.get().subject, token)
+        return newResponse(Http202))
+    app.post(current.resetConfirmPath, "auth.password-reset-confirm",
+      proc(request: Request): Future[Response] {.async, gcsafe.} =
+        let confirmation = resetConfirmationFromBody(request.body)
+        if confirmation.isNone:
+          return textResponse("Invalid password reset payload", Http400)
+        let subject = confirmation.get()[0]
+        let account = current.store.findBySubject(subject)
+        if account.isNone or not account.get().enabled or
+            not current.resetTokenStore.consumePasswordResetToken(
+              current.resetSecret, confirmation.get()[1], subject):
+          return textResponse("Invalid or expired password reset", Http400)
+        let hash = current.hasher.hashPassword(confirmation.get()[2])
+        current.store.updatePasswordHash(subject, hash)
+        return newResponse(Http204))
