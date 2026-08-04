@@ -32,25 +32,23 @@ proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
   ## Adapt one Prologue Context without duplicating route registration.
   result = proc(ctx: prologueApplication.Context) {.async, gcsafe.} =
     let frameworkRequest = toFrameworkRequest(ctx.request)
-    when defined(windows):
-      ## Prologue's Windows/native backend exposes the same AsyncSocket owned
-      ## by the request. Transfer ownership to the shared WebSocket adapter
-      ## before Prologue writes a normal HTTP response for the context.
-      let websocketRoute = app.router.findWebSocket(frameworkRequest.path)
-      if websocketRoute.isSome:
-        if frameworkRequest.httpMethod != "GET" or
-           not isWebSocketUpgrade(frameworkRequest):
-          await ctx.request.respond(Http426, "WebSocket upgrade required")
-          ## Prologue's central response phase must not write a second
-          ## response after an adapter has already completed the socket.
-          ctx.handled = true
-        else:
-          await serveWebSocket(ctx.request.nativeRequest, frameworkRequest,
-            websocketRoute.get())
-          ## The WebSocket adapter owns this connection after the 101
-          ## handshake; prevent Prologue from treating it as HTTP response.
-          ctx.handled = true
-        return
+    ## Both Prologue backends use the same route registry. Only the native
+    ## request/socket handoff differs, so the protocol policy remains here.
+    let websocketRoute = app.router.findWebSocket(frameworkRequest.path)
+    if websocketRoute.isSome:
+      if frameworkRequest.httpMethod != "GET" or
+         not isWebSocketUpgrade(frameworkRequest):
+        await ctx.request.respond(Http426, "WebSocket upgrade required")
+        ## Prologue's central response phase must not write a second response
+        ## after an adapter has already completed the socket.
+        ctx.handled = true
+      else:
+        ## Overload resolution selects stdlib or Beast/httpx ownership.
+        await serveWebSocket(ctx.request.nativeRequest, frameworkRequest,
+          websocketRoute.get())
+        ## The WebSocket adapter owns this connection after the 101 handshake.
+        ctx.handled = true
+      return
     let frameworkResponse = negotiateResponse(frameworkRequest,
       await app.dispatch(frameworkRequest))
     # Populate Prologue's response object and let its normal central response

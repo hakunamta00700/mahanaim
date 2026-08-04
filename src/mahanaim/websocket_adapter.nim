@@ -1,11 +1,12 @@
-## Standard-library WebSocket transport adapter.
 ##
 ## The core exposes frame values and session callbacks only. This module owns
-## the RFC 6455 handshake and frame encoding so that socket details do not
-## leak into application handlers or the router.
+## the RFC 6455 handshake and frame encoding so socket details do not leak
+## into application handlers or the router.
 
-import std/[asynchttpserver, asyncdispatch, asyncnet, base64, httpcore, options,
+import std/[asynchttpserver, asyncdispatch, asyncnet, base64, options,
             strutils, tables]
+when not defined(windows):
+  import pkg/httpx
 import nimcrypto
 import ./core
 import ./router
@@ -14,23 +15,34 @@ const
   websocketGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
   maxWebSocketPayload = 16 * 1024 * 1024
 
+type
+  WebSocketByteTransport = ref object
+    ## Both stdlib AsyncSocket and Beast/httpx SocketHandle implement this
+    ## tiny boundary. Frame parsing and session lifecycle stay backend-neutral.
+    sendBytes: proc (data: string): Future[void] {.gcsafe.}
+    receiveBytes: proc (size: int): Future[string] {.gcsafe.}
+    closeSocket: proc () {.gcsafe.}
+
+  ParsedFrame = object
+    opcode: byte
+    payload: string
+
 proc socketFd(socket: AsyncSocket): AsyncFD =
   AsyncFD(socket.getFd())
 
-proc recvExactly(socket: AsyncSocket, size: int): Future[string] {.async.} =
-  ## TCP reads may be partial; protocol parsing must never assume one recv is
-  ## sufficient for a header or payload.
+proc recvExactly(transport: WebSocketByteTransport,
+                 size: int): Future[string] {.async.} =
+  ## TCP reads may be partial; never assume one recv contains one frame field.
   if size < 0:
     raise newException(ValueError, "WebSocket read size must not be negative")
   while result.len < size:
-    let chunk = await socketFd(socket).recv(size - result.len)
+    let chunk = await transport.receiveBytes(size - result.len)
     if chunk.len == 0:
       raise newException(IOError, "WebSocket peer closed the connection")
     result.add(chunk)
 
 proc websocketAcceptKey*(clientKey: string): string =
-  ## RFC 6455 derives the handshake token from the client nonce plus a fixed
-  ## GUID; the digest is encoded as raw bytes before base64 conversion.
+  ## RFC 6455 derives the handshake token from nonce plus its fixed GUID.
   let digest = sha1.digest(clientKey.strip() & websocketGuid)
   base64.encode(digest.data)
 
@@ -49,10 +61,9 @@ proc readUint64(value: string): uint64 =
   for item in value:
     result = (result shl 8) or uint64(ord(item))
 
-proc sendFrame(socket: AsyncSocket, opcode: byte,
+proc sendFrame(transport: WebSocketByteTransport, opcode: byte,
                payload: string): Future[void] {.async.} =
-  ## Server frames are never masked. Split the length encoding from payload
-  ## writes so large application messages do not require a second copy.
+  ## Server frames are never masked and use the RFC 6455 length encoding.
   if payload.len > maxWebSocketPayload:
     raise newException(ValueError, "WebSocket payload exceeds adapter limit")
   var header = newStringOfCap(10)
@@ -65,56 +76,48 @@ proc sendFrame(socket: AsyncSocket, opcode: byte,
   else:
     header.add(char(127))
     appendUint64(header, uint64(payload.len))
-  let fd = socketFd(socket)
-  await fd.send(header)
+  await transport.sendBytes(header)
   if payload.len > 0:
-    await fd.send(payload)
+    await transport.sendBytes(payload)
 
-type ParsedFrame = object
-  opcode: byte
-  payload: string
-
-proc receiveFrame(socket: AsyncSocket): Future[ParsedFrame] {.async.} =
-  ## Accept only complete, non-fragmented frames in this first adapter slice.
-  ## Fragmentation can be added behind this same session contract later.
-  let header = await recvExactly(socket, 2)
+proc receiveFrame(transport: WebSocketByteTransport): Future[ParsedFrame] {.async.} =
+  ## This first adapter slice rejects fragmented frames and requires masking.
+  let header = await recvExactly(transport, 2)
   let first = byte(ord(header[0]))
   let second = byte(ord(header[1]))
   if (first and 0x80) == 0:
     raise newException(ValueError, "Fragmented WebSocket frames are unsupported")
   let opcode = first and 0x0f
-  let masked = (second and 0x80) != 0
-  if not masked:
+  if (second and 0x80) == 0:
     raise newException(ValueError, "Client WebSocket frames must be masked")
   var length = uint64(second and 0x7f)
   if length == 126:
-    length = readUint16(await recvExactly(socket, 2))
+    length = readUint16(await recvExactly(transport, 2))
   elif length == 127:
-    length = readUint64(await recvExactly(socket, 8))
+    length = readUint64(await recvExactly(transport, 8))
   if length > uint64(maxWebSocketPayload):
     raise newException(ValueError, "WebSocket payload exceeds adapter limit")
-  let mask = await recvExactly(socket, 4)
-  let encoded = await recvExactly(socket, int(length))
+  let mask = await recvExactly(transport, 4)
+  let encoded = await recvExactly(transport, int(length))
   result.opcode = opcode
   result.payload = newString(encoded.len)
   for index, value in encoded:
     result.payload[index] = char(ord(value) xor ord(mask[index mod 4]))
 
 proc isWebSocketUpgrade*(request: core.Request): bool =
-  ## Header values are already normalized by the HTTP adapter.
+  ## Header values are already normalized by every HTTP adapter.
   let upgrade = if tables.hasKey(request.headers, "upgrade"): request.headers["upgrade"] else: ""
   let connection = if tables.hasKey(request.headers, "connection"): request.headers["connection"] else: ""
   upgrade.toLowerAscii() == "websocket" and
     connection.toLowerAscii().contains("upgrade") and
     tables.hasKey(request.headers, "sec-websocket-key")
 
-proc newSocketSession(socket: AsyncSocket): WebSocketSession =
-  ## Build one adapter-owned session. The handler only sees core message
-  ## constructors and cannot accidentally close another request's socket.
+proc newSocketSession(transport: WebSocketByteTransport): WebSocketSession =
+  ## The session owns callbacks, while core handlers never see socket types.
   var closed = false
-  var writeFrame: proc (opcode: byte, payload: string): Future[void] {.gcsafe.}
-  writeFrame = proc(opcode: byte, payload: string): Future[void] {.async, gcsafe.} =
-    await sendFrame(socket, opcode, payload)
+  let writeFrame: proc (opcode: byte, payload: string): Future[void] {.gcsafe.} =
+    proc(opcode: byte, payload: string): Future[void] {.async, gcsafe.} =
+      await sendFrame(transport, opcode, payload)
 
   let sendMessage: WebSocketSendProc = proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
     let opcode = case message.kind
@@ -133,7 +136,7 @@ proc newSocketSession(socket: AsyncSocket): WebSocketSession =
 
   let receiveMessage: WebSocketReceiveProc = proc(): Future[WebSocketMessage] {.async, gcsafe.} =
     while true:
-      let frame = await receiveFrame(socket)
+      let frame = await receiveFrame(transport)
       case frame.opcode
       of 0x1: return textWebSocketMessage(frame.payload)
       of 0x2: return binaryWebSocketMessage(frame.payload)
@@ -160,21 +163,19 @@ proc newSocketSession(socket: AsyncSocket): WebSocketSession =
       payload.add(reason)
       await writeFrame(0x8, payload)
     finally:
-      socket.close()
+      transport.closeSocket()
 
   newWebSocketSession(sendMessage, receiveMessage, closeSession)
 
-proc serveWebSocket*(socketRequest: asynchttpserver.Request,
-                     frameworkRequest: core.Request,
-                     route: WebSocketRoute): Future[void] {.async, gcsafe.} =
-  ## Complete the HTTP upgrade before invoking user code. Route parameters are
-  ## extracted into the same request snapshot used by ordinary handlers.
+proc serveWebSocketTransport(transport: WebSocketByteTransport,
+                             frameworkRequest: core.Request,
+                             route: WebSocketRoute): Future[void] {.async, gcsafe.} =
+  ## Complete the handshake, then delegate the live session to the route.
   if not frameworkRequest.headers.hasKey("sec-websocket-key"):
-    await socketRequest.respond(Http400, "Missing WebSocket key")
+    await transport.sendBytes("HTTP/1.1 400 Bad Request\c\L\c\L")
     return
   let accept = websocketAcceptKey(frameworkRequest.headers["sec-websocket-key"])
-  let fd = socketFd(socketRequest.client)
-  await fd.send("HTTP/1.1 101 Switching Protocols\c\L" &
+  await transport.sendBytes("HTTP/1.1 101 Switching Protocols\c\L" &
     "Upgrade: websocket\c\L" &
     "Connection: Upgrade\c\L" &
     "Sec-WebSocket-Accept: " & accept & "\c\L\c\L")
@@ -182,8 +183,45 @@ proc serveWebSocket*(socketRequest: asynchttpserver.Request,
   let params = extractParams(route.pattern, request.path)
   if params.isSome:
     request.pathParams = params.get()
-  let session = newSocketSession(socketRequest.client)
+  let session = newSocketSession(transport)
   try:
     await route.handler(request, session)
   finally:
     await session.close()
+
+proc stdTransport(socket: AsyncSocket): WebSocketByteTransport =
+  ## Adapt stdlib's owned AsyncSocket without exposing it to core handlers.
+  let fd = socketFd(socket)
+  new(result)
+  result.sendBytes = proc(data: string): Future[void] {.async, gcsafe.} =
+    await fd.send(data)
+  result.receiveBytes = proc(size: int): Future[string] {.async, gcsafe.} =
+    return await fd.recv(size)
+  result.closeSocket = proc() {.gcsafe.} = fd.closeSocket()
+
+proc serveWebSocket*(socketRequest: asynchttpserver.Request,
+                     frameworkRequest: core.Request,
+                     route: WebSocketRoute): Future[void] {.async, gcsafe.} =
+  ## stdlib adapter entry point.
+  await serveWebSocketTransport(stdTransport(socketRequest.client),
+    frameworkRequest, route)
+
+when not defined(windows):
+  proc beastTransport(request: httpx.Request): WebSocketByteTransport =
+    ## httpx exposes a raw SocketHandle and requires `forget()` before this
+    ## adapter takes over reads and writes for a WebSocket session.
+    let fd = AsyncFD(request.client)
+    request.forget()
+    new(result)
+    result.sendBytes = proc(data: string): Future[void] {.async, gcsafe.} =
+      await fd.send(data)
+    result.receiveBytes = proc(size: int): Future[string] {.async, gcsafe.} =
+      return await fd.recv(size)
+    result.closeSocket = proc() {.gcsafe.} = fd.closeSocket()
+
+  proc serveWebSocket*(socketRequest: httpx.Request,
+                       frameworkRequest: core.Request,
+                       route: WebSocketRoute): Future[void] {.async, gcsafe.} =
+    ## Beast/httpx entry point shares the exact handshake and frame contract.
+    await serveWebSocketTransport(beastTransport(socketRequest),
+      frameworkRequest, route)
