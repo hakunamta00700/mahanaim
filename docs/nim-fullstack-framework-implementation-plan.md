@@ -183,6 +183,13 @@
 - [x] legacy acceptance, invalid key rejection, rotated signature 회귀 테스트를 추가했다.
 - [ ] session/auth middleware integration과 key retirement 운영 정책은 남아 있다.
 
+### 2026-08-04 — P0 router prefix index 1차
+
+- [x] static first-segment prefix index와 dynamic fallback bucket을 추가했다.
+- [x] 후보 index를 registration order로 merge해 score와 method precedence를 보존했다.
+- [x] static/dynamic route precedence 회귀 테스트를 추가했다.
+- [ ] full radix/tree matching, wildcard encoding policy와 benchmark suite는 남아 있다.
+
 ### 2026-08-04 — P0 HTTP body parsing 1차
 
 - [x] `Content-Type` 기반 framework-neutral body parser를 추가했다.

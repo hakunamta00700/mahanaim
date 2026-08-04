@@ -367,6 +367,22 @@ suite "Mahanaim core contracts":
     check app.router.urlFor("typed-user", routeParams) == "/users/42"
     check app.router.urlFor("api-health") == "/api/health"
 
+  test "router prefix index preserves static and dynamic precedence":
+    let app = newApplication()
+    proc staticRoute(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("static")
+    proc dynamicRoute(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse("dynamic:" & request.pathParams["id"])
+    for index in 0 .. 40:
+      app.get("/static-" & $index, "static-" & $index, staticRoute)
+    app.get("/:id", "dynamic-id", dynamicRoute)
+
+    let staticResponse = waitFor app.dispatch(newRequest("GET", "/static-40"))
+    let dynamicResponse = waitFor app.dispatch(newRequest("GET", "/other"))
+    check staticResponse.body == "static"
+    check dynamicResponse.body == "dynamic:other"
+
   test "router dispatches the correct method when paths are shared":
     let app = newApplication()
     proc getResource(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

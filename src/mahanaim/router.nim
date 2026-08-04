@@ -15,13 +15,18 @@ type
 
   Router* = object
     ## Routes remain in registration order for deterministic tie breaking.
-    ## `routeNames` is a separate index so URL generation does not scan blindly.
+    ## `routeNames` and the first-segment buckets are separate indexes so URL
+    ## generation and matching do not scan every route blindly.
     routes*: seq[Route]
     routeNames: Table[string, int]
+    staticFirstSegments: Table[string, seq[int]]
+    dynamicFirstSegments: seq[int]
 
 proc initRouter*(): Router =
   result.routes = @[]
   result.routeNames = initTable[string, int]()
+  result.staticFirstSegments = initTable[string, seq[int]]()
+  result.dynamicFirstSegments = @[]
 
 proc newRouteGroup*(prefix: string, middleware: seq[Middleware] = @[]): RouteGroup =
   ## Groups are values, making it safe to define reusable route conventions.
@@ -45,6 +50,17 @@ proc joinPrefix(prefix, pattern: string): string =
     return normalizePattern(left)
   normalizePattern(left & "/" & right)
 
+proc firstStaticSegment(pattern: string): Option[string] =
+  ## Index only an unambiguous first segment; parameters stay in a fallback
+  ## bucket because they can match many different request prefixes.
+  for segment in normalizePattern(pattern).split('/'):
+    if segment.len == 0:
+      continue
+    if segment[0] in {':', '*'}:
+      return none(string)
+    return some(segment)
+  some("")
+
 proc addRoute*(router: var Router, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[],
                executionKind = hekAsync,
@@ -62,6 +78,11 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
     executionKind: executionKind))
   if normalizedName.len > 0:
     router.routeNames[normalizedName] = index
+  let firstSegment = firstStaticSegment(pattern)
+  if firstSegment.isSome:
+    router.staticFirstSegments.mgetOrPut(firstSegment.get(), @[]).add(index)
+  else:
+    router.dynamicFirstSegments.add(index)
 
 proc addRoute*(router: var Router, group: RouteGroup, httpMethod, pattern,
                name: string, handler: Handler,
@@ -160,10 +181,34 @@ proc routeScore(route: Route): int =
     else:
       result += 30
 
+proc candidateIndexes(router: Router, path: string): seq[int] =
+  ## Merge static-prefix and dynamic buckets by route index. Both buckets are
+  ## append-only, so registration order remains the tie breaker without a full
+  ## sort or a second copy of every Route.
+  let segments = splitPath(path)
+  var staticIndexes: seq[int] = @[]
+  if segments.len > 0 and router.staticFirstSegments.hasKey(segments[0]):
+    staticIndexes = router.staticFirstSegments[segments[0]]
+  elif segments.len == 0 and router.staticFirstSegments.hasKey(""):
+    staticIndexes = router.staticFirstSegments[""]
+  var staticIndex = 0
+  var dynamicIndex = 0
+  while staticIndex < staticIndexes.len or
+        dynamicIndex < router.dynamicFirstSegments.len:
+    if dynamicIndex >= router.dynamicFirstSegments.len or
+       (staticIndex < staticIndexes.len and
+        staticIndexes[staticIndex] < router.dynamicFirstSegments[dynamicIndex]):
+      result.add(staticIndexes[staticIndex])
+      inc staticIndex
+    else:
+      result.add(router.dynamicFirstSegments[dynamicIndex])
+      inc dynamicIndex
+
 proc matchingRoute(router: Router, path: string,
                    requestedMethod: Option[string]): Option[Route] =
   var bestScore = -1
-  for route in router.routes:
+  for index in router.candidateIndexes(path):
+    let route = router.routes[index]
     if requestedMethod.isSome and
        route.httpMethod != requestedMethod.get().toUpperAscii():
       continue

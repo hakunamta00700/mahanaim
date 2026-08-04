@@ -34,7 +34,8 @@
 - [x] exact, named parameter, typed parameter, wildcard, route group, named URL을 구현한다.
 - [x] method dispatch, 404/405 fallback, middleware composition을 검증한다.
 - [x] Prologue request/response adapter와 catch-all server bridge를 제공한다.
-- [ ] radix/tree matching 최적화와 wildcard 인코딩 정책을 확정한다.
+- [x] static first-segment prefix index와 dynamic fallback을 추가하고 기존 precedence를 보존한다.
+- [ ] full radix/tree matching, wildcard 인코딩 정책과 benchmark suite를 확정한다.
 - [x] Prologue raw form body와 `Content-Type`을 공통 body parser로 연결하고 contract test를 추가한다.
 - [ ] Prologue upload/WebSocket adapter와 종료 가능한 socket-level smoke fixture를 추가한다.
 
