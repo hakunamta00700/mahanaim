@@ -2766,6 +2766,8 @@ suite "Mahanaim core contracts":
       parameters: @[]))
     pool.release(setup)
     var session = newDatabaseSession(pool)
+    expect ValueError:
+      session.setIsolationLevel(isolationSerializable)
     discard session.adapter.execute(CompiledQuery(sql:
       "INSERT INTO \"events\" (\"id\", \"message\") VALUES (?, ?)",
       parameters: @[integerValue(1), textValue("rolled back")]))

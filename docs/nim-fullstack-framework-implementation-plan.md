@@ -681,7 +681,7 @@ flowchart TB
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL 및 repository JSON result mapping을 제공한다. annotate와 loading 전략은 남아 있다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
-| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
+| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |
 

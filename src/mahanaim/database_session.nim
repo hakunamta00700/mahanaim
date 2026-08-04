@@ -51,6 +51,18 @@ proc rollback*(session: DatabaseSession) =
     session.adapter.rollback()
     session.transactionActive = false
 
+proc setIsolationLevel*(session: DatabaseSession,
+                        level: TransactionIsolationLevel) =
+  ## Isolation belongs to the current unit-of-work. Requiring an active
+  ## transaction prevents a setting from being applied to a later borrowed
+  ## connection by accident, while adapters retain backend-specific support.
+  if session.isNil or session.closed or session.adapter.isNil:
+    raise newException(ValueError, "Database session is closed")
+  if not session.transactionActive:
+    raise newException(ValueError,
+      "Database session has no active transaction")
+  session.adapter.setIsolationLevel(level)
+
 proc close*(session: DatabaseSession) =
   ## Unfinished work is rolled back before returning the connection to the pool.
   if session.isNil or session.closed:
