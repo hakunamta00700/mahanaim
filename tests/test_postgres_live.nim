@@ -5,9 +5,10 @@
 ## the real libpq connection, transaction boundary, parameter binding, and
 ## isolation contract through the same fixture used by application tests.
 
-import std/[asyncdispatch, httpcore, json, options, strutils, tables]
+import std/[asyncdispatch, atomics, httpcore, json, options, strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
-                migration_commands, postgres_adapter, postgres_testing,
+                database_pool, database_session, migration_commands,
+                postgres_adapter, postgres_testing,
                 resources, serialization, testing]
 
 proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
@@ -75,6 +76,83 @@ proc runLiveMigrationContract(configuration: PostgresTestConfiguration) =
   discard adapter.execute(CompiledQuery(sql:
     "DROP TABLE IF EXISTS \"__mahanaim_migrations\"", parameters: @[]))
 
+proc runLivePoolSessionContract(configuration: PostgresTestConfiguration) =
+  ## Exercise the real libpq connection through the framework-owned pool and
+  ## request session, not only through a directly borrowed adapter. The table
+  ## is committed outside the session assertions so every pooled connection
+  ## observes the same schema.
+  let setup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  let tableName = "mahanaim_live_pool_items"
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "CREATE TABLE \"" & tableName & "\" (" &
+    "\"id\" INTEGER PRIMARY KEY, \"value\" TEXT)", parameters: @[]))
+  setup.close()
+
+  var closedConnections: Atomic[int]
+  closedConnections.store(0)
+  let pool = newDatabaseConnectionPool(
+    proc(): DatabaseAdapter {.gcsafe.} =
+      newPostgresDatabaseAdapter(configuration.host & ":" &
+        $configuration.port, configuration.user, configuration.password,
+        configuration.database),
+    maxConnections = 1,
+    closer = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+      discard closedConnections.fetchAdd(1)
+      PostgresDatabaseAdapter(adapter).close())
+  defer:
+    pool.close()
+
+  let committed = newDatabaseSession(pool)
+  committed.setIsolationLevel(isolationSerializable)
+  discard committed.adapter.execute(CompiledQuery(sql:
+    "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
+    parameters: @[integerValue(1), textValue("committed")]))
+  committed.commit()
+  committed.close()
+  if pool.idleCount() != 1 or pool.activeCount() != 0:
+    raise newException(ValueError, "PostgreSQL pool did not return committed session")
+
+  let observed = newDatabaseSession(pool)
+  let committedRows = observed.adapter.execute(CompiledQuery(sql:
+    "SELECT \"value\" FROM \"" & tableName & "\" WHERE \"id\" = $1",
+    parameters: @[integerValue(1)]))
+  if committedRows.len != 1 or committedRows[0][0].text != "committed":
+    raise newException(ValueError, "PostgreSQL session did not observe commit")
+  observed.rollback()
+  observed.close()
+
+  let rolledBack = newDatabaseSession(pool)
+  discard rolledBack.adapter.execute(CompiledQuery(sql:
+    "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
+    parameters: @[integerValue(2), textValue("rolled-back")]))
+  rolledBack.close()
+
+  let verifyRollback = newDatabaseSession(pool)
+  let rollbackRows = verifyRollback.adapter.execute(CompiledQuery(sql:
+    "SELECT \"id\" FROM \"" & tableName & "\" WHERE \"id\" = $1",
+    parameters: @[integerValue(2)]))
+  if rollbackRows.len != 0:
+    raise newException(ValueError, "PostgreSQL session close did not rollback")
+  verifyRollback.rollback()
+  verifyRollback.close()
+
+  let active = pool.acquire()
+  pool.close()
+  pool.release(active)
+  if closedConnections.load() < 1:
+    raise newException(ValueError, "PostgreSQL pool did not close active connection")
+
+  let cleanup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard cleanup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  cleanup.close()
+
 proc runLiveContract() =
   let configuration = postgresTestConfigurationFromEnv()
   if configuration.isNone:
@@ -82,6 +160,7 @@ proc runLiveContract() =
     quit(0)
 
   runLiveMigrationContract(configuration.get())
+  runLivePoolSessionContract(configuration.get())
 
   let fixture = newPostgresTestFixture(configuration.get())
   defer: fixture.close()

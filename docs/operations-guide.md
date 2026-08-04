@@ -231,6 +231,12 @@ PostgreSQL live fixture applies `SERIALIZABLE` inside its transaction and
 exercises migration command status/up/idempotency/history/rollback. The matrix
 is also pinned by the common unit contract in `tests/test_core.nim`.
 
+The same `postgresLive` contract opens real libpq adapters through the
+framework-owned `DatabaseConnectionPool` and `DatabaseSession`. It verifies
+serializable session setup, committed data visibility on a reused connection,
+automatic rollback on session close, and active-connection cleanup after pool
+shutdown. A live HTTP server fixture remains a separate adapter-level task.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and
