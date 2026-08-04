@@ -340,3 +340,28 @@ proc registerAdminRoutes*(app: Application, registry: AdminRegistry) =
     raise newException(ValueError, "Application and admin registry are required")
   for resource in registry.resources:
     registerResourceRoutes(app, registry, resource)
+
+proc runAdminCli*(registry: AdminRegistry, arguments: openArray[string]): int =
+  ## Provide a deliberately read-only CLI inspector for embedding tools and
+  ## release diagnostics. It accepts a registry explicitly instead of hiding
+  ## one in Application, so CLI inspection cannot bypass route authorization or
+  ## invent a second persistence lifecycle.
+  if registry.isNil:
+    raise newException(ValueError, "Admin registry is required")
+  if arguments.len != 1:
+    raise newException(ValueError,
+      "admin command must be exactly: resources or audit")
+  case arguments[0].toLowerAscii()
+  of "resources":
+    for resource in registry.resources:
+      echo resource.name & " " & resource.prefix
+  of "audit":
+    for event in registry.auditEvents():
+      ## Do not print request bodies or secrets; audit events contain only the
+      ## stable identity fields intentionally approved by the registry.
+      echo event.resource & " " & event.action & " " & event.identifier &
+        " actor=" & event.actor
+  else:
+    raise newException(ValueError,
+      "Unknown admin command: " & arguments[0])
+  0

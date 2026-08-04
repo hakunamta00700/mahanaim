@@ -179,7 +179,7 @@
 
 - [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
-- [ ] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. fixture와 admin CLI는 남아 있다.
+- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture와 명시적 read-only `AdminRegistry` CLI inspector도 추가했으며 durable admin command와 live fixture 증거는 남아 있다.
 
 ## 탄탄한 기반을 위한 설계 규칙
 

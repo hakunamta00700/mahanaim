@@ -2461,6 +2461,10 @@ suite "Mahanaim core contracts":
     let rejectedQuery = waitFor app.dispatch(invalidQuery)
     check rejectedQuery.status == Http400
     check rejectedQuery.headers["content-type"] == "application/problem+json"
+    check registry.runAdminCli(["resources"]) == 0
+    check registry.runAdminCli(["audit"]) == 0
+    expect ValueError:
+      discard registry.runAdminCli(["delete", "items"])
 
   test "query component validates bounded pagination filters sorting and fields":
     var metadata = newModelMetadata("QueryUser", "query_users")

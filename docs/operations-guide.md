@@ -103,6 +103,15 @@ returns `none`; a live/integration suite should treat that result as an
 explicit skip, while a release gate should fail if PostgreSQL credentials are
 required but absent.
 
+## Admin CLI inspector
+
+`runAdminCli(registry, ["resources"])` prints only registered resource names and
+prefixes. `runAdminCli(registry, ["audit"])` prints only append-only audit
+identity fields. The inspector is intentionally read-only and receives an
+explicit `AdminRegistry`; it does not create a second authorization or database
+lifecycle. Destructive or durable admin commands remain application-owned
+commands with their own authorization and transaction policy.
+
 ## Graceful shutdown
 
 1. readiness를 false로 전환해 새 traffic을 차단한다.
