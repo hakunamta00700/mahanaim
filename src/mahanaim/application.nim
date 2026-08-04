@@ -1,6 +1,6 @@
 ## Application lifecycle and middleware dispatcher.
 
-import std/[asyncdispatch, httpcore, options, strutils]
+import std/[asyncdispatch, httpcore, options, strutils, tables]
 import ./core
 import ./router
 import ./config
@@ -116,6 +116,46 @@ proc newPlugin*(manifest: PluginManifest,
     raise newException(ValueError, "Plugin installer cannot be nil")
   PluginDefinition(manifest: manifest, install: install)
 
+proc resolvePluginManifests*(manifests: openArray[PluginManifest]): seq[PluginManifest] =
+  ## Resolve dependencies before any installer runs. Kahn's algorithm keeps
+  ## the result deterministic by preserving declaration order for equal ranks.
+  var byName = initTable[string, PluginManifest]()
+  var indegree = initTable[string, int]()
+  var dependents = initTable[string, seq[string]]()
+  for manifest in manifests:
+    if manifest.name in byName:
+      raise newException(ValueError, "Duplicate plugin manifest: " & manifest.name)
+    byName[manifest.name] = manifest
+    indegree[manifest.name] = 0
+    dependents[manifest.name] = @[]
+  for manifest in manifests:
+    var seenDependencies = initTable[string, bool]()
+    for dependency in manifest.dependencies:
+      if dependency notin byName:
+        raise newException(ValueError, "Missing plugin dependency: " & dependency)
+      if seenDependencies.hasKey(dependency):
+        raise newException(ValueError,
+          "Duplicate plugin dependency: " & dependency)
+      seenDependencies[dependency] = true
+      inc indegree[manifest.name]
+      dependents[dependency].add(manifest.name)
+
+  var ready: seq[string] = @[]
+  for manifest in manifests:
+    if indegree[manifest.name] == 0:
+      ready.add(manifest.name)
+  var cursor = 0
+  while cursor < ready.len:
+    let name = ready[cursor]
+    inc cursor
+    result.add(byName[name])
+    for dependent in dependents[name]:
+      dec indegree[dependent]
+      if indegree[dependent] == 0:
+        ready.add(dependent)
+  if result.len != manifests.len:
+    raise newException(ValueError, "Cyclic plugin dependency graph")
+
 proc addRoute*(app: Application, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[]) =
   ## The generic registration API keeps less common methods available without
@@ -190,10 +230,9 @@ proc use*(app: Application, plugin: PluginDefinition) =
   ## inspect registration intent without executing arbitrary plugin code.
   if plugin.isNil:
     raise newException(ValueError, "Plugin definition cannot be nil")
-  for existing in app.pluginManifests:
-    if existing.name == plugin.manifest.name:
-      raise newException(ValueError,
-        "Duplicate plugin manifest: " & plugin.manifest.name)
+  var candidates = app.pluginManifests
+  candidates.add(plugin.manifest)
+  discard resolvePluginManifests(candidates)
   app.pluginManifests.add(plugin.manifest)
   app.plugins.add(plugin.install)
   plugin.install(app)

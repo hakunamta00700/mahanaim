@@ -307,6 +307,24 @@ suite "Mahanaim core contracts":
       discard newPlugin(PluginManifest(name: "", version: "1.0.0"),
         installManifest)
 
+  test "plugin dependencies resolve deterministically and reject invalid graphs":
+    let dependency = PluginManifest(name: "database", version: "1.0.0",
+      phase: pluginStorage, dependencies: @[])
+    let dependent = PluginManifest(name: "admin", version: "1.0.0",
+      phase: pluginAdmin, dependencies: @["database"])
+    let ordered = resolvePluginManifests([dependent, dependency])
+    check ordered.len == 2
+    check ordered[0].name == "database"
+    check ordered[1].name == "admin"
+    expect ValueError:
+      discard resolvePluginManifests([dependent])
+    let cycleA = PluginManifest(name: "a", version: "1.0.0",
+      phase: pluginRoutes, dependencies: @["b"])
+    let cycleB = PluginManifest(name: "b", version: "1.0.0",
+      phase: pluginRoutes, dependencies: @["a"])
+    expect ValueError:
+      discard resolvePluginManifests([cycleA, cycleB])
+
   test "DI container caches application scope and recreates task scope":
     let app = newApplication()
     app.provide("singleton", dependencyApplication, newFakeDependencyService)

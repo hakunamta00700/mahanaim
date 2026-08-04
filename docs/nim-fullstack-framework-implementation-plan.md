@@ -236,7 +236,9 @@
 - [x] 기존 bare `Plugin` proc API를 유지하면서 manifest plugin overload를 제공했다.
 - [x] manifest를 application에 기록하고 duplicate/invalid manifest를 설치 전에 거부한다.
 - [x] phase 기록과 duplicate/name validation 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [ ] dependency resolution, DI provider scope, command/admin extension registration은 남아 있다.
+- [x] dependency 누락·중복·순환을 검증하는 deterministic topological resolver를 추가했다.
+- [x] dependency-first ordering과 invalid graph 회귀 테스트를 추가했다.
+- [ ] command/admin extension registration, DI lifecycle disposal은 남아 있다.
 
 ### 2026-08-04 — P1 CRUD resource 1차
 

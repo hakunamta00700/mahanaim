@@ -158,7 +158,7 @@
 - [ ] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
-- [ ] command/admin extension point와 dependency graph resolution을 제공한다.
+- [-] dependency graph resolution을 제공했다. command/admin extension point는 남아 있다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [ ] durable persistence, idempotency key와 외부 queue adapter를 제공한다.
 - [ ] test database transaction isolation, live-server fixture, WebSocket/SSE test client를 제공한다.
