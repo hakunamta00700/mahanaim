@@ -41,7 +41,13 @@
 - [x] malformed JSON body를 body 위치의 `invalid_json` 오류로 보고한다.
 - [x] `Accept` 헤더에 따른 problem JSON/text 응답 선택을 추가했다.
 - [x] JSON body와 content negotiation 테스트 3개를 추가했고 전체 테스트가 통과했다.
-- [ ] 일반 HTML·JSON·stream 응답의 통합 content negotiation 정책은 남아 있다.
+- [ ] stream/SSE/WebSocket representation의 통합 content negotiation은 남아 있다.
+
+### 2026-08-04 — P0 HTTP 응답 정책 1차
+
+- [x] JSON response constructor와 `Set-Cookie` helper를 core contract에 추가했다.
+- [x] HTML/JSON/text representation 선택과 미지원 media type의 406 응답을 구현했다.
+- [x] representation 선택과 cookie 보안 속성 테스트를 추가했다.
 
 검증 명령:
 
@@ -215,14 +221,14 @@ flowchart TB
 | [-] | REQ-HTTP-001 | P0 | Prologue request를 공통 context로 변환하고 typed extractor를 method별로 구현한다. |
 | [-] | REQ-HTTP-002 | P0 | route tree와 route name registry를 만들고 typed parameter, wildcard, group, URL builder, route middleware를 제공한다. |
 | [ ] | REQ-HTTP-003 | P1 | response enum/trait를 HTML, text, JSON, file, redirect, stream, SSE, WebSocket adapter로 확장한다. |
-| [-] | REQ-HTTP-004 | P0 | content negotiation과 `application/problem+json` 오류 envelope을 표준 response policy로 만든다. |
+| [x] | REQ-HTTP-004 | P0 | content negotiation과 `application/problem+json` 오류 envelope을 표준 response policy로 만든다. |
 | [-] | REQ-HTTP-005 | P0 | sync/async handler 실행기를 분리하고 blocking 감지·thread-pool 전환 규칙을 문서와 check 명령에 반영한다. |
 
 ### 타입·검증·API
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
+| [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [ ] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [ ] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [ ] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3를 생성하고 Swagger UI·ReDoc route를 붙인다. |

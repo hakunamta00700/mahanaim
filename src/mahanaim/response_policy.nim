@@ -1,0 +1,45 @@
+## Content negotiation for response representations.
+##
+## Handlers can construct HTML, JSON, and text responses independently. This
+## policy selects among those already-rendered variants, keeping HTTP Accept
+## parsing out of business logic and making 406 behavior consistent.
+
+import std/[httpcore, options, strutils]
+import ./core
+
+proc acceptedTypes(request: Request): seq[string] =
+  ## Parse media types and ignore optional parameters such as q values.
+  let header = request.header("accept")
+  if header.isNone:
+    return @[]
+  for item in header.get().split(','):
+    let mediaType = item.split(';', maxsplit = 1)[0].strip().toLowerAscii()
+    if mediaType.len > 0:
+      result.add(mediaType)
+
+proc mediaType(response: Response): string =
+  ## Compare only the media type portion, not charset parameters.
+  let contentType = response.header("content-type")
+  if contentType.isNone:
+    return ""
+  contentType.get().split(';', maxsplit = 1)[0].strip().toLowerAscii()
+
+proc mediaTypeMatches(accepted, offered: string): bool =
+  accepted == "*/*" or accepted == offered or
+    (accepted.endsWith("/*") and
+      accepted[0 ..< accepted.len - 1] == offered[0 ..< offered.find('/')] & "/")
+
+proc negotiateResponse*(request: Request,
+                        variants: openArray[Response]): Response =
+  ## Select the first server-preferred variant accepted by the client.
+  if variants.len == 0:
+    return textResponse("Not Acceptable", Http406)
+  let accepted = request.acceptedTypes()
+  if accepted.len == 0:
+    return variants[0]
+  for variant in variants:
+    let offered = mediaType(variant)
+    for requested in accepted:
+      if mediaTypeMatches(requested, offered):
+        return variant
+  textResponse("Not Acceptable", Http406)

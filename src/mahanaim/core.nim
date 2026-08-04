@@ -4,7 +4,7 @@
 ## Keeping the value objects and handler contracts small lets adapters (such as
 ## Prologue) evolve without leaking their types into application code.
 
-import std/[asyncdispatch, httpcore, options, strutils, tables]
+import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 
 type
   Request* = object
@@ -73,6 +73,31 @@ proc htmlResponse*(body: string, status = Http200): Response =
   ## HTML responses are explicit so adapters do not infer content unsafely.
   result = newResponse(status, body)
   result.headers["content-type"] = "text/html; charset=utf-8"
+
+proc jsonResponse*(body: string, status = Http200): Response =
+  ## JSON responses use the same value object as HTML/text responses.
+  result = newResponse(status, body)
+  result.headers["content-type"] = "application/json; charset=utf-8"
+
+proc jsonResponse*(document: JsonNode, status = Http200): Response =
+  ## Convenience overload keeps JSON serialization at the response boundary.
+  jsonResponse($document, status)
+
+proc setCookie*(response: var Response, name, value: string,
+                httpOnly = true, secure = false, sameSite = "Lax",
+                maxAge = -1) =
+  ## Add a safe default cookie header without coupling handlers to a server API.
+  ## Cookie values are minimally sanitized here; a future cookie type can add
+  ## full RFC parsing while preserving this simple framework contract.
+  let safeValue = value.replace(";", "%3B").replace("\r", "").replace("\n", "")
+  var headerValue = name & "=" & safeValue & "; Path=/; SameSite=" & sameSite
+  if httpOnly:
+    headerValue.add("; HttpOnly")
+  if secure:
+    headerValue.add("; Secure")
+  if maxAge >= 0:
+    headerValue.add("; Max-Age=" & $maxAge)
+  response.headers["set-cookie"] = headerValue
 
 proc redirectResponse*(location: string, status = Http302): Response =
   ## Redirect construction is kept in the core so every adapter handles it alike.

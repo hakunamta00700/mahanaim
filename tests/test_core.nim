@@ -4,7 +4,8 @@
 ## keeps failures deterministic while still covering the same dispatch pipeline
 ## a future Prologue/ASGI adapter will call.
 
-import std/[asyncdispatch, httpcore, json, options, os, tables, times, unittest]
+import std/[asyncdispatch, httpcore, json, options, os, strutils, tables, times,
+            unittest]
 import std/httpclient as hc
 import mahanaim
 
@@ -195,3 +196,31 @@ suite "Mahanaim core contracts":
     let jsonResponse = problemResponseFor(jsonRequest, Http400, "Bad request", "Invalid input")
     check jsonResponse.header("Content-Type").get() == "application/problem+json"
     check parseJson(jsonResponse.body)["title"].getStr() == "Bad request"
+
+  test "response policy selects an accepted representation":
+    var request = newRequest("GET", "/representation")
+    request.headers["accept"] = "application/json"
+    let selectedJson = negotiateResponse(request, [
+      htmlResponse("<p>hello</p>"), jsonResponse("{\"message\":\"hello\"}")
+    ])
+    check selectedJson.header("Content-Type").get() == "application/json; charset=utf-8"
+
+    request.headers["accept"] = "text/html"
+    let selectedHtml = negotiateResponse(request, [
+      htmlResponse("<p>hello</p>"), jsonResponse("{\"message\":\"hello\"}")
+    ])
+    check selectedHtml.header("Content-Type").get() == "text/html; charset=utf-8"
+
+    request.headers["accept"] = "image/png"
+    let unavailable = negotiateResponse(request, [htmlResponse("<p>hello</p>")])
+    check unavailable.status == Http406
+
+  test "response cookie helper applies safe defaults":
+    var response = textResponse("ok")
+    response.setCookie("session", "a;b", secure = true, maxAge = 3600)
+    let cookie = response.header("Set-Cookie").get()
+    check cookie.contains("session=a%3Bb")
+    check cookie.contains("Path=/")
+    check cookie.contains("HttpOnly")
+    check cookie.contains("Secure")
+    check cookie.contains("Max-Age=3600")
