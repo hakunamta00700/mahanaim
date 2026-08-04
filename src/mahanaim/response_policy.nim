@@ -54,20 +54,38 @@ proc mediaTypeMatches(accepted, offered: string): bool =
   accepted.endsWith("/*") and offeredSlash > 0 and
     accepted[0 ..< accepted.len - 1] == offered[0 ..< offeredSlash] & "/"
 
+proc withAcceptVary(response: Response): Response =
+  ## A negotiated response must tell intermediary caches that its bytes depend
+  ## on the Accept header. Keep an existing Vary value (for example
+  ## `HX-Request`) and add Accept exactly once so helper composition remains
+  ## safe for both network adapters and in-process callers.
+  result = response
+  let existing = result.headers.getOrDefault("vary", "")
+  if existing.len == 0:
+    result.headers["vary"] = "Accept"
+  else:
+    var hasAccept = false
+    for value in existing.toLowerAscii().split(','):
+      if value.strip() == "accept":
+        hasAccept = true
+        break
+    if not hasAccept:
+      result.headers["vary"] = existing & ", Accept"
+
 proc negotiateResponse*(request: Request,
                         variants: openArray[Response]): Response =
   ## Select the first server-preferred variant accepted by the client.
   if variants.len == 0:
-    return textResponse("Not Acceptable", Http406)
+    return withAcceptVary(textResponse("Not Acceptable", Http406))
   let accepted = request.acceptedTypes()
   if accepted.len == 0:
-    return variants[0]
+    return withAcceptVary(variants[0])
   for requested in accepted:
     for variant in variants:
       let offered = mediaType(variant)
       if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
-        return variant
-  textResponse("Not Acceptable", Http406)
+        return withAcceptVary(variant)
+  withAcceptVary(textResponse("Not Acceptable", Http406))
 
 proc negotiateResponse*(request: Request, response: Response): Response =
   ## Validate a single final representation at an adapter boundary. This is
@@ -83,8 +101,8 @@ proc negotiateResponse*(request: Request, response: Response): Response =
   let offered = response.mediaType()
   for requested in accepted:
     if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
-      return response
-  textResponse("Not Acceptable", Http406)
+      return withAcceptVary(response)
+  withAcceptVary(textResponse("Not Acceptable", Http406))
 
 proc isHtmxRequest*(request: Request): bool =
   ## HTMX is detected from its explicit request header, not from User-Agent or

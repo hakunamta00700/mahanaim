@@ -77,6 +77,7 @@
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 통합한다.
 - [x] 표준 TCP adapter의 WebSocket upgrade와 기본 text/binary/control frame wire를 통합한다.
 - [x] 표준 HTTP·Windows Prologue adapter의 단일 response `Accept` negotiation과 406 wire 정책을 통합한다.
+- [x] `Accept`로 표현을 선택하는 모든 response policy 결과에 `Vary: Accept`를 추가해 캐시가 다른 표현을 재사용하지 않도록 하고 stream/SSE/WebSocket 협상 회귀를 검증한다.
 - [x] 표준 HTTP adapter에서 buffered/stream/SSE representation variant를 `Accept` 기준으로 wire 선택한다.
 - [x] Windows Prologue live fixture에서 variant 선택과 WebSocket upgrade `Accept` bypass를 검증한다.
 - [x] stdlib와 Beast/httpx native socket을 공통 WebSocket byte transport와 session contract로 연결한다.

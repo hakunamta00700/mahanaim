@@ -2110,6 +2110,7 @@ suite "Mahanaim core contracts":
       htmlResponse("<p>hello</p>"), jsonResponse("{\"message\":\"hello\"}")
     ])
     check selectedJson.header("Content-Type").get() == "application/json; charset=utf-8"
+    check selectedJson.header("Vary").get() == "Accept"
 
     request.headers["accept"] = "text/html"
     let selectedHtml = negotiateResponse(request, [
@@ -2120,8 +2121,10 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "image/png"
     let unavailable = negotiateResponse(request, [htmlResponse("<p>hello</p>")])
     check unavailable.status == Http406
+    check unavailable.header("Vary").get() == "Accept"
     let single = negotiateResponse(request, textResponse("hello"))
     check single.status == Http406
+    check single.header("Vary").get() == "Accept"
     request.headers["accept"] = "text/plain"
     check negotiateResponse(request, textResponse("hello")).status == Http200
     let candidates = responseVariants([
@@ -2132,6 +2135,27 @@ suite "Mahanaim core contracts":
     check selected.variants.len == 0
     request.headers["accept"] = "image/png"
     check negotiateResponse(request, candidates).status == Http406
+
+  test "response policy negotiates streaming representations with cache variance":
+    var request = newRequest("GET", "/streaming")
+    request.headers["accept"] = "text/event-stream"
+    let sse = negotiateResponse(request, [
+      streamResponse("chunk", "text/plain"),
+      sseResponse([SseEvent(event: "message", data: "hello")]),
+      webSocketResponse()
+    ])
+    check sse.representation == rrServerSentEvents
+    check sse.header("Vary").get() == "Accept"
+
+    request.headers["accept"] = "application/websocket"
+    let websocket = negotiateResponse(request, [
+      streamResponse("chunk", "text/plain"), webSocketResponse()])
+    check websocket.representation == rrWebSocket
+
+    request.headers["accept"] = "text/plain"
+    let stream = negotiateResponse(request, [
+      streamResponse("chunk", "text/plain"), sseResponse(@[])])
+    check stream.representation == rrStream
 
   test "response negotiation honors Accept quality and q zero":
     var request = newRequest("GET", "/quality")

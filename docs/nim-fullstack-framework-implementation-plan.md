@@ -55,7 +55,7 @@
 - [x] malformed JSON body를 body 위치의 `invalid_json` 오류로 보고한다.
 - [x] `Accept` 헤더에 따른 problem JSON/text 응답 선택을 추가했다.
 - [x] JSON body와 content negotiation 테스트 3개를 추가했고 전체 테스트가 통과했다.
-- [ ] stream/SSE/WebSocket representation의 통합 content negotiation은 남아 있다.
+- [x] stream/SSE/WebSocket representation의 통합 content negotiation을 response policy에 연결하고, 성공·406 결과에 `Vary: Accept`를 보장하는 회귀 테스트를 추가했다.
 
 ### 2026-08-04 — P0 response representations
 
