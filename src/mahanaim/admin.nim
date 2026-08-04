@@ -290,6 +290,21 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
         registry.recordAudit(current.name, "update", identifier,
           request.auth.subject)
       return response)
+  app.addRoute("PATCH", current.prefix & "/:id/inline",
+    "admin." & current.name & ".inline-update",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      ## Inline editors use a dedicated route so a UI can distinguish a
+      ## field-level interaction from full-form replacement. The same writable
+      ## body filter and update contract preserve read-only enforcement.
+      let identifier = request.pathParams.getOrDefault("id")
+      if not adminAuthorized(current, request, "update", identifier):
+        return forbiddenResponse()
+      let response = updateResponse(current.resource, identifier,
+        current.adminWritableBody(request.body))
+      if response.status == Http200:
+        registry.recordAudit(current.name, "inline-update", identifier,
+          request.auth.subject)
+      return response)
   app.addRoute("DELETE", current.prefix & "/:id",
     "admin." & current.name & ".delete",
     proc(request: Request): Future[Response] {.async, gcsafe.} =

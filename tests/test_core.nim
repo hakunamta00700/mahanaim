@@ -2360,13 +2360,22 @@ suite "Mahanaim core contracts":
     updateRequest.headers["x-admin"] = "yes"
     updateRequest.auth = authorized.auth
     check (waitFor app.dispatch(updateRequest)).status == Http200
+    var inlineRequest = newRequest("PATCH", "/admin/items/" & $id & "/inline",
+      "{\"title\":\"inline updated\",\"status\":\"forged-inline\"}")
+    inlineRequest.headers["x-admin"] = "yes"
+    inlineRequest.auth = authorized.auth
+    let inlineResponse = waitFor app.dispatch(inlineRequest)
+    check inlineResponse.status == Http200
+    check parseJson(inlineResponse.body)["title"].getStr() == "inline updated"
+    check parseJson(inlineResponse.body).hasKey("status") == false
     var deleteRequest = newRequest("DELETE", "/admin/items/" & $id)
     deleteRequest.headers["x-admin"] = "yes"
     deleteRequest.auth = authorized.auth
     check (waitFor app.dispatch(deleteRequest)).status == Http204
-    check registry.auditLog.len == 3
+    check registry.auditLog.len == 4
     check registry.auditLog[1].action == "update"
-    check registry.auditLog[2].action == "delete"
+    check registry.auditLog[2].action == "inline-update"
+    check registry.auditLog[3].action == "delete"
 
     var bulkCreate = newRequest("POST", "/admin/items",
       "{\"title\":\"second\"}")
