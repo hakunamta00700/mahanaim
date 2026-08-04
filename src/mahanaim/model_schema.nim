@@ -8,6 +8,7 @@
 
 import std/[json, options, strutils, tables]
 import ./core
+import ./application
 import ./models
 import ./validation
 import ./forms
@@ -69,6 +70,24 @@ proc modelOpenApiDocument*(title, version: string,
   ## create/update shape by excluding primary keys.
   let schema = modelInputSchema(metadata, flBody, includePrimaryKey)
   openApiDocument(title, version, schema, schema)
+
+proc addModelDocumentedRoute*(app: Application, registry: OpenApiRegistry,
+                              operation: OpenApiOperation,
+                              metadata: ModelMetadata, handler: Handler,
+                              includePrimaryKey = false,
+                              middleware: seq[Middleware] = @[]) =
+  ## Couple a model metadata declaration to route registration without making
+  ## handlers reflective. Explicit path/query/header fields remain intact;
+  ## metadata contributes the body request schema and the response schema,
+  ## keeping validation, forms, serializers, and OpenAPI on one source.
+  if metadata.fields.len == 0:
+    raise newException(ValueError, "Documented model requires at least one field")
+  var resolved = operation
+  let bodySchema = modelInputSchema(metadata, flBody, includePrimaryKey)
+  resolved.requestSchema = operation.requestSchema & bodySchema
+  if operation.responseSchema.len == 0:
+    resolved.responseSchema = modelInputSchema(metadata, flBody, includePrimaryKey)
+  app.addDocumentedRoute(registry, resolved, handler, middleware)
 
 proc modelPrimitiveSchema(field: ModelField): JsonNode =
   ## Keep model-to-OpenAPI scalar mapping separate from FieldSpec mapping so

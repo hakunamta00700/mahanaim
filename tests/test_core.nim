@@ -3714,6 +3714,19 @@ suite "Mahanaim core contracts":
         documentedHandler)
     check registry.operations.len == 1
 
+    var profile = newModelMetadata("DocumentedProfile", "documented_profiles")
+    profile.addField(newModelField("id", modelInteger, primaryKey = true))
+    profile.addField(newModelField("displayName", modelString, maxLength = 32))
+    app.addModelDocumentedRoute(registry, OpenApiOperation(
+      httpMethod: "POST", path: "/profiles", operationId: "createProfile",
+      requestSchema: @[], responseSchema: @[], successStatus: 201), profile,
+      documentedHandler)
+    let profileDocument = registry.document()["paths"]["/profiles"]["post"]
+    check profileDocument["requestBody"]["content"]["application/json"][
+      "schema"]["properties"]["displayName"]["maxLength"].getInt() == 32
+    check profileDocument["responses"]["201"]["content"]["application/json"][
+      "schema"]["required"][0].getStr() == "displayName"
+
   test "OpenAPI route collection discovers plain routes and preserves schemas":
     let app = newApplication()
     proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
