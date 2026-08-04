@@ -2588,6 +2588,13 @@ suite "Mahanaim core contracts":
     context["label"] = "nim"
     let output = engine.render("page", context)
     check output == "<main><h1>&lt;Ada&gt;</h1><span>NIM</span></main>"
+    engine.registerTranslation("en", "welcome", "Welcome")
+    engine.registerTranslation("ko", "welcome", "환영합니다")
+    check engine.translate("welcome", "ko") == "환영합니다"
+    check engine.translate("welcome", "ja") == "Welcome"
+    check engine.translate("missing", "ko") == "missing"
+    expect ValueError:
+      engine.registerTranslation("en", "welcome", "Again")
     expect ValueError:
       engine.registerTemplate("base", "duplicate")
     expect ValueError:

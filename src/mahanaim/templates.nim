@@ -14,6 +14,10 @@ type
   TemplateEngine* = ref object
     templates: Table[string, string]
     filters: Table[string, TemplateFilter]
+    ## Locale catalogs are kept separate from template source so deployment
+    ## can replace translations without changing rendering or escaping.
+    translations: Table[string, Table[string, string]]
+    defaultLocale*: string
     maxInheritanceDepth*: int
 
 proc escapeHtml*(value: string): string =
@@ -31,6 +35,8 @@ proc newTemplateEngine*(maxInheritanceDepth = 16): TemplateEngine =
   new(result)
   result.templates = initTable[string, string]()
   result.filters = initTable[string, TemplateFilter]()
+  result.translations = initTable[string, Table[string, string]]()
+  result.defaultLocale = "en"
   result.maxInheritanceDepth = maxInheritanceDepth
   result.filters["upper"] = proc(value: string): string = value.toUpperAscii()
   result.filters["lower"] = proc(value: string): string = value.toLowerAscii()
@@ -55,6 +61,32 @@ proc registerFilter*(engine: TemplateEngine, name: string,
   if engine.filters.hasKey(name):
     raise newException(ValueError, "Duplicate template filter: " & name)
   engine.filters[name] = filter
+
+proc registerTranslation*(engine: TemplateEngine, locale, key, value: string) =
+  ## Translation keys are explicit and duplicate registration is rejected so
+  ## plugin load order cannot silently alter user-visible security messages.
+  if engine.isNil or locale.strip().len == 0 or key.strip().len == 0:
+    raise newException(ValueError, "Translation locale and key are required")
+  if not engine.translations.hasKey(locale):
+    engine.translations[locale] = initTable[string, string]()
+  if engine.translations[locale].hasKey(key):
+    raise newException(ValueError, "Duplicate translation: " & locale & ":" & key)
+  engine.translations[locale][key] = value
+
+proc translate*(engine: TemplateEngine, key: string, locale = ""): string =
+  ## Missing locale entries fall back to the default catalog and finally the
+  ## key itself, making incomplete catalogs safe during incremental rollout.
+  if engine.isNil or key.strip().len == 0:
+    return key
+  let selected = if locale.strip().len > 0: locale else: engine.defaultLocale
+  if engine.translations.hasKey(selected) and
+      engine.translations[selected].hasKey(key):
+    return engine.translations[selected][key]
+  if selected != engine.defaultLocale and
+      engine.translations.hasKey(engine.defaultLocale) and
+      engine.translations[engine.defaultLocale].hasKey(key):
+    return engine.translations[engine.defaultLocale][key]
+  key
 
 proc templateSource(engine: TemplateEngine, name: string): string =
   if not engine.templates.hasKey(name):
