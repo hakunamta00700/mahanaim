@@ -50,6 +50,9 @@ type
     authorizationPolicy*: AuthorizationPolicy
     permissionResource*: string
     formPolicy*: SecurityPolicy
+    ## Admin list behavior is configurable per resource while parsing and
+    ## validating query syntax remains owned by the shared component.
+    queryOptions*: QueryComponentOptions
 
   AdminRegistry* = ref object
     ## Registration is application-owned and isolated from global plugin state.
@@ -103,7 +106,8 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
                             metadata: ModelMetadata, store: ResourceStore,
                             authorize: AdminAuthorization,
                             formPolicy = defaultSecurityPolicy(),
-                            authorizationPolicy: AuthorizationPolicy = nil) =
+                            authorizationPolicy: AuthorizationPolicy = nil,
+                            queryOptions = defaultQueryComponentOptions()) =
   ## Requiring an authorization callback prevents an accidentally public admin
   ## surface when a developer forgets to configure authentication.
   if registry.isNil or name.strip().len == 0 or prefix.len == 0 or
@@ -116,7 +120,8 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
   registry.resources.add(AdminResource(name: name, prefix: prefix,
     metadata: metadata, resource: newCrudResource(metadata, store),
     authorize: authorize, authorizationPolicy: authorizationPolicy,
-    permissionResource: name, formPolicy: formPolicy))
+    permissionResource: name, formPolicy: formPolicy,
+    queryOptions: queryOptions))
 
 proc recordAudit(registry: AdminRegistry, resource, action, identifier,
                  actor: string) =
@@ -162,7 +167,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "list", ""):
         return forbiddenResponse()
-      let parsed = request.parseQueryComponent(current.metadata.fields)
+      let parsed = request.parseQueryComponent(current.metadata.fields,
+        current.queryOptions)
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",
           "One or more query parameters are invalid", parsed.errors)

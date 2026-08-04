@@ -613,7 +613,7 @@ flowchart TB
 - [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했다. i18n과 고급 tag/helper는 후속 범위다.
 - [x] model metadata에서 validation `FieldSpec`, `bindModelForm`/`bindModelFormSet`, OpenAPI schema와 field widget registry를 생성하는 bridge를 추가했다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
-- [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout은 남아 있다.
+- [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. resource별 query pagination/cursor 정책 설정도 지원하며 bulk action·inline·custom layout은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
 - [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 PBKDF2 password hashing, work-factor rehash 판단, stateless signed reset token 및 교체 가능한 login throttle 계약을 추가했다. Argon2id/bcrypt, token one-time store, password rotation과 분산 throttling/session rotation은 남아 있다.
 - [x] admin의 authorization callback/`AuthorizationPolicy` 권한 검사와 append-only audit log 저장을 별도 책임으로 보장한다.

@@ -2020,6 +2020,9 @@ suite "Mahanaim core contracts":
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
     metadata.addField(newModelField("title", modelString))
     let registry = newAdminRegistry()
+    var adminQueryOptions = defaultQueryComponentOptions()
+    adminQueryOptions.defaultPageSize = 2
+    adminQueryOptions.maxPageSize = 2
     let adminPolicy = newAuthorizationPolicy()
     for action in ["list", "create", "read", "update", "delete"]:
       adminPolicy.grantPermission("admin", "items", action)
@@ -2028,12 +2031,17 @@ suite "Mahanaim core contracts":
       request.headers.getOrDefault("x-admin") == "yes"
     registry.registerAdminResource("items", "/admin/items", metadata,
       newInMemoryResourceStore(metadata), authorize,
-      defaultSecurityPolicy(), adminPolicy)
+      defaultSecurityPolicy(), adminPolicy, adminQueryOptions)
     let app = newApplication()
     registerAdminRoutes(app, registry)
 
     let denied = waitFor app.dispatch(newRequest("GET", "/admin/items"))
     check denied.status == Http403
+    var oversizedAdminQuery = newRequest("GET", "/admin/items")
+    oversizedAdminQuery.headers["x-admin"] = "yes"
+    oversizedAdminQuery.auth = AuthContext(authenticated: true, subject: "admin-1")
+    oversizedAdminQuery.query["page_size"] = "3"
+    check (waitFor app.dispatch(oversizedAdminQuery)).status == Http400
     var wrongRole = newRequest("GET", "/admin/items/new")
     wrongRole.headers["x-admin"] = "yes"
     wrongRole.auth = AuthContext(authenticated: true, subject: "admin-2")
