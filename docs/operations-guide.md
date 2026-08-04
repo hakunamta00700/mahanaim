@@ -235,7 +235,9 @@ The same `postgresLive` contract opens real libpq adapters through the
 framework-owned `DatabaseConnectionPool` and `DatabaseSession`. It verifies
 serializable session setup, committed data visibility on a reused connection,
 automatic rollback on session close, and active-connection cleanup after pool
-shutdown. A live HTTP server fixture remains a separate adapter-level task.
+shutdown. It also serves a real HTTP request through `NetworkServer`, where
+application dispatch borrows the PostgreSQL connection and returns a database
+value over the wire. WebSocket/SSE live-server coverage remains separate.
 
 ## Admin CLI inspector
 

@@ -5,11 +5,12 @@
 ## the real libpq connection, transaction boundary, parameter binding, and
 ## isolation contract through the same fixture used by application tests.
 
-import std/[asyncdispatch, atomics, httpcore, json, options, strutils, tables]
+import std/[asyncdispatch, atomics, httpcore, httpclient, json, options,
+            strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
                 database_pool, database_session, migration_commands,
                 postgres_adapter, postgres_testing,
-                resources, serialization, testing]
+                http_adapter, resources, serialization, testing]
 
 proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
   ## The live contract uses an application-owned codec rather than teaching
@@ -153,6 +154,74 @@ proc runLivePoolSessionContract(configuration: PostgresTestConfiguration) =
     "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
   cleanup.close()
 
+proc runLiveServerContract(configuration: PostgresTestConfiguration) =
+  ## Exercise the real network adapter and application dispatch path with a
+  ## PostgreSQL-backed request. This proves pool borrowing happens around a
+  ## wire request rather than only around an in-process handler call.
+  let tableName = "mahanaim_live_server_items"
+  let setup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "CREATE TABLE \"" & tableName & "\" (" &
+    "\"id\" INTEGER PRIMARY KEY, \"message\" TEXT)", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
+    parameters: @[integerValue(1), textValue("postgres-live-server")]))
+  setup.close()
+
+  let pool = newDatabaseConnectionPool(
+    proc(): DatabaseAdapter {.gcsafe.} =
+      newPostgresDatabaseAdapter(configuration.host & ":" &
+        $configuration.port, configuration.user, configuration.password,
+        configuration.database),
+    maxConnections = 1,
+    closer = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+      PostgresDatabaseAdapter(adapter).close())
+  let app = newApplication()
+  app.configureDatabasePool(pool)
+  proc liveRoute(request: Request): Future[core.Response] {.async, gcsafe.} =
+    ## The adapter injects the borrowed connection before this route runs.
+    let rows = request.database.execute(CompiledQuery(sql:
+      "SELECT \"message\" FROM \"" & tableName & "\" WHERE \"id\" = $1",
+      parameters: @[integerValue(1)]))
+    if rows.len != 1:
+      return textResponse("missing live row", Http500)
+    return textResponse(rows[0][0].text)
+  app.get("/postgres-live", "postgres-live", liveRoute)
+
+  let network = newNetworkServer(app, "127.0.0.1", 0)
+  asyncCheck network.serve()
+  var attempts = 0
+  while attempts < 100:
+    try:
+      if network.boundPort().uint16 > 0:
+        break
+    except OSError:
+      discard
+    waitFor sleepAsync(10)
+    inc attempts
+  if network.boundPort().uint16 == 0:
+    network.close()
+    raise newException(IOError, "PostgreSQL live server did not bind")
+
+  let client = newAsyncHttpClient()
+  let response = waitFor client.getContent(
+    "http://127.0.0.1:" & $network.boundPort().uint16 & "/postgres-live")
+  client.close()
+  network.close()
+  if response != "postgres-live-server":
+    raise newException(ValueError, "PostgreSQL live server response mismatch")
+
+  let cleanup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard cleanup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  cleanup.close()
+
 proc runLiveContract() =
   let configuration = postgresTestConfigurationFromEnv()
   if configuration.isNone:
@@ -161,6 +230,7 @@ proc runLiveContract() =
 
   runLiveMigrationContract(configuration.get())
   runLivePoolSessionContract(configuration.get())
+  runLiveServerContract(configuration.get())
 
   let fixture = newPostgresTestFixture(configuration.get())
   defer: fixture.close()
