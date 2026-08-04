@@ -1566,6 +1566,10 @@ suite "Mahanaim core contracts":
         message: "invalid")])
     expect ValueError:
       discard serializeMessagePack(invalid)
+    let response = messagePackResponse(document)
+    check response.status == Http200
+    check response.headers["content-type"] == "application/msgpack"
+    check response.body == encoded
 
   test "database query compiler binds values for SQLite and PostgreSQL":
     let query = SelectQuery(

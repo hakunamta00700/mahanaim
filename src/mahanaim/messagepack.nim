@@ -5,7 +5,8 @@
 ## encodes the resulting JSON AST. Object keys are sorted for reproducible
 ## cache keys, signatures, snapshots, and tests.
 
-import std/[algorithm, json]
+import std/[algorithm, httpcore, json, tables]
+import ./core
 import ./serialization
 
 proc addByte(buffer: var string, value: uint8) =
@@ -119,3 +120,13 @@ proc serializeMessagePack*(serialization: SerializationResult): string =
     raise newException(ValueError, "Cannot encode invalid serialization result")
   serialization.document.toMessagePack()
 
+proc messagePackResponse*(node: JsonNode, status = Http200): Response =
+  ## Binary response helper keeps media type explicit for adapter negotiation.
+  result = newResponse(status, node.toMessagePack())
+  result.headers["content-type"] = "application/msgpack"
+
+proc messagePackResponse*(serialization: SerializationResult,
+                          status = Http200): Response =
+  ## Refuse invalid DTOs before bytes reach the network boundary.
+  result = newResponse(status, serialization.serializeMessagePack())
+  result.headers["content-type"] = "application/msgpack"

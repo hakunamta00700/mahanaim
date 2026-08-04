@@ -207,6 +207,7 @@
 - [x] JSON AST를 외부 dependency 없이 MessagePack scalar/array/map wire format으로 인코딩했다.
 - [x] object key를 정렬해 동일 문서의 binary 결과를 결정적으로 만들었다.
 - [x] invalid `SerializationResult`를 인코딩하지 않도록 validation boundary를 연결했다.
+- [x] `application/msgpack` binary response helper를 추가해 유효한 serializer 결과를 HTTP 응답으로 반환한다.
 - [x] map ordering과 invalid result 거부 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [ ] MessagePack decode/stream response content negotiation과 schema-level custom extension type은 남아 있다.
 
