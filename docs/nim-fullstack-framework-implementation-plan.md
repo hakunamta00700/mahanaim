@@ -182,6 +182,12 @@
 - [x] 작업 완료·실패 시 active job counter를 정리하는 회귀 테스트를 추가했다.
 - [ ] blocking 자동 감지와 backend cancellation 정책은 남아 있다.
 
+### 2026-08-04 — P0 executor capacity configuration
+
+- [x] executorMaxConcurrentJobs를 AppConfig와 process environment provider에 연결했다.
+- [x] 음수 capacity pre-flight validation과 설정 precedence 회귀 테스트를 추가했다.
+- [ ] blocking 자동 감지와 backend cancellation 정책은 남아 있다.
+
 ### 2026-08-04 — P0 signed cookie rotation 1차
 
 - [x] primary/legacy secret keyring 검증과 legacy key index 결과를 추가했다.

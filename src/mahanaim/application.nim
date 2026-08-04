@@ -48,7 +48,8 @@ proc newApplication*(config = defaultConfig(),
   result.plugins = @[]
   result.models = initModelRegistry()
   result.executionPolicy = executionPolicy
-  result.executor = newThreadPoolExecutor()
+  result.executor = newThreadPoolExecutor(
+    maxConcurrentJobs = config.executorMaxConcurrentJobs)
   result.started = false
 
 proc defaultErrorHandler(request: Request,

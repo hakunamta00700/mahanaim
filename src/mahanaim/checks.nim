@@ -63,6 +63,9 @@ proc checkConfig*(config: AppConfig): CheckReport =
   if config.requestTimeoutMs < 0:
     result.addError("config.request-timeout.negative",
       "requestTimeoutMs must be zero or greater")
+  if config.executorMaxConcurrentJobs < 0:
+    result.addError("config.executor-capacity.negative",
+      "executorMaxConcurrentJobs must be zero or greater")
   for key, value in config.secrets:
     if key.strip().len == 0:
       result.addError("config.secret.empty-key", "secret keys must not be empty")

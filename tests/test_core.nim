@@ -117,6 +117,13 @@ suite "Mahanaim core contracts":
     check not report.passed
     check report.issues[0].code == "config.request-timeout.negative"
 
+  test "negative executor capacity is rejected by pre-flight checks":
+    var config = defaultConfig()
+    config.executorMaxConcurrentJobs = -1
+    let report = checkConfig(config)
+    check not report.passed
+    check report.issues[0].code == "config.executor-capacity.negative"
+
   test "execution policy can reject synchronous handlers before invocation":
     var policy = defaultExecutionPolicy()
     policy.allowSynchronousHandlers = false
@@ -769,15 +776,18 @@ suite "Mahanaim core contracts":
     writeFile(tomlPath, "environment = \"staging\"\n[secrets]\ntoken = \"toml-secret\"\n")
     putEnv("MAHANAIM_PORT", "9100")
     putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
+    putEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS", "3")
     let config = loadConfig(dotenvPath, jsonPath, tomlPath)
     check config.host == "dotenv-host"
     check config.environment == "staging"
     check config.port == 9100
     check config.requestTimeoutMs == 35
+    check config.executorMaxConcurrentJobs == 3
     check config.secrets["token"] == "toml-secret"
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
     delEnv("MAHANAIM_PORT")
     delEnv("MAHANAIM_REQUEST_TIMEOUT_MS")
+    delEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS")
     removeDir(root)
 
   test "default config does not expose secrets":

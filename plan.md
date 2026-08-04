@@ -28,6 +28,7 @@
 - [x] 요청 timeout과 cooperative cancellation token을 공통 dispatch 경계에 추가한다.
 - [x] deprecated std threadpool을 taskpools backend로 교체하고 GC-managed response를 copy-safe worker buffer로 bridge한다.
 - [x] executor 동시 실행 상한과 capacity exhausted 오류 계약을 추가한다.
+- [x] executor 동시 실행 상한을 AppConfig와 process environment provider에 연결한다.
 - [ ] blocking 자동 감지와 backend cancellation 정책을 추가한다.
 
 ### HTTP와 라우팅
