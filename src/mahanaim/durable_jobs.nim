@@ -83,6 +83,12 @@ method recoverProcessing*(store: DurableJobStore) {.base, gcsafe.} =
   raise newException(ValueError,
     "Durable job store does not implement recoverProcessing")
 
+method close*(store: DurableJobStore) {.base, gcsafe.} =
+  ## Application shutdown calls this hook without knowing the concrete
+  ## persistence backend. External queue adapters may override it to release
+  ## connections; the base implementation is intentionally a no-op.
+  discard store
+
 proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
               queue: BackgroundJobQueue): Future[DurableJobRunResult] {.async.} =
   ## Claim one record, execute its named handler through the existing bounded
@@ -126,7 +132,7 @@ proc newSqliteDurableJobStore*(path = ":memory:"): SqliteDurableJobStore =
     "\"kind\" TEXT NOT NULL, \"payload\" TEXT NOT NULL, " &
     "\"status\" TEXT NOT NULL, \"attempts\" INTEGER NOT NULL DEFAULT 0)"))
 
-proc close*(store: SqliteDurableJobStore) =
+method close*(store: SqliteDurableJobStore) {.gcsafe.} =
   if store.isNil:
     return
   acquire(store.lock)

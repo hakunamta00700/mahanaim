@@ -627,6 +627,30 @@ suite "Mahanaim core contracts":
     check executions.load() == 2
     store.close()
 
+  test "application jobs CLI recovers and runs configured durable jobs":
+    let app = newApplication()
+    let store = newSqliteDurableJobStore()
+    let registry = newDurableJobRegistry()
+    var executions: Atomic[int]
+    executions.store(0)
+    registry.registerHandler("cli", proc(payload: string) {.gcsafe.} =
+      if payload == "expected": discard executions.fetchAdd(1))
+    app.configureDurableJobs(store, registry)
+    store.enqueue("cli-1", "cli", "expected")
+    let claimed = store.claimNext().get()
+    check claimed.status == djsProcessing
+    check app.runCli(["jobs", "recover"]) == 0
+    check app.runCli(["jobs", "run"]) == 0
+    check executions.load() == 1
+    check app.runCli(["jobs", "run"]) == 0
+    check store.claimNext().isNone
+    app.startup()
+    app.shutdown()
+
+  test "jobs CLI refuses unconfigured durable execution":
+    expect ValueError:
+      discard newApplication().runCli(["jobs", "run"])
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

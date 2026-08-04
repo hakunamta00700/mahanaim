@@ -5,12 +5,13 @@
 ## separate lets a generated project and an embedding host use the same CLI
 ## behavior without hidden module discovery.
 
-import std/[options, strutils, tables]
+import std/[asyncdispatch, options, strutils, tables]
 import ./application
 import ./checks
 import ./migration_commands
 import ./sqlite_adapter
 import ./seed_commands
+import ./durable_jobs
 
 proc cliArguments(arguments: openArray[string]): seq[string] =
   ## Copy borrowed command arguments before they cross a frontend boundary.
@@ -54,6 +55,33 @@ proc runDatabaseCli*(app: Application, arguments: openArray[string]): int =
       echo "rolled back " & outcome.rolledBack.get()
   0
 
+proc runJobsCli*(app: Application, arguments: openArray[string]): int =
+  ## Run only explicit durable-job lifecycle operations. The CLI never loads
+  ## code from a persisted kind; handlers must already be registered by the
+  ## application, preserving the same trust boundary as HTTP workers.
+  if app.isNil or app.durableJobStore.isNil or app.durableJobRegistry.isNil:
+    raise newException(ValueError,
+      "Application durable job store and registry are required")
+  if arguments.len != 1:
+    raise newException(ValueError, "jobs command must be: jobs run|recover")
+  case arguments[0].toLowerAscii()
+  of "recover":
+    app.durableJobStore.recoverProcessing()
+    echo "recovered durable jobs"
+  of "run":
+    let outcome = waitFor app.durableJobRegistry.runNext(
+      app.durableJobStore, app.jobs)
+    if not outcome.processed:
+      echo "no pending durable jobs"
+    elif outcome.succeeded:
+      echo "completed " & outcome.id
+    else:
+      stderr.writeLine("failed " & outcome.id & ": " & outcome.error)
+      return 1
+  else:
+    raise newException(ValueError, "unknown jobs command: " & arguments[0])
+  0
+
 proc runCli*(app: Application, arguments: openArray[string]): int =
   ## Dispatch built-in database commands first, then application-owned
   ## extension commands. Unknown commands fail instead of being ignored.
@@ -64,6 +92,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "mahanaim <command>"
     echo "  db status|up|rollback [sqlite-path]  Run application migrations"
     echo "  db seed [sqlite-path]  Run application seed providers"
+    echo "  jobs run|recover       Run or recover durable jobs"
     echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
@@ -84,6 +113,10 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
       raise newException(ValueError,
         "db command must be: db status|up|rollback|seed [sqlite-path]")
     return runDatabaseCli(app, copied[1 .. ^1])
+  of "jobs":
+    if copied.len == 1:
+      raise newException(ValueError, "jobs command must be: jobs run|recover")
+    return runJobsCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):
       return app.runCommand(copied[0], copied[1 .. ^1])

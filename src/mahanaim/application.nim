@@ -13,6 +13,7 @@ import ./di
 import ./jobs
 import ./migration_commands
 import ./seed_commands
+import ./durable_jobs
 
 type
   LifecycleHook* = proc ()
@@ -81,6 +82,8 @@ type
     migrationRegistry*: MigrationRegistry
     migrationDatabasePath*: string
     seedRegistry*: SeedRegistry
+    durableJobStore*: DurableJobStore
+    durableJobRegistry*: DurableJobRegistry
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -170,6 +173,21 @@ proc configureSeeds*(app: Application, registry: SeedRegistry) =
     raise newException(ValueError,
       "Seeds must be configured before application startup")
   app.seedRegistry = registry
+
+proc configureDurableJobs*(app: Application, store: DurableJobStore,
+                           registry: DurableJobRegistry) =
+  ## Durable jobs are application-owned: persisted data is inert until the
+  ## application supplies a named handler registry and its bounded executor.
+  ## Requiring configuration before startup keeps command and worker behavior
+  ## identical in embedding hosts and the standalone CLI.
+  if app.isNil or store.isNil or registry.isNil:
+    raise newException(ValueError,
+      "Application, durable job store, and registry are required")
+  if app.started:
+    raise newException(ValueError,
+      "Durable jobs must be configured before application startup")
+  app.durableJobStore = store
+  app.durableJobRegistry = registry
 
 proc registerCommand*(app: Application, command: CommandDefinition) =
   ## Registration is fail-fast so duplicate CLI names cannot shadow commands.
@@ -474,4 +492,6 @@ proc shutdown*(app: Application) =
   app.observability.setReady(false)
   if app.databasePool != nil:
     app.databasePool.close()
+  if app.durableJobStore != nil:
+    app.durableJobStore.close()
   app.started = false

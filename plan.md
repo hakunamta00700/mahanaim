@@ -167,7 +167,7 @@
 - [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
 - [x] structured request logging sink과 W3C trace/span propagation 기반을 제공한다.
 - [x] 구현된 rate limit/timeout/retry/backpressure/graceful shutdown의 실패·복구 운영 정책을 문서화한다.
-- [ ] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다.
+- [-] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다. SQLite durable queue의 named handler 실행·복구 CLI와 애플리케이션 shutdown close 경계는 구현했으며, 분산 clock/eviction과 외부 queue·DB drain은 운영 환경 검증이 남아 있다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
@@ -179,7 +179,7 @@
 
 - [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
-- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture와 명시적 read-only `AdminRegistry` CLI inspector도 추가했으며 durable admin command와 live fixture 증거는 남아 있다.
+- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run|recover` command도 추가했으며 live fixture 증거는 남아 있다.
 
 ## 탄탄한 기반을 위한 설계 규칙
 
