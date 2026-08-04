@@ -38,7 +38,7 @@
 - [x] 표준 async HTTP network adapter를 추가하고 core `Request`/`Response`와 연결했다.
 - [x] loopback HTTP smoke test로 실제 TCP 요청과 응답을 검증했다.
 - [x] `new NAME [PATH]` 프로젝트 생성 CLI를 추가했다.
-- [x] 생성 프로젝트의 파일 구성과 기존 파일 덮어쓰기 방지를 테스트했다.
+- [x] 생성 프로젝트가 `.env.example`/`.gitignore`, 앱 모듈의 health route, 실제 dispatch 테스트와 빌드 가능한 Nimble 구조를 포함하도록 확장했고 기존 파일 덮어쓰기 방지를 테스트했다.
 - [ ] Prologue 전용 adapter, typed extraction, JSON/TOML 설정, CI는 남아 있다.
 
 ### 2026-08-04 — P0 API 검증 1차
@@ -655,7 +655,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
+| [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·redaction logger로 로그·오류·빌드 노출을 차단한다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
 | [-] | NFR-APP-004 | P1 | `dev`, `db migrate`, `admin create-user`, `static collect`, `test`, `openapi`, `check` subcommand를 단계별로 추가한다. |

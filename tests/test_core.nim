@@ -4,7 +4,7 @@
 ## keeps failures deterministic while still covering the same dispatch pipeline
 ## a future Prologue/ASGI adapter will call.
 
-import std/[asyncdispatch, asyncnet, httpcore, json, options, os, strutils, tables, times,
+import std/[asyncdispatch, asyncnet, httpcore, json, options, os, osproc, strutils, tables, times,
             unittest, uri]
 import std/net
 import std/httpclient as hc
@@ -1914,8 +1914,28 @@ suite "Mahanaim core contracts":
       removeDir(root)
     generateProject(ProjectSpec(name: "sample_app", root: root))
     check fileExists(root / "sample_app.nimble")
+    check fileExists(root / ".env.example")
+    check fileExists(root / ".gitignore")
     check fileExists(root / "src" / "sample_app.nim")
     check fileExists(root / "tests" / "test_app.nim")
+    check readFile(root / ".env.example").contains("MAHANAIM_PORT=8000")
+    check readFile(root / "src" / "sample_app.nim").contains("proc createApp*")
+    check readFile(root / "tests" / "test_app.nim").contains("/health")
+    let (dependencyOutput, dependencyExitCode) = execCmdEx(
+      "nimble path nimcrypto parsetoml prologue taskpools db_connector " &
+      "argon2 timezones cookiejar httpx ioselectors wepoll logue cligen regex unicodedb")
+    check dependencyExitCode == 0
+    var dependencyArgs = ""
+    for path in dependencyOutput.splitLines:
+      let normalized = path.strip()
+      if normalized.len > 0:
+        dependencyArgs.add(" --path:" & quoteShell(normalized))
+    let compileCommand = "nim c --path:src" & dependencyArgs & " --path:" &
+      quoteShell(root / "src") & " -r " & quoteShell(root / "tests" / "test_app.nim")
+    let (compileOutput, compileExitCode) = execCmdEx(compileCommand)
+    if compileExitCode != 0:
+      echo compileOutput
+    check compileExitCode == 0
     expect IOError:
       generateProject(ProjectSpec(name: "sample_app", root: root))
     removeDir(root)
