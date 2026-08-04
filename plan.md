@@ -206,6 +206,7 @@
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
 - [x] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, bulk delete action, 명시적 inline PATCH route와 안전한 form layout renderer hook을 지원하며 SQLite repository store 통합 회귀를 검증했다.
 - [x] **P1-07 서버 렌더링 admin 목록 화면** — 기존 JSON admin list 응답을 유지하면서 `Accept: text/html` 요청에는 공통 query·projection·민감 필드 정책을 재사용한 escaped HTML table과 신규 항목 링크를 제공한다. in-process dispatch에서 JSON/HTML 협상과 기본 목록 회귀를 검증했다.
+- [x] **P1-08 서버 렌더링 admin CRUD 화면** — admin detail을 JSON/HTML variant로 제공하고 metadata 기반 edit form, URL-encoded create/update, 명시적 POST delete와 redirect를 추가했다. 기존 authorization·read-only field·audit 경계를 재사용하고 in-process browser-form 회귀를 검증했다.
 - [x] embedding/standalone CLI의 `openapi [PATH]`가 등록 router를 수집해 OpenAPI 3.1 문서를 stdout 또는 파일로 생성하고, 출력 경로·인자 오류와 route `operationId` 보존을 회귀 테스트로 검증한다.
 - [x] Application 소유 `AdminUserCreator`와 account store/password hasher adapter를 연결하고, 비밀번호를 `MAHANAIM_ADMIN_PASSWORD`에서만 읽는 `admin create-user <identifier> [subject]` CLI 및 중복 생성 회귀 테스트를 추가한다.
 - [x] `static collect <source...> --output <path>`가 정적 파일을 deterministic manifest 순서로 복사하고, 중복 경로·기존 파일·source 내부 output·symbolic link를 전용 오류로 거부하도록 구현한다.

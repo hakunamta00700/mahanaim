@@ -3,8 +3,8 @@
 ## This first admin slice deliberately composes existing CRUD, form, and
 ## security contracts instead of introducing a second persistence or template
 ## system. It provides a secure registration boundary, JSON CRUD routes, an
-## HTML create form, and an in-memory audit trail; richer permissions and
-## layouts remain extension points.
+## server-rendered CRUD forms, and an in-memory audit trail; richer
+## permissions and layouts remain extension points.
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
 import ./application
@@ -175,6 +175,12 @@ proc forbiddenResponse(): Response =
   ## Do not reveal whether a protected resource exists to unauthorized callers.
   textResponse("Admin authorization required", Http403)
 
+proc adminRedirect(location: string): Response =
+  ## Redirects from browser forms still carry a representation type so the
+  ## common Accept negotiation policy treats the 3xx response as renderable.
+  result = redirectResponse(location)
+  result.headers["content-type"] = "text/html; charset=utf-8"
+
 proc adminAuthorized(resource: AdminResource, request: Request,
                      action, objectId: string): bool =
   ## The legacy callback remains a coarse application boundary; when a policy
@@ -184,7 +190,7 @@ proc adminAuthorized(resource: AdminResource, request: Request,
   resource.authorizationPolicy.isNil or resource.authorizationPolicy.allows(
     request, resource.permissionResource, action, objectId)
 
-proc adminForm(resource: AdminResource): Response =
+proc adminForm(resource: AdminResource, request: Request): Response =
   ## Build a minimal create form from the same metadata-derived schema used by
   ## API validation and OpenAPI; custom widgets can replace this helper later.
   var form = FormState(fields: @[], errors: @[])
@@ -198,7 +204,7 @@ proc adminForm(resource: AdminResource): Response =
   if resource.formLayout != nil:
     return resource.formLayout(AdminFormLayoutContext(
       resourceName: resource.name, action: resource.prefix, form: form))
-  htmlResponse(renderForm(form, action = resource.prefix,
+  htmlResponse(renderForm(form, request, action = resource.prefix,
     csrfPolicy = resource.formPolicy))
 
 proc adminListColumns(resource: AdminResource, query: SelectQuery): seq[string] =
@@ -256,6 +262,121 @@ proc adminListHtml(resource: AdminResource, query: SelectQuery): Response =
     body.add("</tr>")
   body.add("</tbody></table></main></body></html>")
   htmlResponse(body)
+
+proc adminDocumentRawValue(document: JsonNode, field: ModelField): string =
+  ## Convert a serialized field into a raw scalar value for a form control.
+  ## Escaping is deliberately deferred to the final HTML context so a value
+  ## is not escaped once for display and then escaped a second time as an
+  ## input attribute.
+  if not document.hasKey(field.jsonName):
+    return ""
+  let value = document[field.jsonName]
+  if value.kind == JNull:
+    return ""
+  if value.kind == JString:
+    return value.getStr()
+  $value
+
+proc adminDocumentValue(document: JsonNode, field: ModelField): string =
+  ## Display values are escaped at the HTML text-node boundary.
+  escapeHtml(adminDocumentRawValue(document, field))
+
+proc adminEditForm(resource: AdminResource, request: Request, identifier: string,
+                   document: JsonNode): string =
+  ## The edit form is derived from the same input schema as the create form.
+  ## Primary keys, read-only fields, and sensitive response-only values never
+  ## become writable controls by accident.
+  var form = FormState(fields: @[], errors: @[])
+  for fieldSpec in modelInputSchema(resource.metadata, flBody,
+                                    includePrimaryKey = false):
+    if fieldSpec.name in resource.readOnlyFields:
+      continue
+    let modelField = resource.metadata.field(fieldSpec.name)
+    if modelField.isNone:
+      continue
+    form.fields.add(FormFieldState(name: fieldSpec.name,
+      label: fieldSpec.name, inputType: fieldSpec.inputType,
+      required: fieldSpec.required,
+      value: adminDocumentRawValue(document, modelField.get()),
+      errors: @[]))
+  let action = resource.prefix & "/" & identifier
+  if resource.formLayout != nil:
+    return resource.formLayout(AdminFormLayoutContext(
+      resourceName: resource.name, action: action, form: form)).body
+  renderForm(form, request, action = action, httpMethod = "post",
+    csrfPolicy = resource.formPolicy)
+
+proc adminDetailHtml(resource: AdminResource, request: Request,
+                     identifier: string): Response =
+  ## Detail pages expose a server-rendered edit/delete surface while the
+  ## JSON representation remains available through the first response
+  ## variant. No client-side application or second authorization path is
+  ## introduced; the existing admin route owns the resource lookup.
+  let found = resource.resource.store.find(identifier)
+  if found.isNone:
+    return textResponse("Not Found", Http404)
+  let serialized = serializeModel(resource.metadata, found.get(),
+    resource.resource.responsePolicy)
+  if not serialized.valid:
+    return textResponse("Stored resource row failed serialization", Http500)
+  var body = "<!doctype html><html><head><title>" &
+    escapeHtml(resource.name) & "</title></head><body>"
+  body.add("<main data-resource=\"" & escapeHtml(resource.name) &
+    "\" data-id=\"" & escapeHtml(identifier) & "\">")
+  body.add("<a href=\"" & escapeHtml(resource.prefix) &
+    "\">Back</a><h1>" & escapeHtml(resource.name) & "</h1><dl>")
+  for field in resource.metadata.fields:
+    if field.sensitive and resource.resource.responsePolicy.excludeSensitive:
+      continue
+    body.add("<dt>" & escapeHtml(field.name) & "</dt><dd>" &
+      adminDocumentValue(serialized.document, field) & "</dd>")
+  body.add("</dl>")
+  body.add(resource.adminEditForm(request, identifier, serialized.document))
+  body.add("<form action=\"" & escapeHtml(resource.prefix & "/" &
+    identifier & "/delete") & "\" method=\"post\">")
+  body.add("<button type=\"submit\">Delete</button></form>")
+  body.add("</main></body></html>")
+  htmlResponse(body)
+
+proc adminFormResponse(resource: AdminResource, request: Request,
+                       action: string, form: FormState): Response =
+  ## Both create and edit submissions render validation errors through the
+  ## same layout hook. The hook can replace markup without gaining access to
+  ## storage or authorization decisions.
+  if resource.formLayout != nil:
+    return resource.formLayout(AdminFormLayoutContext(
+      resourceName: resource.name, action: action, form: form))
+  htmlResponse(renderForm(form, request, action = action,
+    httpMethod = "post", csrfPolicy = resource.formPolicy))
+
+proc adminFormJson(resource: AdminResource, request: Request):
+    tuple[valid: bool, body: string, form: FormState] =
+  ## URL-encoded browser fields enter the normal validation contract first;
+  ## only then are they converted to typed JSON for the existing CRUD layer.
+  let schema = modelInputSchema(resource.metadata, flBody,
+    includePrimaryKey = false)
+  result.form = bindForm(request, schema)
+  let validation = request.validate(schema)
+  result.valid = validation.errors.len == 0
+  if not result.valid:
+    return
+  var document = newJObject()
+  for field in schema:
+    if not validation.values.hasKey(field.name):
+      continue
+    let raw = validation.values[field.name]
+    case field.inputType
+    of itString:
+      document[field.name] = newJString(raw)
+    of itInteger:
+      document[field.name] = newJInt(parseInt(raw))
+    of itFloat:
+      document[field.name] = newJFloat(parseFloat(raw))
+    of itBoolean:
+      document[field.name] = newJBool(raw.toLowerAscii() in ["true", "1"])
+    of itJson:
+      document[field.name] = parseJson(raw)
+  result.body = $document
 
 proc adminWritableBody(resource: AdminResource, body: string): string =
   ## Strip protected fields before a CRUD resource sees input. Parsing errors
@@ -321,11 +442,24 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
         return forbiddenResponse()
-      return adminForm(current))
+      return adminForm(current, request))
   app.post(current.prefix, "admin." & current.name & ".create",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
         return forbiddenResponse()
+      let contentType = request.header("content-type")
+      if contentType.isSome and contentType.get().toLowerAscii().startsWith(
+          "application/x-www-form-urlencoded"):
+        let submitted = current.adminFormJson(request)
+        if not submitted.valid:
+          return adminFormResponse(current, request, current.prefix,
+            submitted.form)
+        let formResponse = createResponse(current.resource, submitted.body)
+        if formResponse.status == Http201:
+          registry.recordAudit(current.name, "create", "",
+            request.auth.subject)
+          return adminRedirect(current.prefix)
+        return formResponse
       let response = createResponse(current.resource,
         current.adminWritableBody(request.body))
       if response.status == Http201:
@@ -352,7 +486,10 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       if not adminAuthorized(current, request, "read",
           request.pathParams.getOrDefault("id")):
         return forbiddenResponse()
-      return getResponse(current.resource, request.pathParams.getOrDefault("id")))
+      let identifier = request.pathParams.getOrDefault("id")
+      return responseVariants([
+        getResponse(current.resource, identifier),
+        adminDetailHtml(current, request, identifier)]))
   app.addRoute("PUT", current.prefix & "/:id",
     "admin." & current.name & ".update",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
@@ -365,6 +502,25 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       if response.status == Http200:
         registry.recordAudit(current.name, "update", identifier,
           request.auth.subject)
+      return response)
+  app.post(current.prefix & "/:id", "admin." & current.name & ".form-update",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      ## Browser forms use POST while API clients keep the explicit PUT
+      ## contract above. Both paths share authorization, read-only filtering,
+      ## validation, persistence, and audit semantics.
+      let identifier = request.pathParams.getOrDefault("id")
+      if not adminAuthorized(current, request, "update", identifier):
+        return forbiddenResponse()
+      let submitted = current.adminFormJson(request)
+      if not submitted.valid:
+        return adminFormResponse(current, request,
+          current.prefix & "/" & identifier, submitted.form)
+      let response = updateResponse(current.resource, identifier,
+        current.adminWritableBody(submitted.body))
+      if response.status == Http200:
+        registry.recordAudit(current.name, "update", identifier,
+          request.auth.subject)
+        return adminRedirect(current.prefix)
       return response)
   app.addRoute("PATCH", current.prefix & "/:id/inline",
     "admin." & current.name & ".inline-update",
@@ -392,6 +548,20 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       if response.status == Http204:
         registry.recordAudit(current.name, "delete", identifier,
           request.auth.subject)
+      return response)
+  app.post(current.prefix & "/:id/delete",
+    "admin." & current.name & ".form-delete",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      ## Deletion is a distinct POST target so a browser cannot accidentally
+      ## turn a detail-page refresh or ordinary form submission into a delete.
+      let identifier = request.pathParams.getOrDefault("id")
+      if not adminAuthorized(current, request, "delete", identifier):
+        return forbiddenResponse()
+      let response = deleteResponse(current.resource, identifier)
+      if response.status == Http204:
+        registry.recordAudit(current.name, "delete", identifier,
+          request.auth.subject)
+        return adminRedirect(current.prefix)
       return response)
 
 proc registerAdminRoutes*(app: Application, registry: AdminRegistry) =

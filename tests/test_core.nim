@@ -3047,6 +3047,31 @@ suite "Mahanaim core contracts":
     check htmlListResponse.body.contains("<table")
     check htmlListResponse.body.contains("href=\"/admin/items/new\"")
     check htmlListResponse.body.contains("first")
+    var htmlDetail = newRequest("GET", "/admin/items/" & $id)
+    htmlDetail.headers["x-admin"] = "yes"
+    htmlDetail.headers["accept"] = "text/html"
+    htmlDetail.auth = authorized.auth
+    let htmlDetailResponse = waitFor app.dispatch(htmlDetail)
+    check htmlDetailResponse.status == Http200
+    check htmlDetailResponse.header("Content-Type").get().startsWith("text/html")
+    check htmlDetailResponse.body.contains("<dl")
+    check htmlDetailResponse.body.contains("first")
+    check htmlDetailResponse.body.contains("/admin/items/" & $id)
+    check htmlDetailResponse.body.contains("method=\"post\"")
+    var browserUpdate = newRequest("POST", "/admin/items/" & $id,
+      "title=browser+updated")
+    browserUpdate.headers["x-admin"] = "yes"
+    browserUpdate.headers["content-type"] = "application/x-www-form-urlencoded"
+    browserUpdate.headers["accept"] = "text/html"
+    browserUpdate.auth = authorized.auth
+    let browserUpdateResponse = waitFor app.dispatch(browserUpdate)
+    check browserUpdateResponse.status == Http302
+    check browserUpdateResponse.header("Location").get() == "/admin/items"
+    var browserRead = newRequest("GET", "/admin/items/" & $id)
+    browserRead.headers["x-admin"] = "yes"
+    browserRead.auth = authorized.auth
+    check parseJson((waitFor app.dispatch(browserRead)).body)["title"].getStr() ==
+      "browser updated"
     var snapshot = registry.auditEvents()
     snapshot[0].action = "tampered"
     check registry.auditEvents()[0].action == "create"
@@ -3068,10 +3093,11 @@ suite "Mahanaim core contracts":
     deleteRequest.headers["x-admin"] = "yes"
     deleteRequest.auth = authorized.auth
     check (waitFor app.dispatch(deleteRequest)).status == Http204
-    check registry.auditLog.len == 4
+    check registry.auditLog.len == 5
     check registry.auditLog[1].action == "update"
-    check registry.auditLog[2].action == "inline-update"
-    check registry.auditLog[3].action == "delete"
+    check registry.auditLog[2].action == "update"
+    check registry.auditLog[3].action == "inline-update"
+    check registry.auditLog[4].action == "delete"
 
     var bulkCreate = newRequest("POST", "/admin/items",
       "{\"title\":\"second\"}")
@@ -3087,6 +3113,36 @@ suite "Mahanaim core contracts":
     check bulkDeleted.status == Http200
     check parseJson(bulkDeleted.body)["deleted"].getInt() == 1
     check registry.auditLog[^1].action == "delete"
+    var browserFormCreate = newRequest("POST", "/admin/items",
+      "title=form-created")
+    browserFormCreate.headers["x-admin"] = "yes"
+    browserFormCreate.headers["content-type"] =
+      "application/x-www-form-urlencoded"
+    browserFormCreate.headers["accept"] = "text/html"
+    browserFormCreate.auth = authorized.auth
+    let browserFormCreated = waitFor app.dispatch(browserFormCreate)
+    check browserFormCreated.status == Http302
+    check browserFormCreated.header("Location").get() == "/admin/items"
+    var formCreatedList = newRequest("GET", "/admin/items")
+    formCreatedList.headers["x-admin"] = "yes"
+    formCreatedList.auth = authorized.auth
+    check (waitFor app.dispatch(formCreatedList)).body.contains("form-created")
+    var browserCreate = newRequest("POST", "/admin/items", "{\"title\":\"form-delete\"}")
+    browserCreate.headers["x-admin"] = "yes"
+    browserCreate.auth = authorized.auth
+    let browserCreated = waitFor app.dispatch(browserCreate)
+    let browserId = parseJson(browserCreated.body)["id"].getInt()
+    var browserDelete = newRequest("POST", "/admin/items/" & $browserId & "/delete")
+    browserDelete.headers["x-admin"] = "yes"
+    browserDelete.headers["accept"] = "text/html"
+    browserDelete.auth = authorized.auth
+    let browserDeleted = waitFor app.dispatch(browserDelete)
+    check browserDeleted.status == Http302
+    check browserDeleted.header("Location").get() == "/admin/items"
+    var deletedRead = newRequest("GET", "/admin/items/" & $browserId)
+    deletedRead.headers["x-admin"] = "yes"
+    deletedRead.auth = authorized.auth
+    check (waitFor app.dispatch(deletedRead)).status == Http404
 
     var invalidQuery = newRequest("GET", "/admin/items")
     invalidQuery.headers["x-admin"] = "yes"

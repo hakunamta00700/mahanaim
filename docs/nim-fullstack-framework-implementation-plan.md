@@ -640,13 +640,14 @@ flowchart TB
 - [x] CSRF token과 FieldSpec 기반 form validation을 request-aware 서버 렌더링 흐름에 통합한다. hidden input과 response cookie가 동일 token을 사용하며 POST 제출 회귀 테스트를 제공한다.
 - [-] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하고, `AuthorizationPolicy` 기반 role/group/object guard와 공통 query component를 admin list에 연결했다. resource별 query pagination/cursor 정책, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 권한 경계 밖의 안전한 form layout renderer hook을 지원한다.
 - [x] admin list route의 JSON 결과를 유지하면서 `Accept: text/html`에 서버 렌더링 HTML table과 create form 링크를 제공한다. HTML 값은 metadata projection과 공통 escaping 경계를 재사용하고, JSON/HTML 협상은 `Application.dispatch`에서 일관되게 수행한다.
+- [x] admin detail을 JSON/HTML variant로 제공하고 metadata 기반 edit form, URL-encoded create/update, 명시적 POST delete와 redirect를 연결한다. 브라우저 form은 기존 authorization·read-only field·audit·CRUD store 경계를 재사용하며 별도 SPA 없이 list/detail/create/update/delete 흐름을 검증한다.
 - [x] 세션 cookie와 bearer token을 동일 `AuthBackend`/`AuthContext`/route guard contract로 제공하고, `authBackends` provider 목록으로 한 route에서 두 방식을 수용한다. JWT·external introspection adapter는 후속 범위다.
 - [-] 사용자·그룹·role·permission·route guard·object-level authorization을 `AuthorizationPolicy`로 구현했고 algorithm-neutral `PasswordHasher` 계약, PBKDF2 reference adapter, C-backed Argon2id adapter, Nim maintained pure bcrypt adapter, work-factor rehash 판단, stateless signed reset token, atomic one-time token store, password rotation, 교체 가능한 login throttle 계약과 session key rotation을 추가했다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, Argon2/bcrypt hash·verify benchmark harness와 Windows/Linux CI contract도 추가했으며 production benchmark 결과 확정은 남아 있다.
 - [x] admin의 authorization callback/`AuthorizationPolicy` 권한 검사와 append-only audit log 저장을 별도 책임으로 보장한다.
 
 완료 기준:
 
-- [ ] 별도 SPA 없이 CRUD 화면을 생성·검증할 수 있다.
+- [x] 별도 SPA 없이 CRUD 화면을 생성·검증할 수 있다.
 - [ ] 권한 없는 admin/API 접근이 일관되게 거부된다.
 
 ### Phase 4 — 운영·확장·검증 (P2)
@@ -724,7 +725,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-UI-001 | P1 | auto-escaping renderer와 `TemplateNode` 구조형 AST 기반 inheritance·partial(include)·filter registry, nested conditional/collection block, legacy `registerTag`와 named/quoted/context argument를 받는 AST-aware `registerHelper`, 명시적 `TemplateRenderContext` collection loop와 현재 context 기반 `TemplateCollectionProjection`, locale catalog 기반 translation helper와 deterministic JSON catalog directory loader를 구현하고 parser/render 회귀 테스트를 통과했다. |
 | [x] | REQ-UI-002 | P1 | model metadata를 form schema와 `bindModelForm`/`bindModelFormSet`에 연결하고 CSRF·오류 표시 및 field widget registry를 제공한다. |
-| [x] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 custom layout hook을 지원하고 SQLite `DatabaseRepositoryResourceStore` 통합 회귀를 검증했다. |
+| [x] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 서버 렌더링 detail/edit/create/update/delete 화면, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 custom layout hook을 지원하고 SQLite `DatabaseRepositoryResourceStore` 통합 회귀를 검증했다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |
 | [x] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 append-only audit event 저장소 계약 및 기본 in-memory adapter를 제공한다. |
 | [x] | REQ-UI-003 | P1 | `htmlJsonResponse`로 HTML 전체 문서·HTMX partial·JSON response를 같은 route contract에서 선택하고 `Vary: Accept, HX-Request` 및 HTMX 예제를 제공한다. |
