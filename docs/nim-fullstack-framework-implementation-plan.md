@@ -159,6 +159,7 @@
 - [x] CLI `check`와 `dev`가 동일한 검사 결과를 사용하고 오류 시 non-zero로 종료하도록 변경했다.
 - [x] 정상 설정과 invalid port·중복 route·약한 CSRF secret 실패 회귀 테스트를 추가했다.
 - [x] model·migration 검사와 standalone/embedding CLI `check`의 공통 실행 wiring을 추가했다. CI/deployment는 이 동일한 command를 호출하도록 유지한다.
+- [x] `Application`이 생성 시 주입된 `SecurityPolicy`를 보존하고, 인자 없는 `checkApplication(app)`가 runtime middleware와 동일한 정책을 검사하도록 정합성 회귀 테스트를 추가했다.
 
 ### 2026-08-04 — P0 model metadata 1차
 

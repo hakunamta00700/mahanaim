@@ -63,6 +63,10 @@ type
   Application* = ref object
     ## Owns routing and lifecycle state for one application instance.
     config*: AppConfig
+    ## Keep the exact policy used by security middleware so pre-flight checks
+    ## inspect the same runtime contract instead of silently falling back to a
+    ## different default policy.
+    securityPolicy*: SecurityPolicy
     router*: Router
     middlewares*: seq[Middleware]
     startupHooks*: seq[LifecycleHook]
@@ -99,6 +103,7 @@ proc newApplication*(config = defaultConfig(),
   ## Construct an isolated app instance; this is important for test isolation.
   new(result)
   result.config = config
+  result.securityPolicy = securityPolicy
   result.router = initRouter()
   # Security middleware is installed first so every route and fallback response
   # receives the same defaults before user middleware runs.

@@ -3890,7 +3890,10 @@ suite "Mahanaim core contracts":
     app.get("/checked", "checked-a", route)
     app.get("/checked", "checked-b", route)
 
-    let report = checkApplication(app, invalidPolicy)
+    ## The no-argument form must inspect the policy supplied to newApplication;
+    ## otherwise CLI/CI could report a clean app while runtime middleware is
+    ## configured with an invalid security contract.
+    let report = checkApplication(app)
     check not report.passed
     check report.issues.len == 3
     check report.issues[0].code == "config.port.invalid"

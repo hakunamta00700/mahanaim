@@ -86,7 +86,7 @@
 
 ### 부팅 전 정합성 검사
 
-- [x] `checkApplication`이 config·route·model·security·execution과 명시적 migration registry의 이름·경로·SQLite operation을 함께 검사하고 standalone/embedding CLI `check`가 같은 report를 사용한다.
+- [x] `checkApplication`이 config·route·model·security·execution과 명시적 migration registry의 이름·경로·SQLite operation을 함께 검사하고 standalone/embedding CLI `check`가 같은 report를 사용한다. Application에 주입된 실제 `SecurityPolicy`를 기본 검사 대상으로 보존해 runtime middleware와 pre-flight 검증이 어긋나지 않도록 했다.
 
 ### 설정과 보안
 

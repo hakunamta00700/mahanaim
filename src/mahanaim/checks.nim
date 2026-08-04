@@ -246,9 +246,10 @@ proc checkExecution*(router: Router,
       result.addWarning("execution.sync.handler",
         "synchronous handler is executor-bound; review blocking and thread-safety: " & route.name)
 
-proc checkApplication*(app: Application,
-                       securityPolicy = defaultSecurityPolicy()): CheckReport =
-  ## Combine the same checks used by CLI and embedding applications.
+proc checkApplicationWithPolicy(app: Application,
+                                 securityPolicy: SecurityPolicy): CheckReport =
+  ## Combine the same checks used by CLI and embedding applications while
+  ## making the policy source explicit for the overloads below.
   result = initCheckReport()
   let configReport = checkConfig(app.config)
   let routeReport = checkRouter(app.router)
@@ -263,3 +264,22 @@ proc checkApplication*(app: Application,
   result.issues.add(migrationReport.issues)
   result.issues.add(securityReport.issues)
   result.issues.add(executionReport.issues)
+
+proc checkApplication*(app: Application): CheckReport =
+  ## Inspect the policy installed into this Application. This is the default
+  ## path used by CLI/CI so validation cannot drift from runtime middleware.
+  if app.isNil:
+    result = initCheckReport()
+    result.addError("application.missing", "application is required")
+    return
+  checkApplicationWithPolicy(app, app.securityPolicy)
+
+proc checkApplication*(app: Application,
+                       securityPolicy: SecurityPolicy): CheckReport =
+  ## Keep an explicit-policy overload for callers validating a candidate
+  ## policy before replacing the application's configured one.
+  if app.isNil:
+    result = initCheckReport()
+    result.addError("application.missing", "application is required")
+    return
+  checkApplicationWithPolicy(app, securityPolicy)
