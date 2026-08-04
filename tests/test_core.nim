@@ -3215,11 +3215,20 @@ suite "Mahanaim core contracts":
       "INSERT INTO \"users\" VALUES (?, ?)",
       parameters: @[integerValue(1), textValue("Ada")]))
     discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" VALUES (?, ?)",
+      parameters: @[integerValue(2), textValue("Grace")]))
+    discard adapter.execute(CompiledQuery(sql:
       "INSERT INTO \"posts\" VALUES (?, ?)",
       parameters: @[integerValue(10), textValue("Nim")]))
     discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"posts\" VALUES (?, ?)",
+      parameters: @[integerValue(11), textValue("SQL")]))
+    discard adapter.execute(CompiledQuery(sql:
       "INSERT INTO \"memberships\" VALUES (?, ?)",
       parameters: @[integerValue(1), integerValue(10)]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"memberships\" VALUES (?, ?)",
+      parameters: @[integerValue(2), integerValue(11)]))
     var user = newModelMetadata("User", "users")
     user.addField(newModelField("id", modelInteger, primaryKey = true))
     user.addField(newModelField("name", modelString))
@@ -3231,11 +3240,17 @@ suite "Mahanaim core contracts":
       targetModel: "Post", localField: "id", foreignField: "id",
       throughTable: "memberships", throughLocalField: "user_id",
       throughForeignField: "post_id")
-    let usersWithPosts = repository.listRelationWithRelated(relation, posts)
-    check usersWithPosts.len == 1
+    let usersWithPosts = repository.listRelationWithRelated(relation, posts,
+      RelationSelectQuery(orderBy: @[QueryOrder(field: "id")]))
+    ## Two parents are resolved through one batched through query and one
+    ## target query; grouping must not leak Grace's relation into Ada's.
+    check usersWithPosts.len == 2
     check usersWithPosts[0]["posts"].kind == JArray
     check usersWithPosts[0]["posts"].len == 1
     check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
+    check usersWithPosts[1]["posts"].kind == JArray
+    check usersWithPosts[1]["posts"].len == 1
+    check usersWithPosts[1]["posts"][0]["title"].getStr() == "SQL"
     let lazyPosts = newLazyRelationLoader(repository, relation, posts)
     let lazyRelated = lazyPosts.load(integerValue(1))
     check lazyRelated.len == 1

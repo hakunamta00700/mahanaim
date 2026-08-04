@@ -438,6 +438,125 @@ proc listManyToManyRelated(repository: DatabaseRepository,
   for values in repository.adapter.execute(compiled):
     result.add(targetRepository.rowFromValues(values))
 
+proc relationValueKey(value: SqlValue): string =
+  ## A typed key prevents an integer `1` and text `1` from being merged while
+  ## grouping rows returned by a batched relation query. The same key format is
+  ## used for through-table values and mapped JSON model values.
+  $value.kind & ":" & scalarText(value)
+
+proc relationFieldKey(value: SqlValue, field: ModelField): string =
+  ## Drivers may return a numeric foreign key as text while model mapping
+  ## exposes it as JSON integer. Normalize both sides using metadata before
+  ## grouping, otherwise a valid SQLite relation would disappear silently.
+  case field.kind
+  of modelInteger:
+    try: "sqlInteger:" & $parseInt(scalarText(value))
+    except ValueError: relationValueKey(value)
+  of modelFloat:
+    try: "sqlFloat:" & $parseFloat(scalarText(value))
+    except ValueError: relationValueKey(value)
+  of modelBoolean:
+    "sqlBoolean:" & $scalarText(value).toLowerAscii()
+  else:
+    "sqlText:" & scalarText(value)
+
+proc relationJsonKey(value: JsonNode, field: ModelField): string =
+  ## Convert a model row's JSON value back to the metadata-normalized key.
+  relationFieldKey(sqlValue(value), field)
+
+proc listManyToManyRelatedBatched(repository: DatabaseRepository,
+                                  relation: ModelRelation,
+                                  target: ModelMetadata,
+                                  query: RelationSelectQuery,
+                                  baseRows: seq[ResourceRow]): Table[string,
+                                    seq[ResourceRow]] =
+  ## Batch an unpaged many-to-many eager load as two bounded queries:
+  ## through(local, target) followed by target IN (target keys). This avoids
+  ## one join query per parent while keeping projection and target filtering in
+  ## the target repository. Per-parent pagination is intentionally handled by
+  ## the legacy path because a single global LIMIT cannot represent that
+  ## contract without window-function support in every backend.
+  if relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
+      relation.throughForeignField.len == 0:
+    raise newException(ValueError,
+      "Many-to-many relation requires explicit through metadata")
+  let local = repository.fieldFor(relation.localField)
+  let targetForeign = target.field(relation.foreignField)
+  if local.isNone or targetForeign.isNone:
+    raise newException(ValueError, "Unknown many-to-many relation field")
+
+  var localValues: seq[SqlValue] = @[]
+  var seenLocal: Table[string, bool] = initTable[string, bool]()
+  let localName = local.get().name
+  for row in baseRows:
+    if row.hasKey(localName) and row[localName].kind != JNull:
+      let value = sqlValue(row[localName])
+      let key = relationJsonKey(row[localName], local.get())
+      if not seenLocal.hasKey(key):
+        seenLocal[key] = true
+        localValues.add(value)
+
+  var grouped: Table[string, seq[ResourceRow]] = initTable[string, seq[ResourceRow]]()
+  if localValues.len == 0:
+    return grouped
+
+  ## The through projection is deliberately kept separate from target model
+  ## mapping; mapping a through column as a target field would shift every
+  ## projected value and violate the repository's metadata ordering contract.
+  let throughQuery = SelectQuery(table: relation.throughTable,
+    columns: @[relation.throughLocalField, relation.throughForeignField],
+    filters: @[QueryFilter(field: relation.throughLocalField,
+      operator: filterIn, value: listValue(localValues))])
+  let throughRows = repository.adapter.execute(
+    compileSelect(throughQuery, repository.adapter.dialect))
+  var targetValues: seq[SqlValue] = @[]
+  var seenTargets: Table[string, bool] = initTable[string, bool]()
+  var targetParents: Table[string, seq[string]] = initTable[string, seq[string]]()
+  for values in throughRows:
+    if values.len < 2 or values[0].kind == sqlNull or values[1].kind == sqlNull:
+      continue
+    let parentKey = relationFieldKey(values[0], local.get())
+    let targetKey = relationFieldKey(values[1], targetForeign.get())
+    if not targetParents.hasKey(targetKey):
+      targetParents[targetKey] = @[]
+    if parentKey notin targetParents[targetKey]:
+      targetParents[targetKey].add(parentKey)
+    if not seenTargets.hasKey(targetKey):
+      seenTargets[targetKey] = true
+      targetValues.add(values[1])
+
+  if targetValues.len == 0:
+    return grouped
+  let targetRepository = newDatabaseRepository(target, repository.adapter)
+  var targetQuery = SelectQuery(columns: @[], filters: query.filters,
+    orderBy: @[])
+  for column in query.columns:
+    targetQuery.columns.add(relationBaseField(column))
+  var addedForeign = false
+  if targetQuery.columns.len > 0 and relation.foreignField notin targetQuery.columns:
+    targetQuery.columns.add(relation.foreignField)
+    addedForeign = true
+  targetQuery.filters.add(QueryFilter(field: relation.foreignField,
+    operator: filterIn, value: listValue(targetValues)))
+  for order in query.orderBy:
+    targetQuery.orderBy.add(QueryOrder(field: relationBaseField(order.field),
+      descending: order.descending))
+  for targetRow in targetRepository.list(targetQuery):
+    if not targetRow.hasKey(targetForeign.get().name):
+      continue
+    let targetKey = relationJsonKey(targetRow[targetForeign.get().name],
+      targetForeign.get())
+    if not targetParents.hasKey(targetKey):
+      continue
+    var projected = targetRow
+    if addedForeign:
+      projected.del(targetForeign.get().name)
+    for parentKey in targetParents[targetKey]:
+      if not grouped.hasKey(parentKey):
+        grouped[parentKey] = @[]
+      grouped[parentKey].add(projected)
+  grouped
+
 proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
                                      relation: ModelRelation,
                                      target: ModelMetadata,
@@ -526,6 +645,38 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
   if relation.kind == relationOneToMany and query.limit == 0 and
       query.offset == 0 and query.joins.len == 0:
     return repository.listRelationWithRelatedBatched(relation, target, query)
+  if relation.kind == relationManyToMany and query.limit == 0 and
+      query.offset == 0 and query.joins.len == 0:
+    ## The base page is still selected once, then all through rows and target
+    ## rows are loaded in bounded batches and grouped in memory.
+    var baseQuery = SelectQuery(limit: query.limit, offset: query.offset)
+    for column in query.columns:
+      baseQuery.columns.add(relationBaseField(column))
+    for order in query.orderBy:
+      baseQuery.orderBy.add(QueryOrder(field: relationBaseField(order.field),
+        descending: order.descending))
+    baseQuery.filters = query.filters
+    for filter in baseQuery.filters.mitems:
+      filter.field = relationBaseField(filter.field)
+    let baseRows = repository.list(baseQuery)
+    let grouped = repository.listManyToManyRelatedBatched(relation, target,
+      query, baseRows)
+    let local = repository.fieldFor(relation.localField)
+    if local.isNone:
+      raise newException(ValueError,
+        "Unknown many-to-many local relation field")
+    let localName = local.get().name
+    for originalRow in baseRows:
+      var baseRow = originalRow
+      var nested = newJArray()
+      if baseRow.hasKey(localName) and baseRow[localName].kind != JNull:
+        let key = relationJsonKey(baseRow[localName], local.get())
+        if grouped.hasKey(key):
+          for related in grouped[key]:
+            nested.add(relationRowJson(related))
+      baseRow[relation.name] = nested
+      result.add(baseRow)
+    return result
   if relation.kind == relationManyToMany and
       (relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
        relation.throughForeignField.len == 0):
