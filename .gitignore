@@ -11,6 +11,7 @@ nimcache/
 /mahanaim_cli
 /tests/test_redis_live
 /tests/test_beast_live
+/tests/test_postgres_live
 /tests/test_https_upstream
 
 # Local configuration and secrets
