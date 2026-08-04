@@ -506,7 +506,9 @@ proc newLazyRelationLoader*(repository: DatabaseRepository,
   ## responsibility for query execution in the loader.
   if repository.isNil:
     raise newException(ValueError, "Lazy relation loader requires a repository")
-  if relation.kind == relationManyToMany:
+  if relation.kind == relationManyToMany and
+      (relation.throughTable.len == 0 or relation.throughLocalField.len == 0 or
+       relation.throughForeignField.len == 0):
     raise newException(ValueError,
       "Many-to-many lazy loading requires an explicit through relation")
   if relation.localField.len == 0 or relation.foreignField.len == 0:
@@ -525,6 +527,15 @@ method load*(loader: DatabaseRelationLoader,
     raise newException(ValueError, "Relation loader is nil")
   let targetRepository = newDatabaseRepository(loader.target,
     loader.repository.adapter)
+  if loader.relation.kind == relationManyToMany:
+    var relationQuery = RelationSelectQuery(columns: @[], joins: @[],
+      filters: @[], orderBy: @[], limit: loader.query.limit,
+      offset: loader.query.offset)
+    relationQuery.columns = loader.query.columns
+    relationQuery.filters = loader.query.filters
+    relationQuery.orderBy = loader.query.orderBy
+    return loader.repository.listManyToManyRelated(loader.relation,
+      loader.target, localValue, relationQuery)
   var query = loader.query
   query.filters.add(QueryFilter(field: loader.relation.foreignField,
     operator: filterEqual, value: localValue))

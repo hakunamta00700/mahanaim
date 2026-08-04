@@ -2902,7 +2902,6 @@ suite "Mahanaim core contracts":
     check usersWithPosts[0]["posts"].kind == JArray
     check usersWithPosts[0]["posts"].len == 1
     check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
-
     let postRepository = newDatabaseRepository(posts, adapter)
     let postsWithUser = postRepository.listRelationWithRelated(
       ModelRelation(name: "user", kind: relationManyToOne,
@@ -2979,6 +2978,10 @@ suite "Mahanaim core contracts":
     check usersWithPosts[0]["posts"].kind == JArray
     check usersWithPosts[0]["posts"].len == 1
     check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
+    let lazyPosts = newLazyRelationLoader(repository, relation, posts)
+    let lazyRelated = lazyPosts.load(integerValue(1))
+    check lazyRelated.len == 1
+    check lazyRelated[0]["title"].getStr() == "Nim"
 
   test "application wires and releases request-scoped database connections":
     var closed = 0
