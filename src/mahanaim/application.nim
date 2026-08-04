@@ -4,6 +4,7 @@ import std/[asyncdispatch, httpcore, options]
 import ./core
 import ./router
 import ./config
+import ./security
 
 type
   LifecycleHook* = proc ()
@@ -26,12 +27,15 @@ type
 proc defaultErrorHandler(request: Request,
                          error: ref CatchableError): Future[Response] {.async, gcsafe.}
 
-proc newApplication*(config = defaultConfig()): Application =
+proc newApplication*(config = defaultConfig(),
+                     securityPolicy = defaultSecurityPolicy()): Application =
   ## Construct an isolated app instance; this is important for test isolation.
   new(result)
   result.config = config
   result.router = initRouter()
-  result.middlewares = @[]
+  # Security middleware is installed first so every route and fallback response
+  # receives the same defaults before user middleware runs.
+  result.middlewares = @[securityMiddleware(securityPolicy)]
   result.startupHooks = @[]
   result.shutdownHooks = @[]
   result.errorHandler = defaultErrorHandler
@@ -85,15 +89,19 @@ proc use*(app: Application, plugin: Plugin) =
   app.plugins.add(plugin)
   plugin(app)
 
+proc wrapMiddleware(current: Middleware, next: Handler): Handler =
+  ## A factory gives each closure its own immutable current/next bindings.
+  ## Building closures directly inside a loop can otherwise make every layer
+  ## point at the final loop binding and recurse into itself.
+  result = proc(request: Request): Future[Response] {.gcsafe.} =
+    current(request, next)
+
 proc compose(middlewares: seq[Middleware], endpoint: Handler): Handler =
   ## Compose middleware from right to left, making each layer responsible for
   ## exactly one concern and preserving onion-style request/response flow.
   result = endpoint
   for index in countdown(middlewares.high, 0):
-    let current = middlewares[index]
-    let next = result
-    result = proc(request: Request): Future[Response] {.gcsafe.} =
-      current(request, next)
+    result = wrapMiddleware(middlewares[index], result)
 
 proc notFoundHandler(request: Request): Future[Response] {.async, gcsafe.} =
   ## Keep 404 behavior explicit and replaceable in a later error-handler API.
@@ -111,6 +119,11 @@ proc invoke(app: Application, request: Request, handler: Handler): Future[Respon
     return await handler(request)
   except CatchableError as error:
     return await app.errorHandler(request, error)
+
+proc fallback(app: Application, request: Request,
+              handler: Handler): Future[Response] {.async.} =
+  ## Apply global middleware to 404/405 responses as well as matched routes.
+  return await app.invoke(request, compose(app.middlewares, handler))
 
 proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   ## Dispatch an in-process request. Network adapters can delegate to this API.
@@ -131,11 +144,11 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
           var layers = app.middlewares
           layers.add(route.middleware)
           return await app.invoke(requestWithParams, compose(layers, route.handler))
-    return await notFoundHandler(request)
+    return await app.fallback(request, notFoundHandler)
 
   let route = matchedRoute.get()
   if route.httpMethod != request.httpMethod:
-    return await methodNotAllowedHandler(request)
+    return await app.fallback(request, methodNotAllowedHandler)
   var layers = app.middlewares
   layers.add(route.middleware)
   return await app.invoke(request, compose(layers, route.handler))

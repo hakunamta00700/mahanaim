@@ -71,6 +71,14 @@
 - [x] 예외 상세가 기본 응답에 노출되지 않는지 검증했다.
 - [ ] plugin manifest, DI provider, command/admin extension point와 redacted error logging은 남아 있다.
 
+### 2026-08-04 — P0 보안 기본값 1차
+
+- [x] secure response headers를 기본 middleware로 적용했다.
+- [x] 설정된 allowed host 검증과 400 거부 응답을 추가했다.
+- [x] route·404·405 fallback에도 동일 보안 middleware가 적용되도록 dispatcher를 정리했다.
+- [x] middleware closure composition 자기 재귀 회귀를 수정하고 보안 회귀 테스트를 추가했다.
+- [ ] CSRF/CORS/clickjacking 세부 정책, signed token, rate limit, request size/timeout은 남아 있다.
+
 검증 명령:
 
 ```powershell

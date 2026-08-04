@@ -82,6 +82,36 @@ suite "Mahanaim core contracts":
     check response.status == Http500
     check response.body == "Internal Server Error"
 
+  test "security headers are applied to route and fallback responses":
+    let app = newApplication()
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("ok")
+    app.get("/secure", "secure", health)
+
+    let routeResponse = waitFor app.dispatch(newRequest("GET", "/secure"))
+    let fallbackResponse = waitFor app.dispatch(newRequest("GET", "/missing-secure"))
+    check routeResponse.header("X-Content-Type-Options").get() == "nosniff"
+    check routeResponse.header("X-Frame-Options").get() == "DENY"
+    check routeResponse.header("Content-Security-Policy").get() == "default-src 'self'"
+    check fallbackResponse.header("X-Content-Type-Options").get() == "nosniff"
+
+  test "security policy rejects hosts outside the allow list":
+    var policy = defaultSecurityPolicy()
+    policy.allowedHosts = @["example.com"]
+    let app = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("should not run")
+    app.get("/host", "host", health)
+    var request = newRequest("GET", "/host")
+    request.headers["host"] = "attacker.example"
+
+    let response = waitFor app.dispatch(request)
+    check response.status == Http400
+    check response.body == "Invalid Host"
+    check response.header("X-Frame-Options").get() == "DENY"
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
