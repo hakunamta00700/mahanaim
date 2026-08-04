@@ -12,7 +12,8 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  localization,
                  aggregate_routes, migration_commands, authorization,
                  password_hashing, seed_commands, login_throttling, release_checks,
-                 account_auth, cli, idempotency, durable_jobs, static_assets]
+                 account_auth, cli, idempotency, durable_jobs, static_assets,
+                 storage]
 
 export core, router, application, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
@@ -24,4 +25,4 @@ export core, router, application, config, http_adapter, generator, security,
        localization,
        migration_commands, authorization, password_hashing, seed_commands,
        login_throttling, release_checks, account_auth, cli, idempotency,
-       durable_jobs, static_assets
+       durable_jobs, static_assets, storage

@@ -3983,6 +3983,44 @@ suite "Mahanaim core contracts":
       if dirExists(root):
         removeDir(root)
 
+  test "object storage and cache adapters preserve backend-neutral contracts":
+    let objects = newInMemoryObjectStorage()
+    let uploaded = objects.putObject("avatars/user-1.txt", "hello", "text/plain")
+    check uploaded.contentType == "text/plain"
+    check objects.getObject("avatars/user-1.txt").get().data == "hello"
+    check objects.deleteObject("avatars/user-1.txt")
+    check objects.getObject("avatars/user-1.txt").isNone
+    expect StorageError:
+      discard objects.putObject("../escape", "blocked")
+
+    let remote = newS3ObjectTransport(
+      proc(bucket, key, data, contentType: string): string =
+        if bucket == "assets" and key == "public/logo.svg" and
+            data == "<svg/>" and contentType == "image/svg+xml": "etag-1" else: "",
+      proc(bucket, key: string): Option[StoredObject] =
+        if bucket == "assets" and key == "public/logo.svg":
+          some(StoredObject(key: key, data: "<svg/>",
+            contentType: "image/svg+xml", etag: "etag-1"))
+        else: none(StoredObject),
+      proc(bucket, key: string): bool = bucket == "assets" and
+        key == "public/logo.svg")
+    let s3 = newS3CompatibleObjectStorage("assets", remote, "public")
+    check s3.putObject("logo.svg", "<svg/>", "image/svg+xml").etag == "etag-1"
+    check s3.getObject("logo.svg").get().key == "logo.svg"
+    check s3.deleteObject("logo.svg")
+    expect StorageError:
+      discard newS3CompatibleObjectStorage("assets", remote, "../private")
+
+    let cache = newInMemoryCacheStore(maxEntries = 2)
+    cache.set("user/1", "one")
+    cache.set("user/2", "two")
+    check cache.get("user/1").get() == "one"
+    cache.set("user/3", "three")
+    check cache.get("user/2").isNone
+    check cache.delete("user/1")
+    expect StorageError:
+      cache.set("user/4", "bad", ttlSeconds = -1)
+
   test "admin create-user CLI uses an application-owned provisioning callback":
     let app = newApplication()
     let store = newInMemoryAccountCredentialStore()

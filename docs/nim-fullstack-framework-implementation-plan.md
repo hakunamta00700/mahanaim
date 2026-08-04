@@ -30,6 +30,7 @@
 
 - [x] `admin create-user <identifier> [subject]`를 Application 소유 provisioning callback에 연결했다. 비밀번호는 argv에 노출되지 않도록 `MAHANAIM_ADMIN_PASSWORD`에서 읽고, account store/password hasher adapter와 중복 생성 회귀 테스트로 검증한다.
 - [x] `static collect <source...> --output <path>`를 추가하고, deterministic manifest 순서·중복 경로·기존 파일·source 내부 output·symbolic link 거부를 독립 storage contract와 CLI 회귀 테스트로 검증했다.
+- [x] backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge를 추가하고 key traversal·prefix·TTL·oldest eviction contract를 검증했다. S3 signing/retry와 Redis cache wire는 application-owned adapter의 후속 범위다.
 
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차
 
@@ -728,7 +729,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가하고 in-memory monotonic TTL·bounded eviction을 제공했다. S3 호환 object storage, cache store와 Redis/Valkey eviction 운영 정책은 남아 있다. |
+| [-] | REQ-OPS-001 | P2 | `static collect`와 upload local filesystem contract, backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge, Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계를 추가하고 request/success/failure/connection/reconnect snapshot metrics와 in-memory monotonic TTL·bounded eviction을 제공했다. S3 signing/retry, Redis cache wire와 eviction 운영 정책은 남아 있다. |
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |

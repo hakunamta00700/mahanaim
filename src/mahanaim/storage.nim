@@ -1,0 +1,271 @@
+## Backend-neutral object storage and cache contracts.
+##
+## HTTP handlers depend on these small interfaces rather than on filesystem,
+## Redis, or an S3 SDK. The in-memory adapters provide deterministic local and
+## test behavior; the S3-compatible bridge accepts an application-owned
+## transport so signing, retries, and provider-specific HTTP remain outside the
+## framework core.
+
+import std/[locks, monotimes, options, strutils, tables, times]
+
+type
+  StorageError* = object of CatchableError
+    ## Invalid keys and adapter contract failures are actionable configuration
+    ## errors, not silently converted into cache misses.
+
+  StoredObject* = object
+    ## Payload and metadata travel together so object stores can preserve the
+    ## content type without coupling callers to an SDK response type.
+    key*: string
+    data*: string
+    contentType*: string
+    etag*: string
+
+  ObjectStorage* = ref object of RootObj
+    ## Persistence is deliberately opaque to route and upload code.
+
+  InMemoryObjectStorage* = ref object of ObjectStorage
+    objects: Table[string, StoredObject]
+    lock: Lock
+
+  S3PutObject* = proc(bucket, key, data, contentType: string): string {.gcsafe.}
+  S3GetObject* = proc(bucket, key: string): Option[StoredObject] {.gcsafe.}
+  S3DeleteObject* = proc(bucket, key: string): bool {.gcsafe.}
+
+  S3ObjectTransport* = ref object
+    ## A transport adapter owns HTTP signing, endpoint selection, and retries.
+    put*: S3PutObject
+    get*: S3GetObject
+    delete*: S3DeleteObject
+
+  S3CompatibleObjectStorage* = ref object of ObjectStorage
+    bucket*: string
+    prefix*: string
+    transport*: S3ObjectTransport
+
+  CacheStore* = ref object of RootObj
+    ## Cache implementations may be local or distributed, but callers always
+    ## observe the same missing/expired value semantics.
+
+  CacheEntry = object
+    value: string
+    expiresAt: MonoTime
+    touchedAt: MonoTime
+
+  InMemoryCacheStore* = ref object of CacheStore
+    entries: Table[string, CacheEntry]
+    maxEntries: int
+    lock: Lock
+
+proc validateObjectKey(key: string): string =
+  ## Object keys are names, not paths. Rejecting traversal and platform
+  ## separators keeps local and remote adapters equivalent.
+  result = key.strip().replace('\\', '/')
+  if result.len == 0 or result.startsWith('/') or result.contains('\0'):
+    raise newException(StorageError, "Object key cannot be empty or absolute")
+  for segment in result.split('/'):
+    if segment.len == 0 or segment == "." or segment == "..":
+      raise newException(StorageError, "Object key contains an unsafe segment")
+
+method putObject*(store: ObjectStorage, key, data: string;
+                  contentType = "application/octet-stream"): StoredObject
+                  {.base, gcsafe.} =
+  discard store
+  discard key
+  discard data
+  discard contentType
+  raise newException(StorageError, "Object storage put is not implemented")
+
+method getObject*(store: ObjectStorage, key: string): Option[StoredObject]
+                  {.base, gcsafe.} =
+  discard store
+  discard key
+  raise newException(StorageError, "Object storage get is not implemented")
+
+method deleteObject*(store: ObjectStorage, key: string): bool {.base, gcsafe.} =
+  discard store
+  discard key
+  raise newException(StorageError, "Object storage delete is not implemented")
+
+proc newInMemoryObjectStorage*(): InMemoryObjectStorage =
+  ## A fresh store keeps tests and application instances isolated.
+  new(result)
+  result.objects = initTable[string, StoredObject]()
+  initLock(result.lock)
+
+method putObject*(store: InMemoryObjectStorage, key, data: string;
+                  contentType = "application/octet-stream"): StoredObject
+                  {.gcsafe.} =
+  if store.isNil:
+    raise newException(StorageError, "In-memory object storage is required")
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  result = StoredObject(key: safeKey, data: data,
+    contentType: contentType, etag: $data.len & ":" & $safeKey.len)
+  store.objects[safeKey] = result
+
+method getObject*(store: InMemoryObjectStorage, key: string): Option[StoredObject]
+                  {.gcsafe.} =
+  if store.isNil:
+    return none(StoredObject)
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  if store.objects.hasKey(safeKey):
+    return some(store.objects[safeKey])
+  none(StoredObject)
+
+method deleteObject*(store: InMemoryObjectStorage, key: string): bool {.gcsafe.} =
+  if store.isNil:
+    return false
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  if not store.objects.hasKey(safeKey):
+    return false
+  store.objects.del(safeKey)
+  true
+
+proc newS3ObjectTransport*(put: S3PutObject, get: S3GetObject,
+                           delete: S3DeleteObject): S3ObjectTransport =
+  ## Require all operations together; a half-configured provider would turn a
+  ## successful upload into an object that cannot be read or removed.
+  if put.isNil or get.isNil or delete.isNil:
+    raise newException(StorageError, "S3 object transport requires put/get/delete")
+  S3ObjectTransport(put: put, get: get, delete: delete)
+
+proc newS3CompatibleObjectStorage*(bucket: string,
+                                   transport: S3ObjectTransport,
+                                   prefix = ""): S3CompatibleObjectStorage =
+  ## Prefix is normalized once and applied consistently to every operation.
+  if bucket.strip().len == 0 or transport.isNil:
+    raise newException(StorageError, "S3 bucket and transport are required")
+  new(result)
+  result.bucket = bucket.strip()
+  let normalizedPrefix = prefix.strip().replace('\\', '/').strip(chars = {'/'})
+  result.prefix = if normalizedPrefix.len == 0: "" else:
+    validateObjectKey(normalizedPrefix)
+  result.transport = transport
+
+proc storageKey(store: S3CompatibleObjectStorage, key: string): string =
+  let safeKey = validateObjectKey(key)
+  if store.prefix.len == 0: safeKey else: store.prefix & "/" & safeKey
+
+method putObject*(store: S3CompatibleObjectStorage, key, data: string;
+                  contentType = "application/octet-stream"): StoredObject
+                  {.gcsafe.} =
+  if store.isNil:
+    raise newException(StorageError, "S3 object storage is required")
+  let safeKey = validateObjectKey(key)
+  let remoteKey = store.storageKey(safeKey)
+  let etag = store.transport.put(store.bucket, remoteKey, data, contentType)
+  StoredObject(key: safeKey, data: data, contentType: contentType, etag: etag)
+
+method getObject*(store: S3CompatibleObjectStorage, key: string): Option[StoredObject]
+                  {.gcsafe.} =
+  if store.isNil:
+    return none(StoredObject)
+  let remoteKey = store.storageKey(key)
+  let remote = store.transport.get(store.bucket, remoteKey)
+  if remote.isNone:
+    return none(StoredObject)
+  var remoteObject = remote.get()
+  remoteObject.key = key
+  some(remoteObject)
+
+method deleteObject*(store: S3CompatibleObjectStorage, key: string): bool
+                    {.gcsafe.} =
+  if store.isNil:
+    return false
+  store.transport.delete(store.bucket, store.storageKey(key))
+
+method get*(store: CacheStore, key: string): Option[string] {.base, gcsafe.} =
+  discard store
+  discard key
+  raise newException(StorageError, "Cache store get is not implemented")
+
+method set*(store: CacheStore, key, value: string,
+           ttlSeconds = 0) {.base, gcsafe.} =
+  discard store
+  discard key
+  discard value
+  discard ttlSeconds
+  raise newException(StorageError, "Cache store set is not implemented")
+
+method delete*(store: CacheStore, key: string): bool {.base, gcsafe.} =
+  discard store
+  discard key
+  raise newException(StorageError, "Cache store delete is not implemented")
+
+proc newInMemoryCacheStore*(maxEntries = 10_000): InMemoryCacheStore =
+  if maxEntries < 1:
+    raise newException(StorageError, "Cache maxEntries must be positive")
+  new(result)
+  result.entries = initTable[string, CacheEntry]()
+  result.maxEntries = maxEntries
+  initLock(result.lock)
+
+proc purgeExpiredLocked(store: InMemoryCacheStore, now: MonoTime) =
+  var expired: seq[string] = @[]
+  for key, entry in store.entries:
+    if entry.expiresAt != MonoTime() and now >= entry.expiresAt:
+      expired.add(key)
+  for key in expired:
+    store.entries.del(key)
+
+proc evictOldestLocked(store: InMemoryCacheStore) =
+  if store.entries.len < store.maxEntries:
+    return
+  var oldestKey = ""
+  var oldest = getMonoTime()
+  for key, entry in store.entries:
+    if oldestKey.len == 0 or entry.touchedAt < oldest:
+      oldestKey = key
+      oldest = entry.touchedAt
+  if oldestKey.len > 0:
+    store.entries.del(oldestKey)
+
+method get*(store: InMemoryCacheStore, key: string): Option[string] {.gcsafe.} =
+  if store.isNil:
+    return none(string)
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  let now = getMonoTime()
+  store.purgeExpiredLocked(now)
+  if not store.entries.hasKey(safeKey):
+    return none(string)
+  var entry = store.entries[safeKey]
+  entry.touchedAt = now
+  store.entries[safeKey] = entry
+  some(entry.value)
+
+method set*(store: InMemoryCacheStore, key, value: string,
+           ttlSeconds = 0) {.gcsafe.} =
+  if store.isNil:
+    raise newException(StorageError, "In-memory cache store is required")
+  if ttlSeconds < 0:
+    raise newException(StorageError, "Cache TTL must not be negative")
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  let now = getMonoTime()
+  store.purgeExpiredLocked(now)
+  if not store.entries.hasKey(safeKey):
+    store.evictOldestLocked()
+  let expiresAt = if ttlSeconds == 0: MonoTime() else:
+    now + initDuration(seconds = ttlSeconds)
+  store.entries[safeKey] = CacheEntry(value: value, expiresAt: expiresAt,
+    touchedAt: now)
+
+method delete*(store: InMemoryCacheStore, key: string): bool {.gcsafe.} =
+  if store.isNil:
+    return false
+  let safeKey = validateObjectKey(key)
+  acquire(store.lock)
+  defer: release(store.lock)
+  if not store.entries.hasKey(safeKey):
+    return false
+  store.entries.del(safeKey)
+  true
