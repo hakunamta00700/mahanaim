@@ -65,28 +65,117 @@ proc generateProject*(spec: ProjectSpec) =
     "requires \"mahanaim >= 0.1.0\"\n" &
     "requires \"nim >= 2.2.0\"\n")
   writeIfMissing(srcDir / (spec.name & ".nim"),
-    "## Generated application entry point.\n" &
-    "## Keep application construction in one function so tests, CLI frontends,\n" &
-    "## and a future network server all share the same route registration.\n\n" &
-    "import std/asyncdispatch\n" &
-    "import mahanaim\n\n" &
-    "proc health(request: Request): Future[Response] {.async, gcsafe.} =\n" &
-    "  discard request\n" &
-    "  return jsonResponse(\"{\\\"status\\\":\\\"ok\\\"}\")\n\n" &
-    "proc createApp*(config = loadConfig()): Application =\n" &
-    "  ## The generated app keeps config injection explicit for tests and deploys.\n" &
-    "  result = newApplication(config)\n" &
-    "  result.get(\"/health\", \"health\", health)\n\n" &
-    "when isMainModule:\n" &
-    "  ## A transport adapter can own the actual socket lifecycle later.\n" &
-    "  discard createApp()\n" &
-    "  echo \"Generated application is configured.\"\n")
+    """## Generated application entry point.
+##
+## The starter deliberately wires one small model through the framework's
+## metadata, migration, CRUD, admin, authentication, and documentation seams.
+## Applications can replace these declarations while keeping the boundaries.
+
+import std/[asyncdispatch]
+import mahanaim
+
+proc health(request: Request): Future[Response] {.async, gcsafe.} =
+  ## Keep the handler capture-free; observability state belongs to Application.
+  discard request
+  return jsonResponse("{\"status\":\"ok\"}")
+
+proc sliceMetadata(): ModelMetadata =
+  ## One explicit metadata source feeds migration, validation, CRUD, and forms.
+  result = newModelMetadata("Item", "items")
+  result.addField(newModelField("id", modelInteger, primaryKey = true))
+  result.addField(newModelField("title", modelString))
+
+proc slicePolicy(): SecurityPolicy =
+  ## Development defaults are explicit so generated tests can exercise the
+  ## same CSRF/session boundary without relying on ambient environment state.
+  result = defaultSecurityPolicy()
+  result.csrfEnabled = true
+  result.csrfSecret = "generated-app-csrf-secret-that-is-long-enough"
+  result.csrfCookieSecure = false
+  result.session.enabled = true
+  result.session.cookieName = "mahanaim_session"
+  result.session.secret = "generated-app-session-secret-that-is-long-enough"
+  result.session.secureCookie = false
+
+proc createApp*(config = loadConfig()): Application =
+  ## Application construction owns the adapter and closes it with lifecycle.
+  let policy = slicePolicy()
+  let app = newApplication(config, policy)
+  let adapter = newSqliteDatabaseAdapter()
+  let metadata = sliceMetadata()
+  let migration = migrationFromMetadata(metadata, "001_items")
+  discard executeMigrationCommand(adapter, @[migration],
+    parseMigrationCommand(["migrate"]))
+  app.onShutdown(proc() {.gcsafe.} = adapter.close())
+
+  let repository = newDatabaseRepository(metadata, adapter)
+  let store = newDatabaseRepositoryResourceStore(repository)
+  registerCrudRoutes(app, newCrudResource(metadata, store), "/items", "items")
+  app.get("/health", "health", health)
+
+  let accountStore = newInMemoryAccountCredentialStore()
+  let hasher = newPbkdf2PasswordHasher(iterations = 10000)
+  accountStore.addAccount(AccountCredential(subject: "admin-1",
+    identifier: "admin@example.test", passwordHash: hasher.hashPassword(
+      "admin-password"), enabled: true))
+  let authentication = newAccountAuthentication(accountStore, hasher,
+    policy.session, newInMemoryLoginThrottle())
+  app.registerAccountAuthenticationRoutes(authentication)
+
+  let adminRegistry = newAdminRegistry()
+  proc authorize(request: Request): bool {.gcsafe.} =
+    request.auth.authenticated and request.auth.subject == "admin-1"
+  adminRegistry.registerAdminResource("items", "/admin/items", metadata,
+    store, authorize, formPolicy = policy)
+  registerAdminRoutes(app, adminRegistry)
+
+  ## Route collection is intentionally performed at construction time so a
+  ## generated application fails early if a route cannot be documented.
+  let openApi = newOpenApiRegistry("Generated API", "0.1.0")
+  discard openApi.collectRoutes(app.router)
+  result = app
+
+when isMainModule:
+  ## A transport adapter can own the actual socket lifecycle later.
+  discard createApp()
+  echo "Generated application is configured."
+""")
   writeIfMissing(testDir / "test_app.nim",
-    "import std/[asyncdispatch, httpcore, unittest]\n" &
-    "import mahanaim\n" &
-    "import " & spec.name & "\n\n" &
-    "suite \"generated app\":\n" &
-    "  test \"health route uses the framework dispatch contract\":\n" &
-    "    let response = waitFor createApp().dispatch(newRequest(\"GET\", \"/health\"))\n" &
-    "    check response.status == Http200\n" &
-    "    check response.body == \"{\\\"status\\\":\\\"ok\\\"}\"\n")
+    """import std/[asyncdispatch, httpcore, json, tables, unittest]
+import mahanaim
+import """ & spec.name & """
+
+suite "generated app vertical slice":
+  test "generated app composes CRUD auth admin OpenAPI and lifecycle":
+    let app = createApp()
+    let client = newTestClient(app)
+    let anonymousForm = waitFor client.get("/admin/items/new")
+    check anonymousForm.status == Http403
+    let csrf = client.cookies["mahanaim_csrf"]
+    let csrfHeaders = [("x-csrf-token", csrf)]
+    let login = waitFor client.post("/login",
+      "{\"identifier\":\"admin@example.test\",\"password\":\"admin-password\"}",
+      headers = csrfHeaders)
+    check login.status == Http200
+    check (waitFor client.get("/admin/items/new")).status == Http200
+    let created = waitFor client.post("/items", "{\"title\":\"generated\"}",
+      headers = csrfHeaders)
+    check created.status == Http201
+    check parseJson(created.body)["title"].getStr() == "generated"
+    let listed = waitFor client.get("/admin/items")
+    check listed.status == Http200
+    check parseJson(listed.body)[0]["title"].getStr() == "generated"
+
+    let openApi = newOpenApiRegistry("Generated API", "0.1.0")
+    check openApi.collectRoutes(app.router) > 0
+    check openApi.document()["paths"].hasKey("/items")
+    check openApi.document()["paths"].hasKey("/admin/items")
+
+    app.startup()
+    let health = waitFor client.get("/health")
+    check health.status == Http200
+    check health.headers.hasKey("x-request-id")
+    check healthResponse(app.observability).status == Http200
+    app.shutdown()
+    check not app.observability.ready
+""")

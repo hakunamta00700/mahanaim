@@ -59,7 +59,9 @@
 - [x] 표준 async HTTP network adapter를 추가하고 core `Request`/`Response`와 연결했다.
 - [x] loopback HTTP smoke test로 실제 TCP 요청과 응답을 검증했다.
 - [x] `new NAME [PATH]` 프로젝트 생성 CLI를 추가했다.
-- [x] 생성 프로젝트가 `.env.example`/`.gitignore`, 앱 모듈의 health route, 실제 dispatch 테스트와 빌드 가능한 Nimble 구조를 포함하도록 확장했고 기존 파일 덮어쓰기 방지를 테스트했다.
+- [x] 생성 프로젝트가 `.env.example`/`.gitignore`, metadata migration, JSON/admin CRUD,
+  session·CSRF 인증, OpenAPI route collection, health/request ID/lifecycle 테스트와
+  빌드 가능한 Nimble 구조를 포함하도록 확장했고 기존 파일 덮어쓰기 방지를 테스트했다.
 - [-] Prologue request/response·form/upload adapter, typed extraction, JSON/TOML 설정과 compile gates를 추가했다. 실제 배포 CI runner matrix 증거와 추가 adapter wiring은 남아 있다.
 
 ### 2026-08-04 — P0 API 검증 1차
@@ -765,16 +767,16 @@ flowchart TB
 
 처음부터 모든 기능을 병렬 구현하지 않는다. 다음 예제 앱 하나를 기준으로 코어 계약을 검증한다.
 
-- [ ] `new`로 생성한다.
+- [x] `new`로 생성한 앱이 기본 SQLite 모델과 JSON/admin CRUD, session·CSRF 인증,
+  OpenAPI route collection, health/request ID/lifecycle까지 실행한다.
 - [x] SQLite 모델과 metadata migration을 만들고, 타입·자동 증가 PK를 보존한다.
 - [x] 서버 렌더링 admin CRUD와 JSON CRUD를 같은 SQLite 모델로 노출한다.
 - [x] validation 경계, CSRF, session login, admin 권한을 확인한다.
 - [x] OpenAPI route collection과 in-process test client로 같은 route를 검증한다.
 - [x] health response, request ID, graceful startup/shutdown을 확인한다.
 
-`tests/test_core.nim`의 첫 수직 슬라이스 fixture가 위 경계를 하나의 Application
-lifecycle에서 검증한다. `new`가 이 구성을 자동 생성하는 범위는 아직 별도 작업으로
-남아 있으므로 첫 번째 항목은 완료로 표시하지 않는다.
+`tests/test_core.nim`의 첫 수직 슬라이스 fixture와 generator가 생성하는
+`tests/test_app.nim`이 위 경계를 하나의 Application lifecycle에서 검증한다.
 
 이 수직 슬라이스가 통과하면 PostgreSQL, WebSocket/SSE, queue, 외부 storage를 추가한다. 이 순서로 진행해야 계층 간 계약이 실제 사용 흐름에서 검증된다.
 

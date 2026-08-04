@@ -5,6 +5,9 @@
 - 첫 수직 슬라이스 통합 계약을 추가해 SQLite metadata migration의 타입·자동 증가
   PK 보존, JSON/admin CRUD, CSRF·session·권한, OpenAPI·health·request ID·shutdown을
   하나의 Application lifecycle에서 검증한다.
+- `mahanaim new` 생성 프로젝트가 SQLite metadata migration, JSON/admin CRUD,
+  session·CSRF 인증, OpenAPI route collection, health/request ID/lifecycle을
+  실제 생성 테스트에서 실행하도록 확장했다.
 
 - Linux CI에 HTTPS reverse-proxy wire contract compile gate와 staging URL 부재 시 명시적 skip gate를 연결했다.
 - `checkApplication`이 HTTPS 강제 정책에서 `allowedHosts` 미설정을 warning으로 보고하도록 연결해 reverse-proxy 운영 점검 경계를 강화했다.
