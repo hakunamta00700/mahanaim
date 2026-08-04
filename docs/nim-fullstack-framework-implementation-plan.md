@@ -198,7 +198,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. CI PostgreSQL service가 `postgresCheck`와 실제 `postgresLive` task를 실행하며, 확장된 live repository/isolation 실행과 route 연결은 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. CI PostgreSQL service가 `postgresCheck`와 실제 `postgresLive` task를 실행하며, live task에 serializable isolation·repository CRUD route·DDL rollback 검증을 연결했지만 credential 부재로 local live 결과는 아직 확인하지 못했다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -274,7 +274,7 @@
 - [x] create/update 입력에서 required/type/unknown-field 검증을 저장 전에 적용하고 auto-generated primary key 예외를 분리했다.
 - [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [-] metadata-driven repository가 SQLite adapter에 CRUD, typed JSON conversion, bound filter와 QuerySet aggregate JSON mapping을 연결했다. PostgreSQL live repository, filtering/aggregate relation execution과 admin UI는 남아 있다.
+- [-] metadata-driven repository가 SQLite adapter에 CRUD, typed JSON conversion, bound filter와 QuerySet aggregate JSON mapping을 연결했다. PostgreSQL live task에 repository CRUD route와 rollback contract를 연결했으며, filtering/aggregate relation execution과 admin UI는 남아 있다.
 
 ### 2026-08-04 — P2 DI foundation 1차
 
@@ -689,7 +689,7 @@ flowchart TB
 | [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many 비페이지 eager loading에는 bound `IN` batching을 적용했으며 many-to-many와 페이지 단위 batching은 남아 있다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 CI PostgreSQL service에서 기본 live compatibility contract를 실행한다. 확장된 live repository/isolation test와 route 연결은 남아 있다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 CI PostgreSQL service에서 live compatibility, serializable isolation, repository CRUD route, DDL rollback contract를 실행한다. local credential 부재로 live 결과는 CI에서 확인해야 하며 filtering/aggregate relation execution은 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
 ### HTML·폼·관리자

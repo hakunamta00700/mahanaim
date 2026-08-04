@@ -7,7 +7,7 @@
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
 - [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
 - [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
-- [ ] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했으며, credential이 제공되지 않은 현재 환경에서는 live 실행을 건너뛴다.
+- [-] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했고 live task에 repository CRUD route·serializable isolation·DDL rollback 검증을 연결했으며, credential이 제공되지 않은 현재 환경에서는 live 실행을 건너뛴다.
 
 ## 2026-08-04 executor lifecycle 안정화
 
@@ -147,7 +147,7 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [ ] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live integration/isolation fixture와 repository route 연결은 남아 있으며 CI PostgreSQL service에서 live contract를 실행한다.
+- [-] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, DDL rollback 검증을 연결했고 CI PostgreSQL service에서 이를 실행하며, 현재 환경의 credential 부재로 local live 결과는 아직 확인하지 못했다.
 
 ### API와 서버 렌더링
 
@@ -173,7 +173,7 @@
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [ ] durable persistence, idempotency key와 외부 queue adapter를 제공한다.
-- [ ] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation은 남아 있으며, live-server fixture와 WebSocket/SSE test client 계약을 추가했다.
+- [-] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live fixture에 isolation·repository route·DDL rollback contract를 연결했지만 credential 부재로 local live 실행은 건너뛰며, live-server fixture와 WebSocket/SSE test client 계약도 추가했다.
 
 ## P3 — 선택 확장
 
