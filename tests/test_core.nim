@@ -1827,12 +1827,36 @@ suite "Mahanaim core contracts":
     defer: migrationAdapter.close()
     migrationAdapter.applyMigration(Migration(name: "audit", up: @[
       MigrationOperation(kind: migrationCreateTable, table: "audit",
-        field: ModelField(name: "message", kind: modelString))], down: @[]))
+        field: ModelField(name: "message", kind: modelString))], down: @[
+      MigrationOperation(kind: migrationDropTable, table: "audit")]))
     discard migrationAdapter.execute(CompiledQuery(sql:
       "INSERT INTO \"audit\" (\"message\") VALUES (?)",
       parameters: @[textValue("created")]))
     check migrationAdapter.execute(CompiledQuery(sql:
       "SELECT \"message\" FROM \"audit\"", parameters: @[]))[0][0].text == "created"
+
+    let historyAdapter = newSqliteDatabaseAdapter()
+    defer: historyAdapter.close()
+    let first = Migration(name: "001_users", up: @[
+      MigrationOperation(kind: migrationCreateTable, table: "users",
+        field: ModelField(name: "name", kind: modelString))], down: @[
+      MigrationOperation(kind: migrationDropTable, table: "users")])
+    let second = Migration(name: "002_audit", up: @[
+      MigrationOperation(kind: migrationCreateTable, table: "audit_log",
+        field: ModelField(name: "message", kind: modelString))], down: @[
+      MigrationOperation(kind: migrationDropTable, table: "audit_log")])
+    check historyAdapter.migrate([first, second]) == @["001_users", "002_audit"]
+    check historyAdapter.migrate([first, second]).len == 0
+    check historyAdapter.appliedMigrations() == @["001_users", "002_audit"]
+    check historyAdapter.rollbackLatest([first, second]).get() == "002_audit"
+    check historyAdapter.appliedMigrations() == @["001_users"]
+    ## A rollback requires the latest recorded migration's down definition.
+    expect ValueError:
+      discard historyAdapter.rollbackLatest([second])
+    check historyAdapter.appliedMigrations() == @[
+      "001_users"]
+    check historyAdapter.rollbackLatest([first]).get() == "001_users"
+    check historyAdapter.appliedMigrations().len == 0
 
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [

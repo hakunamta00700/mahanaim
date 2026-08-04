@@ -4,7 +4,7 @@
 ## the compiled values and translates driver lifecycle calls. That boundary
 ## keeps PostgreSQL and future drivers interchangeable with the same contract.
 
-import std/[strutils]
+import std/[options, strutils]
 import pkg/db_connector/db_sqlite
 import ./database
 
@@ -92,3 +92,87 @@ proc rollbackMigration*(adapter: SqliteDatabaseAdapter, migration: Migration) =
   adapter.withTransaction(proc() =
     for operation in migration.down:
       adapter.execControl(migrationSql(operation, dialectSqlite)))
+
+const migrationTable = "__mahanaim_migrations"
+
+proc ensureMigrationTable(adapter: SqliteDatabaseAdapter) =
+  ## The history table is framework-owned and uses a stable reserved name.
+  adapter.execControl("CREATE TABLE IF NOT EXISTS \"" & migrationTable &
+    "\" (\"sequence\" INTEGER PRIMARY KEY AUTOINCREMENT, \"name\" TEXT NOT NULL UNIQUE)")
+
+proc appliedMigrations*(adapter: SqliteDatabaseAdapter): seq[string] =
+  ## Return applied names in execution order for diagnostics and CLI output.
+  adapter.ensureMigrationTable()
+  let rows = adapter.execute(CompiledQuery(sql:
+    "SELECT \"name\" FROM \"" & migrationTable & "\" ORDER BY \"sequence\"",
+    parameters: @[]))
+  for row in rows:
+    if row.len > 0:
+      result.add(row[0].text)
+
+proc validateMigrations(migrations: openArray[Migration]) =
+  var names: seq[string] = @[]
+  for migration in migrations:
+    if migration.name.strip().len == 0:
+      raise newException(ValueError, "Migration name cannot be empty")
+    if migration.name in names:
+      raise newException(ValueError, "Duplicate migration: " & migration.name)
+    names.add(migration.name)
+
+proc migrate*(adapter: SqliteDatabaseAdapter,
+              migrations: openArray[Migration]): seq[string] =
+  ## Apply pending migrations one at a time and record each atomically.
+  validateMigrations(migrations)
+  adapter.ensureMigrationTable()
+  let applied = adapter.appliedMigrations()
+  for migration in migrations:
+    ## Copy the openArray element before capturing it in the transaction
+    ## callback; Nim's lent iterator safety rules forbid capturing the view.
+    let currentMigration = migration
+    if currentMigration.name in applied:
+      continue
+    adapter.withTransaction(proc() =
+      for operation in currentMigration.up:
+        adapter.execControl(migrationSql(operation, dialectSqlite))
+      let statement = adapter.connection.prepare(
+        "INSERT INTO \"" & migrationTable & "\" (\"name\") VALUES (?)")
+      try:
+        statement.bindParam(1, currentMigration.name)
+        for _ in adapter.connection.fastRows(statement):
+          discard
+      finally:
+        statement.finalize())
+    result.add(currentMigration.name)
+
+proc rollbackLatest*(adapter: SqliteDatabaseAdapter,
+                     migrations: openArray[Migration]): Option[string] =
+  ## Roll back exactly the latest recorded migration, preserving stack order.
+  validateMigrations(migrations)
+  adapter.ensureMigrationTable()
+  let rows = adapter.execute(CompiledQuery(sql:
+    "SELECT \"name\" FROM \"" & migrationTable &
+    "\" ORDER BY \"sequence\" DESC LIMIT 1", parameters: @[]))
+  if rows.len == 0 or rows[0].len == 0:
+    return none(string)
+  let name = rows[0][0].text
+  var selected: Option[Migration] = none(Migration)
+  for migration in migrations:
+    if migration.name == name:
+      selected = some(migration)
+      break
+  if selected.isNone:
+    raise newException(ValueError, "Migration definition is missing: " & name)
+  ## Keep an owned copy for the callback instead of capturing an Option view.
+  let currentMigration = selected.get()
+  adapter.withTransaction(proc() =
+    for operation in currentMigration.down:
+      adapter.execControl(migrationSql(operation, dialectSqlite))
+    let statement = adapter.connection.prepare(
+      "DELETE FROM \"" & migrationTable & "\" WHERE \"name\" = ?")
+    try:
+      statement.bindParam(1, name)
+      for _ in adapter.connection.fastRows(statement):
+        discard
+    finally:
+      statement.finalize())
+  some(name)

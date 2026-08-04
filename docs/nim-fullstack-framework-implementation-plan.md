@@ -189,14 +189,16 @@
 - [x] fake adapter의 commit/rollback 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] 공식 `db_connector` 기반 SQLite adapter의 bound execute, transaction, savepoint, migration up 실행을 추가했다.
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] PostgreSQL adapter, connection pool/isolation, relation query, migration history/down 실행기는 남아 있다.
+- [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
+- [ ] PostgreSQL adapter, connection pool/isolation, relation query는 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
 - [x] `db_connector` dependency와 lockfile을 추가하고 `SqliteDatabaseAdapter`를 공개했다.
 - [x] compiled query parameter를 SQLite prepared statement에 타입별로 bind하고 결과를 neutral row contract로 변환한다.
 - [x] transaction, savepoint, migration up 경계를 adapter에 연결하고 닫힌 connection을 명시적으로 거부한다.
-- [ ] PostgreSQL 동일 adapter, connection pooling, typed NULL/result metadata와 migration history/down은 남아 있다.
+- [x] SQLite migration history와 latest down rollback을 제공한다.
+- [ ] PostgreSQL 동일 adapter, connection pooling, typed NULL/result metadata는 남아 있다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차
 
@@ -671,7 +673,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [ ] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 backend compiler를 만들어 조건·정렬·집계·loading 전략을 표현한다. |
-| [ ] | REQ-DATA-003 | P1 | schema diff, migration artifact, up/down/status/check와 fixture/seed 명령을 제공한다. |
+| [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
 | [ ] | REQ-DATA-004 | P1 | unit-of-work와 connection pool을 request context에 연결하고 savepoint·locking capability를 명시한다. |
 | [-] | REQ-DATA-005 | P1 | SQLite adapter를 추가했고 PostgreSQL adapter와 backend capability matrix를 추가한다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |

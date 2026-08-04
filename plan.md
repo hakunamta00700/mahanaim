@@ -5,7 +5,7 @@
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
 - [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
 - [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
-- [-] SQLite driver의 transaction/savepoint/migration 실행을 추가했다. PostgreSQL driver와 isolation은 남아 있다.
+- [-] SQLite driver의 transaction/savepoint/migration up·down history 실행을 추가했다. PostgreSQL driver와 isolation은 남아 있다.
 
 ## 2026-08-04 executor lifecycle 안정화
 
@@ -136,7 +136,7 @@
 - [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩하는 adapter를 제공한다.
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
-- [-] SQLite query/transaction/migration adapter를 제공한다. PostgreSQL adapter, migration down history, relation query는 남아 있다.
+- [-] SQLite query/transaction/migration adapter와 migration up·down history를 제공한다. PostgreSQL adapter, relation query는 남아 있다.
 
 ### API와 서버 렌더링
 
