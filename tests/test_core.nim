@@ -1480,6 +1480,28 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "application/json;q=0"
     check negotiateResponse(request, jsonResponse("{\"ok\":true}")).status == Http406
 
+  test "HTML JSON response helper selects HTMX partials and JSON":
+    var request = newRequest("GET", "/items")
+    let full = htmlJsonResponse(request, "<main>full</main>",
+      "<li>partial</li>", "{\"items\":[]}")
+    check full.body == "<main>full</main>"
+    check full.header("Vary").get() == "Accept, HX-Request"
+
+    request.headers["HX-Request"] = "true"
+    let partial = htmlJsonResponse(request, "<main>full</main>",
+      "<li>partial</li>", "{\"items\":[]}")
+    check partial.body == "<li>partial</li>"
+    check isHtmxRequest(request)
+
+    request.headers["accept"] = "application/json"
+    let json = htmlJsonResponse(request, "<main>full</main>",
+      "<li>partial</li>", "{\"items\":[]}")
+    check json.header("Content-Type").get().startsWith("application/json")
+    check json.body == "{\"items\":[]}"
+
+    request.headers["accept"] = "image/png"
+    check htmlJsonResponse(request, "full", "partial", "{}").status == Http406
+
   test "stream and SSE responses expose representation metadata":
     let stream = streamResponse("chunk", "text/plain")
     check stream.representation == rrStream

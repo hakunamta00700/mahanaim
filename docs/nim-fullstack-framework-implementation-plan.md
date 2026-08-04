@@ -693,7 +693,7 @@ flowchart TB
 | [-] | REQ-ADMIN-001 | P1 | metadata에서 authorization guard·audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. query customization과 object-level permission은 남아 있다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |
 | [x] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 append-only audit event 저장소 계약 및 기본 in-memory adapter를 제공한다. |
-| [ ] | REQ-UI-003 | P1 | HTML partial response와 JSON response를 같은 route contract에서 선택하도록 하고 HTMX 예제를 제공한다. |
+| [x] | REQ-UI-003 | P1 | `htmlJsonResponse`로 HTML 전체 문서·HTMX partial·JSON response를 같은 route contract에서 선택하고 `Vary: Accept, HX-Request` 및 HTMX 예제를 제공한다. |
 
 ### 인증·보안
 

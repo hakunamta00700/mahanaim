@@ -4,7 +4,7 @@
 ## policy selects among those already-rendered variants, keeping HTTP Accept
 ## parsing out of business logic and making 406 behavior consistent.
 
-import std/[algorithm, httpcore, options, strutils]
+import std/[algorithm, httpcore, options, strutils, tables]
 import ./core
 
 type AcceptedMedia = object
@@ -85,3 +85,26 @@ proc negotiateResponse*(request: Request, response: Response): Response =
     if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
       return response
   textResponse("Not Acceptable", Http406)
+
+proc isHtmxRequest*(request: Request): bool =
+  ## HTMX is detected from its explicit request header, not from User-Agent or
+  ## an arbitrary query flag, so the representation choice remains auditable.
+  let value = request.header("hx-request")
+  value.isSome and value.get().strip().toLowerAscii() in ["true", "1"]
+
+proc htmlJsonResponse*(request: Request, fullHtml, partialHtml,
+                       jsonBody: string, status = Http200): Response =
+  ## A single route can serve a browser document, an HTMX fragment, or JSON.
+  ## HTML stays the default server preference; the partial is selected only
+  ## for an explicit HTMX request, while Accept negotiation still controls
+  ## JSON clients and produces 406 for unsupported media types.
+  let htmlBody = if request.isHtmxRequest and partialHtml.len > 0:
+    partialHtml
+  else:
+    fullHtml
+  var selected = negotiateResponse(request, [
+    htmlResponse(htmlBody, status), jsonResponse(jsonBody, status)])
+  var headers = selected.headers
+  headers["vary"] = "Accept, HX-Request"
+  selected.headers = headers
+  selected
