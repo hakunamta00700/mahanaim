@@ -315,6 +315,78 @@ proc listRelation*(repository: DatabaseRepository,
   for values in repository.adapter.execute(compiled):
     result.add(repository.rowFromValues(values))
 
+proc relationBaseField(name: string): string =
+  ## Relation queries may qualify base fields for join compilation. Eager
+  ## loading executes the base and related projections separately, so the
+  ## repository validation boundary receives the unqualified model field.
+  if name.startsWith("base."):
+    return name[5 .. ^1]
+  name
+
+proc relationRowJson(row: ResourceRow): JsonNode =
+  ## Nested relation output is assembled at the JSON boundary, while each
+  ## table row remains mapped by its own repository metadata.
+  result = newJObject()
+  for name, value in row:
+    result[name] = value
+
+proc listRelationWithRelated*(repository: DatabaseRepository,
+                              relation: ModelRelation,
+                              target: ModelMetadata,
+                              query = RelationSelectQuery()): seq[ResourceRow] =
+  ## Load one relation as nested JSON without duplicating base rows. This is
+  ## intentionally a separate API from listRelation: the latter is a stable
+  ## join/base-row contract, while this method owns eager DTO assembly.
+  if relation.kind == relationManyToMany:
+    raise newException(ValueError,
+      "Many-to-many eager loading requires an explicit through relation")
+  if relation.localField.len == 0 or relation.foreignField.len == 0:
+    raise newException(ValueError, "Relation fields are required")
+  if target.tableName.len == 0:
+    raise newException(ValueError, "Relation target table is required")
+  if query.joins.len > 0:
+    raise newException(ValueError,
+      "Eager relation loading accepts one relation without additional joins")
+  let local = repository.fieldFor(relation.localField)
+  if local.isNone:
+    raise newException(ValueError,
+      "Unknown relation local field: " & relation.localField)
+  if target.field(relation.foreignField).isNone:
+    raise newException(ValueError,
+      "Unknown relation target field: " & relation.foreignField)
+
+  var baseQuery = SelectQuery(limit: query.limit, offset: query.offset)
+  for column in query.columns:
+    baseQuery.columns.add(relationBaseField(column))
+  for order in query.orderBy:
+    baseQuery.orderBy.add(QueryOrder(field: relationBaseField(order.field),
+      descending: order.descending))
+  baseQuery.filters = query.filters
+  for filter in baseQuery.filters.mitems:
+    filter.field = relationBaseField(filter.field)
+  let baseRows = repository.list(baseQuery)
+  let targetRepository = newDatabaseRepository(target, repository.adapter)
+  let localName = local.get().name
+  for originalRow in baseRows:
+    var baseRow = originalRow
+    var relatedRows: seq[ResourceRow] = @[]
+    if baseRow.hasKey(localName) and baseRow[localName].kind != JNull:
+      let relatedQuery = SelectQuery(filters: @[
+        QueryFilter(field: relation.foreignField, operator: filterEqual,
+          value: sqlValue(baseRow[localName]))])
+      relatedRows = targetRepository.list(relatedQuery)
+    if relation.kind == relationOneToMany:
+      var nested = newJArray()
+      for relatedRow in relatedRows:
+        nested.add(relationRowJson(relatedRow))
+      baseRow[relation.name] = nested
+    else:
+      if relatedRows.len > 0:
+        baseRow[relation.name] = relationRowJson(relatedRows[0])
+      else:
+        baseRow[relation.name] = newJNull()
+    result.add(baseRow)
+
 proc idFilter(repository: DatabaseRepository, id: string): QueryFilter =
   let field = repository.fieldFor(repository.idField)
   if field.isNone:

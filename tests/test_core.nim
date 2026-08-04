@@ -2476,6 +2476,44 @@ suite "Mahanaim core contracts":
     check related.len == 1
     check related[0]["name"].getStr() == "Ada"
 
+  test "database repository eager-loads one-hop nested relations":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"posts\" (\"id\" INTEGER, \"user_id\" INTEGER, \"title\" TEXT)",
+      parameters: @[]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"users\" VALUES (?, ?)",
+      parameters: @[integerValue(1), textValue("Ada")]))
+    discard adapter.execute(CompiledQuery(sql:
+      "INSERT INTO \"posts\" VALUES (?, ?, ?)",
+      parameters: @[integerValue(10), integerValue(1), textValue("Nim")]))
+    var user = newModelMetadata("User", "users")
+    user.addField(newModelField("id", modelInteger, primaryKey = true))
+    user.addField(newModelField("name", modelString))
+    var posts = newModelMetadata("Post", "posts")
+    posts.addField(newModelField("id", modelInteger, primaryKey = true))
+    posts.addField(newModelField("user_id", modelInteger))
+    posts.addField(newModelField("title", modelString))
+    let userRepository = newDatabaseRepository(user, adapter)
+    let usersWithPosts = userRepository.listRelationWithRelated(
+      ModelRelation(name: "posts", kind: relationOneToMany,
+        targetModel: "Post", localField: "id", foreignField: "user_id"), posts)
+    check usersWithPosts.len == 1
+    check usersWithPosts[0]["posts"].kind == JArray
+    check usersWithPosts[0]["posts"].len == 1
+    check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
+
+    let postRepository = newDatabaseRepository(posts, adapter)
+    let postsWithUser = postRepository.listRelationWithRelated(
+      ModelRelation(name: "user", kind: relationManyToOne,
+        targetModel: "User", localField: "user_id", foreignField: "id"), user)
+    check postsWithUser.len == 1
+    check postsWithUser[0]["user"]["name"].getStr() == "Ada"
+
   test "application wires and releases request-scoped database connections":
     var closed = 0
     let pool = newDatabaseConnectionPool(

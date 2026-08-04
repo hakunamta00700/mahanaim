@@ -189,3 +189,4 @@
 - [ ] P1에서 SQLite/PostgreSQL CRUD와 migration 회귀 테스트가 통과한다.
 - [x] 구현된 운영 기능은 [운영 정책 문서](docs/operations-guide.md)에 실패 시나리오와 복구 절차를 기록한다.
 - [ ] 각 릴리스가 지원 버전, 의존성 lock, 보안 기본값, 변경 로그를 명시한다.
+- [x] 관계 로딩: 기존 JOIN 기반 `listRelation` 계약은 유지하고, `listRelationWithRelated`로 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. many-to-many는 through metadata가 정의될 때까지 명시적으로 보류한다.
