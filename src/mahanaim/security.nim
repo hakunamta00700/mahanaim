@@ -49,6 +49,20 @@ type
     secureCookie*: bool
     requireAuthentication*: bool
 
+  AuthBackend* = ref object of RootObj
+    ## Authentication is a replaceable verification boundary. Middleware only
+    ## consumes the resulting AuthContext and never parses a credential format.
+
+  SessionCookieAuthBackend* = ref object of AuthBackend
+    policy*: SessionPolicy
+
+  BearerTokenAuthBackend* = ref object of AuthBackend
+    ## This signed bearer token is intentionally opaque to the core. A JWT or
+    ## external introspection adapter can implement the same AuthBackend API.
+    secret*: string
+    headerName*: string
+    scheme*: string
+
   SignedValueVerification* = object
     ## Keyring verification reports whether a value was signed by a legacy key
     ## so callers can rotate the cookie on the next successful response.
@@ -77,6 +91,7 @@ type
     csrfHeaderName*: string
     csrfCookieSecure*: bool
     session*: SessionPolicy
+    authBackend*: AuthBackend
     contentSecurityPolicy*: string
     frameOptions*: string
     referrerPolicy*: string
@@ -100,6 +115,7 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     csrfCookieSecure: false,
     session: SessionPolicy(enabled: false, cookieName: "mahanaim_session",
       secret: "", secureCookie: true, requireAuthentication: false),
+    authBackend: nil,
     contentSecurityPolicy: "default-src 'self'",
     frameOptions: "DENY",
     referrerPolicy: "strict-origin-when-cross-origin")
@@ -350,6 +366,63 @@ proc signedCookieValue*(request: Request, name, secret: string): Option[string] 
     return none(string)
   verifySignedValue(secret, request.cookies[name])
 
+method authenticate*(backend: AuthBackend,
+                     request: Request): Option[AuthContext] {.base, gcsafe.} =
+  ## Backends must return no context for invalid credentials; middleware then
+  ## applies the same anonymous/401 policy for every credential transport.
+  discard backend
+  discard request
+  raise newException(ValueError, "Auth backend does not implement authenticate")
+
+proc newSessionCookieAuthBackend*(policy: SessionPolicy):
+    SessionCookieAuthBackend =
+  ## Reuse the existing signed-cookie policy without making middleware know the
+  ## cookie serialization details.
+  if not policy.enabled or policy.cookieName.strip().len == 0 or
+     policy.secret.len == 0:
+    raise newException(ValueError, "Session auth backend requires an enabled policy")
+  SessionCookieAuthBackend(policy: policy)
+
+method authenticate*(backend: SessionCookieAuthBackend,
+                     request: Request): Option[AuthContext] {.gcsafe.} =
+  let subject = signedCookieValue(request, backend.policy.cookieName,
+    backend.policy.secret)
+  if subject.isSome and subject.get().strip().len > 0:
+    return some(AuthContext(authenticated: true, subject: subject.get()))
+  none(AuthContext)
+
+proc newBearerTokenAuthBackend*(secret: string,
+                                headerName = "authorization",
+                                scheme = "Bearer"): BearerTokenAuthBackend =
+  ## Token issuance and verification stay in one adapter so callers cannot
+  ## accidentally accept an unsigned value or a different authorization scheme.
+  if secret.len < 32 or headerName.strip().len == 0 or scheme.strip().len == 0:
+    raise newException(ValueError,
+      "Bearer auth backend requires a strong secret, header, and scheme")
+  BearerTokenAuthBackend(secret: secret, headerName: headerName,
+    scheme: scheme)
+
+proc issueBearerToken*(backend: BearerTokenAuthBackend,
+                       subject: string): string =
+  ## The returned token is opaque and cookie/header safe; expiry and claims can
+  ## be supplied by a future JWT backend without changing AuthBackend callers.
+  if backend.isNil or subject.strip().len == 0:
+    raise newException(ValueError, "Bearer token subject must not be empty")
+  signValue(backend.secret, subject)
+
+method authenticate*(backend: BearerTokenAuthBackend,
+                     request: Request): Option[AuthContext] {.gcsafe.} =
+  let header = request.header(backend.headerName)
+  if header.isNone:
+    return none(AuthContext)
+  let parts = header.get().strip().splitWhitespace()
+  if parts.len != 2 or parts[0].toLowerAscii() != backend.scheme.toLowerAscii():
+    return none(AuthContext)
+  let subject = verifySignedValue(backend.secret, parts[1])
+  if subject.isSome and subject.get().strip().len > 0:
+    return some(AuthContext(authenticated: true, subject: subject.get()))
+  none(AuthContext)
+
 proc bindSession*(request: var Request, policy: SessionPolicy): bool =
   ## Verify and bind one signed session subject without exposing cookie format
   ## to handlers. Invalid credentials always become anonymous rather than
@@ -423,7 +496,22 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       addSecurityHeaders(rejected, policy)
       return rejected
     var requestWithAuth = request
-    if policy.session.enabled:
+    if policy.authBackend != nil:
+      let authentication = policy.authBackend.authenticate(requestWithAuth)
+      requestWithAuth.auth = if authentication.isSome:
+        authentication.get()
+      else:
+        AuthContext(authenticated: false, subject: "")
+      let authenticated = authentication.isSome
+      ## CORS preflight has no application credentials by design; rejecting it
+      ## here would prevent browsers from discovering the authenticated route.
+      let isCorsPreflight = request.httpMethod == "OPTIONS" and origin.isSome
+      if policy.session.requireAuthentication and not authenticated and
+         not isCorsPreflight:
+        var rejected = textResponse("Authentication Required", Http401)
+        addSecurityHeaders(rejected, policy)
+        return rejected
+    elif policy.session.enabled:
       if policy.session.secret.len == 0 or
          policy.session.cookieName.strip().len == 0:
         var rejected = textResponse("Session Policy Misconfigured", Http500)

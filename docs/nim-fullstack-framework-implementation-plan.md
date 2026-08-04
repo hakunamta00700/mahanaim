@@ -136,7 +136,7 @@
 - [x] `requireAuthentication` 정책을 추가해 인증되지 않은 route 요청을 401로 거부한다.
 - [x] session cookie 발급·삭제 helper와 secure cookie 속성, secret/cookie-name pre-flight 검사를 추가했다.
 - [x] 유효·위조·누락 session, 인증 route, cookie lifecycle 회귀 테스트를 추가했다.
-- [ ] 분산 session 저장소, session rotation/탈취 대응, 일반 auth backend 연동은 남아 있다.
+- [-] signed session cookie와 bearer token auth backend 계약을 추가했다. 분산 session 저장소, session rotation/탈취 대응, JWT·external introspection adapter는 남아 있다.
 
 ### 2026-08-04 — P0 라우팅 기반 1차
 
@@ -435,7 +435,7 @@
 - [x] legacy signed cookie를 primary key로 재발급하는 명시적 rotation helper를 추가했다.
 - [x] legacy acceptance, invalid key rejection, rotated signature 회귀 테스트를 추가했다.
 - [x] session/auth middleware integration의 1차 signed subject binding을 추가했다.
-- [ ] key retirement 운영 정책과 완전한 auth backend/session rotation은 남아 있다.
+- [-] signed auth backend의 기본 경계를 추가했다. key retirement 운영 정책과 JWT·external auth backend/session rotation은 남아 있다.
 
 ### 2026-08-04 — P0 router prefix index 1차
 
@@ -699,7 +699,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [ ] | REQ-SEC-001 | P1 | auth backend protocol 위에 session cookie와 JWT/token adapter를 구현한다. |
+| [x] | REQ-SEC-001 | P1 | auth backend protocol 위에 signed session cookie와 HMAC bearer token adapter를 구현하고 middleware의 `AuthContext` 바인딩에 연결한다. JWT/external introspection은 같은 protocol의 후속 adapter로 확장한다. |
 | [ ] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable policy로 제공한다. |
 | [ ] | REQ-SEC-003 | P1 | Argon2/bcrypt 등 검증된 hashing adapter, reset token, rotation, login throttling hook을 제공한다. |
 | [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |

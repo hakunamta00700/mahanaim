@@ -690,6 +690,35 @@ suite "Mahanaim core contracts":
     check not invalidReport.passed
     check invalidReport.issues[0].code == "security.session-secret.weak"
 
+  test "auth backend contract binds a bearer token subject":
+    var policy = defaultSecurityPolicy()
+    policy.session.requireAuthentication = true
+    let backend = newBearerTokenAuthBackend(
+      "bearer-secret-that-is-long-enough-for-auth-backend")
+    policy.authBackend = backend
+    let app = newApplication(defaultConfig(), policy)
+    proc bearerMe(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.auth.subject)
+    app.get("/bearer-me", "bearer-user", bearerMe)
+
+    check (waitFor app.dispatch(newRequest("GET", "/bearer-me"))).status == Http401
+    var authenticated = newRequest("GET", "/bearer-me")
+    authenticated.headers["Authorization"] = "Bearer " &
+      backend.issueBearerToken("token-user")
+    let accepted = waitFor app.dispatch(authenticated)
+    check accepted.status == Http200
+    check accepted.body == "token-user"
+
+    var wrongScheme = newRequest("GET", "/bearer-me")
+    wrongScheme.headers["Authorization"] = "Basic " &
+      backend.issueBearerToken("token-user")
+    check (waitFor app.dispatch(wrongScheme)).status == Http401
+
+    var tampered = authenticated
+    tampered.headers["Authorization"] = "Bearer " &
+      authenticated.headers["Authorization"][0 .. ^2] & "0"
+    check (waitFor app.dispatch(tampered)).status == Http401
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")
