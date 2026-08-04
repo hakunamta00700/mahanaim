@@ -769,6 +769,21 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard issuePasswordResetTokenAt("short", "user-42", 60, 1000)
 
+  test "login throttle blocks repeated failures and resets on success":
+    let throttle = newInMemoryLoginThrottle(maxFailures = 2,
+      windowSeconds = 60)
+    check throttle.checkAttempt("user-42").allowed
+    throttle.recordFailure("user-42")
+    check throttle.checkAttempt("user-42").allowed
+    throttle.recordFailure("user-42")
+    let blocked = throttle.checkAttempt("user-42")
+    check not blocked.allowed
+    check blocked.retryAfterSeconds >= 1
+    throttle.recordSuccess("user-42")
+    check throttle.checkAttempt("user-42").allowed
+    expect ValueError:
+      discard throttle.checkAttempt("")
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")
