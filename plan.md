@@ -54,7 +54,8 @@
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 통합한다.
 - [x] 표준 TCP adapter의 WebSocket upgrade와 기본 text/binary/control frame wire를 통합한다.
 - [x] 표준 HTTP·Windows Prologue adapter의 단일 response `Accept` negotiation과 406 wire 정책을 통합한다.
-- [ ] Prologue socket fixture와 stream/SSE/WebSocket representation variant negotiation을 완성한다.
+- [x] 표준 HTTP adapter에서 buffered/stream/SSE representation variant를 `Accept` 기준으로 wire 선택한다.
+- [ ] Prologue live fixture와 WebSocket upgrade representation policy를 완성한다.
 - [x] 표준 network adapter의 close 중 serve cancellation을 graceful shutdown으로 정리한다.
 - [x] application-level error handler와 problem JSON envelope를 제공한다.
 

@@ -41,6 +41,10 @@ type
     headers*: Table[string, string]
     body*: string
     representation*: ResponseRepresentation
+    ## Optional server-preferred alternatives. Adapters negotiate this list
+    ## only at the wire boundary, so handlers can offer multiple protocols
+    ## without coupling business logic to a concrete HTTP server.
+    variants*: seq[Response]
 
   SseEvent* = object
     ## Structured SSE data keeps event metadata separate from wire framing.
@@ -145,6 +149,22 @@ proc newResponse*(status: HttpCode, body = ""): Response =
   result.body = body
   result.headers = emptyTable()
   result.representation = rrBuffered
+  result.variants = @[]
+
+proc responseVariants*(variants: openArray[Response]): Response =
+  ## Preserve a server-ordered list of equivalent representations until an
+  ## adapter sees the request's Accept header. Empty input is an explicit
+  ## negotiation failure rather than an invalid partially initialized value.
+  if variants.len == 0:
+    result = newResponse(Http406, "Not Acceptable")
+    result.headers["content-type"] = "text/plain; charset=utf-8"
+    return
+  result = variants[0]
+  result.variants = @[]
+  for variant in variants:
+    var candidate = variant
+    candidate.variants = @[]
+    result.variants.add(candidate)
 
 proc newWebSocketSession*(sendMessage: WebSocketSendProc = nil,
                           receiveMessage: WebSocketReceiveProc = nil,

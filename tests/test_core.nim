@@ -507,6 +507,13 @@ suite "Mahanaim core contracts":
       discard request
       return textResponse("hello over http")
     app.get("/hello", "hello", hello)
+    proc variants(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return responseVariants([
+        textResponse("buffered variant"),
+        sseResponse([SseEvent(event: "message", data: "stream variant",
+          retryMs: -1)])])
+    app.get("/variants", "variants", variants)
     let network = newNetworkServer(app, "127.0.0.1", 0)
     asyncCheck network.serve()
 
@@ -533,6 +540,14 @@ suite "Mahanaim core contracts":
       HttpGet, headers = acceptHeaders)
     check rejected.code == Http406
     discard waitFor rejected.body()
+    var streamHeaders = newHttpHeaders()
+    streamHeaders["Accept"] = "text/event-stream"
+    let selected = waitFor client.request(
+      "http://127.0.0.1:" & $network.boundPort().uint16 & "/variants",
+      HttpGet, headers = streamHeaders)
+    check selected.code == Http200
+    check selected.headers["transfer-encoding"] == "chunked"
+    check (waitFor selected.body()) == "event: message\ndata: stream variant\n\n"
     client.close()
     network.close()
     network.close()
@@ -966,6 +981,14 @@ suite "Mahanaim core contracts":
     check single.status == Http406
     request.headers["accept"] = "text/plain"
     check negotiateResponse(request, textResponse("hello")).status == Http200
+    let candidates = responseVariants([
+      textResponse("plain"), jsonResponse("{\"ok\":true}")])
+    request.headers["accept"] = "application/json"
+    let selected = negotiateResponse(request, candidates)
+    check selected.body == "{\"ok\":true}"
+    check selected.variants.len == 0
+    request.headers["accept"] = "image/png"
+    check negotiateResponse(request, candidates).status == Http406
 
   test "stream and SSE responses expose representation metadata":
     let stream = streamResponse("chunk", "text/plain")

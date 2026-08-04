@@ -25,9 +25,11 @@ proc mediaType(response: Response): string =
   contentType.get().split(';', maxsplit = 1)[0].strip().toLowerAscii()
 
 proc mediaTypeMatches(accepted, offered: string): bool =
-  accepted == "*/*" or accepted == offered or
-    (accepted.endsWith("/*") and
-      accepted[0 ..< accepted.len - 1] == offered[0 ..< offered.find('/')] & "/")
+  if accepted == "*/*" or accepted == offered:
+    return true
+  let offeredSlash = offered.find('/')
+  accepted.endsWith("/*") and offeredSlash > 0 and
+    accepted[0 ..< accepted.len - 1] == offered[0 ..< offeredSlash] & "/"
 
 proc negotiateResponse*(request: Request,
                         variants: openArray[Response]): Response =
@@ -48,6 +50,10 @@ proc negotiateResponse*(request: Request, response: Response): Response =
   ## Validate a single final representation at an adapter boundary. This is
   ## intentionally separate from the variant selector so handlers that only
   ## have one representation still get deterministic 406 wire behavior.
+  if response.variants.len > 0:
+    ## Candidate selection belongs here rather than in each adapter, keeping
+    ## HTTP and Prologue behavior identical for buffered and streaming bodies.
+    return negotiateResponse(request, response.variants)
   let accepted = request.acceptedTypes()
   if accepted.len == 0:
     return response

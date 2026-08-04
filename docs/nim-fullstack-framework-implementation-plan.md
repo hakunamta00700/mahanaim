@@ -52,7 +52,8 @@
 - [x] 표준 TCP adapter의 stream/SSE 응답을 실제 chunked transfer wire로 연결했다.
 - [x] 표준 TCP adapter의 WebSocket upgrade와 기본 frame wire를 연결했다.
 - [x] 표준 HTTP·Windows Prologue adapter의 단일 response `Accept` negotiation과 406 정책을 연결했다.
-- [ ] Prologue socket ownership fixture와 stream/SSE/WebSocket variant negotiation은 남아 있다.
+- [x] 표준 HTTP adapter에서 buffered/stream/SSE representation variant를 `Accept` 기준으로 wire 선택했다.
+- [ ] Prologue live fixture와 WebSocket upgrade representation policy는 남아 있다.
 
 ### 2026-08-04 — P0 HTTP 응답 정책 1차
 
@@ -181,7 +182,8 @@
 - [x] Windows stdlib Prologue backend의 실제 TCP 응답과 idempotent graceful close를 live fixture로 검증했다.
 - [x] 최종 단일 response media type을 `Accept`와 비교해 불일치 시 406을 반환한다.
 - [x] 표준 HTTP와 Windows Prologue bridge에 response policy를 연결하고 WebSocket upgrade는 이를 우회한다.
-- [ ] Prologue socket ownership fixture와 stream/SSE/WebSocket variant negotiation은 다음 P0 slice로 남긴다.
+- [x] `responseVariants`가 buffered/stream/SSE 후보를 보존하고 표준 HTTP adapter가 실제 chunked wire로 선택한다.
+- [ ] Prologue live variant fixture와 WebSocket upgrade representation policy는 다음 P0 slice로 남긴다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 
