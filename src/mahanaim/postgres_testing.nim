@@ -58,3 +58,12 @@ proc newPostgresTestFixture*(configuration: PostgresTestConfiguration):
   let closer: DatabaseTestCloser = proc(adapter: DatabaseAdapter) {.gcsafe.} =
     cast[PostgresDatabaseAdapter](adapter).close()
   newDatabaseTestFixture(factory, closer)
+
+proc newPostgresTestFixtureFromEnv*(): Option[DatabaseTestFixture] =
+  ## Resolve optional credentials and construct the same rollback fixture used
+  ## by live tests. Returning none keeps default unit suites credential-free;
+  ## callers can decide whether a missing environment is a skip or an error.
+  let configuration = postgresTestConfigurationFromEnv()
+  if configuration.isNone:
+    return none(DatabaseTestFixture)
+  some(newPostgresTestFixture(configuration.get()))

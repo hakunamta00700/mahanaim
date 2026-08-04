@@ -97,6 +97,12 @@ optional adapter contract, while `nimble postgresLive` executes the real
 parameterized query and transaction-isolation contract when credentials are
 available; otherwise it reports an explicit skip.
 
+Embedding tests can call `newPostgresTestFixtureFromEnv()` to obtain the same
+rollback fixture without duplicating environment parsing. A missing value
+returns `none`; a live/integration suite should treat that result as an
+explicit skip, while a release gate should fail if PostgreSQL credentials are
+required but absent.
+
 ## Graceful shutdown
 
 1. readiness를 false로 전환해 새 traffic을 차단한다.
