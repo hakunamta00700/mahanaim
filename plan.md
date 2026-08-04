@@ -1,5 +1,12 @@
 # Mahanaim 구현 계획
 
+## 2026-08-04 transaction contract
+
+- [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
+- [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
+- [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
+- [ ] 실제 SQLite/PostgreSQL driver의 transaction, savepoint, isolation 구현은 남아 있다.
+
 ## 2026-08-04 executor lifecycle 안정화
 
 - [x] taskpool job registry에서 GC 관리 `Table/seq`를 shared memory에 저장하지 않도록 raw slot registry로 분리한다.
@@ -128,6 +135,7 @@
 - [x] 표준 serialization adapter 확장점과 DateTime·UUID·file metadata 정규화/검증을 제공한다.
 - [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩하는 adapter를 제공한다.
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
+- [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [ ] SQLite/PostgreSQL query adapter, migration up/down, transaction, relation query를 제공한다.
 
 ### API와 서버 렌더링

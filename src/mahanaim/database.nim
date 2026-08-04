@@ -86,6 +86,8 @@ type
     ## Driver adapters implement execution and transaction methods here.
     dialect*: DatabaseDialect
 
+  TransactionCallback* = proc () {.gcsafe.}
+
 method execute*(adapter: DatabaseAdapter,
                 query: CompiledQuery): seq[seq[SqlValue]] {.base.} =
   discard adapter
@@ -103,6 +105,39 @@ method commit*(adapter: DatabaseAdapter) {.base.} =
 method rollback*(adapter: DatabaseAdapter) {.base.} =
   discard adapter
   raise newException(ValueError, "Database adapter does not implement rollback")
+
+method savepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+  ## Drivers may map this to SAVEPOINT; the base contract fails explicitly.
+  discard adapter
+  discard name
+  raise newException(ValueError, "Database adapter does not implement savepoint")
+
+method rollbackToSavepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+  discard adapter
+  discard name
+  raise newException(ValueError,
+    "Database adapter does not implement rollbackToSavepoint")
+
+method releaseSavepoint*(adapter: DatabaseAdapter, name: string) {.base.} =
+  discard adapter
+  discard name
+  raise newException(ValueError,
+    "Database adapter does not implement releaseSavepoint")
+
+proc withTransaction*(adapter: DatabaseAdapter,
+                      operation: TransactionCallback) =
+  ## Centralize the all-or-rollback rule so every backend has the same failure
+  ## semantics. Persistence adapters can expose richer transaction objects
+  ## while retaining this safe convenience boundary.
+  if adapter.isNil or operation.isNil:
+    raise newException(ValueError, "Transaction adapter and operation are required")
+  adapter.begin()
+  try:
+    operation()
+    adapter.commit()
+  except CatchableError:
+    adapter.rollback()
+    raise
 
 proc textValue*(value: string): SqlValue = SqlValue(kind: sqlText, text: value)
 proc integerValue*(value: int64): SqlValue = SqlValue(kind: sqlInteger, integer: value)

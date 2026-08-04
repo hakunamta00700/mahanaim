@@ -185,6 +185,8 @@
 - [x] identifier whitelist/quoting과 SQLite `?`·PostgreSQL `$n` placeholder를 테스트했다.
 - [x] migration operation/compiler와 DatabaseAdapter의 begin/commit/rollback/execute 경계를 추가했다.
 - [x] query binding·unsafe identifier 거부·index migration SQL 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [x] transaction guard가 성공 시 commit, 예외 시 rollback을 보장하고 savepoint 미지원 상태를 명시적으로 반환한다.
+- [x] fake adapter의 commit/rollback 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] 실제 SQLite/PostgreSQL driver, connection pool, relation query, migration history/up/down 실행기는 남아 있다.
 
 ### 2026-08-04 — P1 API schema/OpenAPI 1차

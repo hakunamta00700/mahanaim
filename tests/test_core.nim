@@ -21,9 +21,20 @@ type MacroUser = object
   active: bool
 
 type FakeDependencyService = ref object of DependencyService
+type FakeDatabaseAdapter = ref object of DatabaseAdapter
+  events: seq[string]
 
 proc newFakeDependencyService(): DependencyService {.gcsafe.} =
   FakeDependencyService()
+
+method begin(adapter: FakeDatabaseAdapter) =
+  adapter.events.add("begin")
+
+method commit(adapter: FakeDatabaseAdapter) =
+  adapter.events.add("commit")
+
+method rollback(adapter: FakeDatabaseAdapter) =
+  adapter.events.add("rollback")
 
 type FakeRateLimitCounterClient = ref object of RateLimitCounterClient
   calls: int
@@ -1690,6 +1701,14 @@ suite "Mahanaim core contracts":
       table: "users",
       index: ModelIndex(name: "users_email_idx", fields: @["email"], unique: true)))
     check migration == "CREATE UNIQUE INDEX \"users_email_idx\" ON \"users\" (\"email\")"
+
+    let adapter = FakeDatabaseAdapter(events: @[])
+    adapter.withTransaction(proc() {.gcsafe.} = discard)
+    check adapter.events == @["begin", "commit"]
+    expect ValueError:
+      adapter.withTransaction(proc() {.gcsafe.} =
+        raise newException(ValueError, "transaction failure"))
+    check adapter.events == @["begin", "commit", "begin", "rollback"]
 
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
