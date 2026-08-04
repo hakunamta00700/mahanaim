@@ -30,7 +30,8 @@
 - [x] executor 동시 실행 상한과 capacity exhausted 오류 계약을 추가한다.
 - [x] executor 동시 실행 상한을 AppConfig와 process environment provider에 연결한다.
 - [x] 취소된 sync 작업이 worker에서 user handler에 진입하지 않는 cooperative pre-start cancellation을 추가한다.
-- [ ] blocking 자동 감지와 실행 중 backend cancellation 정책을 추가한다.
+- [x] 실행 중 cooperative cancellation 신호를 atomic token으로 전달하고 worker가 안전 지점에서 종료하도록 한다.
+- [ ] blocking 자동 감지와 강제 backend cancellation 정책을 추가한다.
 
 ### HTTP와 라우팅
 

@@ -7,6 +7,7 @@
 import std/[asyncdispatch, asyncnet, httpcore, json, options, os, strutils, tables, times,
             unittest, uri]
 import std/httpclient as hc
+import std/concurrency/atomics
 import pkg/cookiejar
 import prologue/core/nativesettings as prologueSettings
 import prologue/core/httpcore/httplogue
@@ -81,6 +82,22 @@ suite "Mahanaim core contracts":
       discard await pending
       return true
     check waitFor observe(executor)
+
+  test "running sync work can observe atomic cooperative cancellation":
+    ## A timeout cannot safely terminate a native worker. The supported
+    ## backend policy is to publish cancellation atomically and let blocking
+    ## work exit at an explicit safe point supplied by the handler.
+    let executor = newThreadPoolExecutor(pollIntervalMs = 1)
+    var cancelled: Atomic[bool]
+    cancelled.store(false)
+    let pending = executor.execute(proc(): mahanaim.Response {.gcsafe.} =
+      while not cancelled.load():
+        sleep(1)
+      textResponse("worker observed cancellation"))
+    waitFor sleepAsync(10)
+    cancelled.store(true)
+    let response = waitFor pending
+    check response.body == "worker observed cancellation"
 
   test "thread pool executor propagates worker failures":
     let executor = newThreadPoolExecutor()

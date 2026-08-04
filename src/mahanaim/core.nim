@@ -5,12 +5,14 @@
 ## Prologue) evolve without leaking their types into application code.
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
+import std/concurrency/atomics
 
 type
   CancellationToken* = ref object
-    ## Async handlers cannot be safely force-killed by Nim. This token gives
-    ## them a cooperative cancellation signal when the request deadline wins.
-    cancelled*: bool
+    ## Async handlers and taskpool workers share this flag. Atomic access
+    ## makes cooperative cancellation defined across the event-loop/worker
+    ## boundary; it still intentionally does not force-kill user code.
+    cancelled*: Atomic[bool]
 
   Request* = object
     ## A framework-neutral HTTP request snapshot.
@@ -129,15 +131,16 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   result.cookies = emptyTable()
   result.pathParams = emptyTable()
   new(result.cancellation)
+  result.cancellation.cancelled.store(false)
 
 proc cancel*(token: CancellationToken) =
   ## Mark a request as cancelled without invalidating its request snapshot.
   if token != nil:
-    token.cancelled = true
+    token.cancelled.store(true)
 
 proc isCancelled*(token: CancellationToken): bool =
   ## Nil is treated as an active token for manually constructed requests.
-  token != nil and token.cancelled
+  token != nil and token.cancelled.load()
 
 proc isCancelled*(request: Request): bool =
   ## Handler-facing convenience keeps cancellation checks readable.

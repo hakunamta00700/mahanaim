@@ -74,7 +74,8 @@
 - [x] Nim의 비선점 실행 모델에 맞춘 cooperative cancellation token과 회귀 테스트를 추가했다.
 - [x] deprecated `std/concurrency/threadpool`을 lockfile 기반 `taskpools` backend로 교체했다.
 - [x] GC-managed `Response`를 worker에서 copy-safe shared buffer로 변환하고 event loop에서 복원했다.
-- [ ] blocking 자동 감지와 executor queue/cancellation 운영 정책은 남아 있다.
+- [x] 실행 중 cooperative cancellation 신호를 atomic token으로 전달하고 worker 안전 지점 종료를 검증했다.
+- [ ] blocking 자동 감지와 강제 backend cancellation 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 
@@ -215,6 +216,7 @@
 
 - [x] worker 시작 전에 request cancellation token을 확인해 취소된 sync handler 진입을 건너뛴다.
 - [x] 취소된 sync request가 user handler를 호출하지 않는 회귀 테스트를 추가했다.
+- [x] CancellationToken을 atomic flag로 전환하고 실행 중 cooperative worker exit 회귀 테스트를 추가했다.
 - [ ] blocking 자동 감지와 실행 중 worker 강제 cancellation은 남아 있다.
 
 ### 2026-08-04 — P0 executor capacity 1차
