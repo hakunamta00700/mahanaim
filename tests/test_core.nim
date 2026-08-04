@@ -214,6 +214,24 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.header("Content-Type").get() == "text/plain; charset=utf-8"
 
+  test "flash store isolates sessions and consumes bounded messages once":
+    let store = newInMemoryFlashStore(maxMessagesPerSession = 2)
+    store.push("session-a", FlashMessage(category: flashInfo, message: "one"))
+    store.push("session-a", FlashMessage(category: flashSuccess, message: "two"))
+    store.push("session-a", FlashMessage(category: flashWarning, message: "three"))
+    store.push("session-b", FlashMessage(category: flashError, message: "other"))
+    let first = store.consume("session-a")
+    check first.len == 2
+    check first[0].message == "two"
+    check first[1].message == "three"
+    check store.consume("session-a").len == 0
+    check store.consume("session-b")[0].message == "other"
+    let app = newApplication()
+    app.flashStore.push("app-session", FlashMessage(
+      category: flashSuccess, message: "application-owned"))
+    check app.flashStore.consume("app-session")[0].message ==
+      "application-owned"
+
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
     ## requiring every application to remember a security setting. Explicit

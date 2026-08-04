@@ -17,6 +17,7 @@ import ./durable_jobs
 import ./response_policy
 import ./serialization
 import ./storage
+import ./flash
 
 type
   LifecycleHook* = proc ()
@@ -103,6 +104,7 @@ type
     ## tests and embedded hosts never share mutable global extension state.
     serializationRegistry*: SerializationAdapterRegistry
     storageAdapters*: Table[string, ObjectStorage]
+    flashStore*: FlashStore
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -152,6 +154,7 @@ proc newApplication*(config = defaultConfig(),
   result.seedRegistry = newSeedRegistry()
   result.serializationRegistry = newSerializationAdapterRegistry()
   result.storageAdapters = initTable[string, ObjectStorage]()
+  result.flashStore = newInMemoryFlashStore()
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
