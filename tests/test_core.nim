@@ -2308,6 +2308,39 @@ suite "Mahanaim core contracts":
       parseMigrationCommand(["rollback"]))
     check rollback.rolledBack.get() == "001_users"
 
+  test "metadata migration registry and schema diff are deterministic":
+    var desired = newModelMetadata("MigrationUser", "migration_users")
+    desired.addField(newModelField("id", modelInteger, primaryKey = true))
+    desired.addField(newModelField("email", modelString, unique = true))
+    desired.addIndex(ModelIndex(name: "idx_migration_users_email",
+      fields: @["email"], unique: true))
+    let generated = migrationFromMetadata(desired, "001_migration_users")
+    check generated.up.len == 3
+    check generated.up[0].kind == migrationCreateTable
+    check generated.up[1].kind == migrationAddColumn
+    check generated.down[0].kind == migrationDropTable
+
+    var current = newModelMetadata("MigrationUser", "migration_users")
+    current.addField(newModelField("id", modelInteger, primaryKey = true))
+    let diff = diffModelMetadata(current, desired)
+    check diff.len == 2
+    check diff[0].kind == migrationMissingField
+    check diff[1].kind == migrationMissingIndex
+    check not schemaMatches(current, desired)
+    check schemaMatches(desired, desired)
+
+    let registry = newMigrationRegistry()
+    proc migrationProvider(): seq[Migration] {.gcsafe.} =
+      @[Migration(name: "001_provider", up: @[], down: @[])]
+    registry.registerMigrations(migrationProvider)
+    check registry.loadMigrations().len == 1
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard executeMigrationCommand(adapter, [generated],
+      parseMigrationCommand(["up"]))
+    check adapter.execute(CompiledQuery(sql:
+      "SELECT \"email\" FROM \"migration_users\"", parameters: @[])).len == 0
+
   test "database test fixture rolls back each isolated operation":
     let fixture = newDatabaseTestFixture(
       proc(): DatabaseAdapter {.gcsafe.} = newSqliteDatabaseAdapter(),
