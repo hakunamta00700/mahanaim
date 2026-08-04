@@ -5,7 +5,7 @@
 ## and rate limiting remain separate policies so each concern can be tested and
 ## replaced independently.
 
-import std/[asyncdispatch, httpcore, options, strutils, sysrand, tables]
+import std/[asyncdispatch, httpcore, monotimes, options, strutils, sysrand, tables, times]
 import nimcrypto
 import ./core
 
@@ -17,6 +17,9 @@ type
     corsMethods*: string
     corsHeaders*: string
     maxBodyBytes*: int
+    ## A zero value disables the process-local application-wide limiter.
+    rateLimitRequests*: int
+    rateLimitWindowSeconds*: int
     csrfEnabled*: bool
     csrfSecret*: string
     csrfCookieName*: string
@@ -34,6 +37,8 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     corsMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     corsHeaders: "Content-Type, Authorization",
     maxBodyBytes: 1024 * 1024,
+    rateLimitRequests: 0,
+    rateLimitWindowSeconds: 60,
     csrfEnabled: false,
     csrfSecret: "",
     csrfCookieName: "mahanaim_csrf",
@@ -83,6 +88,42 @@ proc addCorsHeaders(response: var Response, policy: SecurityPolicy, origin: stri
   response.headers["access-control-allow-methods"] = policy.corsMethods
   response.headers["access-control-allow-headers"] = policy.corsHeaders
   response.headers["vary"] = "Origin"
+
+type
+  RateLimitState = ref object
+    ## State is owned by one middleware instance, so tests and applications do
+    ## not accidentally share counters through a process-global variable.
+    windowStarted: MonoTime
+    requestCount: int
+
+proc newRateLimitState(): RateLimitState =
+  ## Initialize the first window when the application is constructed.
+  new(result)
+  result.windowStarted = getMonoTime()
+
+proc consumeRateLimit(state: RateLimitState, policy: SecurityPolicy):
+    tuple[enabled: bool, allowed: bool, remaining: int, retryAfter: int] =
+  ## Consume one slot from a fixed window. This intentionally uses a simple
+  ## fixed-window algorithm so the policy remains deterministic and replaceable
+  ## by a distributed store without changing middleware behavior.
+  if policy.rateLimitRequests <= 0 or policy.rateLimitWindowSeconds <= 0:
+    return (false, true, 0, 0)
+  let elapsedSeconds = int((getMonoTime() - state.windowStarted).inMilliseconds div 1000)
+  if elapsedSeconds >= policy.rateLimitWindowSeconds:
+    state.windowStarted = getMonoTime()
+    state.requestCount = 0
+  let remaining = max(0, policy.rateLimitRequests - state.requestCount - 1)
+  if state.requestCount >= policy.rateLimitRequests:
+    let retryAfter = max(1, policy.rateLimitWindowSeconds - elapsedSeconds)
+    return (true, false, 0, retryAfter)
+  inc state.requestCount
+  (true, true, remaining, 0)
+
+proc addRateLimitHeaders(response: var Response, policy: SecurityPolicy,
+                         remaining: int) =
+  ## Expose stable quota information for clients without leaking internal state.
+  response.headers["x-ratelimit-limit"] = $policy.rateLimitRequests
+  response.headers["x-ratelimit-remaining"] = $remaining
 
 const hexDigits = "0123456789abcdef"
 
@@ -164,6 +205,7 @@ proc addCsrfCookie(response: var Response, policy: SecurityPolicy,
 
 proc securityMiddleware*(policy: SecurityPolicy): Middleware =
   ## Validate Host before invoking application code and decorate every result.
+  let rateLimitState = newRateLimitState()
   result = proc(request: Request, next: Handler): Future[Response] {.async, gcsafe.} =
     let host = request.header("host")
     if policy.allowedHosts.len > 0 and
@@ -179,6 +221,13 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       return rejected
     if policy.maxBodyBytes > 0 and request.body.len > policy.maxBodyBytes:
       var rejected = textResponse("Request Entity Too Large", Http413)
+      addSecurityHeaders(rejected, policy)
+      return rejected
+    let rateLimit = consumeRateLimit(rateLimitState, policy)
+    if rateLimit.enabled and not rateLimit.allowed:
+      var rejected = textResponse("Too Many Requests", Http429)
+      addRateLimitHeaders(rejected, policy, rateLimit.remaining)
+      rejected.headers["retry-after"] = $rateLimit.retryAfter
       addSecurityHeaders(rejected, policy)
       return rejected
     if policy.csrfEnabled:
@@ -201,6 +250,8 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       addSecurityHeaders(preflight, policy)
       return preflight
     var response = await next(request)
+    if rateLimit.enabled:
+      addRateLimitHeaders(response, policy, rateLimit.remaining)
     if policy.csrfEnabled and
        request.cookies.getOrDefault(policy.csrfCookieName).len == 0:
       addCsrfCookie(response, policy, csrfToken(policy))

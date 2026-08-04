@@ -99,6 +99,15 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
   if policy.maxBodyBytes < 0:
     result.addError("security.body-limit.negative",
       "maxBodyBytes must be zero or greater")
+  if policy.rateLimitRequests < 0:
+    result.addError("security.rate-limit.requests-negative",
+      "rateLimitRequests must be zero or greater")
+  if policy.rateLimitWindowSeconds < 0:
+    result.addError("security.rate-limit.window-negative",
+      "rateLimitWindowSeconds must be zero or greater")
+  if policy.rateLimitRequests > 0 and policy.rateLimitWindowSeconds == 0:
+    result.addError("security.rate-limit.window-required",
+      "an enabled rate limit requires a positive window")
   if policy.contentSecurityPolicy.strip().len == 0:
     result.addError("security.csp.empty", "content security policy must not be empty")
   if policy.frameOptions.strip().len == 0:

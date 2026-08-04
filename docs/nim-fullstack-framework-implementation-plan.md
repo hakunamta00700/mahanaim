@@ -159,6 +159,13 @@
 - [x] Nim의 비선점 실행 모델에 맞춰 cooperative cancellation token과 회귀 테스트를 추가했다.
 - [ ] taskpools 등 executor backend 교체와 blocking 자동 감지는 남아 있다.
 
+### 2026-08-04 — P0 보안 rate limit 1차
+
+- [x] 앱별 fixed-window rate limit 상태와 비활성화 가능한 `SecurityPolicy` 설정을 추가했다.
+- [x] 초과 요청을 429로 거부하고 `Retry-After` 및 quota headers를 반환한다.
+- [x] 정책 범위와 invalid window pre-flight 검사를 회귀 테스트로 검증했다.
+- [ ] session binding, auth-cookie rotation, 분산 rate limit 저장소와 retry/backpressure 정책은 남아 있다.
+
 ### 2026-08-04 — P0 HTTP body parsing 1차
 
 - [x] `Content-Type` 기반 framework-neutral body parser를 추가했다.

@@ -226,6 +226,34 @@ suite "Mahanaim core contracts":
     let oversizedResponse = waitFor app.dispatch(oversized)
     check oversizedResponse.status == Http413
 
+  test "security policy applies an application-wide fixed-window rate limit":
+    var policy = defaultSecurityPolicy()
+    policy.rateLimitRequests = 2
+    policy.rateLimitWindowSeconds = 60
+    let app = newApplication(defaultConfig(), policy)
+    proc limited(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("accepted")
+    app.get("/limited", "limited", limited)
+
+    let first = waitFor app.dispatch(newRequest("GET", "/limited"))
+    let second = waitFor app.dispatch(newRequest("GET", "/limited"))
+    let third = waitFor app.dispatch(newRequest("GET", "/limited"))
+    check first.status == Http200
+    check first.header("X-RateLimit-Limit").get() == "2"
+    check first.header("X-RateLimit-Remaining").get() == "1"
+    check second.header("X-RateLimit-Remaining").get() == "0"
+    check third.status == Http429
+    check third.body == "Too Many Requests"
+    check third.header("Retry-After").get() == "60"
+
+    var invalidPolicy = defaultSecurityPolicy()
+    invalidPolicy.rateLimitRequests = 1
+    invalidPolicy.rateLimitWindowSeconds = 0
+    let invalidReport = checkSecurityPolicy(invalidPolicy)
+    check not invalidReport.passed
+    check invalidReport.issues[0].code == "security.rate-limit.window-required"
+
   test "security policy issues and validates signed CSRF tokens":
     var policy = defaultSecurityPolicy()
     policy.csrfEnabled = true
