@@ -598,7 +598,7 @@ flowchart TB
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
 - [x] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many와 many-to-many parent page에 bound `IN` 기반 batching을 적용했다.
-- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|up|rollback`와 atomic `db seed` CLI wiring, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run|recover` command까지 연결했으며 live fixture 증거는 남아 있다.
+- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|up|rollback`와 atomic `db seed` CLI wiring, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했으며 live fixture 증거는 남아 있다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 

@@ -129,8 +129,8 @@ commands with their own authorization and transaction policy.
 
 An application can call `configureDurableJobs(store, registry)` before startup.
 `jobs recover` moves interrupted `processing` records back to `pending`, while
-`jobs run` claims and executes one named handler through the application's
-bounded executor. Persisted `kind` values never load code dynamically; the
+`jobs run [max]` claims at most the requested number of records through the
+application's bounded executor. Persisted `kind` values never load code dynamically; the
 application must register each handler explicitly. The command is intended for
 operator-controlled deployment or drain workflows, and an application should
 wrap it with its own authorization and release procedure when exposed by a

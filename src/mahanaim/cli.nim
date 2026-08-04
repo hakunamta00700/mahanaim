@@ -62,22 +62,31 @@ proc runJobsCli*(app: Application, arguments: openArray[string]): int =
   if app.isNil or app.durableJobStore.isNil or app.durableJobRegistry.isNil:
     raise newException(ValueError,
       "Application durable job store and registry are required")
-  if arguments.len != 1:
-    raise newException(ValueError, "jobs command must be: jobs run|recover")
+  if arguments.len < 1 or arguments.len > 2:
+    raise newException(ValueError,
+      "jobs command must be: jobs run [max]|recover")
   case arguments[0].toLowerAscii()
   of "recover":
     app.durableJobStore.recoverProcessing()
     echo "recovered durable jobs"
   of "run":
-    let outcome = waitFor app.durableJobRegistry.runNext(
-      app.durableJobStore, app.jobs)
-    if not outcome.processed:
-      echo "no pending durable jobs"
-    elif outcome.succeeded:
-      echo "completed " & outcome.id
-    else:
-      stderr.writeLine("failed " & outcome.id & ": " & outcome.error)
-      return 1
+    let maxJobs = if arguments.len == 2: parseInt(arguments[1]) else: 1
+    if maxJobs < 1:
+      raise newException(ValueError, "jobs run max must be positive")
+    var processed = 0
+    while processed < maxJobs:
+      let outcome = waitFor app.durableJobRegistry.runNext(
+        app.durableJobStore, app.jobs)
+      if not outcome.processed:
+        if processed == 0:
+          echo "no pending durable jobs"
+        break
+      inc processed
+      if outcome.succeeded:
+        echo "completed " & outcome.id
+      else:
+        stderr.writeLine("failed " & outcome.id & ": " & outcome.error)
+        return 1
   else:
     raise newException(ValueError, "unknown jobs command: " & arguments[0])
   0
@@ -92,7 +101,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "mahanaim <command>"
     echo "  db status|up|rollback [sqlite-path]  Run application migrations"
     echo "  db seed [sqlite-path]  Run application seed providers"
-    echo "  jobs run|recover       Run or recover durable jobs"
+    echo "  jobs run [max]|recover Run or recover durable jobs"
     echo "  check  Run application pre-flight checks"
     for name, definition in app.commands:
       echo "  " & name & "  " & definition.description
@@ -115,7 +124,8 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     return runDatabaseCli(app, copied[1 .. ^1])
   of "jobs":
     if copied.len == 1:
-      raise newException(ValueError, "jobs command must be: jobs run|recover")
+      raise newException(ValueError,
+        "jobs command must be: jobs run [max]|recover")
     return runJobsCli(app, copied[1 .. ^1])
   else:
     if app.commands.hasKey(copied[0]):

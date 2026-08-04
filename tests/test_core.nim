@@ -642,6 +642,9 @@ suite "Mahanaim core contracts":
     check app.runCli(["jobs", "recover"]) == 0
     check app.runCli(["jobs", "run"]) == 0
     check executions.load() == 1
+    store.enqueue("cli-2", "cli", "expected")
+    check app.runCli(["jobs", "run", "2"]) == 0
+    check executions.load() == 2
     check app.runCli(["jobs", "run"]) == 0
     check store.claimNext().isNone
     app.startup()
