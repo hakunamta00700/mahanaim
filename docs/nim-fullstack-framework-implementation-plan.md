@@ -656,7 +656,7 @@ flowchart TB
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
 - [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
-- [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. `checkApplication`은 HTTPS 강제 정책의 공개 host 미고정 상태를 warning으로 보고한다. Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 외부 endpoint용 `httpsLive` client로 handshake·proxy hop·secure cookie를 검증했으며, 운영 staging 인증서/renewal·redirect 증거는 배포 환경 gate로 남아 있다.
+- [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. `checkApplication`은 HTTPS 강제 정책의 공개 host 미고정 상태를 warning으로 보고한다. Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 외부 endpoint용 `httpsLive` client로 handshake·proxy hop·secure cookie를 검증했고, cold Docker cache의 의존성 설치·컴파일을 고려한 bounded readiness window도 추가했다. 운영 staging 인증서/renewal·redirect 증거는 배포 환경 gate로 남아 있다.
 
 완료 기준:
 

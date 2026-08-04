@@ -46,7 +46,11 @@ try {
     nimlang/nim:2.2.4 sh -c "apt-get update -qq && apt-get install -y -qq libpq5 >/dev/null && nimble install -y && nimble httpsLiveUpstream && ./tests/test_https_upstream"
   if ($LASTEXITCODE -ne 0) { throw 'HTTPS upstream container failed to start' }
   $ready = $false
-  for ($attempt = 0; $attempt -lt 120; $attempt++) {
+  # The first run may install the locked Nim dependencies inside the Linux
+  # container before compiling the real upstream. Keep this bounded, but do
+  # not make a cold Docker cache look like an HTTPS failure after only 60s.
+  $maxReadyAttempts = 360
+  for ($attempt = 0; $attempt -lt $maxReadyAttempts; $attempt++) {
     $running = docker inspect -f '{{.State.Running}}' $upstreamContainer 2>$null
     $logs = docker logs $upstreamContainer
     if ($running -eq 'true' -and $logs -match 'HTTPS upstream ready') {
