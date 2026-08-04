@@ -239,7 +239,7 @@
 - [x] invalid `SerializationResult`를 인코딩하지 않도록 validation boundary를 연결했다.
 - [x] `application/msgpack` binary response helper를 추가해 유효한 serializer 결과를 HTTP 응답으로 반환한다.
 - [x] map ordering과 invalid result 거부 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [ ] MessagePack decode/stream response content negotiation과 schema-level custom extension type은 남아 있다.
+- [x] MessagePack decode와 stream response content negotiation을 추가하고 JSON/MessagePack Accept·invalid DTO 회귀를 검증했다. schema-level custom extension type은 후속 범위다.
 
 ### 2026-08-04 — P1 form binding 1차
 

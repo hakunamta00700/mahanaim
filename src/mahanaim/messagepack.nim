@@ -237,6 +237,22 @@ proc messagePackResponse*(serialization: SerializationResult,
   result = newResponse(status, serialization.serializeMessagePack())
   result.headers["content-type"] = "application/msgpack"
 
+proc messagePackStreamResponse*(node: JsonNode,
+                                status = Http200): Response =
+  ## Keep MessagePack bytes on the stream representation boundary so the
+  ## network adapters use chunked transfer without making the serializer know
+  ## about sockets or event loops.
+  streamResponse(node.toMessagePack(), "application/msgpack", status)
+
+proc messagePackStreamResponse*(serialization: SerializationResult,
+                                status = Http200): Response =
+  ## Validate the shared serialization result before exposing a streaming wire
+  ## representation, matching the buffered helper's safety contract.
+  if not serialization.valid:
+    raise newException(ValueError,
+      "Cannot stream an invalid serialization result")
+  messagePackStreamResponse(serialization.document, status)
+
 proc negotiateJsonMessagePack*(request: Request, node: JsonNode,
                                status = Http200): Response =
   ## Offer both wire formats from one handler while keeping Accept parsing in
@@ -253,3 +269,20 @@ proc negotiateJsonMessagePack*(request: Request,
     raise newException(ValueError,
       "Cannot negotiate an invalid serialization result")
   negotiateJsonMessagePack(request, serialization.document, status)
+
+proc negotiateJsonMessagePackStream*(request: Request, node: JsonNode,
+                                     status = Http200): Response =
+  ## Offer a buffered JSON representation and a chunked MessagePack
+  ## representation through the same Accept policy. The selected wire kind is
+  ## visible in Response.representation for every adapter and test client.
+  negotiateResponse(request, [jsonResponse(node, status),
+                              messagePackStreamResponse(node, status)])
+
+proc negotiateJsonMessagePackStream*(request: Request,
+                                     serialization: SerializationResult,
+                                     status = Http200): Response =
+  ## Keep invalid DTO rejection identical between buffered and stream APIs.
+  if not serialization.valid:
+    raise newException(ValueError,
+      "Cannot negotiate an invalid serialization result")
+  negotiateJsonMessagePackStream(request, serialization.document, status)

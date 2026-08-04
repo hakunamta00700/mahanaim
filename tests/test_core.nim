@@ -2842,9 +2842,20 @@ suite "Mahanaim core contracts":
     let negotiatedMessagePack = negotiateJsonMessagePack(messagePackRequest, document)
     check negotiatedMessagePack.headers["content-type"] == "application/msgpack"
     check negotiatedMessagePack.body == encoded
+    let streamed = negotiateJsonMessagePackStream(messagePackRequest, document)
+    check streamed.representation == rrStream
+    check streamed.headers["content-type"] == "application/msgpack"
+    check streamed.body == encoded
+    check streamed.headers["vary"] == "Accept"
     var unsupportedRequest = newRequest("GET", "/messages")
     unsupportedRequest.headers["accept"] = "application/xml"
     check negotiateJsonMessagePack(unsupportedRequest, document).status == Http406
+    check negotiateJsonMessagePackStream(unsupportedRequest, document).status == Http406
+    let invalidStream = SerializationResult(document: document,
+      errors: @[SerializationIssue(field: "a", code: "invalid",
+        message: "invalid")])
+    expect ValueError:
+      discard messagePackStreamResponse(invalidStream)
 
   test "database query compiler binds values for SQLite and PostgreSQL":
     let query = SelectQuery(
