@@ -238,7 +238,8 @@
 - [x] phase 기록과 duplicate/name validation 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [x] dependency 누락·중복·순환을 검증하는 deterministic topological resolver를 추가했다.
 - [x] dependency-first ordering과 invalid graph 회귀 테스트를 추가했다.
-- [ ] command/admin extension registration, DI lifecycle disposal은 남아 있다.
+- [x] command registry와 admin installer extension point, duplicate registration 검증을 추가했다.
+- [ ] command frontend integration, admin authorization/UI/audit와 DI lifecycle disposal은 남아 있다.
 
 ### 2026-08-04 — P1 CRUD resource 1차
 

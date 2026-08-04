@@ -35,6 +35,23 @@ type
 
   PluginInstaller* = proc (app: Application) {.gcsafe.}
 
+  CommandHandler* = proc (arguments: seq[string]): int {.gcsafe.}
+
+  CommandDefinition* = object
+    ## CLI commands are data so different frontends can discover and invoke
+    ## the same application-owned operation.
+    name*: string
+    description*: string
+    handler*: CommandHandler
+
+  AdminExtensionInstaller* = proc (app: Application) {.gcsafe.}
+
+  AdminExtension* = object
+    ## Admin extensions register framework routes/policies through an explicit
+    ## installer; authorization and persistence remain separate concerns.
+    name*: string
+    install*: AdminExtensionInstaller
+
   PluginDefinition* = ref object
     manifest*: PluginManifest
     install*: PluginInstaller
@@ -49,6 +66,8 @@ type
     errorHandler*: ErrorHandler
     plugins*: seq[Plugin]
     pluginManifests*: seq[PluginManifest]
+    commands*: Table[string, CommandDefinition]
+    adminExtensions*: seq[AdminExtension]
     models*: ModelRegistry
     executionPolicy*: ExecutionPolicy
     executor*: ThreadPoolExecutor
@@ -79,6 +98,8 @@ proc newApplication*(config = defaultConfig(),
   result.errorHandler = defaultErrorHandler
   result.plugins = @[]
   result.pluginManifests = @[]
+  result.commands = initTable[string, CommandDefinition]()
+  result.adminExtensions = @[]
   result.models = initModelRegistry()
   result.executionPolicy = executionPolicy
   result.executor = newThreadPoolExecutor(
@@ -105,6 +126,35 @@ proc defaultErrorHandler(request: Request,
 proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
   app.middlewares.add(middleware)
+
+proc registerCommand*(app: Application, command: CommandDefinition) =
+  ## Registration is fail-fast so duplicate CLI names cannot shadow commands.
+  if command.name.strip().len == 0 or command.handler.isNil:
+    raise newException(ValueError, "Command requires a name and handler")
+  if app.commands.hasKey(command.name):
+    raise newException(ValueError, "Duplicate command: " & command.name)
+  app.commands[command.name] = command
+
+proc runCommand*(app: Application, name: string,
+                 arguments: openArray[string]): int =
+  ## Copy borrowed arguments before crossing the command handler boundary.
+  if app.isNil or not app.commands.hasKey(name):
+    raise newException(ValueError, "Unknown command: " & name)
+  var copied: seq[string] = @[]
+  for argument in arguments:
+    copied.add(argument)
+  app.commands[name].handler(copied)
+
+proc registerAdminExtension*(app: Application, extension: AdminExtension) =
+  ## Admin installers are retained for explicit startup integration and are
+  ## never silently replaced by a later plugin.
+  if extension.name.strip().len == 0 or extension.install.isNil:
+    raise newException(ValueError, "Admin extension requires a name and installer")
+  for existing in app.adminExtensions:
+    if existing.name == extension.name:
+      raise newException(ValueError, "Duplicate admin extension: " & extension.name)
+  app.adminExtensions.add(extension)
+  extension.install(app)
 
 proc newPlugin*(manifest: PluginManifest,
                 install: PluginInstaller): PluginDefinition =

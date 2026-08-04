@@ -325,6 +325,27 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard resolvePluginManifests([cycleA, cycleB])
 
+  test "command and admin extension points reject duplicate registrations":
+    let app = newApplication()
+    proc command(arguments: seq[string]): int {.gcsafe.} =
+      check arguments == @["--dry-run"]
+      7
+    app.registerCommand(CommandDefinition(name: "migrate",
+      description: "Apply migrations", handler: command))
+    check app.runCommand("migrate", ["--dry-run"]) == 7
+    expect ValueError:
+      app.registerCommand(CommandDefinition(name: "migrate", handler: command))
+    expect ValueError:
+      discard app.runCommand("missing", @[])
+    var installed = false
+    proc installAdmin(app: Application) {.gcsafe.} =
+      discard app
+      installed = true
+    app.registerAdminExtension(AdminExtension(name: "users", install: installAdmin))
+    check installed
+    expect ValueError:
+      app.registerAdminExtension(AdminExtension(name: "users", install: installAdmin))
+
   test "DI container caches application scope and recreates task scope":
     let app = newApplication()
     app.provide("singleton", dependencyApplication, newFakeDependencyService)
