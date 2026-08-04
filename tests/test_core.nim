@@ -902,6 +902,17 @@ suite "Mahanaim core contracts":
     check not rotatingHasher.passwordNeedsRehash(
       accountStore.findBySubject("user-42").get().passwordHash)
 
+    let changed = waitFor client.post("/account/password",
+      "{\"currentPassword\":\"correct horse battery staple\",\"newPassword\":\"new secure password\"}")
+    check changed.status == Http204
+    let secondClient = newTestClient(app)
+    let oldPassword = waitFor secondClient.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"correct horse battery staple\"}")
+    check oldPassword.status == Http401
+    let newPassword = waitFor secondClient.post("/login",
+      "{\"identifier\":\"user@example.test\",\"password\":\"new secure password\"}")
+    check newPassword.status == Http200
+
     let malformed = waitFor client.post("/login", "{}")
     check malformed.status == Http400
     let wrongOne = waitFor client.post("/login",

@@ -41,6 +41,7 @@ type
     throttle*: LoginThrottleStore
     loginPath*: string
     logoutPath*: string
+    changePasswordPath*: string
 
 method findByIdentifier*(store: AccountCredentialStore,
                          identifier: string): Option[AccountCredential] {.base, gcsafe.} =
@@ -135,7 +136,9 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
                                sessionPolicy: SessionPolicy,
                                throttle: LoginThrottleStore = nil,
                                loginPath = "/login",
-                               logoutPath = "/logout"): AccountAuthentication =
+                               logoutPath = "/logout",
+                               changePasswordPath = "/account/password"):
+                               AccountAuthentication =
   ## Validate all dependencies at composition time so an application cannot
   ## boot with a public login route and a missing session or throttle policy.
   if store.isNil or hasher.isNil or not sessionPolicy.enabled or
@@ -143,7 +146,8 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
     raise newException(ValueError,
       "Account authentication requires store, hasher, and enabled session policy")
   if loginPath.len == 0 or loginPath[0] != '/' or logoutPath.len == 0 or
-      logoutPath[0] != '/':
+      logoutPath[0] != '/' or changePasswordPath.len == 0 or
+      changePasswordPath[0] != '/':
     raise newException(ValueError, "Account authentication paths must be absolute")
   new(result)
   result.store = store
@@ -152,6 +156,7 @@ proc newAccountAuthentication*(store: AccountCredentialStore,
   result.throttle = if throttle.isNil: newInMemoryLoginThrottle() else: throttle
   result.loginPath = loginPath
   result.logoutPath = logoutPath
+  result.changePasswordPath = changePasswordPath
 
 proc credentialsFromBody(body: string): Option[(string, string)] =
   ## Keep request parsing local to the route adapter; persistence never sees a
@@ -168,6 +173,24 @@ proc credentialsFromBody(body: string): Option[(string, string)] =
     if identifier.len == 0 or password.len == 0:
       return none((string, string))
     some((identifier, password))
+  except CatchableError:
+    none((string, string))
+
+proc passwordChangeFromBody(body: string): Option[(string, string)] =
+  ## Password changes use distinct field names so an identifier cannot be
+  ## accidentally interpreted as a new password by a caller.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject or not document.hasKey("currentPassword") or
+        not document.hasKey("newPassword") or
+        document["currentPassword"].kind != JString or
+        document["newPassword"].kind != JString:
+      return none((string, string))
+    let currentPassword = document["currentPassword"].getStr()
+    let newPassword = document["newPassword"].getStr()
+    if currentPassword.len == 0 or newPassword.len == 0:
+      return none((string, string))
+    some((currentPassword, newPassword))
   except CatchableError:
     none((string, string))
 
@@ -220,3 +243,25 @@ proc registerAccountAuthenticationRoutes*(app: Application,
       var response = newResponse(Http204)
       response.clearSessionCookie(current.sessionPolicy)
       return response)
+  app.post(current.changePasswordPath, "auth.change-password",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      ## The middleware normally binds the session before this handler. The
+      ## explicit fallback keeps the route contract safe when embedded without
+      ## the standard security middleware chain.
+      var authenticatedRequest = request
+      if not authenticatedRequest.auth.authenticated and
+          not authenticatedRequest.bindSession(current.sessionPolicy):
+        return textResponse("Authentication required", Http401)
+      let credentials = passwordChangeFromBody(request.body)
+      if credentials.isNone:
+        return textResponse("Invalid password payload", Http400)
+      let account = current.store.findBySubject(
+        authenticatedRequest.auth.subject)
+      if account.isNone or not account.get().enabled:
+        return textResponse("Authentication required", Http401)
+      let changed = current.hasher.changePassword(credentials.get()[0],
+        credentials.get()[1], account.get().passwordHash)
+      if not changed.valid:
+        return textResponse("Current password is invalid", Http400)
+      current.store.updatePasswordHash(account.get().subject, changed.encoded)
+      return newResponse(Http204))
