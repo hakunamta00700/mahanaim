@@ -1794,6 +1794,14 @@ suite "Mahanaim core contracts":
     check document["paths"]["/generated"]["post"]["parameters"][0]["required"].getBool()
     check document["paths"]["/generated"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["email"]["type"].getStr() == "string"
 
+  test "OpenAPI document projects a typed response schema":
+    let document = openApiDocument("Mahanaim API", "1.0.0",
+      [stringField("query", flQuery, required = false)],
+      [integerField("id", flBody), stringField("name", flBody)])
+    let responseSchema = document["paths"]["/generated"]["post"]["responses"]["200"]
+    check responseSchema["content"]["application/json"]["schema"]["properties"]["id"]["type"].getStr() == "integer"
+    check responseSchema["content"]["application/json"]["schema"]["required"][0].getStr() == "id"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

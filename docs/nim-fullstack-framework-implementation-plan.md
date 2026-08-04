@@ -194,7 +194,8 @@
 - [x] explicit `FieldSpec`의 path/query/header/body 위치를 OpenAPI 3.1 parameter/requestBody로 투영했다.
 - [x] string/integer 타입, required/default, length/numeric constraint를 OpenAPI schema에 반영했다.
 - [x] 생성 문서의 위치·필수 필드·제약조건 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] schema macro, typed response schema, route별 operation/response 자동 수집, 완전한 content negotiation은 남아 있다.
+- [x] explicit `FieldSpec` response schema를 OpenAPI 3.1 `200` JSON response에 투영했다.
+- [ ] schema macro, route별 operation/response 자동 수집, 완전한 content negotiation과 interactive UI는 남아 있다.
 
 ### 2026-08-04 — P2 observability foundation 1차
 
@@ -270,7 +271,8 @@
 - [x] Accept media type parameter에서 quality factor를 파싱하고 0..1 범위로 정규화했다.
 - [x] quality 내림차순과 header order tie-break를 적용해 server variants를 선택한다.
 - [x] `q=0`을 명시적 거부로 처리하고 기존 wildcard/406 정책을 보존하는 회귀 테스트를 통과했다.
-- [ ] route schema macro, typed response schema, Swagger/ReDoc UI는 남아 있다.
+- [x] reusable object response schema와 typed response OpenAPI projection을 추가했다.
+- [ ] route schema macro, Swagger/ReDoc UI와 자동 operation 수집은 남아 있다.
 
 ### 2026-08-04 — P2 operations runbook
 

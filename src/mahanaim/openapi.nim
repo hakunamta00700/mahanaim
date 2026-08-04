@@ -18,9 +18,39 @@ proc fieldSchema(field: FieldSpec): JsonNode =
   if field.hasDefault:
     result["default"] = newJString(field.defaultValue)
 
+proc objectSchema*(schema: openArray[FieldSpec]): JsonNode =
+  ## Project body fields into a reusable object schema for both input and
+  ## output DTOs. Keeping this helper shared prevents request/response drift.
+  result = newJObject()
+  result["type"] = newJString("object")
+  result["properties"] = newJObject()
+  var required: seq[string] = @[]
+  for field in schema:
+    if field.location != flBody:
+      raise newException(ValueError,
+        "Object schema fields must use the body location")
+    result["properties"][field.name] = fieldSchema(field)
+    if field.required:
+      required.add(field.name)
+  if required.len > 0:
+    result["required"] = newJArray()
+    for field in required:
+      result["required"].add(newJString(field))
+
+proc openApiDocument*(title, version: string,
+                      schema: openArray[FieldSpec],
+                      responseSchema: openArray[FieldSpec]): JsonNode
+
 proc openApiDocument*(title, version: string,
                       schema: openArray[FieldSpec]): JsonNode =
-  ## Emit an OpenAPI 3.1 document with deterministic field grouping.
+  ## Backward-compatible input-only document overload.
+  let emptyResponse: seq[FieldSpec] = @[]
+  openApiDocument(title, version, schema, emptyResponse)
+
+proc openApiDocument*(title, version: string,
+                      schema: openArray[FieldSpec],
+                      responseSchema: openArray[FieldSpec]): JsonNode =
+  ## Emit OpenAPI 3.1 with shared explicit input and typed response schemas.
   result = %*{
     "openapi": "3.1.0",
     "info": {"title": title, "version": version},
@@ -31,16 +61,12 @@ proc openApiDocument*(title, version: string,
   }
   let operation = result["paths"]["/generated"]["post"]
   operation["parameters"] = newJArray()
-  var body = newJObject()
-  body["type"] = newJString("object")
-  body["properties"] = newJObject()
-  var required: seq[string] = @[]
+  var bodyFields: seq[FieldSpec] = @[]
   for field in schema:
     let property = fieldSchema(field)
     case field.location
     of flBody:
-      body["properties"][field.name] = property
-      if field.required: required.add(field.name)
+      bodyFields.add(field)
     of flPath, flQuery, flHeader:
       let parameter = %*{
         "name": field.name,
@@ -49,11 +75,13 @@ proc openApiDocument*(title, version: string,
         "schema": property
       }
       operation["parameters"].add(parameter)
-  if required.len > 0:
-    body["required"] = newJArray()
-    for field in required: body["required"].add(newJString(field))
+  let body = objectSchema(bodyFields)
   if body["properties"].len > 0:
     operation["requestBody"] = %*{
-      "required": required.len > 0,
+      "required": body.hasKey("required"),
       "content": {"application/json": {"schema": body}}
+    }
+  if responseSchema.len > 0:
+    operation["responses"]["200"]["content"] = %*{
+      "application/json": {"schema": objectSchema(responseSchema)}
     }
