@@ -64,6 +64,21 @@ task postgresLive, "Run the optional PostgreSQL live contract test":
     exec "nim c --path:src" & dependencyPathArgs() &
       " -r tests/test_postgres_live.nim"
 
+task redisLiveCheck, "Compile the optional Redis/Valkey live contract test":
+  ## Keep the matrix source checked even when no local Redis service exists.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_redis_live.nim"
+
+task redisLive, "Run the optional Redis/Valkey live contract test":
+  ## CI or a matrix runner supplies the host and port for one Redis-compatible
+  ## service at a time; missing settings produce an explicit successful skip.
+  if getEnv("MAHANAIM_REDIS_HOST").len == 0 or
+      getEnv("MAHANAIM_REDIS_PORT").len == 0:
+    echo "Redis/Valkey live test skipped: connection settings are not configured"
+  else:
+    exec "nim c --path:src" & dependencyPathArgs() &
+      " -r tests/test_redis_live.nim"
+
 task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
   ## The live server requires a Linux runner; compileOnly still catches
   ## overload drift and ownership API changes before that fixture is added.

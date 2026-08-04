@@ -78,7 +78,13 @@ latency를 기록하고, 동시 로그인 부하에서 메모리 사용량도 �
 시 만료 key를 정리한다. `newInMemoryRateLimitStore(maxKeys)`의 bound를 넘으면
 가장 오래된 active window를 제거하므로 local/test 환경에서도 attacker-controlled
 key cardinality가 메모리를 무한히 늘리지 않는다. Redis/Valkey 운영에서는 별도의
-`maxmemory`와 eviction policy를 설정하고 live gate에서 확인해야 한다.
+  `maxmemory`와 eviction policy를 설정하고 live gate에서 확인해야 한다.
+
+CI 또는 Linux 환경에서는 `MAHANAIM_REDIS_HOST`와 `MAHANAIM_REDIS_PORT`를 설정한 뒤
+`nimble redisLive`를 실행한다. 이 gate는 PING, compatibility probe와 server-side
+TTL을 실제 socket에서 확인한다. Windows Docker NAT에서 native Nim socket이
+timeout되는 경우에는 해당 실행을 성공 증거로 기록하지 말고 Linux runner 또는
+명시적으로 접근 가능한 Redis/Valkey service에서 재실행한다.
 
 ## HTTPS reverse-proxy 배포 점검표
 

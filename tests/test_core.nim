@@ -138,7 +138,9 @@ proc runRedisReconnectFixture(state: ptr RedisReconnectFixtureState) {.thread, g
     discard command
     state.connections.store(connectionIndex)
     if connectionIndex == 2:
-      client.send("*2\r\n:1\r\n:60\r\n")
+      ## Send a second frame in the same TCP write. The client must retain it
+      ## for the next command instead of dropping coalesced RESP data.
+      client.send("*2\r\n:1\r\n:60\r\n+PONG\r\n")
     client.close()
   server.close()
 
@@ -4236,14 +4238,16 @@ suite "Mahanaim core contracts":
     let client = newRedisValkeyRespClient(port = Port(state.port.load()))
     let store = newRedisValkeyRateLimitStore(client, maxRetries = 1)
     let decision = store.consume("reconnect:key", 2, 60)
+    let bufferedResponse = client.executeCommand(encodeRedisCommand(["PING"]))
     client.close()
     joinThread(worker)
     check state.connections.load() == 2
     check decision.allowed
     check decision.remaining == 1
+    check bufferedResponse == "+PONG\r\n"
     let stats = client.stats()
-    check stats.requests == 2
-    check stats.successes == 1
+    check stats.requests == 3
+    check stats.successes == 2
     check stats.failures == 1
     check stats.connections == 2
     check stats.reconnects == 1

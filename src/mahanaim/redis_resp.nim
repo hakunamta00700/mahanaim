@@ -47,6 +47,10 @@ type
     timeoutMs*: int
     transport*: RespCommandTransport
     socket: Socket
+    ## TCP can coalesce several RESP replies into one read. Preserve frames
+    ## after the first response so a subsequent command never waits for data
+    ## that was already received and accidentally discarded.
+    receiveBuffer: string
     lock: Lock
     stats: RedisValkeyRespStats
     everConnected: bool
@@ -195,6 +199,7 @@ proc newRedisValkeyRespClient*(host = "127.0.0.1", port = Port(6379),
   result.timeoutMs = timeoutMs
   result.transport = transport
   result.socket = nil
+  result.receiveBuffer = ""
   result.stats = RedisValkeyRespStats()
   result.everConnected = false
   initLock(result.lock)
@@ -237,6 +242,7 @@ proc close*(client: RedisValkeyRespClient) =
     if not client.socket.isNil:
       client.socket.close()
       client.socket = nil
+    client.receiveBuffer = ""
   finally:
     release(client.lock)
 
@@ -282,19 +288,24 @@ proc respFrameEnd(payload: string, cursor: var int): int =
 proc receiveRespFrame(client: RedisValkeyRespClient): string =
   ## Read exactly one generic response frame. The limit bounds memory even if
   ## a remote server sends an unexpectedly large cache value.
-  var payload = ""
+  var payload = client.receiveBuffer
   while payload.len < 64 * 1024 * 1024:
+    var cursor = 0
+    try:
+      let ending = respFrameEnd(payload, cursor)
+      result = payload[0 ..< ending]
+      if ending < payload.len:
+        client.receiveBuffer = payload[ending .. ^1]
+      else:
+        client.receiveBuffer = ""
+      return
+    except ValueError as error:
+      if not error.msg.startsWith("incomplete RESP"):
+        raise
     let chunk = client.socket.recv(4096, client.timeoutMs)
     if chunk.len == 0:
       raise newException(CatchableError, "Redis connection closed")
     payload.add(chunk)
-    var cursor = 0
-    try:
-      let ending = respFrameEnd(payload, cursor)
-      return payload[0 ..< ending]
-    except ValueError as error:
-      if not error.msg.startsWith("incomplete RESP"):
-        raise
   raise newException(ValueError, "Redis RESP response exceeds maximum size")
 
 proc executeCommandLocked(client: RedisValkeyRespClient,
@@ -321,6 +332,7 @@ proc executeCommand*(client: RedisValkeyRespClient, command: string): string =
     if client.transport == nil and not client.socket.isNil:
       client.socket.close()
       client.socket = nil
+      client.receiveBuffer = ""
     raise
   finally:
     release(client.lock)
@@ -395,6 +407,7 @@ method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
     if client.transport == nil and not client.socket.isNil:
       client.socket.close()
       client.socket = nil
+      client.receiveBuffer = ""
     raise
   finally:
     release(client.lock)
