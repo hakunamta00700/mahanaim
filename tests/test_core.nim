@@ -475,6 +475,22 @@ suite "Mahanaim core contracts":
     let prologueHeaders = toPrologueHeaders(frameworkResponse)
     check prologueHeaders["x-adapter", 0] == "prologue"
 
+  test "Prologue form body crosses the adapter into the common parser":
+    var nativeHeaders = newHttpHeaders()
+    nativeHeaders["Content-Type"] = "application/x-www-form-urlencoded"
+    var nativeRequest = request.initMockingRequest(
+      HttpPost, nativeHeaders, parseUri("/submit"))
+    # Prologue's mocking constructor has no body parameter, so populate its
+    # native snapshot exactly as the network backend would have done.
+    nativeRequest.nativeRequest.body = "name=Ada&role=admin"
+
+    let frameworkRequest = toFrameworkRequest(nativeRequest)
+    let parsed = parseRequestBody(frameworkRequest)
+    check parsed.valid
+    check parsed.encoding == beFormUrlEncoded
+    check parsed.fields["name"] == "Ada"
+    check parsed.fields["role"] == "admin"
+
   test "Prologue server bridge delegates mocking requests and lifecycle":
     let app = newApplication()
     proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

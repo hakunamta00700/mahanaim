@@ -152,7 +152,8 @@
 - [x] Prologue mocking request 기반 adapter 회귀 테스트를 추가했다.
 - [x] catch-all Prologue server bridge와 core startup/shutdown lifecycle wrapper를 추가했다.
 - [x] mocking context에서 Prologue response와 core dispatcher integration을 검증했다.
-- [ ] upload/form/WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
+- [x] Prologue raw form body와 `Content-Type`을 core body parser로 연결하는 contract test를 추가했다.
+- [ ] upload/WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
 
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 
