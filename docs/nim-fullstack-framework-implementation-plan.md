@@ -77,7 +77,15 @@
 - [x] 설정된 allowed host 검증과 400 거부 응답을 추가했다.
 - [x] route·404·405 fallback에도 동일 보안 middleware가 적용되도록 dispatcher를 정리했다.
 - [x] middleware closure composition 자기 재귀 회귀를 수정하고 보안 회귀 테스트를 추가했다.
-- [ ] CSRF/CORS/clickjacking 세부 정책, signed token, rate limit, request size/timeout은 남아 있다.
+- [ ] CSRF/clickjacking 세부 정책, signed token, rate limit, timeout policy는 남아 있다.
+
+### 2026-08-04 — P0 보안 기본값 2차
+
+- [x] exact-origin CORS allow list와 response headers를 추가했다.
+- [x] CORS preflight `OPTIONS` 204 응답을 추가했다.
+- [x] request body size limit과 413 응답을 추가했다.
+- [x] CORS 허용·거부·preflight·oversized body 회귀 테스트를 추가했다.
+- [ ] CSRF, signed token, rate limit, timeout policy는 남아 있다.
 
 검증 명령:
 
@@ -293,7 +301,7 @@ flowchart TB
 | [ ] | REQ-SEC-001 | P1 | auth backend protocol 위에 session cookie와 JWT/token adapter를 구현한다. |
 | [ ] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable policy로 제공한다. |
 | [ ] | REQ-SEC-003 | P1 | Argon2/bcrypt 등 검증된 hashing adapter, reset token, rotation, login throttling hook을 제공한다. |
-| [ ] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
+| [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
 | [ ] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
 | [ ] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS 배포 점검을 기본 설정/CLI check로 제공한다. |
 

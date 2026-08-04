@@ -112,6 +112,39 @@ suite "Mahanaim core contracts":
     check response.body == "Invalid Host"
     check response.header("X-Frame-Options").get() == "DENY"
 
+  test "security policy handles CORS and request size limits":
+    var policy = defaultSecurityPolicy()
+    policy.allowedOrigins = @["https://client.example"]
+    policy.maxBodyBytes = 4
+    let app = newApplication(defaultConfig(), policy)
+    proc submit(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("accepted")
+    app.post("/submit", "submit", submit)
+
+    var allowed = newRequest("POST", "/submit", "1234")
+    allowed.headers["origin"] = "https://client.example"
+    let allowedResponse = waitFor app.dispatch(allowed)
+    check allowedResponse.status == Http200
+    check allowedResponse.header("Access-Control-Allow-Origin").get() ==
+      "https://client.example"
+
+    var preflight = newRequest("OPTIONS", "/submit")
+    preflight.headers["origin"] = "https://client.example"
+    let preflightResponse = waitFor app.dispatch(preflight)
+    check preflightResponse.status == Http204
+    check preflightResponse.header("Access-Control-Allow-Methods").isSome
+
+    var denied = newRequest("POST", "/submit", "ok")
+    denied.headers["origin"] = "https://attacker.example"
+    let deniedResponse = waitFor app.dispatch(denied)
+    check deniedResponse.status == Http403
+
+    var oversized = newRequest("POST", "/submit", "12345")
+    oversized.headers["origin"] = "https://client.example"
+    let oversizedResponse = waitFor app.dispatch(oversized)
+    check oversizedResponse.status == Http413
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
