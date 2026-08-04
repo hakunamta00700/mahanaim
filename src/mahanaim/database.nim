@@ -55,6 +55,32 @@ type
     limit*: int
     offset*: int
 
+  RelationJoinKind* = enum
+    relationInnerJoin
+    relationLeftJoin
+
+  RelationJoin* = object
+    ## A join is expressed as data so every backend shares validation and
+    ## placeholder semantics instead of concatenating relation SQL in routes.
+    kind*: RelationJoinKind
+    table*: string
+    alias*: string
+    localTable*: string
+    localField*: string
+    foreignField*: string
+
+  RelationSelectQuery* = object
+    ## One-hop joins keep the core contract deterministic; nested loading can
+    ## compose this shape later without embedding backend-specific SQL.
+    table*: string
+    alias*: string
+    columns*: seq[string]
+    joins*: seq[RelationJoin]
+    filters*: seq[QueryFilter]
+    orderBy*: seq[QueryOrder]
+    limit*: int
+    offset*: int
+
   Pagination* = object
     ## API-level pagination is translated to SQL only at the database boundary.
     page*: int
@@ -201,6 +227,71 @@ proc compileSelect*(query: SelectQuery,
     result.sql.add(" LIMIT " & $query.limit)
   if query.offset > 0:
       result.sql.add(" OFFSET " & $query.offset)
+
+proc quoteQualifiedIdentifier(value: string): string =
+  ## Qualify table/alias columns while applying the same strict identifier
+  ## whitelist as ordinary SELECT queries.
+  let parts = value.split('.')
+  if parts.len != 2:
+    raise newException(ValueError, "Qualified identifier requires table.field")
+  quoteIdentifier(parts[0]) & "." & quoteIdentifier(parts[1])
+
+proc compileRelationSelect*(query: RelationSelectQuery,
+                            dialect = dialectSqlite): CompiledQuery =
+  ## Compile a deterministic one-hop relation query with bound filters.
+  if query.table.len == 0 or query.columns.len == 0:
+    raise newException(ValueError, "Relation SELECT requires a table and columns")
+  if query.limit < 0 or query.offset < 0:
+    raise newException(ValueError, "Query limit and offset cannot be negative")
+  let baseAlias = if query.alias.len > 0: query.alias else: query.table
+  result.sql = "SELECT "
+  var selected: seq[string] = @[]
+  for column in query.columns:
+    selected.add(quoteQualifiedIdentifier(
+      if column.contains('.'): column else: baseAlias & "." & column))
+  result.sql.add(selected.join(", "))
+  result.sql.add(" FROM " & quoteIdentifier(query.table))
+  if query.alias.len > 0:
+    result.sql.add(" AS " & quoteIdentifier(query.alias))
+  var knownAliases = @[baseAlias]
+  for join in query.joins:
+    if join.table.len == 0 or join.localTable.len == 0 or
+        join.localField.len == 0 or join.foreignField.len == 0:
+      raise newException(ValueError, "Relation join requires table and fields")
+    let joinAlias = if join.alias.len > 0: join.alias else: join.table
+    if joinAlias in knownAliases:
+      raise newException(ValueError, "Duplicate relation join alias: " & joinAlias)
+    knownAliases.add(joinAlias)
+    let joinWord = if join.kind == relationLeftJoin: " LEFT JOIN " else: " INNER JOIN "
+    result.sql.add(joinWord & quoteIdentifier(join.table))
+    if join.alias.len > 0:
+      result.sql.add(" AS " & quoteIdentifier(join.alias))
+    result.sql.add(" ON " & quoteQualifiedIdentifier(join.localTable & "." & join.localField) &
+      " = " & quoteQualifiedIdentifier(joinAlias & "." & join.foreignField))
+  var parameterIndex = 0
+  for index, filter in query.filters:
+    if filter.field.len == 0:
+      raise newException(ValueError, "Filter field cannot be empty")
+    result.sql.add(if index == 0: " WHERE " else: " AND ")
+    let field = if filter.field.contains('.'): filter.field else:
+      baseAlias & "." & filter.field
+    result.sql.add(quoteQualifiedIdentifier(field) & operatorSql(filter.operator))
+    if filter.operator notin {filterIsNull, filterIsNotNull}:
+      inc parameterIndex
+      result.sql.add(if dialect == dialectPostgres: "$" & $parameterIndex else: "?")
+      result.parameters.add(filter.value)
+  if query.orderBy.len > 0:
+    var orders: seq[string] = @[]
+    for order in query.orderBy:
+      let field = if order.field.contains('.'): order.field else:
+        baseAlias & "." & order.field
+      orders.add(quoteQualifiedIdentifier(field) &
+        (if order.descending: " DESC" else: " ASC"))
+    result.sql.add(" ORDER BY " & orders.join(", "))
+  if query.limit > 0:
+    result.sql.add(" LIMIT " & $query.limit)
+  if query.offset > 0:
+    result.sql.add(" OFFSET " & $query.offset)
 
 proc newPagination*(page = 1, pageSize = 20,
                      maxPageSize = 100): Pagination =

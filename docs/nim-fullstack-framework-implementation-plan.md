@@ -190,7 +190,8 @@
 - [x] 공식 `db_connector` 기반 SQLite adapter의 bound execute, transaction, savepoint, migration up 실행을 추가했다.
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
-- [ ] PostgreSQL adapter, connection pool/isolation, relation query는 남아 있다.
+- [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
+- [ ] PostgreSQL adapter, connection pool/isolation, relation query execution/repository는 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 

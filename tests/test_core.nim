@@ -1784,6 +1784,30 @@ suite "Mahanaim core contracts":
         raise newException(ValueError, "transaction failure"))
     check adapter.events == @["begin", "commit", "begin", "rollback"]
 
+  test "relation query compiler emits safe deterministic joins":
+    let query = RelationSelectQuery(
+      table: "users", alias: "u", columns: @["u.id", "posts.title"],
+      joins: @[RelationJoin(kind: relationLeftJoin, table: "posts",
+        alias: "posts", localTable: "u", localField: "id",
+        foreignField: "user_id")],
+      filters: @[QueryFilter(field: "posts.title", operator: filterLike,
+        value: textValue("%nim%"))],
+      orderBy: @[QueryOrder(field: "posts.title", descending: false)],
+      limit: 10, offset: 20)
+    let compiled = compileRelationSelect(query, dialectPostgres)
+    check compiled.sql.contains("LEFT JOIN \"posts\" AS \"posts\"")
+    check compiled.sql.contains("\"u\".\"id\" = \"posts\".\"user_id\"")
+    check compiled.sql.contains("\"posts\".\"title\" LIKE $1")
+    check compiled.sql.contains("LIMIT 10 OFFSET 20")
+    check compiled.parameters.len == 1
+    check compiled.parameters[0].kind == sqlText
+    check compiled.parameters[0].text == "%nim%"
+    expect ValueError:
+      discard compileRelationSelect(RelationSelectQuery(
+        table: "users", alias: "u", columns: @["u.id"],
+        joins: @[RelationJoin(table: "posts", alias: "u",
+          localTable: "u", localField: "id", foreignField: "user_id")]))
+
   test "SQLite adapter executes bound CRUD and transactional migrations":
     let adapter = newSqliteDatabaseAdapter()
     defer: adapter.close()
