@@ -1590,6 +1590,10 @@ suite "Mahanaim core contracts":
     let postgres = compileSelect(query, dialectPostgres)
     check postgres.sql.contains("= $1")
     check postgres.sql.contains("LIKE $2")
+    let paged = compileSelect(query.withPagination(newPagination(3, 10, 50)))
+    check paged.sql.endsWith("LIMIT 10 OFFSET 20")
+    expect ValueError:
+      discard newPagination(0, 10)
     expect ValueError:
       discard compileSelect(SelectQuery(table: "users; DROP TABLE users", columns: @["id"]))
 

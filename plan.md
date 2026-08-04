@@ -134,6 +134,7 @@
 
 - [x] named field extraction, scalar coercion, validation error aggregation을 제공한다.
 - [x] 명시적 input schema에서 OpenAPI 3.1 문서와 제약조건을 생성한다.
+- [x] parameterized query contract에 bounded pagination page/size/offset 정책을 연결한다.
 - [ ] macro 기반 schema와 일반 응답 타입, 완전한 content negotiation을 제공한다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [ ] template inheritance/include/filter와 독립 template engine을 제공한다.

@@ -219,6 +219,13 @@
 - [x] URL-encoded invalid input, escaped value, CSRF field 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] template inheritance/include/filter/i18n과 model formset은 남아 있다.
 
+### 2026-08-04 — P1 API pagination contract 1차
+
+- [x] query contract에 page/pageSize/maxPageSize와 deterministic SQL offset 계산을 추가했다.
+- [x] 음수·0 page/size와 maximum 초과를 사전 거부하고 base query 복사 semantics를 유지했다.
+- [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
+- [ ] cursor pagination, count/total metadata, aggregate/filter expression API는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

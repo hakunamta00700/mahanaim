@@ -55,6 +55,12 @@ type
     limit*: int
     offset*: int
 
+  Pagination* = object
+    ## API-level pagination is translated to SQL only at the database boundary.
+    page*: int
+    pageSize*: int
+    maxPageSize*: int
+
   CompiledQuery* = object
     sql*: string
     parameters*: seq[SqlValue]
@@ -156,7 +162,28 @@ proc compileSelect*(query: SelectQuery,
   if query.limit > 0:
     result.sql.add(" LIMIT " & $query.limit)
   if query.offset > 0:
-    result.sql.add(" OFFSET " & $query.offset)
+      result.sql.add(" OFFSET " & $query.offset)
+
+proc newPagination*(page = 1, pageSize = 20,
+                     maxPageSize = 100): Pagination =
+  ## Reject invalid client input before it can produce unbounded queries.
+  if page < 1:
+    raise newException(ValueError, "Pagination page must be at least 1")
+  if pageSize < 1:
+    raise newException(ValueError, "Pagination page size must be positive")
+  if maxPageSize < 1 or pageSize > maxPageSize:
+    raise newException(ValueError, "Pagination page size exceeds configured maximum")
+  Pagination(page: page, pageSize: pageSize, maxPageSize: maxPageSize)
+
+proc withPagination*(query: SelectQuery,
+                     pagination: Pagination): SelectQuery =
+  ## Copy the query so callers can reuse an unpaged base for multiple clients.
+  if pagination.page < 1 or pagination.pageSize < 1 or
+      pagination.pageSize > pagination.maxPageSize:
+    raise newException(ValueError, "Invalid pagination contract")
+  result = query
+  result.limit = pagination.pageSize
+  result.offset = (pagination.page - 1) * pagination.pageSize
 
 proc migrationSql*(operation: MigrationOperation,
                    dialect = dialectSqlite): string =
@@ -179,4 +206,3 @@ proc migrationSql*(operation: MigrationOperation,
       " (" & fields.join(", ") & ")"
   of migrationDropTable:
     "DROP TABLE " & quoteIdentifier(operation.table)
-
