@@ -13,6 +13,7 @@ import ./security
 import ./database
 import ./database_pool
 import ./database_session
+import ./router
 
 type
   TestApplication* = Application
@@ -23,6 +24,21 @@ type
     cookies*: Table[string, string]
     hasLastResponse*: bool
     lastResponse*: Response
+
+  TestWebSocketClient* = ref object
+    ## In-process WebSocket peer used by contract tests. It models the same
+    ## message/session boundary as a network adapter, while keeping socket
+    ## timing and platform-specific handshake code out of unit tests.
+    app*: Application
+    request*: Request
+    session*: WebSocketSession
+    connected*: bool
+    closed*: bool
+    handlerFuture*: Future[void]
+    toServer: seq[WebSocketMessage]
+    fromServer: seq[WebSocketMessage]
+    toServerWaiter: Future[WebSocketMessage]
+    fromServerWaiter: Future[WebSocketMessage]
 
   DatabaseTestFactory* = proc(): DatabaseAdapter {.gcsafe.}
   DatabaseTestCloser* = proc(adapter: DatabaseAdapter) {.gcsafe.}
@@ -90,7 +106,14 @@ proc updateCookies(client: TestClient, response: Response) =
   let firstPart = header.get().split(';', maxsplit = 1)[0]
   let separator = firstPart.find('=')
   if separator > 0:
-    client.cookies[firstPart[0 ..< separator]] = firstPart[separator + 1 .. ^1]
+      client.cookies[firstPart[0 ..< separator]] = firstPart[separator + 1 .. ^1]
+
+proc completedVoidFuture(): Future[void] =
+  ## Adapter callbacks must always return a Future, even when a test transport
+  ## can deliver a message synchronously. Keeping this detail here prevents
+  ## each callback from inventing a different completion convention.
+  result = newFuture[void]("test client completed callback")
+  result.complete()
 
 proc applyCookieHeader(request: var Request, headerValue: string) =
   ## Parse both client-managed and explicitly supplied cookie headers.
@@ -99,23 +122,31 @@ proc applyCookieHeader(request: var Request, headerValue: string) =
     if pieces.len == 2:
       request.cookies[pieces[0].strip()] = pieces[1].strip()
 
+proc buildFrameworkRequest(client: TestClient, httpMethod, path,
+                           body: string,
+                           headers: openArray[(string, string)]): Request =
+  ## Build request snapshots in one place so HTTP and WebSocket test clients
+  ## share query, header, and cookie behavior at the same adapter boundary.
+  let parsed = parseUri(path)
+  let requestPath = if parsed.path.len > 0: parsed.path else: "/"
+  result = newRequest(httpMethod, requestPath, body)
+  for key, value in decodeQuery(parsed.query):
+    result.query[key] = value
+  for header in headers:
+    result.headers[header[0].toLowerAscii()] = header[1]
+  let cookies = client.cookieHeader()
+  let suppliedCookie = result.header("cookie")
+  if suppliedCookie.isSome:
+    result.applyCookieHeader(suppliedCookie.get())
+  elif cookies.len > 0:
+    result.headers["cookie"] = cookies
+    result.applyCookieHeader(cookies)
+
 proc requestInternal(client: TestClient, httpMethod, path, body: string,
                       headers: seq[(string, string)]): Future[Response] {.async.} =
   ## Build the same framework Request shape as a real HTTP adapter.
-  let parsed = parseUri(path)
-  let requestPath = if parsed.path.len > 0: parsed.path else: "/"
-  var frameworkRequest = newRequest(httpMethod, requestPath, body)
-  for key, value in decodeQuery(parsed.query):
-    frameworkRequest.query[key] = value
-  for header in headers:
-    frameworkRequest.headers[header[0].toLowerAscii()] = header[1]
-  let cookies = client.cookieHeader()
-  let suppliedCookie = frameworkRequest.header("cookie")
-  if suppliedCookie.isSome:
-    frameworkRequest.applyCookieHeader(suppliedCookie.get())
-  elif cookies.len > 0:
-    frameworkRequest.headers["cookie"] = cookies
-    frameworkRequest.applyCookieHeader(cookies)
+  let frameworkRequest = client.buildFrameworkRequest(httpMethod, path, body,
+    headers)
   result = await client.app.dispatch(frameworkRequest)
   client.updateCookies(result)
   client.lastResponse = result
@@ -138,3 +169,187 @@ proc post*(client: TestClient, path: string; body = "",
            headers: openArray[(string, string)] = []): Future[Response] =
   ## POST keeps body and header construction visible in contract tests.
   client.request("POST", path, body, headers)
+
+proc flushSseEvent(events: var seq[SseEvent], current: var SseEvent,
+                   dataLines: var seq[string], hasField: var bool) =
+  ## Finish one SSE record without a nested closure. A top-level helper keeps
+  ## Nim's memory-safety rules explicit for the result sequence.
+  if not hasField and dataLines.len == 0:
+    return
+  current.data = dataLines.join("\n")
+  events.add(current)
+  current = SseEvent(retryMs: -1)
+  dataLines = @[]
+  hasField = false
+
+proc parseSseEvents*(body: string): seq[SseEvent] =
+  ## Parse the wire representation emitted by `sseResponse`. This parser is
+  ## deliberately independent of a server socket so tests can assert event
+  ## fields and multiline data without duplicating protocol parsing logic.
+  var current = SseEvent(retryMs: -1)
+  var dataLines: seq[string] = @[]
+  var hasField = false
+  for rawLine in body.replace("\r\n", "\n").split('\n'):
+    if rawLine.len == 0:
+      result.flushSseEvent(current, dataLines, hasField)
+      continue
+    if rawLine[0] == ':':
+      continue
+    let separator = rawLine.find(':')
+    let field = if separator >= 0: rawLine[0 ..< separator] else: rawLine
+    var value = if separator >= 0: rawLine[separator + 1 .. ^1] else: ""
+    if value.startsWith(" "):
+      value = value[1 .. ^1]
+    case field
+    of "event":
+      current.event = value
+      hasField = true
+    of "id":
+      current.id = value
+      hasField = true
+    of "retry":
+      current.retryMs = parseInt(value)
+      hasField = true
+    of "data":
+      dataLines.add(value)
+      hasField = true
+    else:
+      ## Unknown SSE fields are ignored by the browser protocol and therefore
+      ## must not make a valid event fail parsing.
+      discard
+  result.flushSseEvent(current, dataLines, hasField)
+
+proc getSseEventsInternal(client: TestClient, path: string,
+                          headers: seq[(string, string)]):
+                          Future[seq[SseEvent]] {.async.} =
+  ## Provide a concise assertion API while retaining the normal TestClient
+  ## response path for status/header checks.
+  let response = await client.get(path, headers)
+  if response.representation != rrServerSentEvents and
+      not response.header("content-type").get("").startsWith("text/event-stream"):
+    raise newException(ValueError, "TestClient response is not an SSE stream")
+  return parseSseEvents(response.body)
+
+proc getSseEvents*(client: TestClient, path: string,
+                   headers: openArray[(string, string)] = []):
+                   Future[seq[SseEvent]] =
+  ## Copy borrowed header input before entering the asynchronous parser.
+  var headerCopy: seq[(string, string)] = @[]
+  for header in headers:
+    headerCopy.add(header)
+  client.getSseEventsInternal(path, headerCopy)
+
+proc queueFromServer(client: TestWebSocketClient,
+                     message: WebSocketMessage) =
+  ## Deliver one server frame, waking exactly one pending test receive.
+  if client.fromServerWaiter != nil and not client.fromServerWaiter.finished:
+    let waiter = client.fromServerWaiter
+    client.fromServerWaiter = nil
+    waiter.complete(message)
+  else:
+    client.fromServer.add(message)
+
+proc receiveForServer(client: TestWebSocketClient): Future[WebSocketMessage] =
+  ## Server-side receive callback backed by the test client's outbound queue.
+  if client.toServer.len > 0:
+    result = newFuture[WebSocketMessage]("test websocket immediate receive")
+    let message = client.toServer[0]
+    client.toServer.delete(0)
+    result.complete(message)
+    return
+  if client.closed:
+    result = newFuture[WebSocketMessage]("test websocket closed receive")
+    result.complete(closeWebSocketMessage())
+    return
+  if client.toServerWaiter != nil and not client.toServerWaiter.finished:
+    raise newException(ValueError, "TestWebSocketClient supports one pending receive")
+  client.toServerWaiter = newFuture[WebSocketMessage]("test websocket receive")
+  client.toServerWaiter
+
+proc closeForServer(client: TestWebSocketClient, code: int,
+                    reason: string): Future[void] =
+  ## Closing from the handler side is observable by the client and resolves a
+  ## server receive so a handler cannot remain suspended after shutdown.
+  if not client.closed:
+    client.closed = true
+    client.queueFromServer(closeWebSocketMessage(code, reason))
+    if client.toServerWaiter != nil and not client.toServerWaiter.finished:
+      let waiter = client.toServerWaiter
+      client.toServerWaiter = nil
+      waiter.complete(closeWebSocketMessage(code, reason))
+  completedVoidFuture()
+
+proc connectWebSocket*(client: TestClient, path: string,
+                       headers: openArray[(string, string)] = []):
+                       TestWebSocketClient =
+  ## Start a WebSocket route against an in-process session. Route matching and
+  ## path parameter extraction remain real router operations; only the socket
+  ## transport is replaced by deterministic message queues.
+  if client.isNil or client.app.isNil:
+    raise newException(ValueError, "TestWebSocketClient requires an application")
+  let request = client.buildFrameworkRequest("GET", path, "", headers)
+  let route = client.app.router.findWebSocket(request.path)
+  if route.isNone:
+    raise newException(ValueError, "No WebSocket route matches " & request.path)
+  new(result)
+  result.app = client.app
+  result.request = request
+  result.request.pathParams = extractParams(route.get().pattern,
+    request.path).get()
+  result.connected = true
+  let socket = result
+  result.session = newWebSocketSession(
+    proc(message: WebSocketMessage): Future[void] {.gcsafe.} =
+      socket.queueFromServer(message)
+      completedVoidFuture(),
+    proc(): Future[WebSocketMessage] {.gcsafe.} =
+      socket.receiveForServer(),
+    proc(code: int, reason: string): Future[void] {.gcsafe.} =
+      socket.closeForServer(code, reason))
+  result.handlerFuture = route.get().handler(result.request, result.session)
+
+proc send*(client: TestWebSocketClient,
+           message: WebSocketMessage): Future[void] =
+  ## Send a client frame to the route handler without exposing queue internals.
+  if client.isNil or not client.connected or client.closed:
+    raise newException(ValueError, "TestWebSocketClient is not connected")
+  if client.toServerWaiter != nil and not client.toServerWaiter.finished:
+    let waiter = client.toServerWaiter
+    client.toServerWaiter = nil
+    waiter.complete(message)
+  else:
+    client.toServer.add(message)
+  completedVoidFuture()
+
+proc receive*(client: TestWebSocketClient): Future[WebSocketMessage] =
+  ## Receive the next frame emitted by the route handler.
+  if client.isNil or not client.connected:
+    raise newException(ValueError, "TestWebSocketClient is not connected")
+  if client.fromServer.len > 0:
+    result = newFuture[WebSocketMessage]("test websocket immediate client receive")
+    let message = client.fromServer[0]
+    client.fromServer.delete(0)
+    result.complete(message)
+    return
+  if client.fromServerWaiter != nil and not client.fromServerWaiter.finished:
+    raise newException(ValueError, "TestWebSocketClient supports one pending receive")
+  client.fromServerWaiter = newFuture[WebSocketMessage]("test websocket client receive")
+  client.fromServerWaiter
+
+proc close*(client: TestWebSocketClient, code = 1000,
+            reason = ""): Future[void] =
+  ## Close the client side and wake any handler waiting for input.
+  if client.isNil or client.closed:
+    return completedVoidFuture()
+  client.closed = true
+  if client.toServerWaiter != nil and not client.toServerWaiter.finished:
+    let waiter = client.toServerWaiter
+    client.toServerWaiter = nil
+    waiter.complete(closeWebSocketMessage(code, reason))
+  client.session.close(code, reason)
+
+proc wait*(client: TestWebSocketClient): Future[void] =
+  ## Await handler completion to surface route failures in the test itself.
+  if client.isNil or client.handlerFuture.isNil:
+    raise newException(ValueError, "TestWebSocketClient has no handler")
+  client.handlerFuture

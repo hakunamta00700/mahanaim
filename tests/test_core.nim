@@ -1468,6 +1468,43 @@ suite "Mahanaim core contracts":
     check second.status == Http200
     check second.body == "abc:payload"
 
+  test "test client parses SSE events and drives in-process WebSocket sessions":
+    let app = newTestApplication()
+    app.get("/events", "test-events",
+      proc(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        return sseResponse([
+          SseEvent(event: "message", id: "one", retryMs: 1000,
+            data: "first\nline"),
+          SseEvent(event: "done", id: "two", retryMs: -1, data: "last")]))
+    app.websocket("/rooms/:room", "test-room",
+      proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
+        let incoming = await session.receive()
+        await session.send(textWebSocketMessage(
+          request.pathParams.getOrDefault("room") & ":" & incoming.payload))
+        await session.close(1000, "done"))
+
+    let client = newTestClient(app)
+    let events = waitFor client.getSseEvents("/events")
+    check events.len == 2
+    check events[0].event == "message"
+    check events[0].id == "one"
+    check events[0].retryMs == 1000
+    check events[0].data == "first\nline"
+    check events[1].event == "done"
+    check events[1].retryMs == -1
+
+    let socket = client.connectWebSocket("/rooms/42")
+    waitFor socket.send(textWebSocketMessage("hello"))
+    let echoed = waitFor socket.receive()
+    check echoed.kind == wsmText
+    check echoed.payload == "42:hello"
+    let closed = waitFor socket.receive()
+    check closed.kind == wsmClose
+    check closed.closeCode == 1000
+    check closed.payload == "done"
+    waitFor socket.wait()
+    check socket.closed
+
   test "test applications and clients are isolated by construction":
     let firstApp = newTestApplication()
     let secondApp = newTestApplication()

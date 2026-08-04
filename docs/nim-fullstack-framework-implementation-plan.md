@@ -629,7 +629,7 @@ flowchart TB
 - [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
 - [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
 - [ ] system check와 운영 배포 점검을 CLI에 통합한다.
-- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
+- [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 live-server fixture는 남아 있으며, WebSocket/SSE test client 계약을 추가했다.
 - [ ] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다.
 - [ ] 보안 회귀 테스트와 HTTPS deployment checklist를 공개한다.
 
@@ -724,7 +724,7 @@ flowchart TB
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
 | [ ] | REQ-OPS-005 | P2 | locale/timezone context와 날짜·시간·숫자 formatter를 template/form/API에 공통 적용한다. |
 | [ ] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. |
-| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, WebSocket/SSE, live-server smoke fixture는 남아 있다. |
+| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, in-process SSE/WebSocket test client를 추가했다. PostgreSQL live isolation과 live-server smoke fixture는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [ ] | REQ-DOC-001 | P0 | 기능을 merge할 때 Nim 예제·API reference·migration/security guide·지원 버전 정책을 함께 갱신한다. |
 
