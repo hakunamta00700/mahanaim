@@ -15,6 +15,11 @@ import prologue/core/request except Request
 import prologue/mocking/mocking
 import mahanaim
 
+type MacroUser = object
+  id: int
+  email: string
+  active: bool
+
 suite "Mahanaim core contracts":
   test "request and response value objects have safe defaults":
     let request = newRequest("get", "/health")
@@ -1432,3 +1437,13 @@ suite "Mahanaim core contracts":
     check report.issues[0].code == "config.port.invalid"
     check report.issues[1].code == "route.declaration.duplicate"
     check report.issues[2].code == "security.csrf-secret.weak"
+
+  test "model macro generates deterministic backend-neutral metadata":
+    let generated = modelMetadata(MacroUser, "MacroUser", "macro_users")
+    check generated.name == "MacroUser"
+    check generated.tableName == "macro_users"
+    check generated.fields.len == 3
+    check generated.fields[0].name == "id"
+    check generated.fields[0].kind == modelInteger
+    check generated.fields[1].kind == modelString
+    check generated.fields[2].kind == modelBoolean

@@ -164,6 +164,14 @@
 - [x] registry 기반 `nestedModel` metadata와 재귀 DTO serialization을 추가했다.
 - [ ] MessagePack·date/UUID/file adapter는 남아 있다.
 
+### 2026-08-04 — P1 model metadata macro 1차
+
+- [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
+- [x] string·integer·float·boolean·DateTime·UUID·JsonNode 타입 매핑을 명시적으로 고정했다.
+- [x] 상속 object와 지원하지 않는 field type은 compile-time 오류로 거부한다.
+- [x] 생성 metadata의 이름·table·field order·kind 회귀 테스트를 추가했다.
+- [ ] relation/index/constraint annotation, Option·컬렉션·custom type adapter는 남아 있다.
+
 ### 2026-08-04 — P0 handler execution 1차
 
 - [x] route에 async/sync execution metadata를 기록하도록 추가했다.

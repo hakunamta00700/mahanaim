@@ -111,7 +111,8 @@
 - [x] metadata 기반 JSON serializer와 sensitive/nullable/rename 정책을 제공한다.
 - [x] metadata 기반 patch projection과 partial update serializer를 제공한다.
 - [x] registry 기반 nested DTO serializer를 제공한다.
-- [ ] model macro, date/UUID/file adapter를 제공한다.
+- [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공한다.
+- [ ] date/UUID/file adapter를 제공한다.
 - [ ] SQLite/PostgreSQL query adapter, migration up/down, transaction, relation query를 제공한다.
 
 ### API와 서버 렌더링
