@@ -76,6 +76,19 @@ type
     field*: string
     alias*: string
 
+  QueryAnnotationFunction* = enum
+    ## Typed arithmetic keeps computed projections safe and backend-neutral.
+    annotationAdd
+    annotationSubtract
+    annotationMultiply
+    annotationDivide
+
+  QueryAnnotation* = object
+    leftField*: string
+    rightField*: string
+    function*: QueryAnnotationFunction
+    alias*: string
+
   QueryLockMode* = enum
     lockNone
     lockForUpdate
@@ -89,6 +102,7 @@ type
     limit*: int
     offset*: int
     aggregates*: seq[QueryAggregate]
+    annotations*: seq[QueryAnnotation]
     groupBy*: seq[string]
     lockMode*: QueryLockMode
 
@@ -278,6 +292,13 @@ proc aggregateSql(function: QueryAggregateFunction): string =
   of aggregateMinimum: "MIN"
   of aggregateMaximum: "MAX"
 
+proc annotationSql(function: QueryAnnotationFunction): string =
+  case function
+  of annotationAdd: " + "
+  of annotationSubtract: " - "
+  of annotationMultiply: " * "
+  of annotationDivide: " / "
+
 proc withPagination*(query: SelectQuery,
                      pagination: Pagination): SelectQuery
 
@@ -290,7 +311,8 @@ proc newQuerySet*(table: string): QuerySet =
   if table.len == 0:
     raise newException(ValueError, "QuerySet table is required")
   QuerySet(query: SelectQuery(table: table, columns: @[], filters: @[],
-    orderBy: @[], aggregates: @[], groupBy: @[], lockMode: lockNone))
+    orderBy: @[], aggregates: @[], annotations: @[], groupBy: @[],
+    lockMode: lockNone))
 
 proc selectFields*(query: QuerySet, fields: openArray[string]): QuerySet =
   ## Replace the projection while preserving filters and execution controls.
@@ -326,6 +348,15 @@ proc addAggregate*(query: QuerySet, function: QueryAggregateFunction,
   result.query.aggregates = query.query.aggregates &
     @[QueryAggregate(function: function, field: field, alias: alias)]
 
+proc annotateFields*(query: QuerySet, function: QueryAnnotationFunction,
+                     leftField, rightField, alias: string): QuerySet =
+  ## Keep annotation expressions in the query AST. Repositories resolve these
+  ## logical fields through ModelMetadata before SQL compilation.
+  result = query
+  result.query.annotations = query.query.annotations &
+    @[QueryAnnotation(leftField: leftField, rightField: rightField,
+      function: function, alias: alias)]
+
 proc lockRows*(query: QuerySet, mode: QueryLockMode): QuerySet =
   ## Typed locking intent keeps row-lock semantics reviewable and lets each
   ## backend reject unsupported behavior before a query reaches the driver.
@@ -348,7 +379,8 @@ proc compile*(query: QuerySet,
 proc compileSelect*(query: SelectQuery,
                     dialect = dialectSqlite): CompiledQuery =
   ## Compile intent and values separately so every driver can bind parameters.
-  if query.table.len == 0 or (query.columns.len == 0 and query.aggregates.len == 0):
+  if query.table.len == 0 or (query.columns.len == 0 and
+      query.aggregates.len == 0 and query.annotations.len == 0):
     raise newException(ValueError, "SELECT requires a table and projection")
   if query.limit < 0 or query.offset < 0:
     raise newException(ValueError, "Query limit and offset cannot be negative")
@@ -363,6 +395,14 @@ proc compileSelect*(query: SelectQuery,
         aggregate.field == "*": "*" else: quoteIdentifier(aggregate.field)
     selected.add(aggregateSql(aggregate.function) & "(" & expression & ") AS " &
       quoteIdentifier(aggregate.alias))
+  for annotation in query.annotations:
+    if annotation.leftField.len == 0 or annotation.rightField.len == 0:
+      raise newException(ValueError, "Annotation fields are required")
+    if annotation.alias.len == 0:
+      raise newException(ValueError, "Annotation alias is required")
+    selected.add(quoteIdentifier(annotation.leftField) &
+      annotationSql(annotation.function) & quoteIdentifier(annotation.rightField) &
+      " AS " & quoteIdentifier(annotation.alias))
   result.sql.add(selected.join(", "))
   result.sql.add(" FROM " & quoteIdentifier(query.table))
   var parameterIndex = 0
@@ -393,7 +433,8 @@ proc compileSelect*(query: SelectQuery,
     if dialect == dialectSqlite:
       raise newException(ValueError,
         "SQLite does not support row locking clauses")
-    if query.aggregates.len > 0 or query.groupBy.len > 0:
+    if query.aggregates.len > 0 or query.annotations.len > 0 or
+        query.groupBy.len > 0:
       raise newException(ValueError,
         "Row locks cannot be applied to aggregate queries")
     result.sql.add(if query.lockMode == lockForUpdate:

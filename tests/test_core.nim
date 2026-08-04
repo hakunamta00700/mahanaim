@@ -2366,6 +2366,18 @@ suite "Mahanaim core contracts":
       discard newQuerySet("orders").addAggregate(aggregateSum, "amount;DROP", "gross")
         .compile()
 
+  test "QuerySet annotation compiles typed arithmetic without raw SQL":
+    let query = newQuerySet("orders").selectFields(@["id", "amount"]).
+      annotateFields(annotationAdd, "amount", "id", "total")
+    check query.compile().sql ==
+      "SELECT \"id\", \"amount\", \"amount\" + \"id\" AS \"total\" FROM \"orders\""
+    expect ValueError:
+      discard newQuerySet("orders").selectFields(@["id"]).
+        annotateFields(annotationAdd, "", "id", "total").compile()
+    expect ValueError:
+      discard newQuerySet("orders").selectFields(@["id"]).
+        annotateFields(annotationAdd, "id", "amount", "").compile()
+
   test "template engine escapes context and composes inheritance includes filters":
     let engine = newTemplateEngine()
     engine.registerTemplate("base", "<main>{% block content %}fallback{% endblock %}</main>")
@@ -2667,6 +2679,28 @@ suite "Mahanaim core contracts":
     check updated.get()["name"].getStr() == "Grace"
     check repository.delete("1")
     check repository.find("1").isNone
+
+  test "database repository maps annotation aliases by projection":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"scores\" (\"id\" INTEGER, \"points\" INTEGER)",
+      parameters: @[]))
+    var metadata = newModelMetadata("Score", "scores")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("points", modelInteger))
+    let repository = newDatabaseRepository(metadata, adapter)
+    var row: ResourceRow
+    row["id"] = newJInt(3)
+    row["points"] = newJInt(7)
+    discard repository.create(row)
+    let results = repository.list(newQuerySet("scores").
+      selectFields(@["id", "points"]).
+      annotateFields(annotationAdd, "points", "id", "total").toSelectQuery())
+    check results.len == 1
+    check results[0]["id"].getInt() == 3
+    check results[0]["points"].getInt() == 7
+    check results[0]["total"].getInt() == 10
 
   test "database repository maps grouped aggregate rows to JSON scalars":
     let adapter = newSqliteDatabaseAdapter()

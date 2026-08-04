@@ -139,14 +139,53 @@ proc jsonValue(field: ModelField, value: SqlValue): JsonNode =
     except CatchableError: newJString(text)
   else: newJString(text)
 
+proc jsonValue(value: SqlValue): JsonNode =
+  ## Annotation results have no ModelField, so preserve the neutral scalar
+  ## kind directly instead of guessing from metadata or returning text.
+  case value.kind
+  of sqlNull: newJNull()
+  of sqlText: newJString(value.text)
+  of sqlInteger: newJInt(value.integer)
+  of sqlFloat: newJFloat(value.floating)
+  of sqlBoolean: newJBool(value.boolean)
+
 proc columns(repository: DatabaseRepository): seq[string] =
   for field in repository.metadata.fields:
     result.add(field.columnName)
 
+proc rowFromValues(repository: DatabaseRepository, query: SelectQuery,
+                   values: seq[SqlValue]): ResourceRow =
+  ## Map by the actual projection. This supports both partial selections and
+  ## computed annotation aliases without coupling response order to metadata
+  ## declaration order.
+  var valueIndex = 0
+  for column in query.columns:
+    if valueIndex >= values.len:
+      break
+    let field = repository.fieldFor(column)
+    if field.isSome:
+      result[field.get().name] = jsonValue(field.get(), values[valueIndex])
+    inc valueIndex
+  for annotation in query.annotations:
+    if valueIndex >= values.len:
+      break
+    ## SQLite may expose computed numeric columns through its text protocol.
+    ## Reuse the left operand's metadata so an integer/float annotation keeps
+    ## the same JSON type as the model field that determines its arithmetic.
+    let field = repository.fieldFor(annotation.leftField)
+    result[annotation.alias] = if field.isSome:
+      jsonValue(field.get(), values[valueIndex])
+    else:
+      jsonValue(values[valueIndex])
+    inc valueIndex
+
 proc rowFromValues(repository: DatabaseRepository,
                    values: seq[SqlValue]): ResourceRow =
-  let fields = repository.metadata.fields
-  for index, field in fields:
+  ## RelationSelectQuery results predate projected QuerySet rows and use the
+  ## repository's declared field order. Keep this adapter overload isolated so
+  ## relation loading remains compatible while normal lists use projection
+  ## aware mapping above.
+  for index, field in repository.metadata.fields:
     if index < values.len:
       result[field.name] = jsonValue(field, values[index])
 
@@ -182,6 +221,13 @@ proc normalizeQuery(repository: DatabaseRepository,
         raise newException(ValueError, "Unknown repository aggregate field: " &
           aggregate.field)
       aggregate.field = field.get().columnName
+  for annotation in normalized.annotations.mitems:
+    let left = repository.fieldFor(annotation.leftField)
+    let right = repository.fieldFor(annotation.rightField)
+    if left.isNone or right.isNone:
+      raise newException(ValueError, "Unknown repository annotation field")
+    annotation.leftField = left.get().columnName
+    annotation.rightField = right.get().columnName
   for group in normalized.groupBy.mitems:
     let field = repository.fieldFor(group)
     if field.isNone:
@@ -199,9 +245,10 @@ proc list*(repository: DatabaseRepository,
   if query.aggregates.len > 0 or query.groupBy.len > 0:
     raise newException(ValueError,
       "Aggregate queries must use DatabaseRepository.aggregate")
-  let compiled = repository.selectQuery(query)
+  let normalized = repository.normalizeQuery(query)
+  let compiled = compileSelect(normalized, repository.adapter.dialect)
   for values in repository.adapter.execute(compiled):
-    result.add(repository.rowFromValues(values))
+    result.add(repository.rowFromValues(normalized, values))
 
 proc listWithTotal*(repository: DatabaseRepository,
                     query = SelectQuery()): ResourceListResult {.gcsafe.} =
