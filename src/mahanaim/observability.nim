@@ -31,12 +31,55 @@ type
     ready*: bool
     sink*: RequestEventSink
     logSink*: StructuredLogSink
+    ## Secret values are copied into the observability boundary at application
+    ## construction. This avoids importing configuration into the logger and
+    ## guarantees that every structured record is sanitized before delivery.
+    redactedSecrets*: seq[string]
 
 proc newObservability*(sink: RequestEventSink = nil,
-                       logSink: StructuredLogSink = nil): Observability =
+                       logSink: StructuredLogSink = nil,
+                       redactedSecrets: seq[string] = @[]): Observability =
   ## A fresh app gets isolated counters and request-id state.
   Observability(requestCount: 0, errorCount: 0, inFlight: 0,
-    nextRequestId: 0, ready: false, sink: sink, logSink: logSink)
+    nextRequestId: 0, ready: false, sink: sink, logSink: logSink,
+    redactedSecrets: redactedSecrets)
+
+proc redactLogText(value: string, secrets: openArray[string]): string =
+  ## Redact literal configured values without interpreting them as patterns.
+  ## Empty values are ignored so a missing secret cannot erase every log field.
+  result = value
+  for secret in secrets:
+    if secret.len > 0:
+      result = result.replace(secret, "[REDACTED]")
+
+proc sanitizeLogRecord(value: JsonNode,
+                       secrets: openArray[string]): JsonNode =
+  ## Walk the complete JSON tree rather than relying on today's fixed event
+  ## fields. Future structured fields therefore inherit the same safety rule.
+  if value.isNil or secrets.len == 0:
+    return value
+  case value.kind
+  of JObject:
+    result = newJObject()
+    for key, child in value.pairs:
+      result[key] = sanitizeLogRecord(child, secrets)
+  of JArray:
+    result = newJArray()
+    for child in value.items:
+      result.add(sanitizeLogRecord(child, secrets))
+  of JString:
+    result = newJString(redactLogText(value.getStr(), secrets))
+  else:
+    ## Numbers, booleans, and null carry no configured textual secret. Reusing
+    ## their immutable node keeps the sanitizer allocation-conscious.
+    result = value
+
+proc emitStructuredLog(observability: Observability, record: JsonNode) =
+  ## Keep sink delivery behind one boundary so callers cannot accidentally
+  ## bypass redaction when new event producers are added.
+  if observability.isNil or observability.logSink.isNil:
+    return
+  observability.logSink(sanitizeLogRecord(record, observability.redactedSecrets))
 
 proc validRequestId(value: string): bool =
   ## Accept only a bounded header-safe token; never reflect arbitrary input.
@@ -101,8 +144,7 @@ proc observabilityMiddleware*(observability: Observability): Middleware =
         spanId: trackedRequest.trace.spanId)
       if not observability.sink.isNil:
         observability.sink(event)
-      if not observability.logSink.isNil:
-        observability.logSink(requestEventJson(event))
+      emitStructuredLog(observability, requestEventJson(event))
       return response
     finally:
       dec observability.inFlight

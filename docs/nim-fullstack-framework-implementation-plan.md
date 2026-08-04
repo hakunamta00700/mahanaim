@@ -126,7 +126,7 @@
 - [x] application-level custom error handler와 안전한 기본 500 handler를 추가했다.
 - [x] plugin registration API를 추가하고 plugin이 route를 등록하는 contract test를 추가했다.
 - [x] 예외 상세가 기본 응답에 노출되지 않는지 검증했다.
-- [-] versioned plugin manifest, registration phase, DI provider, command/admin extension point와 기본 오류 상세 비노출을 추가했다. 애플리케이션 로그 sink에 secret redaction을 강제하는 통합 wiring은 남아 있다.
+- [-] versioned plugin manifest, registration phase, DI provider, command/admin extension point와 기본 오류 상세 비노출을 추가했다. Application config의 secret을 structured log sink 전달 직전에 재귀적으로 redaction하며, custom error logging 정책은 application-owned 범위다.
 
 ### 2026-08-04 — P0 보안 기본값 1차
 
@@ -679,7 +679,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
-| [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·redaction logger로 로그·오류·빌드 노출을 차단한다. |
+| [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·structured log redaction으로 로그·오류·빌드 노출을 차단한다. Application config secret은 observability sink 직전에 JSON tree 전체에서 치환하며, 외부 logger/build pipeline 통합은 남아 있다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
 | [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했으며, 애플리케이션 자동 발견 wiring은 남아 있다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |

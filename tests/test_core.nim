@@ -1601,6 +1601,35 @@ suite "Mahanaim core contracts":
     check record["traceId"].getStr() == "4bf92f3577b34da6a3ce929d0e0e4736"
     check parseTraceParent("00-00000000000000000000000000000000-00f067aa0ba902b7-01").isNone
 
+  test "application observability redacts configured secrets in structured logs":
+    ## The sink is an application-owned boundary, so framework-generated
+    ## records must be sanitized before a host forwards them to Logue,
+    ## OpenTelemetry, or a text logger. A route path is used as the fixture
+    ## because it is intentionally present in the default request event.
+    var config = defaultConfig()
+    const secret = "path-secret-that-must-not-reach-logs"
+    config.secrets["route_token"] = secret
+    let app = newApplication(config)
+    var sawSecretLeak: Atomic[bool]
+    var sawRedaction: Atomic[bool]
+    sawSecretLeak.store(false)
+    sawRedaction.store(false)
+    app.observability.logSink = proc(record: JsonNode) {.gcsafe.} =
+      let serialized = $record
+      sawSecretLeak.store(serialized.contains(secret))
+      sawRedaction.store(serialized.contains("[REDACTED]"))
+    proc redactedRoute(request: Request): Future[mahanaim.Response]
+        {.async, gcsafe.} =
+      discard request
+      return textResponse("ok")
+    let path = "/public-" & secret
+    app.get(path, "redacted-route", redactedRoute)
+
+    let response = waitFor app.dispatch(newRequest("GET", path))
+    check response.status == Http200
+    check not sawSecretLeak.load()
+    check sawRedaction.load()
+
   test "environment configuration is parsed without logging secrets":
     putEnv("MAHANAIM_ENV", "test")
     putEnv("MAHANAIM_DEBUG", "false")

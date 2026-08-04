@@ -130,7 +130,14 @@ proc newApplication*(config = defaultConfig(),
     blockingDetectionMs = executionPolicy.blockingDetectionMs,
     forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs,
     queueWaitMs = executionPolicy.queueWaitMs)
-  result.observability = newObservability()
+  ## Copy configured secret values into the observability boundary once. The
+  ## logger then sanitizes every structured record without depending on the
+  ## mutable configuration provider or exposing configuration internals.
+  var redactedSecrets: seq[string] = @[]
+  for _, secret in config.secrets:
+    if secret.len > 0 and secret notin redactedSecrets:
+      redactedSecrets.add(secret)
+  result.observability = newObservability(redactedSecrets = redactedSecrets)
   result.services = newServiceContainer()
   result.jobs = newBackgroundJobQueue(result.executor)
   result.migrationRegistry = newMigrationRegistry()
