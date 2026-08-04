@@ -2182,6 +2182,37 @@ suite "Mahanaim core contracts":
     check responseSchema["content"]["application/json"]["schema"]["properties"]["id"]["type"].getStr() == "integer"
     check responseSchema["content"]["application/json"]["schema"]["required"][0].getStr() == "id"
 
+  test "OpenAPI registry generates multi-route documents and UI routes":
+    let registry = newOpenApiRegistry("Mahanaim API", "1.0.0")
+    registry.registerOperation(OpenApiOperation(
+      httpMethod: "GET", path: "/users/{id}", operationId: "getUser",
+      summary: "Read a user",
+      requestSchema: @[integerField("id", flPath)],
+      responseSchema: @[integerField("id", flBody), stringField("name", flBody)],
+      successStatus: 200))
+    registry.registerOperation(OpenApiOperation(
+      httpMethod: "POST", path: "/users", operationId: "createUser",
+      requestSchema: @[stringField("name", flBody)],
+      responseSchema: @[integerField("id", flBody)], successStatus: 201))
+    expect ValueError:
+      registry.registerOperation(OpenApiOperation(
+        httpMethod: "get", path: "/users/{id}", operationId: "duplicate"))
+
+    let document = registry.document()
+    check document["paths"]["/users/{id}"]["get"]["operationId"].getStr() == "getUser"
+    check document["paths"]["/users"]["post"]["responses"]["201"] != nil
+    check document["paths"]["/users/{id}"]["get"]["parameters"][0]["in"].getStr() == "path"
+    check swaggerUiHtml("/schema.json").contains("/schema.json")
+    check redocHtml("/schema.json").contains("spec-url=\"/schema.json\"")
+
+    let app = newApplication()
+    registerOpenApiRoutes(app, registry, "/schema.json", "/swagger", "/redoc-ui")
+    let jsonResponse = waitFor app.dispatch(newRequest("GET", "/schema.json"))
+    check jsonResponse.status == Http200
+    check parseJson(jsonResponse.body)["paths"].hasKey("/users")
+    check (waitFor app.dispatch(newRequest("GET", "/swagger"))).body.contains("swagger-ui")
+    check (waitFor app.dispatch(newRequest("GET", "/redoc-ui"))).body.contains("redoc")
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

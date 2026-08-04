@@ -3,8 +3,62 @@
 ## The schema remains the source of truth for coercion and constraints; this
 ## module only publishes a machine-readable description for tooling and docs.
 
-import std/json
+import std/[asyncdispatch, json, strutils]
+import ./application
+import ./core
 import ./validation
+
+type
+  OpenApiOperation* = object
+    ## A route declaration is data first, so adapters and documentation tools
+    ## can inspect it without executing request handlers.
+    httpMethod*: string
+    path*: string
+    operationId*: string
+    summary*: string
+    requestSchema*: seq[FieldSpec]
+    responseSchema*: seq[FieldSpec]
+    successStatus*: int
+
+  OpenApiRegistry* = ref object
+    ## The registry owns only OpenAPI declarations; Application owns route
+    ## registration and lifecycle, keeping documentation independently testable.
+    title*: string
+    version*: string
+    operations*: seq[OpenApiOperation]
+
+proc newOpenApiRegistry*(title, version: string): OpenApiRegistry =
+  ## Require stable identity metadata so generated documents are publishable.
+  if title.strip().len == 0 or version.strip().len == 0:
+    raise newException(ValueError, "OpenAPI title and version are required")
+  new(result)
+  result.title = title
+  result.version = version
+  result.operations = @[]
+
+proc normalizeHttpMethod(httpMethod: string): string =
+  result = httpMethod.toLowerAscii()
+  if result notin ["get", "post", "put", "patch", "delete", "head", "options"]:
+    raise newException(ValueError, "Unsupported OpenAPI HTTP method: " & httpMethod)
+
+proc registerOperation*(registry: OpenApiRegistry,
+                        operation: OpenApiOperation) =
+  ## Duplicate method/path pairs are rejected to prevent silently stale docs.
+  if registry.isNil or operation.path.len == 0 or operation.path[0] != '/':
+    raise newException(ValueError, "OpenAPI operation path must start with '/'")
+  let normalizedMethod = normalizeHttpMethod(operation.httpMethod)
+  if operation.operationId.strip().len == 0:
+    raise newException(ValueError, "OpenAPI operationId is required")
+  for existing in registry.operations:
+    if normalizeHttpMethod(existing.httpMethod) == normalizedMethod and
+       existing.path == operation.path:
+      raise newException(ValueError,
+        "Duplicate OpenAPI operation: " & normalizedMethod & " " & operation.path)
+  var normalized = operation
+  normalized.httpMethod = normalizedMethod
+  normalized.successStatus = if operation.successStatus > 0:
+    operation.successStatus else: 200
+  registry.operations.add(normalized)
 
 proc fieldSchema(field: FieldSpec): JsonNode =
   result = newJObject()
@@ -41,6 +95,106 @@ proc objectSchema*(schema: openArray[FieldSpec]): JsonNode =
     result["required"] = newJArray()
     for field in required:
       result["required"].add(newJString(field))
+
+proc operationDocument(operation: OpenApiOperation): JsonNode =
+  ## Build one OpenAPI operation while preserving the existing FieldSpec
+  ## projection rules for parameters, request bodies, and responses.
+  result = newJObject()
+  result["operationId"] = newJString(operation.operationId)
+  if operation.summary.strip().len > 0:
+    result["summary"] = newJString(operation.summary)
+  result["parameters"] = newJArray()
+  var bodyFields: seq[FieldSpec] = @[]
+  for field in operation.requestSchema:
+    let property = fieldSchema(field)
+    case field.location
+    of flBody:
+      bodyFields.add(field)
+    of flPath, flQuery, flHeader:
+      result["parameters"].add(%*{
+        "name": field.name,
+        "in": if field.location == flPath: "path" elif field.location == flQuery: "query" else: "header",
+        "required": field.required or field.location == flPath,
+        "schema": property
+      })
+  let body = objectSchema(bodyFields)
+  if body["properties"].len > 0:
+    result["requestBody"] = %*{
+      "required": body.hasKey("required"),
+      "content": {"application/json": {"schema": body}}
+    }
+  let status = $operation.successStatus
+  result["responses"] = newJObject()
+  result["responses"][status] = %*{"description": "Successful response"}
+  if operation.responseSchema.len > 0:
+    result["responses"][status]["content"] = %*{
+      "application/json": {"schema": objectSchema(operation.responseSchema)}
+    }
+
+proc document*(registry: OpenApiRegistry): JsonNode =
+  ## Generate a deterministic multi-route OpenAPI 3.1 document.
+  if registry.isNil:
+    raise newException(ValueError, "OpenAPI registry is required")
+  result = %*{
+    "openapi": "3.1.0",
+    "info": {"title": registry.title, "version": registry.version},
+    "paths": newJObject()
+  }
+  for operation in registry.operations:
+    if not result["paths"].hasKey(operation.path):
+      result["paths"][operation.path] = newJObject()
+    result["paths"][operation.path][normalizeHttpMethod(operation.httpMethod)] =
+      operationDocument(operation)
+
+proc htmlAttribute(value: string): string =
+  ## UI URLs are inserted into HTML attributes, so escape them independently
+  ## from the JSON document serialization path.
+  result = value.replace("&", "&amp;")
+  result = result.replace("\"", "&quot;")
+  result = result.replace("<", "&lt;")
+  result = result.replace(">", "&gt;")
+
+proc swaggerUiHtml*(specUrl = "/openapi.json"): string =
+  ## Keep the UI shell dependency-free at the framework boundary; the browser
+  ## loads the well-known Swagger UI bundle and the registry JSON URL.
+  let jsonUrl = $(newJString(specUrl))
+  "<!doctype html><html><head><title>API docs</title>" &
+    "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist/swagger-ui.css\"></head>" &
+    "<body><div id=\"swagger-ui\"></div>" &
+    "<script src=\"https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js\"></script>" &
+    "<script>window.ui=SwaggerUIBundle({url:" & jsonUrl &
+    ",dom_id:'#swagger-ui'});</script></body></html>"
+
+proc redocHtml*(specUrl = "/openapi.json"): string =
+  ## ReDoc uses the same registry endpoint, giving deployments a second UI
+  ## without duplicating route/schema declarations.
+  "<!doctype html><html><head><title>API reference</title></head><body>" &
+    "<redoc spec-url=\"" & htmlAttribute(specUrl) & "\"></redoc>" &
+    "<script src=\"https://unpkg.com/redoc/bundles/redoc.standalone.js\"></script>" &
+    "</body></html>"
+
+proc registerOpenApiRoutes*(app: Application, registry: OpenApiRegistry,
+                            jsonPath = "/openapi.json",
+                            swaggerPath = "/docs",
+                            redocPath = "/redoc") =
+  ## Register documentation endpoints through normal Application routing so
+  ## middleware, host policy, and lifecycle checks remain applicable.
+  if app.isNil or registry.isNil:
+    raise newException(ValueError, "Application and OpenAPI registry are required")
+  if jsonPath.len == 0 or swaggerPath.len == 0 or redocPath.len == 0:
+    raise newException(ValueError, "OpenAPI routes require non-empty paths")
+  app.get(jsonPath, "openapi.document",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      discard request
+      return jsonResponse(registry.document()))
+  app.get(swaggerPath, "openapi.swagger-ui",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      discard request
+      return htmlResponse(swaggerUiHtml(jsonPath)))
+  app.get(redocPath, "openapi.redoc",
+    proc(request: Request): Future[Response] {.async, gcsafe.} =
+      discard request
+      return htmlResponse(redocHtml(jsonPath)))
 
 proc openApiDocument*(title, version: string,
                       schema: openArray[FieldSpec],

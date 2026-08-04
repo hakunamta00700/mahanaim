@@ -212,7 +212,7 @@
 - [x] string/integer 타입, required/default, length/numeric constraint를 OpenAPI schema에 반영했다.
 - [x] 생성 문서의 위치·필수 필드·제약조건 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] explicit `FieldSpec` response schema를 OpenAPI 3.1 `200` JSON response에 투영했다.
-- [ ] schema macro, route별 operation/response 자동 수집, 완전한 content negotiation과 interactive UI는 남아 있다.
+- [-] 다중 operation registry와 Swagger/ReDoc UI route를 추가했다. schema macro, route 자동 수집과 완전한 content negotiation은 남아 있다.
 
 ### 2026-08-04 — P2 observability foundation 1차
 
@@ -289,7 +289,7 @@
 - [x] quality 내림차순과 header order tie-break를 적용해 server variants를 선택한다.
 - [x] `q=0`을 명시적 거부로 처리하고 기존 wildcard/406 정책을 보존하는 회귀 테스트를 통과했다.
 - [x] reusable object response schema와 typed response OpenAPI projection을 추가했다.
-- [ ] route schema macro, Swagger/ReDoc UI와 자동 operation 수집은 남아 있다.
+- [-] Swagger/ReDoc UI와 수동 operation registry를 추가했다. route schema macro와 자동 operation 수집은 남아 있다.
 
 ### 2026-08-04 — P2 operations runbook
 
@@ -577,13 +577,13 @@ flowchart TB
 - [ ] request DTO와 response DTO를 분리하고 rename, partial update, nested object, 민감 필드 제외를 지원한다.
 - [ ] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다.
 - [ ] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
-- [ ] route 선언에서 OpenAPI 3 schema를 만들고 Swagger UI와 ReDoc을 제공한다.
+- [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. route 자동 수집은 남아 있다.
 - [ ] pagination, filtering, sorting, field selection을 공통 query component로 제공한다.
 
 완료 기준:
 
 - [ ] route 선언만으로 검증과 구조화 오류가 생성된다.
-- [ ] OpenAPI schema와 interactive 문서가 생성된다.
+- [-] OpenAPI schema와 interactive Swagger/ReDoc 문서가 생성된다. route 선언 자동 투영은 남아 있다.
 
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
@@ -670,7 +670,7 @@ flowchart TB
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
-| [ ] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3를 생성하고 Swagger UI·ReDoc route를 붙인다. |
+| [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route를 붙였다. route 자동 수집과 schema macro는 남아 있다. |
 | [ ] | REQ-API-005 | P1 | 재사용 가능한 pagination/filter/sort/field-selection component와 공통 validation 오류 형식을 제공한다. |
 
 ### 데이터·ORM·마이그레이션
@@ -770,7 +770,7 @@ flowchart TB
 - [-] **P0-04**: `new/dev/test/check` CLI와 최소 HTML/JSON 예제
 - [-] **P0-05**: test client, contract test, secret redaction, secure defaults
 - [ ] **P1-01**: typed extraction, validation, DTO, JSON serialization
-- [ ] **P1-02**: OpenAPI generator, Swagger UI, ReDoc
+- [-] **P1-02**: OpenAPI registry generator, Swagger UI, ReDoc route를 추가했고 route 자동 수집은 남아 있다.
 - [-] **P1-03**: 모델 metadata, SQLite/PostgreSQL adapter, pool/session과 repository/relation execution 기반을 구현했고 PostgreSQL live repository/isolation과 route 연결이 남아 있다.
 
 각 항목은 구현·테스트·문서가 모두 완료되어야 Done으로 이동한다. P0 작업에서 API 계약이 바뀌면 후속 작업을 시작하기 전에 ADR(Architecture Decision Record)을 남긴다.
