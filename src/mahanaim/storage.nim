@@ -7,6 +7,7 @@
 ## framework core.
 
 import std/[locks, monotimes, options, strutils, tables, times]
+import ./redis_resp
 
 type
   StorageError* = object of CatchableError
@@ -56,6 +57,12 @@ type
     entries: Table[string, CacheEntry]
     maxEntries: int
     lock: Lock
+
+  RedisCacheStore* = ref object of CacheStore
+    ## Redis/Valkey wire lifecycle stays in redis_resp; this adapter only maps
+    ## cache semantics to GET/SETEX/SET/DEL and validates response shapes.
+    client*: RedisValkeyRespClient
+    prefix*: string
 
 proc validateObjectKey(key: string): string =
   ## Object keys are names, not paths. Rejecting traversal and platform
@@ -180,20 +187,20 @@ method deleteObject*(store: S3CompatibleObjectStorage, key: string): bool
     return false
   store.transport.delete(store.bucket, store.storageKey(key))
 
-method get*(store: CacheStore, key: string): Option[string] {.base, gcsafe.} =
+method get*(store: CacheStore, key: string): Option[string] {.base.} =
   discard store
   discard key
   raise newException(StorageError, "Cache store get is not implemented")
 
 method set*(store: CacheStore, key, value: string,
-           ttlSeconds = 0) {.base, gcsafe.} =
+           ttlSeconds = 0) {.base.} =
   discard store
   discard key
   discard value
   discard ttlSeconds
   raise newException(StorageError, "Cache store set is not implemented")
 
-method delete*(store: CacheStore, key: string): bool {.base, gcsafe.} =
+method delete*(store: CacheStore, key: string): bool {.base.} =
   discard store
   discard key
   raise newException(StorageError, "Cache store delete is not implemented")
@@ -269,3 +276,80 @@ method delete*(store: InMemoryCacheStore, key: string): bool {.gcsafe.} =
     return false
   store.entries.del(safeKey)
   true
+
+proc newRedisCacheStore*(client: RedisValkeyRespClient,
+                         prefix = "mahanaim:cache"): RedisCacheStore =
+  ## Reuse one configured Redis client so cache and rate-limit operations share
+  ## its bounded socket/reconnect behavior without sharing policy state.
+  if client.isNil or prefix.strip().len == 0:
+    raise newException(StorageError, "Redis cache client and prefix are required")
+  new(result)
+  result.client = client
+  result.prefix = validateObjectKey(prefix)
+
+proc redisCacheKey(store: RedisCacheStore, key: string): string =
+  let safeKey = validateObjectKey(key)
+  store.prefix & ":" & safeKey
+
+proc redisLine(response: string): string =
+  let ending = response.find("\r\n")
+  if ending < 0:
+    raise newException(StorageError, "Incomplete Redis cache response")
+  response[0 ..< ending]
+
+proc redisBulkValue(response: string): Option[string] =
+  ## Parse only a Redis bulk string and reject trailing bytes, preventing a
+  ## malformed response from becoming a valid cache value.
+  if response.len < 4 or response[0] != '$':
+    raise newException(StorageError, "Redis cache GET response is not bulk data")
+  let line = redisLine(response)
+  let length = try: parseInt(line[1 .. ^1])
+                except ValueError:
+                  raise newException(StorageError, "Invalid Redis cache bulk length")
+  if length == -1:
+    if response.len != line.len + 2:
+      raise newException(StorageError, "Invalid Redis nil response")
+    return none(string)
+  if length < 0 or response.len != line.len + 2 + length + 2 or
+      response[line.len + 2 + length .. ^1] != "\r\n":
+    raise newException(StorageError, "Invalid Redis cache bulk payload")
+  some(response[line.len + 2 ..< line.len + 2 + length])
+
+proc redisInteger(response: string, operation: string): int =
+  let line = redisLine(response)
+  if line.len < 2 or line[0] != ':':
+    raise newException(StorageError, "Redis cache " & operation & " response is not integer")
+  try: parseInt(line[1 .. ^1])
+  except ValueError:
+    raise newException(StorageError, "Invalid Redis cache " & operation & " response")
+
+proc ensureRedisOk(response, operation: string) =
+  let line = redisLine(response)
+  if line != "+OK":
+    raise newException(StorageError,
+      "Redis cache " & operation & " failed: " & line)
+
+method get*(store: RedisCacheStore, key: string): Option[string] =
+  if store.isNil:
+    return none(string)
+  let command = encodeRedisCommand(["GET", store.redisCacheKey(key)])
+  redisBulkValue(store.client.executeCommand(command))
+
+method set*(store: RedisCacheStore, key, value: string,
+           ttlSeconds = 0) =
+  if store.isNil:
+    raise newException(StorageError, "Redis cache store is required")
+  if ttlSeconds < 0:
+    raise newException(StorageError, "Cache TTL must not be negative")
+  let remoteKey = store.redisCacheKey(key)
+  let command = if ttlSeconds == 0:
+    encodeRedisCommand(["SET", remoteKey, value])
+  else:
+    encodeRedisCommand(["SETEX", remoteKey, $ttlSeconds, value])
+  ensureRedisOk(store.client.executeCommand(command), "set")
+
+method delete*(store: RedisCacheStore, key: string): bool =
+  if store.isNil:
+    return false
+  redisInteger(store.client.executeCommand(
+    encodeRedisCommand(["DEL", store.redisCacheKey(key)])), "delete") > 0

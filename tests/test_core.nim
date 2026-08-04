@@ -4021,6 +4021,20 @@ suite "Mahanaim core contracts":
     expect StorageError:
       cache.set("user/4", "bad", ttlSeconds = -1)
 
+    let redisClient = newRedisValkeyRespClient(transport =
+      proc(command: string): string =
+        if command.contains("GET"):
+          "$3\r\none\r\n"
+        elif command.contains("DEL"):
+          ":1\r\n"
+        else:
+          "+OK\r\n")
+    let redisCache = newRedisCacheStore(redisClient, "test-cache")
+    check redisCache.get("remote").get() == "one"
+    redisCache.set("remote", "two", ttlSeconds = 30)
+    check redisCache.delete("remote")
+    check redisClient.stats().requests == 3
+
   test "admin create-user CLI uses an application-owned provisioning callback":
     let app = newApplication()
     let store = newInMemoryAccountCredentialStore()

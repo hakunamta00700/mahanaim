@@ -37,6 +37,16 @@ const fixedWindowScript* =
 proc respBulk(value: string): string =
   "$" & $value.len & "\r\n" & value & "\r\n"
 
+proc encodeRedisCommand*(arguments: openArray[string]): string =
+  ## All Redis/Valkey commands share one RESP array encoder. Keeping this
+  ## primitive public lets cache and queue adapters reuse the same framing
+  ## without copying a socket client or inventing a second wire format.
+  if arguments.len == 0:
+    raise newException(ValueError, "Redis command requires at least one argument")
+  result = "*" & $arguments.len & "\r\n"
+  for argument in arguments:
+    result.add(respBulk(argument))
+
 proc encodeFixedWindowCommand*(key: string, windowSeconds: int): string =
   ## EVAL executes INCR, first-write EXPIRE, and server-side TTL atomically.
   if key.len == 0:
@@ -45,9 +55,7 @@ proc encodeFixedWindowCommand*(key: string, windowSeconds: int): string =
     raise newException(ValueError, "Redis rate limit window must be positive")
   let arguments = @[
     "EVAL", fixedWindowScript, "1", key, $windowSeconds]
-  result = "*" & $arguments.len & "\r\n"
-  for argument in arguments:
-    result.add(respBulk(argument))
+  encodeRedisCommand(arguments)
 
 proc readRespLine(payload: string, cursor: var int): string =
   let ending = payload.find("\r\n", cursor)
@@ -146,23 +154,85 @@ proc close*(client: RedisValkeyRespClient) =
   finally:
     release(client.lock)
 
-proc receiveCounterResponse(client: RedisValkeyRespClient):
-    RateLimitCounterResult =
-  ## TCP may split even a tiny RESP array across packets. Keep reading only
-  ## while the parser reports an incomplete frame; malformed complete frames
-  ## fail immediately rather than being retried as if they were network data.
+proc respFrameEnd(payload: string, cursor: var int): int =
+  ## Find one complete RESP frame without interpreting its application value.
+  ## Partial network reads are reported distinctly so callers can continue,
+  ## while malformed complete frames fail immediately.
+  if cursor >= payload.len:
+    raise newException(ValueError, "incomplete RESP frame")
+  let kind = payload[cursor]
+  inc cursor
+  case kind
+  of '+', '-', ':':
+    discard readRespLine(payload, cursor)
+  of '$':
+    let length = parseInt(readRespLine(payload, cursor))
+    if length < -1:
+      raise newException(ValueError, "invalid RESP bulk length")
+    if length == -1:
+      return cursor
+    if cursor + length + 2 > payload.len:
+      raise newException(ValueError, "incomplete RESP bulk payload")
+    if payload[cursor + length .. cursor + length + 1] != "\r\n":
+      raise newException(ValueError, "invalid RESP bulk terminator")
+    cursor += length + 2
+  of '*':
+    let count = parseInt(readRespLine(payload, cursor))
+    if count < -1:
+      raise newException(ValueError, "invalid RESP array length")
+    if count == -1:
+      return cursor
+    for _ in 0 ..< count:
+      discard respFrameEnd(payload, cursor)
+  else:
+    raise newException(ValueError, "unsupported RESP response type")
+  cursor
+
+proc receiveRespFrame(client: RedisValkeyRespClient): string =
+  ## Read exactly one generic response frame. The limit bounds memory even if
+  ## a remote server sends an unexpectedly large cache value.
   var payload = ""
-  while payload.len < 64 * 1024:
+  while payload.len < 64 * 1024 * 1024:
     let chunk = client.socket.recv(4096, client.timeoutMs)
     if chunk.len == 0:
       raise newException(CatchableError, "Redis connection closed")
     payload.add(chunk)
+    var cursor = 0
     try:
-      return parseCounterResponse(payload)
+      let ending = respFrameEnd(payload, cursor)
+      return payload[0 ..< ending]
     except ValueError as error:
       if not error.msg.startsWith("incomplete RESP"):
         raise
   raise newException(ValueError, "Redis RESP response exceeds maximum size")
+
+proc executeCommandLocked(client: RedisValkeyRespClient,
+                          command: string): string =
+  if client.transport != nil:
+    return client.transport(command)
+  client.connectIfNeeded()
+  client.socket.send(command)
+  client.receiveRespFrame()
+
+proc executeCommand*(client: RedisValkeyRespClient, command: string): string =
+  ## Execute one arbitrary RESP command using the same bounded retry/reconnect
+  ## boundary as the rate-limit operation. Higher-level adapters parse only
+  ## the response types they explicitly support.
+  if client.isNil or command.len == 0:
+    raise newException(ValueError, "Redis command client and command are required")
+  acquire(client.lock)
+  try:
+    inc client.stats.requests
+    result = client.executeCommandLocked(command)
+    inc client.stats.successes
+  except CatchableError:
+    inc client.stats.failures
+    if client.transport == nil and not client.socket.isNil:
+      client.socket.close()
+      client.socket = nil
+    raise
+  finally:
+    release(client.lock)
 
 method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
                              windowSeconds: int): RateLimitCounterResult =
@@ -172,14 +242,7 @@ method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
   acquire(client.lock)
   try:
     inc client.stats.requests
-    var response: string
-    if client.transport != nil:
-      response = client.transport(command)
-      result = parseCounterResponse(response)
-    else:
-      client.connectIfNeeded()
-      client.socket.send(command)
-      result = client.receiveCounterResponse()
+    result = parseCounterResponse(client.executeCommandLocked(command))
     inc client.stats.successes
     return result
   except CatchableError:

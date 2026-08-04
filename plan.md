@@ -167,6 +167,7 @@
 - [x] Application 소유 `AdminUserCreator`와 account store/password hasher adapter를 연결하고, 비밀번호를 `MAHANAIM_ADMIN_PASSWORD`에서만 읽는 `admin create-user <identifier> [subject]` CLI 및 중복 생성 회귀 테스트를 추가한다.
 - [x] `static collect <source...> --output <path>`가 정적 파일을 deterministic manifest 순서로 복사하고, 중복 경로·기존 파일·source 내부 output·symbolic link를 전용 오류로 거부하도록 구현한다.
 - [x] backend-neutral `ObjectStorage`/`CacheStore` 계약과 bounded in-memory adapter를 추가하고, key traversal·TTL·oldest eviction을 검증한다. S3-compatible transport bridge는 signing/retry를 application-owned transport로 분리한다.
+- [x] Redis/Valkey cache wire adapter를 추가한다. 공통 RESP command encoder와 bounded frame reader를 재사용하고 `GET`·`SETEX`·`SET`·`DEL` 응답 계약을 검증한다. 실제 Redis 연결은 기존 loopback RESP 테스트, cache 의미는 fake transport 테스트로 검증한다.
 
 ## P2 — 운영·확장성
 
