@@ -1473,6 +1473,14 @@ suite "Mahanaim core contracts":
     expect UploadValidationError:
       discard saveUpload(BodyPart(name: "file", filename: "large.txt",
         contentType: "text/plain", content: "01234567890"), policy)
+    let constrained = newUploadPolicy(root, allowedExtensions = @["txt"],
+      webRootDirectory = getTempDir() / "mahanaim_public")
+    expect UploadValidationError:
+      discard saveUpload(BodyPart(name: "file", filename: "payload.bin",
+        contentType: "text/plain", content: "x"), constrained)
+    expect UploadValidationError:
+      discard newUploadPolicy(root,
+        webRootDirectory = root / "public")
     removeDir(root)
 
   test "malformed multipart body returns a body-scoped validation issue":

@@ -465,7 +465,7 @@
 - [x] `Content-Type` 기반 framework-neutral body parser를 추가했다.
 - [x] `application/x-www-form-urlencoded` field와 multipart field/file metadata를 validation contract에 연결했다.
 - [x] JSON·form·multipart 및 malformed multipart body의 body-scoped 오류 회귀 테스트를 추가했다.
-- [ ] upload storage, MIME/filename/path 보안 정책과 Prologue lifecycle/upload adapter는 남아 있다.
+- [x] upload storage, size/MIME/extension/filename/path 보안 정책과 web root 분리 검증, Prologue lifecycle/upload adapter를 제공한다. object-storage backend는 남아 있다.
 
 ### 2026-08-04 — P0 upload storage security
 
@@ -703,7 +703,7 @@ flowchart TB
 | [x] | REQ-SEC-002 | P1 | permission evaluator, role/group, route guard, object policy를 composable `AuthorizationPolicy`와 middleware로 제공한다. |
 | [-] | REQ-SEC-003 | P1 | 표준 PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding을 제공한다. Argon2id/bcrypt adapter, reset token, rotation, login throttling hook은 남아 있다. |
 | [-] | REQ-SEC-004 | P0 | CSRF·CORS·clickjacking·CSP·allowed host·signed cookie·secret redaction을 secure-by-default middleware로 구성한다. |
-| [ ] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
+| [x] | REQ-SEC-005 | P1 | upload pipeline에서 size/MIME/extension/filename/path를 검증하고 저장소를 웹 루트와 분리한다. |
 | [ ] | REQ-SEC-006 | P2 | rate limit·size·timeout·secure cookie 정책과 HTTPS 배포 점검을 기본 설정/CLI check로 제공한다. |
 
 ### 운영·확장·검증

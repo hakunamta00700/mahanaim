@@ -9,10 +9,12 @@ import ./body_parser
 
 type
   UploadPolicy* = object
-    ## The storage root must be outside the public web root in deployment.
+    ## The storage root is checked against webRootDirectory when supplied.
     rootDirectory*: string
+    webRootDirectory*: string
     maxBytes*: int
     allowedContentTypes*: seq[string]
+    allowedExtensions*: seq[string]
     overwriteExisting*: bool
 
   UploadValidationError* = object of CatchableError
@@ -28,13 +30,33 @@ type
 
 proc newUploadPolicy*(rootDirectory: string, maxBytes = 10 * 1024 * 1024,
                       allowedContentTypes: seq[string] = @[],
-                      overwriteExisting = false): UploadPolicy =
+                      overwriteExisting = false,
+                      allowedExtensions: seq[string] = @[],
+                      webRootDirectory = ""): UploadPolicy =
   ## Normalize policy values once; content-type comparison is case-insensitive.
+  if rootDirectory.strip().len == 0:
+    raise newException(UploadValidationError, "Upload root directory is empty")
+  let normalizedRoot = absolutePath(rootDirectory).replace('\\', '/').toLowerAscii()
+  let normalizedWebRoot = if webRootDirectory.strip().len == 0: "" else:
+    absolutePath(webRootDirectory).replace('\\', '/').toLowerAscii()
+  if normalizedWebRoot.len > 0 and
+     (normalizedRoot == normalizedWebRoot or
+      normalizedRoot.startsWith(normalizedWebRoot & "/") or
+      normalizedWebRoot.startsWith(normalizedRoot & "/")):
+    raise newException(UploadValidationError,
+      "Upload storage must be separate from the web root")
   result.rootDirectory = rootDirectory
+  result.webRootDirectory = webRootDirectory
   result.maxBytes = maxBytes
   result.allowedContentTypes = @[]
   for contentType in allowedContentTypes:
     result.allowedContentTypes.add(contentType.strip().toLowerAscii())
+  result.allowedExtensions = @[]
+  for extension in allowedExtensions:
+    let normalized = extension.strip().toLowerAscii()
+    if normalized.len == 0:
+      raise newException(UploadValidationError, "Upload extension cannot be empty")
+    result.allowedExtensions.add(if normalized[0] == '.': normalized else: "." & normalized)
   result.overwriteExisting = overwriteExisting
 
 proc safeFilename(filename: string): bool =
@@ -54,6 +76,10 @@ proc validateUpload*(part: BodyPart, policy: UploadPolicy) =
     raise newException(UploadValidationError, "Upload maxBytes must not be negative")
   if not safeFilename(part.filename):
     raise newException(UploadValidationError, "Unsafe upload filename")
+  if policy.allowedExtensions.len > 0:
+    let extension = splitFile(part.filename).ext.toLowerAscii()
+    if extension notin policy.allowedExtensions:
+      raise newException(UploadValidationError, "Upload file extension is not allowed")
   if part.content.len > policy.maxBytes:
     raise newException(UploadValidationError, "Upload exceeds configured size limit")
   if policy.allowedContentTypes.len > 0 and
