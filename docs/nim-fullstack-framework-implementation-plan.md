@@ -49,6 +49,13 @@
 - [x] HTML/JSON/text representation 선택과 미지원 media type의 406 응답을 구현했다.
 - [x] representation 선택과 cookie 보안 속성 테스트를 추가했다.
 
+### 2026-08-04 — P0 실행 경계 1차
+
+- [x] `SyncHandler`와 `asyncHandler` adapter를 추가했다.
+- [x] `getSync`/`postSync` 명시 등록 API를 추가했다.
+- [x] sync handler가 공통 async dispatcher에서 동작하는 contract test를 추가했다.
+- [ ] blocking I/O thread-pool offload와 실행 경계 진단은 남아 있다.
+
 검증 명령:
 
 ```powershell

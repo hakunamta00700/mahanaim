@@ -31,6 +31,17 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "ok"
 
+  test "synchronous handler uses the common async dispatch contract":
+    let app = newApplication()
+    proc syncHealth(request: Request): mahanaim.Response {.gcsafe.} =
+      discard request
+      textResponse("sync ok")
+    app.getSync("/sync-health", "sync-health", syncHealth)
+
+    let response = waitFor app.dispatch(newRequest("GET", "/sync-health"))
+    check response.status == Http200
+    check response.body == "sync ok"
+
   test "router extracts named path parameters":
     let app = newApplication()
     proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

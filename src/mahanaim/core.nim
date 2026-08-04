@@ -28,6 +28,7 @@ type
     body*: string
 
   Handler* = proc (request: Request): Future[Response] {.gcsafe.}
+  SyncHandler* = proc (request: Request): Response {.gcsafe.}
   Middleware* = proc (request: Request, next: Handler): Future[Response] {.gcsafe.}
 
   Route* = object
@@ -63,6 +64,15 @@ proc newResponse*(status: HttpCode, body = ""): Response =
   result.status = status
   result.body = body
   result.headers = emptyTable()
+
+proc asyncHandler*(handler: SyncHandler): Handler =
+  ## Adapt a synchronous, non-blocking handler to the async route contract.
+  ##
+  ## This wrapper preserves one handler model for application code. It must not
+  ## be used for file/network/database blocking work; such work belongs in a
+  ## future executor adapter so the event loop remains responsive.
+  result = proc(request: Request): Future[Response] {.async, gcsafe.} =
+    return handler(request)
 
 proc textResponse*(body: string, status = Http200): Response =
   ## Text responses default to an explicit content type.

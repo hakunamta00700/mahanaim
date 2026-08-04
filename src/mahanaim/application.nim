@@ -64,6 +64,17 @@ proc post*(app: Application, pattern, name: string, handler: Handler,
            middleware: seq[Middleware] = @[]) =
   app.router.addRoute("POST", pattern, name, handler, middleware)
 
+proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
+              middleware: seq[Middleware] = @[]) =
+  ## Register a synchronous handler explicitly so blocking work is visible in
+  ## code review and can later be routed through an executor policy.
+  app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware)
+
+proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
+               middleware: seq[Middleware] = @[]) =
+  ## POST counterpart to getSync; both use the same adapter contract.
+  app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware)
+
 proc onStartup*(app: Application, hook: LifecycleHook) =
   app.startupHooks.add(hook)
 
