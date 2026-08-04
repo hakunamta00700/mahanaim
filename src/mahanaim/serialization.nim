@@ -147,6 +147,11 @@ proc serializeValues(metadata: ModelMetadata,
       result.errors.add(SerializationIssue(field: field.name,
         code: "null_not_allowed", message: "Model field cannot be null"))
       continue
+    if field.enumValues.len > 0 and (value.kind != JString or
+        value.getStr() notin field.enumValues):
+      result.errors.add(SerializationIssue(field: field.name,
+        code: "invalid_enum", message: "Value is not declared by enum metadata"))
+      continue
     if field.nestedModel.len > 0:
       if value.kind != JObject:
         result.errors.add(SerializationIssue(field: field.name,

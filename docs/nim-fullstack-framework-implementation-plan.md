@@ -15,6 +15,12 @@
 
 ## 진행 기록
 
+### 2026-08-05 — P1 DTO/serializer enum contract
+
+- [x] 기존 metadata serializer의 rename·patch·projection·nested DTO·sensitive exclusion 계약을 REQ-API-002 완료로 정리했다.
+- [x] string-backed enum field metadata와 허용 값 검증을 추가하고 invalid enum 회귀 테스트를 작성했다.
+- [ ] MessagePack decode/stream negotiation과 enum 전용 custom wire type은 후속 범위다.
+
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차
 
 - [x] Nim manifest와 public package entry point를 추가했다.
@@ -669,7 +675,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
-| [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
+| [x] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route를 붙였다. route 자동 수집과 schema macro는 남아 있다. |
 | [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |

@@ -1836,6 +1836,19 @@ suite "Mahanaim core contracts":
     check not invalidProjection.valid
     check invalidProjection.errors[0].code == "unknown_projection"
 
+  test "metadata serializer enforces string-backed enum values":
+    var ticket = newModelMetadata("Ticket")
+    ticket.addField(newEnumModelField("state", ["open", "closed"]))
+    var values = initTable[string, JsonNode]()
+    values["state"] = newJString("open")
+    check serializeModel(ticket, values).valid
+    values["state"] = newJString("pending")
+    let invalid = serializeModel(ticket, values)
+    check not invalid.valid
+    check invalid.errors[0].code == "invalid_enum"
+    expect ValueError:
+      discard newEnumModelField("empty", [])
+
     var profile = newModelMetadata("Profile", "profiles")
     profile.addField(newModelField("display_name", modelString,
       jsonName = "displayName"))

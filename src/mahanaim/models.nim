@@ -40,6 +40,9 @@ type
     ## embedding metadata avoids recursive value objects and lets a registry
     ## remain the single source of nested schema truth.
     nestedModel*: string
+    ## Optional closed value set for string-backed enum fields. Keeping enums
+    ## as strings preserves backend-neutral storage while sharing one contract.
+    enumValues*: seq[string]
 
   ModelIndex* = object
     ## Composite indexes remain backend-neutral until a migration compiler reads
@@ -78,7 +81,7 @@ type
 proc newModelField*(name: string, kind: ModelValueKind,
                     columnName = "", jsonName = "", nullable = false,
                     primaryKey = false, unique = false, indexed = false,
-                    maxLength = 0, sensitive = false, nestedModel = ""): ModelField =
+    maxLength = 0, sensitive = false, nestedModel = ""): ModelField =
   ## Nim, database, and JSON names are independent so each adapter can use the
   ## naming convention appropriate to its boundary.
   result = ModelField(
@@ -92,7 +95,18 @@ proc newModelField*(name: string, kind: ModelValueKind,
     indexed: indexed,
     maxLength: maxLength,
     sensitive: sensitive,
-    nestedModel: nestedModel)
+    nestedModel: nestedModel,
+    enumValues: @[])
+
+proc newEnumModelField*(name: string, values: openArray[string],
+                       columnName = "", jsonName = "", nullable = false,
+                       maxLength = 0, sensitive = false): ModelField =
+  ## Enum fields remain string-backed so SQL adapters need no enum wire type.
+  if values.len == 0:
+    raise newException(ValueError, "Enum field requires at least one value")
+  result = newModelField(name, modelString, columnName, jsonName, nullable,
+    maxLength = maxLength, sensitive = sensitive)
+  result.enumValues = @values
 
 proc newModelMetadata*(name: string, tableName = ""): ModelMetadata =
   ## Keep metadata construction explicit so generated and hand-written models
