@@ -11,9 +11,32 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     container: nimlang/nim:2.2.4
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mahanaim
+          POSTGRES_PASSWORD: mahanaim-ci-password
+          POSTGRES_DB: mahanaim
+        options: >-
+          --health-cmd "pg_isready -U mahanaim -d mahanaim"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ## The service hostname is stable inside a container job. These values
+      ## are test-only credentials and are never reused by release deploys.
+      MAHANAIM_POSTGRES_HOST: postgres
+      MAHANAIM_POSTGRES_PORT: 5432
+      MAHANAIM_POSTGRES_USER: mahanaim
+      MAHANAIM_POSTGRES_PASSWORD: mahanaim-ci-password
+      MAHANAIM_POSTGRES_DATABASE: mahanaim
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client runtime
+        run: apt-get update && apt-get install -y --no-install-recommends libpq5
 
       - name: Install locked dependencies
         run: nimble install -y --depsOnly

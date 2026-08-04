@@ -198,7 +198,7 @@
 - [x] SQLite CRUD·rollback·savepoint·migration 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] SQLite migration history, pending migration skip, latest down rollback을 추가하고 회귀 테스트를 통과했다.
 - [x] backend-neutral one-hop relation JOIN AST/compiler와 SQLite/PostgreSQL placeholder 회귀 테스트를 추가했다.
-- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. CI가 `postgresCheck`와 credential 기반 `postgresLive` task를 호출하며, live repository/isolation 실행과 route 연결은 남아 있다.
+- [-] PostgreSQL libpq adapter와 compile gate, 환경 기반 `postgres_testing` rollback fixture factory, backend-neutral bounded connection pool/request session wiring, backend capability/isolation contract를 추가했다. CI PostgreSQL service가 `postgresCheck`와 실제 `postgresLive` task를 실행하며, 확장된 live repository/isolation 실행과 route 연결은 남아 있다.
 
 ### 2026-08-04 — P1 SQLite driver adapter 1차
 
@@ -689,7 +689,7 @@ flowchart TB
 | [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. 관계 loading의 query batching 최적화는 남아 있다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
-| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
+| [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 CI PostgreSQL service에서 기본 live compatibility contract를 실행한다. 확장된 live repository/isolation test와 route 연결은 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
 ### HTML·폼·관리자
