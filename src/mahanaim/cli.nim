@@ -29,7 +29,7 @@ proc runDatabaseCli*(app: Application, arguments: openArray[string]): int =
     raise newException(ValueError, "Application migration registry is required")
   if arguments.len < 1 or arguments.len > 2:
     raise newException(ValueError,
-      "db command must be: db status|up|rollback|seed [sqlite-path]")
+      "db command must be: db status|migrate|up|rollback|seed [sqlite-path]")
   var commandArgs = @[arguments[0]]
   let path = if arguments.len == 2: arguments[1] else: app.migrationDatabasePath
   if path.strip().len == 0:

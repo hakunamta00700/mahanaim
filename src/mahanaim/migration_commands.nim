@@ -133,10 +133,10 @@ proc parseMigrationCommand*(arguments: openArray[string]): MigrationCommand =
   ## the application boundary that owns those resources.
   if arguments.len != 1:
     raise newException(ValueError,
-      "migration command must be exactly one of: status, up, rollback")
+      "migration command must be exactly one of: status, migrate, up, rollback")
   case arguments[0].toLowerAscii()
   of "status": MigrationCommand(kind: migrationCommandStatus)
-  of "up": MigrationCommand(kind: migrationCommandUp)
+  of "migrate", "up": MigrationCommand(kind: migrationCommandUp)
   of "rollback": MigrationCommand(kind: migrationCommandRollback)
   else:
     raise newException(ValueError, "unknown migration command: " & arguments[0])

@@ -3463,6 +3463,10 @@ suite "Mahanaim core contracts":
     check app.runCli(["db", "status"]) == 0
     check app.runCli(["db", "up"]) == 0
     check app.runCli(["db", "status"]) == 0
+    ## The public plan names the forward migration operation `migrate`; keep
+    ## that vocabulary as an explicit alias of `up` so embedding and standalone
+    ## frontends share one migration boundary.
+    check app.runCli(["db", "migrate"]) == 0
 
     let seeds = newSeedRegistry()
     proc cliSeed(adapter: DatabaseAdapter) {.gcsafe.} =

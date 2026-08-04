@@ -10,7 +10,8 @@ import mahanaim/[application, checks, cli, config, generator]
 proc printUsage() =
   echo "mahanaim <command>"
   echo "  new NAME [PATH]  Generate a new project"
-  echo "  db status|up|rollback [PATH]  Run application migrations"
+  echo "  db status|migrate|up|rollback [PATH]  Run application migrations"
+  echo "  jobs run [max]|recover  Run or recover durable jobs"
   echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
   echo "  admin create-user <identifier> [subject]  Create an admin user"
   echo "  static collect <source...> --output <path>  Collect static assets"
@@ -73,6 +74,16 @@ proc main() =
     except CatchableError as error:
       stderr.writeLine(error.msg)
       quit(1)
+  of "jobs":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @["jobs"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
   of "openapi":
     var arguments: seq[string] = @[]
     if paramCount() >= 2:
@@ -80,6 +91,16 @@ proc main() =
         arguments.add(paramStr(index))
     try:
       quit(runCli(newApplication(), @["openapi"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
+  of "admin":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @["admin"] & arguments))
     except CatchableError as error:
       stderr.writeLine(error.msg)
       quit(1)

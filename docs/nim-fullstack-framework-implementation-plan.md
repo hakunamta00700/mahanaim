@@ -37,7 +37,7 @@
 
 - [x] embedding/standalone CLI에 등록된 router를 수집해 OpenAPI 3.1 문서를 stdout 또는 지정 파일로 생성하는 `openapi [PATH]` 명령을 추가했다.
 - [x] 출력 경로와 인자 개수 오류를 명시적으로 거부하고, 등록 route의 `operationId`가 문서에 보존되는 회귀 테스트를 추가했다.
-- [ ] `dev`, `db migrate`, `admin create-user`, `static collect`, `test` subcommand를 같은 application/검사 경계에 연결한다.
+- [-] embedding `runCli`와 standalone CLI가 `dev`, `db migrate`/`up`, `admin create-user`, `static collect`, `test`, `check`, `jobs` 명령의 공통 계약을 사용하도록 연결했다. 애플리케이션 모듈 자동 발견과 standalone에서 app-owned migration/account callback을 주입하는 wiring은 남아 있다.
 
 - [x] `admin create-user <identifier> [subject]`를 Application 소유 provisioning callback에 연결했다. 비밀번호는 argv에 노출되지 않도록 `MAHANAIM_ADMIN_PASSWORD`에서 읽고, account store/password hasher adapter와 중복 생성 회귀 테스트로 검증한다.
 - [x] `static collect <source...> --output <path>`를 추가하고, deterministic manifest 순서·중복 경로·기존 파일·source 내부 output·symbolic link 거부를 독립 storage contract와 CLI 회귀 테스트로 검증했다.
@@ -60,7 +60,7 @@
 - [x] loopback HTTP smoke test로 실제 TCP 요청과 응답을 검증했다.
 - [x] `new NAME [PATH]` 프로젝트 생성 CLI를 추가했다.
 - [x] 생성 프로젝트가 `.env.example`/`.gitignore`, 앱 모듈의 health route, 실제 dispatch 테스트와 빌드 가능한 Nimble 구조를 포함하도록 확장했고 기존 파일 덮어쓰기 방지를 테스트했다.
-- [ ] Prologue 전용 adapter, typed extraction, JSON/TOML 설정, CI는 남아 있다.
+- [-] Prologue request/response·form/upload adapter, typed extraction, JSON/TOML 설정과 compile gates를 추가했다. 실제 배포 CI runner matrix 증거와 추가 adapter wiring은 남아 있다.
 
 ### 2026-08-04 — P0 API 검증 1차
 
@@ -126,7 +126,7 @@
 - [x] application-level custom error handler와 안전한 기본 500 handler를 추가했다.
 - [x] plugin registration API를 추가하고 plugin이 route를 등록하는 contract test를 추가했다.
 - [x] 예외 상세가 기본 응답에 노출되지 않는지 검증했다.
-- [ ] plugin manifest, DI provider, command/admin extension point와 redacted error logging은 남아 있다.
+- [-] versioned plugin manifest, registration phase, DI provider, command/admin extension point와 기본 오류 상세 비노출을 추가했다. 애플리케이션 로그 sink에 secret redaction을 강제하는 통합 wiring은 남아 있다.
 
 ### 2026-08-04 — P0 보안 기본값 1차
 
@@ -142,21 +142,21 @@
 - [x] CORS preflight `OPTIONS` 204 응답을 추가했다.
 - [x] request body size limit과 413 응답을 추가했다.
 - [x] CORS 허용·거부·preflight·oversized body 회귀 테스트를 추가했다.
-- [ ] 기본 활성화 정책, rate limit, timeout policy는 남아 있다.
+- [-] configurable rate limit·timeout policy와 회귀 검증을 추가했다. secure-by-default 배포에서의 기본 활성화 정책과 운영용 distributed eviction은 남아 있다.
 
 ### 2026-08-04 — P0 보안 기본값 3차
 
 - [x] HMAC-SHA256 signed CSRF token과 보안 난수 nonce 생성을 추가했다.
 - [x] safe method 응답의 CSRF cookie 발급과 변경 method의 cookie/header 검증을 추가했다.
 - [x] constant-time signature 비교와 위조·누락 토큰 회귀 테스트를 추가했다.
-- [ ] 기본 활성화 정책, signed auth cookie rotation과 rate limit은 남아 있다.
+- [-] signed auth cookie rotation과 configurable rate limit을 추가했고 회귀 테스트했다. 기본 활성화 정책과 운영용 distributed eviction은 남아 있다.
 
 ### 2026-08-04 — P0 보안 기본값 4차
 
 - [x] CSRF와 독립적으로 재사용 가능한 HMAC signed value·signed cookie API를 추가했다.
 - [x] signed cookie의 HttpOnly·Secure 기본값과 secret 누락·위조 검증을 테스트했다.
 - [x] Nimble test task가 lockfile dependency path를 명시해 CI와 로컬 실행을 일치시킨다.
-- [ ] signed auth cookie rotation과 rate limit은 남아 있다.
+- [-] signed auth cookie rotation과 configurable rate limit을 추가했고 회귀 테스트했다. 운영용 distributed eviction과 TLS wire 검증은 남아 있다.
 
 ### 2026-08-04 — P0 session binding 1차
 
@@ -621,7 +621,7 @@ flowchart TB
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
 - [x] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many와 many-to-many parent page에 bound `IN` 기반 batching을 적용했다.
-- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|up|rollback`와 atomic `db seed` CLI wiring, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했으며 live fixture 증거는 남아 있다.
+- [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|migrate|up|rollback`와 atomic `db seed` CLI wiring, standalone `admin`/`jobs` 진입점, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했으며 live fixture 증거는 남아 있다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
@@ -681,7 +681,7 @@ flowchart TB
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·redaction logger로 로그·오류·빌드 노출을 차단한다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
-| [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`, `test`, `check` subcommand와 standalone application wiring은 남아 있다. |
+| [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했으며, 애플리케이션 자동 발견 wiring은 남아 있다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |
 
 ### HTTP·라우팅·응답
