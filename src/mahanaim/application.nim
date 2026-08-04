@@ -1,17 +1,11 @@
 ## Application lifecycle and middleware dispatcher.
 
-import std/[asyncdispatch, httpcore, options, os, strutils]
+import std/[asyncdispatch, httpcore, options]
 import ./core
 import ./router
+import ./config
 
 type
-  AppConfig* = object
-    ## Explicit configuration object; production loaders can populate it later.
-    environment*: string
-    debug*: bool
-    host*: string
-    port*: int
-
   LifecycleHook* = proc ()
 
   Application* = ref object
@@ -22,25 +16,6 @@ type
     startupHooks*: seq[LifecycleHook]
     shutdownHooks*: seq[LifecycleHook]
     started*: bool
-
-proc defaultConfig*(): AppConfig =
-  ## Safe development defaults; environment variables override these values.
-  AppConfig(environment: "development", debug: true, host: "127.0.0.1", port: 8000)
-
-proc loadConfig*(): AppConfig =
-  ## Load the first configuration source without exposing secrets in logs.
-  result = defaultConfig()
-  if existsEnv("MAHANAIM_ENV"):
-    result.environment = getEnv("MAHANAIM_ENV")
-  if existsEnv("MAHANAIM_DEBUG"):
-    result.debug = getEnv("MAHANAIM_DEBUG").toLowerAscii() in ["1", "true", "yes"]
-  if existsEnv("MAHANAIM_HOST"):
-    result.host = getEnv("MAHANAIM_HOST")
-  if existsEnv("MAHANAIM_PORT"):
-    try:
-      result.port = parseInt(getEnv("MAHANAIM_PORT"))
-    except ValueError:
-      raise newException(ValueError, "MAHANAIM_PORT must be an integer")
 
 proc newApplication*(config = defaultConfig()): Application =
   ## Construct an isolated app instance; this is important for test isolation.

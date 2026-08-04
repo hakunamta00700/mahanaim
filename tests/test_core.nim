@@ -235,3 +235,29 @@ suite "Mahanaim core contracts":
     check cookie.contains("HttpOnly")
     check cookie.contains("Secure")
     check cookie.contains("Max-Age=3600")
+
+  test "configuration merges dotenv JSON TOML and environment values":
+    let root = getTempDir() / "mahanaim_config_test"
+    if dirExists(root):
+      removeDir(root)
+    createDir(root)
+    let dotenvPath = root / ".env"
+    let jsonPath = root / "config.json"
+    let tomlPath = root / "config.toml"
+    writeFile(dotenvPath, "MAHANAIM_HOST=dotenv-host\nSECRET_TOKEN=dotenv-secret\n")
+    writeFile(jsonPath, "{\"port\":9000,\"secrets\":{\"token\":\"json-secret\"}}")
+    writeFile(tomlPath, "environment = \"staging\"\n[secrets]\ntoken = \"toml-secret\"\n")
+    putEnv("MAHANAIM_PORT", "9100")
+    let config = loadConfig(dotenvPath, jsonPath, tomlPath)
+    check config.host == "dotenv-host"
+    check config.environment == "staging"
+    check config.port == 9100
+    check config.secrets["token"] == "toml-secret"
+    check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
+    delEnv("MAHANAIM_PORT")
+    removeDir(root)
+
+  test "default config does not expose secrets":
+    let config = defaultConfig()
+    check config.secrets.len == 0
+    check redactSecrets("nothing sensitive", config) == "nothing sensitive"

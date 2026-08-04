@@ -5,7 +5,7 @@
 ## without changing the Application API.
 
 import std/[os, osproc, strutils]
-import mahanaim/[application, generator]
+import mahanaim/[config, generator]
 
 proc printUsage() =
   echo "mahanaim <command>"

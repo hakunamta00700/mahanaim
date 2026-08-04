@@ -56,6 +56,14 @@
 - [x] sync handler가 공통 async dispatcher에서 동작하는 contract test를 추가했다.
 - [ ] blocking I/O thread-pool offload와 실행 경계 진단은 남아 있다.
 
+### 2026-08-04 — P0 설정 provider 1차
+
+- [x] `.env`, JSON, TOML flat key/value, process environment provider를 추가했다.
+- [x] provider 병합 순서를 정의하고 process environment가 최종 우선하도록 했다.
+- [x] secret store와 `redactSecrets`를 추가해 로그·오류 출력 전 비밀값 치환을 지원한다.
+- [x] 설정 병합·TOML secrets section·redaction 테스트 2개를 추가했다.
+- [ ] 완전한 TOML 문법, JSON/TOML schema validation, CI 재현 설치는 남아 있다.
+
 검증 명령:
 
 ```powershell

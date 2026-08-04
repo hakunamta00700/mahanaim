@@ -1,0 +1,136 @@
+## Configuration providers and secret-safe rendering.
+##
+## Providers are intentionally small and composable. `.env` is useful for
+## local development, JSON/TOML are explicit deployment inputs, and process
+## environment variables always win over file values.
+
+import std/[json, os, strutils, tables]
+
+type
+  AppConfig* = object
+    ## Runtime settings plus a separate secret store.
+    environment*: string
+    debug*: bool
+    host*: string
+    port*: int
+    secrets*: Table[string, string]
+
+proc newConfig(environment, host: string, debug: bool, port: int): AppConfig =
+  result = AppConfig(environment: environment, debug: debug, host: host, port: port)
+  result.secrets = initTable[string, string]()
+
+proc defaultConfig*(): AppConfig =
+  ## Safe development defaults; production loaders override these values.
+  newConfig("development", "127.0.0.1", true, 8000)
+
+proc stripQuotes(value: string): string =
+  let trimmed = value.strip()
+  if trimmed.len >= 2 and
+     ((trimmed[0] == '"' and trimmed[^1] == '"') or
+      (trimmed[0] == '\'' and trimmed[^1] == '\'')):
+    return trimmed[1 .. ^2]
+  trimmed
+
+proc parseBool(value, source: string): bool =
+  case stripQuotes(value).toLowerAscii()
+  of "1", "true", "yes", "on": true
+  of "0", "false", "no", "off": false
+  else: raise newException(ValueError, "invalid boolean in " & source)
+
+proc loadDotEnv*(path: string): Table[string, string] =
+  ## Parse KEY=VALUE lines without logging any value.
+  result = initTable[string, string]()
+  if not fileExists(path):
+    return
+  for line in lines(path):
+    let trimmed = line.strip()
+    if trimmed.len == 0 or trimmed.startsWith("#"):
+      continue
+    let separator = trimmed.find('=')
+    if separator <= 0:
+      continue
+    let key = trimmed[0 ..< separator].strip()
+    result[key] = stripQuotes(trimmed[separator + 1 .. ^1])
+
+proc applyValue(config: var AppConfig, key, value, source: string) =
+  ## One mapping function keeps all providers semantically consistent.
+  let normalized = key.strip().toLowerAscii()
+  case normalized
+  of "environment", "mahanaim_env": config.environment = stripQuotes(value)
+  of "debug", "mahanaim_debug": config.debug = parseBool(value, source)
+  of "host", "mahanaim_host": config.host = stripQuotes(value)
+  of "port", "mahanaim_port":
+    try:
+      config.port = parseInt(stripQuotes(value))
+    except ValueError:
+      raise newException(ValueError, "invalid port in " & source)
+  else:
+    let secretKey = if normalized.startsWith("secret."): normalized[7 .. ^1]
+                    elif normalized.startsWith("secrets."): normalized[8 .. ^1]
+                    elif normalized.startsWith("secret_"): normalized[7 .. ^1]
+                    else: ""
+    if secretKey.len > 0:
+      config.secrets[secretKey] = stripQuotes(value)
+
+proc applyValues(config: var AppConfig, values: Table[string, string], source: string) =
+  for key, value in values:
+    config.applyValue(key, value, source)
+
+proc loadJsonConfig*(path: string): Table[string, string] =
+  ## Flatten supported JSON settings into the common provider representation.
+  result = initTable[string, string]()
+  let root = parseFile(path)
+  if root.kind != JObject:
+    raise newException(ValueError, "JSON config root must be an object")
+  for key, value in root.pairs:
+    if key == "secrets" and value.kind == JObject:
+      for secretKey, secretValue in value.pairs:
+        result["secret." & secretKey] =
+          if secretValue.kind == JString: secretValue.getStr() else: $secretValue
+    elif value.kind in {JString, JInt, JFloat, JBool}:
+      result[key] = if value.kind == JString: value.getStr() else: $value
+
+proc loadTomlConfig*(path: string): Table[string, string] =
+  ## Parse the flat key/value TOML subset needed by AppConfig.
+  ## Nested arrays/tables are deliberately rejected or ignored until a full
+  ## TOML adapter becomes a separate dependency.
+  result = initTable[string, string]()
+  var section = ""
+  for line in lines(path):
+    let trimmed = line.strip()
+    if trimmed.len == 0 or trimmed.startsWith("#"):
+      continue
+    if trimmed.startsWith("[") and trimmed.endsWith("]"):
+      section = trimmed[1 .. ^2].strip()
+      continue
+    let separator = trimmed.find('=')
+    if separator <= 0:
+      continue
+    let key = trimmed[0 ..< separator].strip()
+    let fullKey = if section.len > 0: section & "." & key else: key
+    result[fullKey] = stripQuotes(trimmed[separator + 1 .. ^1])
+
+proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
+  ## Merge files first, then process environment variables as highest priority.
+  result = defaultConfig()
+  if dotEnvPath.len > 0 and fileExists(dotEnvPath):
+    result.applyValues(loadDotEnv(dotEnvPath), dotEnvPath)
+  if jsonPath.len > 0:
+    result.applyValues(loadJsonConfig(jsonPath), jsonPath)
+  if tomlPath.len > 0:
+    result.applyValues(loadTomlConfig(tomlPath), tomlPath)
+  var environmentValues = initTable[string, string]()
+  for key in ["MAHANAIM_ENV", "MAHANAIM_DEBUG", "MAHANAIM_HOST", "MAHANAIM_PORT"]:
+    if existsEnv(key):
+      environmentValues[key] = getEnv(key)
+  for key, value in envPairs():
+    if key.toLowerAscii().startsWith("secret_"):
+      environmentValues[key] = value
+  result.applyValues(environmentValues, "process environment")
+
+proc redactSecrets*(text: string, config: AppConfig): string =
+  ## Replace configured secret values before text reaches logs or error pages.
+  result = text
+  for _, secret in config.secrets:
+    if secret.len > 0:
+      result = result.replace(secret, "[REDACTED]")
