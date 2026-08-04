@@ -5,6 +5,7 @@
 ## environment variables always win over file values.
 
 import std/[json, os, strutils, tables]
+import parsetoml
 
 type
   AppConfig* = object
@@ -92,7 +93,7 @@ proc applyValues(config: var AppConfig, values: Table[string, string], source: s
 proc loadJsonConfig*(path: string): Table[string, string] =
   ## Flatten supported JSON settings into the common provider representation.
   result = initTable[string, string]()
-  let root = parseFile(path)
+  let root = json.parseFile(path)
   if root.kind != JObject:
     raise newException(ValueError, "JSON config root must be an object")
   for key, value in root.pairs:
@@ -103,25 +104,50 @@ proc loadJsonConfig*(path: string): Table[string, string] =
     elif value.kind in {JString, JInt, JFloat, JBool}:
       result[key] = if value.kind == JString: value.getStr() else: $value
 
+proc isSupportedTomlKey(key: string): bool =
+  ## Keep TOML's flexible document shape from silently becoming ignored config.
+  let normalized = key.toLowerAscii()
+  normalized in [
+    "environment", "mahanaim_env", "debug", "mahanaim_debug", "host",
+    "mahanaim_host", "port", "mahanaim_port", "request_timeout_ms",
+    "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
+    "mahanaim_executor_max_concurrent_jobs"
+  ] or normalized.startsWith("secret.") or
+    normalized.startsWith("secrets.") or normalized.startsWith("secret_")
+
+proc tomlScalar(value: TomlValueRef, key, source: string): string =
+  ## Convert only values that have a lossless representation in AppConfig.
+  if value.isNil:
+    raise newException(ValueError, "invalid TOML value for " & key & " in " & source)
+  case value.kind
+  of TomlValueKind.String: value.stringVal
+  of TomlValueKind.Int: $value.intVal
+  of TomlValueKind.Float: $value.floatVal
+  of TomlValueKind.Bool: $value.boolVal
+  of TomlValueKind.Array, TomlValueKind.Table, TomlValueKind.None,
+     TomlValueKind.Datetime, TomlValueKind.Date, TomlValueKind.Time:
+    raise newException(ValueError,
+      "unsupported TOML value type for " & key & " in " & source)
+
+proc flattenTomlValue(values: var Table[string, string], value: TomlValueRef,
+                      prefix, source: string) =
+  if value.kind == TomlValueKind.Table:
+    for key, child in value.tableVal[]:
+      let fullKey = if prefix.len == 0: key else: prefix & "." & key
+      flattenTomlValue(values, child, fullKey, source)
+    return
+  if not isSupportedTomlKey(prefix):
+    raise newException(ValueError, "unknown TOML config key: " & prefix)
+  values[prefix] = tomlScalar(value, prefix, source)
+
 proc loadTomlConfig*(path: string): Table[string, string] =
-  ## Parse the flat key/value TOML subset needed by AppConfig.
-  ## Nested arrays/tables are deliberately rejected or ignored until a full
-  ## TOML adapter becomes a separate dependency.
+  ## Parse complete TOML syntax, then flatten supported scalar schema fields.
+  let root = parsetoml.parseFile(path)
+  if root.isNil or root.kind != TomlValueKind.Table:
+    raise newException(ValueError, "TOML config root must be a table")
   result = initTable[string, string]()
-  var section = ""
-  for line in lines(path):
-    let trimmed = line.strip()
-    if trimmed.len == 0 or trimmed.startsWith("#"):
-      continue
-    if trimmed.startsWith("[") and trimmed.endsWith("]"):
-      section = trimmed[1 .. ^2].strip()
-      continue
-    let separator = trimmed.find('=')
-    if separator <= 0:
-      continue
-    let key = trimmed[0 ..< separator].strip()
-    let fullKey = if section.len > 0: section & "." & key else: key
-    result[fullKey] = stripQuotes(trimmed[separator + 1 .. ^1])
+  for key, value in root.tableVal[]:
+    flattenTomlValue(result, value, key, path)
 
 proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
   ## Merge files first, then process environment variables as highest priority.

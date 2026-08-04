@@ -911,7 +911,8 @@ suite "Mahanaim core contracts":
     let tomlPath = root / "config.toml"
     writeFile(dotenvPath, "MAHANAIM_HOST=dotenv-host\nSECRET_TOKEN=dotenv-secret\n")
     writeFile(jsonPath, "{\"port\":9000,\"request_timeout_ms\":25,\"secrets\":{\"token\":\"json-secret\"}}")
-    writeFile(tomlPath, "environment = \"staging\"\n[secrets]\ntoken = \"toml-secret\"\n")
+    writeFile(tomlPath, "environment = \"staging\" # deployment profile\n" &
+      "port = 9200\n[secrets]\ntoken = \"toml-secret\"\n")
     putEnv("MAHANAIM_PORT", "9100")
     putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
     putEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS", "3")
@@ -923,6 +924,18 @@ suite "Mahanaim core contracts":
     check config.executorMaxConcurrentJobs == 3
     check config.secrets["token"] == "toml-secret"
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
+
+  test "TOML schema rejects unsupported and unknown values":
+    let root = getTempDir() / "mahanaim_toml_schema_test"
+    createDir(root)
+    let arrayPath = root / "array.toml"
+    let unknownPath = root / "unknown.toml"
+    writeFile(arrayPath, "ports = [8000, 8001]\n")
+    writeFile(unknownPath, "feature_flag = true\n")
+    expect ValueError:
+      discard loadTomlConfig(arrayPath)
+    expect ValueError:
+      discard loadTomlConfig(unknownPath)
     delEnv("MAHANAIM_PORT")
     delEnv("MAHANAIM_REQUEST_TIMEOUT_MS")
     delEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS")

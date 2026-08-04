@@ -77,6 +77,16 @@
         "sha1": "f72b90fe3f4da09efa482de4f8729e7ee4abea2f"
       }
     },
+    "parsetoml": {
+      "version": "0.7.2",
+      "vcsRevision": "d297f5a81be2472905d367aa675dcbbca6e7a5d2",
+      "url": "https://github.com/NimParsers/parsetoml.git",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "2a9fb57ef1f6460fd61b1cfab2d83af44f788a25"
+      }
+    },
     "unicodedb": {
       "version": "0.13.2",
       "vcsRevision": "66f2458710dc641dd4640368f9483c8a0ec70561",

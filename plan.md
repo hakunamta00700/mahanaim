@@ -63,7 +63,8 @@
 - [x] 앱별 fixed-window rate limit과 429/quota headers 정책을 구현한다.
 - [x] 요청 timeout과 cooperative cancellation 정책을 구현한다.
 - [x] signed cookie keyring 검증과 legacy key 감지·rotation primitive를 구현한다.
-- [ ] TOML 전체 문법·schema validation, session binding/auth integration, 분산 rate limit, retry/backpressure 정책을 구현한다.
+- [x] TOML 전체 문법 파서를 연결하고 AppConfig scalar schema validation을 구현한다.
+- [ ] session binding/auth integration, 분산 rate limit, retry/backpressure 정책을 구현한다.
 
 ### Prologue 호환 계층
 
@@ -81,6 +82,13 @@
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
 - [ ] 지원 OS/Nim matrix와 release artifact checksum 검증을 추가한다.
 - [ ] 모든 기능의 Definition of Done을 적용한다: 구현, 단위/통합 테스트, 문서, 회귀 검증.
+
+### 2026-08-04 구현 기록
+
+- [x] TOML provider가 `parsetoml`로 전체 TOML 문법을 읽고, 지원 scalar와 `secrets.*`를 공통 설정 표현으로 flatten한다.
+- [x] TOML 배열·날짜·미등록 키를 조용히 버리지 않고 안전한 `ValueError`로 거부한다.
+- [x] TOML dependency lock, 설정 회귀 테스트, `nimble build`/`nimble test`를 검증한다.
+- [ ] 아직 AppConfig에 대응하지 않는 배열·날짜·복합 타입의 schema mapping을 추가한다.
 
 ## P1 — 첫 실사용 풀스택 제품
 
