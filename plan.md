@@ -148,7 +148,7 @@
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [ ] template inheritance/include/filter와 독립 template engine을 제공한다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
-- [ ] SQLite/PostgreSQL repository 연결과 admin extension point를 제공한다.
+- [-] metadata-driven SQLite/PostgreSQL repository CRUD 기반을 추가했다. 기존 CRUD route 연결과 admin extension point는 남아 있다.
 
 ## P2 — 운영·확장성
 

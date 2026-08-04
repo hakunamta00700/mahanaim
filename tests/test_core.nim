@@ -1903,6 +1903,34 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard pool.acquire()
 
+  test "database repository binds metadata-driven SQLite CRUD":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" TEXT, \"active\" INTEGER)",
+      parameters: @[]))
+    var metadata = newModelMetadata("User", "users")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("name", modelString))
+    metadata.addField(newModelField("active", modelBoolean))
+    let repository = newDatabaseRepository(metadata, adapter)
+    var input: ResourceRow
+    input["id"] = newJInt(1)
+    input["name"] = newJString("Ada")
+    input["active"] = newJBool(true)
+    let created = repository.create(input)
+    check created["name"].getStr() == "Ada"
+    check repository.list(SelectQuery(filters: @[
+      QueryFilter(field: "active", operator: filterEqual,
+        value: booleanValue(true))])).len == 1
+    var patch: ResourceRow
+    patch["name"] = newJString("Grace")
+    let updated = repository.update("1", patch)
+    check updated.isSome
+    check updated.get()["name"].getStr() == "Grace"
+    check repository.delete("1")
+    check repository.find("1").isNone
+
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
       integerField("userId", flPath),

@@ -263,7 +263,7 @@
 - [x] create/update 입력에서 required/type/unknown-field 검증을 저장 전에 적용하고 auto-generated primary key 예외를 분리했다.
 - [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [-] SQLite repository/transaction 기반을 추가했다. PostgreSQL repository, filtering/aggregate relation query와 admin UI는 남아 있다.
+- [-] metadata-driven repository가 SQLite adapter에 CRUD, typed JSON conversion과 bound filter를 연결했다. PostgreSQL live repository, filtering/aggregate relation execution과 admin UI는 남아 있다.
 
 ### 2026-08-04 — P2 DI foundation 1차
 
@@ -589,11 +589,11 @@ flowchart TB
 - [ ] query builder/QuerySet, 조건식, 정렬, pagination, aggregate, annotate, eager/lazy loading을 구현한다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
 - [-] transaction/savepoint와 backend-neutral connection pool을 구현했다. request 단위 DB session, locking capability와 isolation은 남아 있다.
-- [ ] 모델 metadata를 API, form, admin과 연결한다. raw SQL은 명시적인 escape hatch로 둔다.
+- [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API, form, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
 완료 기준:
 
-- [ ] SQLite/PostgreSQL CRUD가 동작한다.
+- [-] SQLite repository CRUD가 동작하고 PostgreSQL adapter repository API가 준비됐다. PostgreSQL live CRUD fixture는 남아 있다.
 - [ ] 관계 query와 migration up/down 테스트가 통과한다.
 - [ ] transaction isolation 테스트가 통과한다.
 
