@@ -1,13 +1,110 @@
-## Dependency-free MessagePack encoder for serializer boundary values.
+## Dependency-free MessagePack codec for serializer boundary values.
 ##
-## This is intentionally an encoder, not a second object mapper: the existing
-## metadata serializer decides which fields are exposed, then this module
-## encodes the resulting JSON AST. Object keys are sorted for reproducible
-## cache keys, signatures, snapshots, and tests.
+## The existing metadata serializer decides which fields are exposed, then
+## this module encodes or decodes the resulting JSON AST. Object keys are
+## sorted for reproducible cache keys, signatures, snapshots, and tests.
 
-import std/[algorithm, httpcore, json, tables]
+import std/[algorithm, httpcore, json, strutils, tables]
 import ./core
 import ./serialization
+
+type
+  MessagePackReader = object
+    payload: string
+    position: int
+
+proc readByte(reader: var MessagePackReader): uint8 =
+  ## Bounds checks turn truncated network payloads into a safe ValueError.
+  if reader.position >= reader.payload.len:
+    raise newException(ValueError, "MessagePack payload is truncated")
+  result = uint8(ord(reader.payload[reader.position]))
+  inc reader.position
+
+proc readUnsigned(reader: var MessagePackReader, width: int): uint64 =
+  ## MessagePack integers are network-order; no host-endian assumptions leak
+  ## into the wire adapter.
+  for _ in 0 ..< width:
+    result = (result shl 8) or uint64(reader.readByte())
+
+proc readString(reader: var MessagePackReader, length: uint64): string =
+  if length > uint64(reader.payload.len - reader.position):
+    raise newException(ValueError, "MessagePack string is truncated")
+  let finish = reader.position + int(length)
+  result = reader.payload[reader.position ..< finish]
+  reader.position = finish
+
+proc decodeNode(reader: var MessagePackReader, depth: int): JsonNode
+
+proc decodeCount(reader: var MessagePackReader, width: int): int =
+  let count = reader.readUnsigned(width)
+  if count > uint64(high(int)):
+    raise newException(ValueError, "MessagePack collection is too large")
+  count.int
+
+proc decodeNode(reader: var MessagePackReader, depth: int): JsonNode =
+  ## A depth bound prevents hostile nested payloads from exhausting the stack.
+  if depth > 64:
+    raise newException(ValueError, "MessagePack nesting depth is too large")
+  let prefix = reader.readByte()
+  case prefix
+  of 0x00'u8 .. 0x7f'u8:
+    result = newJInt(int64(prefix))
+  of 0xe0'u8 .. 0xff'u8:
+    result = newJInt(int64(cast[int8](prefix)))
+  of 0xc0'u8: result = newJNull()
+  of 0xc2'u8: result = newJBool(false)
+  of 0xc3'u8: result = newJBool(true)
+  of 0xcc'u8: result = newJInt(int64(reader.readUnsigned(1)))
+  of 0xcd'u8: result = newJInt(int64(reader.readUnsigned(2)))
+  of 0xce'u8: result = newJInt(int64(reader.readUnsigned(4)))
+  of 0xcf'u8:
+    let value = reader.readUnsigned(8)
+    if value > uint64(high(int64)):
+      raise newException(ValueError, "MessagePack unsigned integer exceeds JSON range")
+    result = newJInt(int64(value))
+  of 0xd0'u8: result = newJInt(int64(cast[int8](reader.readByte())))
+  of 0xd1'u8: result = newJInt(int64(cast[int16](reader.readUnsigned(2))))
+  of 0xd2'u8: result = newJInt(int64(cast[int32](reader.readUnsigned(4))))
+  of 0xd3'u8: result = newJInt(cast[int64](reader.readUnsigned(8)))
+  of 0xca'u8:
+    result = newJFloat(float(cast[float32](uint32(reader.readUnsigned(4)))))
+  of 0xcb'u8:
+    result = newJFloat(cast[float](reader.readUnsigned(8)))
+  of 0xa0'u8 .. 0xbf'u8:
+    result = newJString(reader.readString(uint64(prefix and 0x1f)))
+  of 0xd9'u8:
+    result = newJString(reader.readString(reader.readUnsigned(1)))
+  of 0xda'u8:
+    result = newJString(reader.readString(reader.readUnsigned(2)))
+  of 0xdb'u8:
+    result = newJString(reader.readString(reader.readUnsigned(4)))
+  of 0x90'u8 .. 0x9f'u8:
+    result = newJArray()
+    for _ in 0 ..< int(prefix and 0x0f):
+      result.add(reader.decodeNode(depth + 1))
+  of 0xdc'u8, 0xdd'u8:
+    result = newJArray()
+    let count = reader.decodeCount(if prefix == 0xdc'u8: 2 else: 4)
+    for _ in 0 ..< count:
+      result.add(reader.decodeNode(depth + 1))
+  of 0x80'u8 .. 0x8f'u8:
+    result = newJObject()
+    for _ in 0 ..< int(prefix and 0x0f):
+      let key = reader.decodeNode(depth + 1)
+      if key.kind != JString:
+        raise newException(ValueError, "MessagePack map key must be a string")
+      result[key.getStr()] = reader.decodeNode(depth + 1)
+  of 0xde'u8, 0xdf'u8:
+    result = newJObject()
+    let count = reader.decodeCount(if prefix == 0xde'u8: 2 else: 4)
+    for _ in 0 ..< count:
+      let key = reader.decodeNode(depth + 1)
+      if key.kind != JString:
+        raise newException(ValueError, "MessagePack map key must be a string")
+      result[key.getStr()] = reader.decodeNode(depth + 1)
+  else:
+    raise newException(ValueError,
+      "Unsupported MessagePack type: 0x" & toHex(int(prefix), 2))
 
 proc addByte(buffer: var string, value: uint8) =
   buffer.add(char(value))
@@ -113,6 +210,14 @@ proc toMessagePack*(node: JsonNode): string =
   ## Return binary bytes in a Nim string; callers choose the HTTP response type.
   result = newStringOfCap(64)
   encodeNode(result, node)
+
+proc fromMessagePack*(payload: string): JsonNode =
+  ## Decode one complete JSON-compatible MessagePack document. Rejecting
+  ## trailing bytes keeps framing responsibility explicit for stream adapters.
+  var reader = MessagePackReader(payload: payload, position: 0)
+  result = reader.decodeNode(0)
+  if reader.position != payload.len:
+    raise newException(ValueError, "MessagePack payload contains trailing bytes")
 
 proc serializeMessagePack*(serialization: SerializationResult): string =
   ## Preserve serializer validation: invalid documents must never be encoded.

@@ -2178,6 +2178,12 @@ suite "Mahanaim core contracts":
     check ord(encoded[1]) == 0xA1
     check encoded[2] == 'a'
     check toMessagePack(document) == encoded
+    check fromMessagePack(encoded) == document
+    check fromMessagePack(toMessagePack(parseJson("-42.5"))).getFloat() == -42.5
+    expect ValueError:
+      discard fromMessagePack(encoded & "\x00")
+    expect ValueError:
+      discard fromMessagePack("\x81\x01\x01")
     let invalid = SerializationResult(document: document,
       errors: @[SerializationIssue(field: "a", code: "invalid",
         message: "invalid")])
