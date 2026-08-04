@@ -17,7 +17,7 @@
 
 - [x] 원자적 remote counter 결과를 표현하는 `RateLimitCounterClient` 계약과 `RedisValkeyRateLimitStore` adapter를 제공한다.
 - [x] bounded immediate retry와 backend 오류 fail-closed 503 경로를 회귀 테스트한다.
-- [ ] 실제 Redis/Valkey RESP client 연결, server clock/TTL 관측, eviction 운영 지침을 추가한다.
+- [-] 실제 Redis/Valkey RESP client와 server-side TTL 응답 관측을 추가했다. live integration, timeout/reconnect와 eviction 운영 지침은 남아 있다.
 
 상태: 진행 중  
 작성일: 2026-08-04  
@@ -93,7 +93,7 @@
 - [x] TOML 전체 문법 파서를 연결하고 AppConfig scalar schema validation을 구현한다.
 - [x] signed session cookie를 `AuthContext`에 바인딩하고 required authentication route의 401 정책을 구현한다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
-- [ ] Redis/Valkey 등 production distributed store adapter와 retry 정책을 구현한다.
+- [-] Redis/Valkey RESP adapter와 bounded retry 기반을 구현했다. production timeout/reconnect와 eviction 운영은 남아 있다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.
 
 ### Prologue 호환 계층

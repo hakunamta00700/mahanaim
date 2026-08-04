@@ -1931,6 +1931,24 @@ suite "Mahanaim core contracts":
     check repository.delete("1")
     check repository.find("1").isNone
 
+  test "Redis RESP client encodes atomic counter and parses server TTL":
+    let command = encodeFixedWindowCommand("rate:user", 60)
+    check command.startsWith("*5\r\n$4\r\nEVAL\r\n")
+    check command.contains("$9\r\nrate:user\r\n")
+    var received = ""
+    let client = newRedisValkeyRespClient(transport =
+      proc(payload: string): string =
+        received = payload
+        "*2\r\n:3\r\n:57\r\n")
+    let counter = client.incrementFixedWindow("rate:user", 60)
+    check received == command
+    check counter.count == 3
+    check counter.ttlSeconds == 57
+    expect ValueError:
+      discard parseCounterResponse("*1\r\n:1\r\n")
+    expect CatchableError:
+      discard parseCounterResponse("-ERR unavailable\r\n")
+
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
       integerField("userId", flPath),

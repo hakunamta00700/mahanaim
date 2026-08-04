@@ -366,21 +366,21 @@
 - [x] 앱별 fixed-window rate limit 상태와 비활성화 가능한 `SecurityPolicy` 설정을 추가했다.
 - [x] 초과 요청을 429로 거부하고 `Retry-After` 및 quota headers를 반환한다.
 - [x] 정책 범위와 invalid window pre-flight 검사를 회귀 테스트로 검증했다.
-- [ ] production distributed rate limit adapter와 retry/backpressure 정책은 남아 있다.
+- [-] Redis/Valkey RESP adapter와 bounded retry/backpressure 경계를 추가했다. production timeout/reconnect 정책은 남아 있다.
 
 ### 2026-08-04 — P0 rate limit store contract 1차
 
 - [x] process-local limiter와 분리된 backend-neutral `RateLimitStore` 계약을 추가했다.
 - [x] 여러 `Application`이 공유할 수 있는 `InMemoryRateLimitStore`와 store key 정책을 연결했다.
 - [x] store backend 오류를 fail-open하지 않고 retryable 503으로 변환하는 회귀 경로를 추가했다.
-- [ ] Redis/Valkey 등 원격 atomic counter adapter와 분산 clock/eviction 운영 정책은 남아 있다.
+- [-] Redis/Valkey 원격 atomic counter RESP adapter와 server TTL 응답을 추가했다. 분산 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 Redis/Valkey rate-limit adapter 1차
 
 - [x] transport library를 핵심에 강제하지 않는 `RateLimitCounterClient` atomic increment/TTL 계약을 추가했다.
 - [x] `RedisValkeyRateLimitStore`가 server-side count/TTL을 quota decision으로 변환하고 bounded immediate retry를 적용한다.
 - [x] retry 성공, quota 초과, retry exhaustion의 fail-closed 503 회귀 테스트를 추가했다.
-- [ ] 실제 RESP/network client 연결과 분산 server clock·TTL/eviction 운영 정책은 남아 있다.
+- [-] 실제 RESP/network client와 server TTL 파싱을 추가했다. live Redis fixture, reconnect와 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backpressure 1차
 
@@ -707,7 +707,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [ ] | REQ-OPS-001 | P2 | storage/cache protocol과 local·S3·memory·Redis 구현체를 분리하고 오류/재시도 정책을 정의한다. |
+| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계를 추가했고 storage/cache·production reconnect 정책은 남아 있다. |
 | [ ] | REQ-OPS-002 | P2 | task contract와 queue adapter를 제공하며 응답 완료 후 enqueue, 재시도, idempotency를 문서화한다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |
