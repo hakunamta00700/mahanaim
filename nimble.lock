@@ -11,6 +11,16 @@
         "sha1": "95332de129a8d1383c5410248ea1b0de2f831ceb"
       }
     },
+    "checksums": {
+      "version": "0.2.2",
+      "vcsRevision": "0845c735a9746188b2257ee2cff672eb6ec26e8a",
+      "url": "https://github.com/nim-lang/checksums",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "6357ab195ec23e0e0a54d4d8b5e0212456bf899e"
+      }
+    },
     "cligen": {
       "version": "1.9.3",
       "vcsRevision": "55aa1c79939dc04875d1c9fefa12e52582f39fae",

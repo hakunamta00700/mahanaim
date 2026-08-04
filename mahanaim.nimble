@@ -19,12 +19,13 @@ requires "prologue >= 0.6.8"
 requires "taskpools >= 0.1.0"
 requires "db_connector >= 0.1.0"
 requires "argon2 >= 1.1.0"
+requires "checksums >= 0.2.2"
 requires "timezones >= 0.5.4"
 
 proc dependencyPathArgs(): string =
   ## Tasks are run by Nimble but invoke Nim directly, so pass every locked
   ## package path explicitly instead of depending on an ambient compiler path.
-  let packageNames = "nimcrypto parsetoml prologue taskpools db_connector argon2 timezones cookiejar httpx ioselectors " &
+  let packageNames = "nimcrypto parsetoml prologue taskpools db_connector argon2 checksums timezones cookiejar httpx ioselectors " &
     "wepoll logue cligen regex unicodedb"
   let paths = staticExec("nimble path " & packageNames)
   for path in paths.splitLines:
@@ -85,6 +86,18 @@ task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_beast_adapter_compile.nim"
 
+task bcryptCheck, "Compile the optional bcrypt password hasher contract":
+  ## Keep the algorithm-specific acceptance contract behind its own gate so
+  ## changes to the password boundary remain easy to diagnose.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_bcrypt_contract.nim"
+
+task bcryptTest, "Run the optional bcrypt password hasher contract":
+  ## A small work factor keeps the correctness fixture deterministic and fast;
+  ## production work-factor selection remains the benchmark's responsibility.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r tests/test_bcrypt_contract.nim"
+
 task beastLiveCheck, "Compile the Linux Beast/httpx WebSocket wire fixture":
   ## Keep the fixture source in the normal gate so Linux CI catches API drift
   ## before attempting a network run.
@@ -120,7 +133,7 @@ task benchmark, "Run deterministic router benchmark workloads":
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"
 
-task passwordBenchmark, "Measure Argon2id password hashing on this machine":
+task passwordBenchmark, "Measure password hashing on this machine":
   ## Production cost selection requires a release-like host and explicit
   ## settings; the executable's defaults mirror the adapter policy.
   exec "nim c -d:release --path:src" & dependencyPathArgs() &

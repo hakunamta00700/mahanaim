@@ -2182,7 +2182,8 @@ suite "Mahanaim core contracts":
     check readFile(root / "tests" / "test_app.nim").contains("/health")
     let (dependencyOutput, dependencyExitCode) = execCmdEx(
       "nimble path nimcrypto parsetoml prologue taskpools db_connector " &
-      "argon2 timezones cookiejar httpx ioselectors wepoll logue cligen regex unicodedb")
+      "argon2 checksums timezones cookiejar httpx ioselectors wepoll logue " &
+      "cligen regex unicodedb")
     check dependencyExitCode == 0
     var dependencyArgs = ""
     for path in dependencyOutput.splitLines:

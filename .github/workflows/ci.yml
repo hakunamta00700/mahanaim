@@ -107,6 +107,12 @@ jobs:
       - name: Validate package and dependency contracts
         run: nimble check
 
+      - name: Compile bcrypt password hasher contract
+        run: nimble bcryptCheck
+
+      - name: Run bcrypt password hasher contract
+        run: nimble bcryptTest
+
       - name: Compile Beast/httpx adapter contract (Unix)
         if: runner.os != 'Windows'
         run: nimble beastCheck

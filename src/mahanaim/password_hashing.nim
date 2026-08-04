@@ -8,6 +8,7 @@
 import std/[base64, locks, options, strutils, sysrand, tables, times]
 import nimcrypto/[pbkdf2, sha2]
 import argon2
+import checksums/bcrypt as bcryptLib
 import ./security
 
 type
@@ -28,6 +29,12 @@ type
     iterations*: uint32
     threadCount*: uint32
     derivedBytes*: uint32
+
+  BcryptPasswordHasher* = ref object of PasswordHasher
+    ## Bcrypt stores its version and cost inside the 60-character encoded
+    ## value. The adapter keeps only the target cost; verification reads the
+    ## persisted cost so existing accounts remain verifiable during rotation.
+    workFactor*: int8
 
   PasswordVerification* = object
     ## Authentication code persists `encoded` only when `valid` is true;
@@ -54,6 +61,8 @@ type
 const
   defaultPasswordIterations* = 120000
   passwordHashAlgorithm = "pbkdf2-sha256"
+  minBcryptWorkFactor* = 4
+  maxBcryptWorkFactor* = 31
 
 method hashPassword*(hasher: PasswordHasher, password: string): string
     {.base, gcsafe.} =
@@ -185,6 +194,68 @@ proc newArgon2idPasswordHasher*(memoryKiB: uint32 = 64 * 1024,
   Argon2idPasswordHasher(memoryKiB: memoryKiB, iterations: iterations,
     threadCount: threadCount, derivedBytes: derivedBytes)
 
+proc newBcryptPasswordHasher*(workFactor: int8 = 12): BcryptPasswordHasher =
+  ## Bcrypt cost selection is deliberately bounded by the algorithm's encoded
+  ## format. Deployments should select the value with `passwordBenchmark` on
+  ## their real login hosts instead of treating the default as a guarantee.
+  if workFactor < minBcryptWorkFactor or workFactor > maxBcryptWorkFactor:
+    raise newException(ValueError, "Bcrypt work factor must be 4..31")
+  BcryptPasswordHasher(workFactor: workFactor)
+
+type ParsedBcryptHash = object
+  ## Only fields needed for verification and gradual cost rotation are kept;
+  ## the native implementation receives the complete encoded value later.
+  workFactor: int8
+
+proc parseBcryptHash(encoded: string): Option[ParsedBcryptHash] =
+  ## Delegate alphabet/version parsing to Nim's maintained bcrypt
+  ## implementation, then require the complete 60-character persisted form.
+  if encoded.len != 60 or encoded[0] != '$' or encoded[1] != '2' or
+      encoded[2] notin ['a', 'b', 'y'] or encoded[3] != '$' or
+      encoded[6] != '$' or encoded[4] < '0' or encoded[4] > '9' or
+      encoded[5] < '0' or encoded[5] > '9':
+    return none(ParsedBcryptHash)
+  try:
+    let parsed = bcryptLib.parseSalt(encoded)
+    some(ParsedBcryptHash(workFactor: int8(parsed.costFactor)))
+  except ValueError:
+    none(ParsedBcryptHash)
+
+proc constantTimeTextEquals(left, right: string): bool {.gcsafe.}
+
+method hashPassword*(hasher: BcryptPasswordHasher, password: string): string
+    {.gcsafe.} =
+  if hasher.isNil or password.len == 0:
+    raise newException(ValueError, "Password hasher and password are required")
+  let salt = bcryptLib.generateSalt(bcryptLib.CostFactor(hasher.workFactor))
+  let encoded = $(bcryptLib.bcrypt(password, salt))
+  if parseBcryptHash(encoded).isNone:
+    raise newException(ValueError, "Bcrypt returned an invalid encoded hash")
+  encoded
+
+method verifyPassword*(hasher: BcryptPasswordHasher,
+                       password, encoded: string): bool {.gcsafe.} =
+  if hasher.isNil or password.len == 0:
+    return false
+  if parseBcryptHash(encoded).isNone:
+    return false
+  try:
+    ## Passing the persisted hash as the salt makes the maintained implementation
+    ## recompute the same cost/salt. The final comparison stays in this module
+    ## so every built-in adapter shares the same constant-time text policy.
+    let regenerated = $(bcryptLib.bcrypt(password,
+      bcryptLib.parseSalt(encoded)))
+    constantTimeTextEquals(regenerated, encoded)
+  except CatchableError:
+    false
+
+method passwordNeedsRehash*(hasher: BcryptPasswordHasher,
+                            encoded: string): bool {.gcsafe.} =
+  if hasher.isNil:
+    return true
+  let parsed = parseBcryptHash(encoded)
+  parsed.isNone or parsed.get().workFactor != hasher.workFactor
+
 type ParsedArgon2Hash = object
   ## Only the PHC fields required by this adapter are retained. A malformed or
   ## non-Argon2id string is represented by `none` and never reaches the C API.
@@ -227,7 +298,7 @@ proc parseArgon2idHash(encoded: string): Option[ParsedArgon2Hash] =
   except CatchableError:
     none(ParsedArgon2Hash)
 
-proc constantTimeTextEquals(left, right: string): bool =
+proc constantTimeTextEquals(left, right: string): bool {.gcsafe.} =
   ## Hash strings are compared without an early-exit prefix leak. The length is
   ## folded into the accumulator as well, matching the byte-level policy used
   ## by the PBKDF2 adapter.

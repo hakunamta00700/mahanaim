@@ -34,8 +34,11 @@
 cost parameter를 읽어 `verifyAndRehash`로 점진적 cost rotation을 수행한다.
 메모리·반복·parallelism은 생성자에서 bounded policy로 검증해야 하며, 운영 배포는
 실제 hardware에서 login latency와 concurrent memory 사용량을 benchmark한 뒤 값을
-선택한다. bcrypt는 별도 adapter로 연결할 수 있고, PBKDF2는 호환성 reference
-adapter로 유지한다.
+선택한다. `newBcryptPasswordHasher`는 Nim의 maintained pure implementation을
+통해 `$2b$` hash를 생성하고 `$2a$`·`$2b$`·`$2y$` 저장 hash를 검증하며, 동일한
+`PasswordHasher` 계약과 `verifyAndRehash` rotation을 사용한다. bcrypt의
+`workFactor`도 배포 호스트에서 실측해야 하고, PBKDF2는 호환성 reference adapter로
+유지한다.
 
 ## Template extensions
 
@@ -51,12 +54,13 @@ zone은 startup에서 거부되며, formatter는 UTC instant를 기준으로 해
 offset을 적용한다. 고정 offset은 DST가 필요하지 않은 deterministic 작업에만
 사용한다.
 
-Argon2 정책 측정은 `nimble passwordBenchmark`로 시작할 수 있다. 세부 값을 바꾸려면
+Argon2와 bcrypt 정책 측정은 `nimble passwordBenchmark`로 시작할 수 있다. 세부 값을 바꾸려면
 생성된 `benchmarks/password_hash_benchmark.exe`(또는 해당 플랫폼 실행 파일)에
-`--memory-kib`, `--iterations`, `--threads`, `--samples`를 명시해 hash/verify 평균
-latency를 기록하고, 동시 로그인 부하에서 메모리 사용량도 별도로 확인한 뒤 정책
-값을 확정한다. benchmark 기본값은 adapter 기본 policy를 반영하지만 보안·성능
-보증값은 아니다.
+Argon2는 `--algorithm=argon2id --memory-kib`, `--iterations`, `--threads`,
+`--derived-bytes`, bcrypt는 `--algorithm=bcrypt --work-factor`, 공통으로
+`--samples`를 명시해 hash/verify 평균 latency를 기록한다. 동시 로그인 부하에서
+메모리 사용량도 별도로 확인한 뒤 정책 값을 확정한다. benchmark 기본값은 adapter
+기본 policy를 반영하지만 보안·성능 보증값은 아니다.
 
 ## Rate limit
 

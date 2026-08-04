@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `PasswordHasher`에 Nim maintained pure bcrypt adapter를 추가하고 `$2a$`·`$2b$`·`$2y$` 검증, work-factor rotation, bcrypt benchmark output과 Windows/Linux contract gate를 연결했다.
 - Beast/httpx Linux live gate와 PostgreSQL pool/session·HTTP/SSE/WebSocket live-server 계약을 추가하고, HTTP adapter가 parent socket ownership을 보존하도록 WebSocket close 경계를 수정했다.
 - `authBackends` provider 목록으로 signed session cookie와 bearer token을 한 route의 공통 `AuthContext`와 route guard에 조합하도록 확장했다.
 - CLI migration contract에 `db migrate` 별칭을 추가하고 standalone `admin`/`jobs` 진입점을 embedding `runCli`와 같은 application-owned 경계에 연결했다.
