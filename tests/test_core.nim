@@ -4,7 +4,8 @@
 ## keeps failures deterministic while still covering the same dispatch pipeline
 ## a future Prologue/ASGI adapter will call.
 
-import std/[asyncdispatch, httpcore, options, os, tables, unittest]
+import std/[asyncdispatch, httpcore, options, os, tables, times, unittest]
+import std/httpclient as hc
 import mahanaim
 
 suite "Mahanaim core contracts":
@@ -20,7 +21,7 @@ suite "Mahanaim core contracts":
 
   test "router dispatches exact routes":
     let app = newApplication()
-    proc health(request: Request): Future[Response] {.async, gcsafe.} =
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
       discard request
       return textResponse("ok")
     app.get("/health", "health", health)
@@ -31,7 +32,7 @@ suite "Mahanaim core contracts":
 
   test "router extracts named path parameters":
     let app = newApplication()
-    proc user(request: Request): Future[Response] {.async, gcsafe.} =
+    proc user(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
       return textResponse(request.pathParams["id"])
     app.get("/users/:id", "user-detail", user)
 
@@ -47,11 +48,11 @@ suite "Mahanaim core contracts":
 
   test "global middleware wraps route execution":
     let app = newApplication()
-    proc addHeader(request: Request, next: Handler): Future[Response] {.async, gcsafe.} =
+    proc addHeader(request: Request, next: Handler): Future[mahanaim.Response] {.async, gcsafe.} =
       var response = await next(request)
       response.headers["x-framework"] = "mahanaim"
       return response
-    proc endpoint(request: Request): Future[Response] {.async, gcsafe.} =
+    proc endpoint(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
       discard request
       return textResponse("ok")
     app.addMiddleware(addHeader)
@@ -82,3 +83,43 @@ suite "Mahanaim core contracts":
     delEnv("MAHANAIM_ENV")
     delEnv("MAHANAIM_DEBUG")
     delEnv("MAHANAIM_PORT")
+
+  test "network adapter serves an application over HTTP":
+    let app = newApplication()
+    proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("hello over http")
+    app.get("/hello", "hello", hello)
+    let network = newNetworkServer(app, "127.0.0.1", 0)
+    asyncCheck network.serve()
+
+    # Binding happens inside the async server task. Poll briefly instead of
+    # sleeping a fixed long interval, keeping the smoke test fast on CI.
+    var attempts = 0
+    while attempts < 50:
+      try:
+        if network.boundPort().uint16 > 0:
+          break
+      except OSError:
+        discard
+      waitFor sleepAsync(10)
+      inc attempts
+    check network.boundPort().uint16 > 0
+
+    let client = hc.newAsyncHttpClient()
+    let response = waitFor client.getContent("http://127.0.0.1:" & $network.boundPort().uint16 & "/hello")
+    check response == "hello over http"
+    client.close()
+    network.close()
+
+  test "project generator creates a safe starter project":
+    let root = getTempDir() / "mahanaim_generated_test"
+    if dirExists(root):
+      removeDir(root)
+    generateProject(ProjectSpec(name: "sample_app", root: root))
+    check fileExists(root / "sample_app.nimble")
+    check fileExists(root / "src" / "sample_app.nim")
+    check fileExists(root / "tests" / "test_app.nim")
+    expect IOError:
+      generateProject(ProjectSpec(name: "sample_app", root: root))
+    removeDir(root)

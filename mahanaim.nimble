@@ -13,3 +13,6 @@ task test, "Run the framework test suite":
 
 task check, "Compile the framework CLI":
   exec "nim c --path:src src/mahanaim_cli.nim"
+
+task verify, "Compile the CLI and validate package contracts":
+  exec "nim c --path:src src/mahanaim_cli.nim"

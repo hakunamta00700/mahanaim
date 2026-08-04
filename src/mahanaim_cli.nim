@@ -4,12 +4,12 @@
 ## that database/admin commands already exist. Each future command can be added
 ## without changing the Application API.
 
-import std/[os, strutils]
-import mahanaim/application
+import std/[os, osproc, strutils]
+import mahanaim/[application, generator]
 
 proc printUsage() =
   echo "mahanaim <command>"
-  echo "  new      Describe project generation (coming next)"
+  echo "  new NAME [PATH]  Generate a new project"
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"
@@ -17,13 +17,28 @@ proc printUsage() =
 proc main() =
   let command = if paramCount() == 0: "help" else: paramStr(1).toLowerAscii()
   case command
+  of "new":
+    if paramCount() < 2 or paramCount() > 3:
+      stderr.writeLine("Usage: mahanaim new NAME [PATH]")
+      quit(1)
+    let name = paramStr(2)
+    let root = if paramCount() == 3: paramStr(3) else: name
+    generateProject(ProjectSpec(name: name, root: root))
+    echo "Generated Mahanaim project: ", root
   of "dev":
     let config = loadConfig()
     echo "Mahanaim development configuration loaded: ", config.host, ":", config.port
   of "check":
     discard loadConfig()
     echo "Mahanaim configuration check passed"
-  of "new", "test", "help", "--help", "-h":
+  of "test":
+    # Delegate to the package's canonical test task so CLI and CI execute the
+    # same suite instead of maintaining two subtly different test paths.
+    let (output, exitCode) = execCmdEx("nimble test")
+    stdout.write(output)
+    if exitCode != 0:
+      quit(exitCode)
+  of "help", "--help", "-h":
     printUsage()
   else:
     stderr.writeLine("Unknown command: " & command)

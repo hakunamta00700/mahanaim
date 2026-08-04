@@ -1,0 +1,81 @@
+## Standard-library HTTP adapter.
+##
+## The core application deliberately does not depend on a concrete server. This
+## adapter is the first network boundary: it translates Nim's async HTTP server
+## request into Mahanaim's framework-neutral Request and writes Response back.
+## A future Prologue adapter can implement the same two translation functions.
+
+import std/[asynchttpserver, asyncdispatch, httpcore, nativesockets, strutils,
+            tables, uri]
+import ./application
+import ./core
+
+type
+  NetworkServer* = ref object
+    ## Owns one async server and one application instance.
+    app*: Application
+    server*: AsyncHttpServer
+    host*: string
+    port*: Port
+
+proc copyHeaders(headers: HttpHeaders): Table[string, string] =
+  ## Normalize header names once at the adapter boundary.
+  result = initTable[string, string]()
+  for key, value in headers:
+    result[key.toLowerAscii()] = value
+
+proc parseCookies(headerValue: string): Table[string, string] =
+  ## Parse the simple Cookie grammar needed by the core request object.
+  ## Quoted cookie values and repeated-cookie policy can be added here later
+  ## without changing handlers or the Application dispatcher.
+  result = initTable[string, string]()
+  for item in headerValue.split(';'):
+    let pieces = item.split('=', maxsplit = 1)
+    if pieces.len == 2:
+      result[pieces[0].strip()] = pieces[1].strip()
+
+proc toFrameworkRequest*(request: asynchttpserver.Request): core.Request =
+  ## Convert wire data into the framework-neutral request snapshot.
+  result = newRequest($request.reqMethod, request.url.path, request.body)
+  result.query = initTable[string, string]()
+  for key, value in decodeQuery(request.url.query):
+    result.query[key] = value
+  result.headers = copyHeaders(request.headers)
+  result.cookies = initTable[string, string]()
+  if result.headers.hasKey("cookie"):
+    result.cookies = parseCookies(result.headers["cookie"])
+
+proc toHttpHeaders*(response: Response): HttpHeaders =
+  ## Convert response headers while preserving the core's explicit values.
+  result = newHttpHeaders()
+  for key, value in response.headers:
+    result[key] = value
+
+proc handleRequest(network: NetworkServer,
+                   request: asynchttpserver.Request): Future[void] {.async, gcsafe.} =
+  ## Keep the network callback tiny: translate, dispatch, translate back.
+  let frameworkRequest = toFrameworkRequest(request)
+  let response = await network.app.dispatch(frameworkRequest)
+  await request.respond(response.status, response.body, toHttpHeaders(response))
+
+proc newNetworkServer*(app: Application, host = "127.0.0.1",
+                       port = 8000): NetworkServer =
+  ## Construct without binding. Tests can choose an ephemeral port later.
+  NetworkServer(app: app, server: newAsyncHttpServer(), host: host,
+                port: Port(port))
+
+proc serve*(network: NetworkServer): Future[void] {.async.} =
+  ## Bind and serve until close() is called. Startup hooks run after binding.
+  network.app.startup()
+  let callback = proc(request: asynchttpserver.Request): Future[void] {.async, gcsafe.} =
+    await handleRequest(network, request)
+  await network.server.serve(network.port, callback, network.host)
+
+proc close*(network: NetworkServer) =
+  ## Close the socket and run shutdown hooks exactly once.
+  network.server.close()
+  network.app.shutdown()
+
+proc boundPort*(network: NetworkServer): Port =
+  ## Expose the actual port for ephemeral-port tests and embedding hosts.
+  network.server.getPort()
