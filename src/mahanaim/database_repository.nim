@@ -833,7 +833,7 @@ proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow {.gc
     let idRows = repository.adapter.execute(CompiledQuery(
       sql: "SELECT last_insert_rowid()", parameters: @[]))
     if idRows.len > 0 and idRows[0].len > 0:
-      let found = repository.find(idRows[0][0].text)
+      let found = repository.find(scalarText(idRows[0][0]))
       if found.isSome:
         return found.get()
   let id = repository.rowId(row)

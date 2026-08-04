@@ -5,7 +5,7 @@
 ## keeps PostgreSQL and future drivers interchangeable with the same contract.
 
 import std/[options, strutils]
-import pkg/db_connector/db_sqlite
+import pkg/db_connector/[db_sqlite, sqlite3]
 import ./database
 
 type
@@ -26,7 +26,7 @@ proc newSqliteDatabaseAdapter*(path = ":memory:"): SqliteDatabaseAdapter =
 proc close*(adapter: SqliteDatabaseAdapter) =
   ## Closing is idempotent so application shutdown hooks can safely call it.
   if not adapter.isNil and not adapter.connection.isNil:
-    adapter.connection.close()
+    db_sqlite.close(adapter.connection)
     adapter.connection = nil
 
 proc bindValue(statement: SqlPrepared, index: int, value: SqlValue) =
@@ -39,22 +39,98 @@ proc bindValue(statement: SqlPrepared, index: int, value: SqlValue) =
   of sqlBoolean: statement.bindParam(index, if value.boolean: 1'i64 else: 0'i64)
   of sqlList: raise newException(ValueError, "SQLite bind received an unexpanded list")
 
-method execute*(adapter: SqliteDatabaseAdapter,
-                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
-  ## Execute SELECT or DML and return text-backed rows at the neutral boundary.
+proc sqliteValueKindForDeclaration*(declaredType: string): SqlValueKind =
+  ## SQLite has no single stable OID. Its declared type affinity is therefore
+  ## the portable metadata source for table projections and keeps the neutral
+  ## result contract independent from SQLite C handles.
+  let normalized = declaredType.toUpperAscii()
+  if normalized.contains("BOOL"):
+    return sqlBoolean
+  if normalized.contains("INT"):
+    return sqlInteger
+  if normalized.contains("REAL") or normalized.contains("FLOA") or
+      normalized.contains("DOUB") or normalized.contains("NUM") or
+      normalized.contains("DEC"):
+    return sqlFloat
+  sqlText
+
+proc sqliteValueKindForDriverType(typeCode: int32): SqlValueKind =
+  ## Expressions and aliases may not have a declared SQLite type. In that case
+  ## SQLite exposes the runtime storage class after the first `step` call.
+  case typeCode
+  of SQLITE_INTEGER: sqlInteger
+  of SQLITE_FLOAT: sqlFloat
+  else: sqlText
+
+proc sqliteValueForKind(value: string, kind: SqlValueKind): SqlValue =
+  ## Parse only declared scalar affinities. A failed conversion stays text so
+  ## malformed or extension values are observable instead of being corrupted.
+  case kind
+  of sqlBoolean:
+    booleanValue(value.toLowerAscii() in ["1", "true", "t", "yes"])
+  of sqlInteger:
+    try: integerValue(parseInt(value).int64)
+    except ValueError: textValue(value)
+  of sqlFloat:
+    try: floatValue(parseFloat(value))
+    except ValueError: textValue(value)
+  else: textValue(value)
+
+method executeResult*(adapter: SqliteDatabaseAdapter,
+                      query: CompiledQuery): DatabaseResult {.gcsafe.} =
+  ## Execute SELECT or DML and retain SQLite's result column metadata beside
+  ## rows. The small direct stepping loop is intentional: db_connector's
+  ## metadata iterator cannot accept an already-bound `SqlPrepared`, while the
+  ## framework must preserve typed parameter binding and NULL semantics.
   if adapter.isNil or adapter.connection.isNil:
     raise newException(ValueError, "SQLite adapter is closed")
   let statement = adapter.connection.prepare(query.sql)
   try:
     for index, value in query.parameters:
       bindValue(statement, index + 1, value)
-    for row in adapter.connection.fastRows(statement):
-      var converted: seq[SqlValue] = @[]
-      for value in row:
-        converted.add(textValue(value))
-      result.add(converted)
-  finally:
-    statement.finalize()
+  except CatchableError:
+    db_sqlite.finalize(statement)
+    raise
+  let rawStatement = statement.PStmt
+  defer: discard sqlite3.finalize(rawStatement)
+  let columnCount = column_count(rawStatement).int
+  var declaredTypes = newSeq[string](columnCount)
+  for index in 0 ..< columnCount:
+    let declared = column_decltype(rawStatement, index.int32)
+    declaredTypes[index] = if declared.isNil: "" else: $declared
+    result.columns.add(DatabaseColumnMetadata(
+      name: $column_name(rawStatement, index.int32),
+      kind: sqliteValueKindForDeclaration(declaredTypes[index]),
+      backendTypeId: 0))
+  var firstRow = true
+  while true:
+    let status = step(rawStatement)
+    if status == SQLITE_DONE:
+      break
+    if status != SQLITE_ROW:
+      raise newException(CatchableError, "SQLite query failed while stepping")
+    if firstRow:
+      ## Resolve expression projections such as `COUNT(*)` from the first
+      ## runtime value without overriding declared table-column affinity.
+      for index in 0 ..< columnCount:
+        if declaredTypes[index].strip().len == 0:
+          result.columns[index].kind = sqliteValueKindForDriverType(
+            column_type(rawStatement, index.int32))
+      firstRow = false
+    var converted: seq[SqlValue] = @[]
+    for index in 0 ..< columnCount:
+      if column_type(rawStatement, index.int32) == SQLITE_NULL:
+        converted.add(nullValue())
+      else:
+        converted.add(sqliteValueForKind($column_text(rawStatement,
+          index.int32), result.columns[index].kind))
+    result.rows.add(converted)
+
+method execute*(adapter: SqliteDatabaseAdapter,
+                query: CompiledQuery): seq[seq[SqlValue]] {.gcsafe.} =
+  ## Preserve the original row-only method while sharing the typed execution
+  ## path with callers that request metadata explicitly.
+  adapter.executeResult(query).rows
 
 proc execControl(adapter: SqliteDatabaseAdapter, statement: string) {.gcsafe.} =
   ## Keep lifecycle SQL centralized and free from caller-provided fragments.
@@ -143,7 +219,7 @@ proc migrate*(adapter: SqliteDatabaseAdapter,
         for _ in adapter.connection.fastRows(statement):
           discard
       finally:
-        statement.finalize())
+        db_sqlite.finalize(statement))
     result.add(currentMigration.name)
 
 proc rollbackLatest*(adapter: SqliteDatabaseAdapter,
@@ -176,5 +252,5 @@ proc rollbackLatest*(adapter: SqliteDatabaseAdapter,
       for _ in adapter.connection.fastRows(statement):
         discard
     finally:
-      statement.finalize())
+      db_sqlite.finalize(statement))
   some(name)

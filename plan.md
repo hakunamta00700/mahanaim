@@ -148,7 +148,7 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [-] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback 검증을 연결했고 source compile gate도 추가했다. CI PostgreSQL service에서 이를 실행하며, 현재 환경의 credential 부재로 local live 결과는 아직 확인하지 못했다.
+- [-] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback 검증을 연결했고 source compile gate도 추가했다. CI PostgreSQL service에서 이를 실행하며, 현재 환경의 credential 부재로 local live 결과는 아직 확인하지 못했다.
 
 ### API와 서버 렌더링
 

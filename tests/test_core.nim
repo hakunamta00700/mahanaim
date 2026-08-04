@@ -3017,9 +3017,17 @@ suite "Mahanaim core contracts":
     let selected = adapter.execute(CompiledQuery(sql:
       "SELECT \"id\", \"name\" FROM \"users\"", parameters: @[]))
     check selected.len == 1
-    check selected[0][0].kind == sqlText
-    check selected[0][0].text == "1"
+    check selected[0][0].kind == sqlInteger
+    check selected[0][0].integer == 1
     check selected[0][1].text == "Ada"
+    let typedResult = adapter.executeResult(CompiledQuery(sql:
+      "SELECT \"id\", \"name\" FROM \"users\"", parameters: @[]))
+    check typedResult.columns.len == 2
+    check typedResult.columns[0].name == "id"
+    check typedResult.columns[0].kind == sqlInteger
+    check typedResult.columns[1].name == "name"
+    check typedResult.columns[1].kind == sqlText
+    check typedResult.rows[0][0].integer == 1
 
     adapter.withTransaction(proc() =
       discard adapter.execute(CompiledQuery(sql:
