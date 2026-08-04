@@ -22,6 +22,22 @@ type
     ## validation, response status, and route registration.
     repository*: DatabaseRepository
 
+  RelationLoader* = ref object of RootObj
+    ## A deferred relation operation; rows are fetched only by an explicit
+    ## `load` call so the caller can choose lazy or eager behavior.
+
+  DatabaseRelationLoader* = ref object of RelationLoader
+    repository*: DatabaseRepository
+    relation*: ModelRelation
+    target*: ModelMetadata
+    query*: SelectQuery
+
+method load*(loader: RelationLoader,
+             localValue: SqlValue): seq[ResourceRow] {.base, gcsafe.} =
+  discard loader
+  discard localValue
+  raise newException(ValueError, "Relation loader does not implement load")
+
 proc newDatabaseRepository*(metadata: ModelMetadata,
                             adapter: DatabaseAdapter): DatabaseRepository =
   ## Keep repository construction explicit so a connection cannot be hidden in
@@ -433,6 +449,39 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
       else:
         baseRow[relation.name] = newJNull()
     result.add(baseRow)
+
+proc newLazyRelationLoader*(repository: DatabaseRepository,
+                            relation: ModelRelation,
+                            target: ModelMetadata,
+                            query = SelectQuery()): DatabaseRelationLoader =
+  ## Construct the deferred boundary without touching the database. This
+  ## keeps N+1 behavior visible at the call site and preserves one explicit
+  ## responsibility for query execution in the loader.
+  if repository.isNil:
+    raise newException(ValueError, "Lazy relation loader requires a repository")
+  if relation.kind == relationManyToMany:
+    raise newException(ValueError,
+      "Many-to-many lazy loading requires an explicit through relation")
+  if relation.localField.len == 0 or relation.foreignField.len == 0:
+    raise newException(ValueError, "Relation fields are required")
+  if repository.fieldFor(relation.localField).isNone or
+      target.field(relation.foreignField).isNone:
+    raise newException(ValueError, "Unknown lazy relation field")
+  DatabaseRelationLoader(repository: repository, relation: relation,
+    target: target, query: query)
+
+method load*(loader: DatabaseRelationLoader,
+             localValue: SqlValue): seq[ResourceRow] {.gcsafe.} =
+  ## Execute only at the first explicit load call and reuse ordinary target
+  ## repository mapping for typed fields and selected projections.
+  if loader.isNil:
+    raise newException(ValueError, "Relation loader is nil")
+  let targetRepository = newDatabaseRepository(loader.target,
+    loader.repository.adapter)
+  var query = loader.query
+  query.filters.add(QueryFilter(field: loader.relation.foreignField,
+    operator: filterEqual, value: localValue))
+  targetRepository.list(query)
 
 proc idFilter(repository: DatabaseRepository, id: string): QueryFilter =
   let field = repository.fieldFor(repository.idField)
