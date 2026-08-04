@@ -13,6 +13,7 @@ type
   RedisValkeyRespClient* = ref object of RateLimitCounterClient
     host*: string
     port*: Port
+    timeoutMs*: int
     transport*: RespCommandTransport
     socket: Socket
     lock: Lock
@@ -74,15 +75,19 @@ proc parseCounterResponse*(payload: string): RateLimitCounterResult =
   RateLimitCounterResult(count: values[0], ttlSeconds: values[1])
 
 proc newRedisValkeyRespClient*(host = "127.0.0.1", port = Port(6379),
+                               timeoutMs = 5000,
                                transport: RespCommandTransport = nil):
     RedisValkeyRespClient =
   ## Connection is lazy so importing/configuring the adapter does not require
   ## a running Redis server; the first real request establishes the socket.
   if host.strip().len == 0:
     raise newException(ValueError, "Redis host cannot be empty")
+  if timeoutMs < 1:
+    raise newException(ValueError, "Redis timeout must be positive")
   new(result)
   result.host = host
   result.port = port
+  result.timeoutMs = timeoutMs
   result.transport = transport
   result.socket = nil
   initLock(result.lock)
@@ -119,7 +124,7 @@ proc receiveCounterResponse(client: RedisValkeyRespClient):
   ## fail immediately rather than being retried as if they were network data.
   var payload = ""
   while payload.len < 64 * 1024:
-    let chunk = client.socket.recv(4096)
+    let chunk = client.socket.recv(4096, client.timeoutMs)
     if chunk.len == 0:
       raise newException(CatchableError, "Redis connection closed")
     payload.add(chunk)

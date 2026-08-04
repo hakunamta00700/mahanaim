@@ -381,7 +381,7 @@
 - [x] transport library를 핵심에 강제하지 않는 `RateLimitCounterClient` atomic increment/TTL 계약을 추가했다.
 - [x] `RedisValkeyRateLimitStore`가 server-side count/TTL을 quota decision으로 변환하고 bounded immediate retry를 적용한다.
 - [x] retry 성공, quota 초과, retry exhaustion의 fail-closed 503 회귀 테스트를 추가했다.
-- [-] 실제 RESP/network client와 server TTL 파싱을 추가했다. live Redis fixture, reconnect와 clock/eviction 운영 정책은 남아 있다.
+- [-] 실제 RESP/network client, server TTL 파싱과 loopback live socket fixture를 추가했다. Redis/Valkey compatibility, reconnect와 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backpressure 1차
 

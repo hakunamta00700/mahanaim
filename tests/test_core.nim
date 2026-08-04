@@ -6,6 +6,7 @@
 
 import std/[asyncdispatch, asyncnet, httpcore, json, options, os, strutils, tables, times,
             unittest, uri]
+import std/net
 import std/httpclient as hc
 import std/concurrency/atomics
 import pkg/cookiejar
@@ -23,6 +24,33 @@ type MacroUser = object
 type FakeDependencyService = ref object of DependencyService
 type FakeDatabaseAdapter = ref object of DatabaseAdapter
   events: seq[string]
+
+type RespFixtureState = object
+  ## Only copy-safe state crosses the native thread boundary.
+  port: Atomic[int]
+  ready: Atomic[bool]
+  received: Atomic[bool]
+
+proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
+  ## Minimal loopback RESP server: enough protocol surface to test the real
+  ## socket adapter without requiring an externally installed Redis daemon.
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  var client: owned(Socket)
+  server.accept(client)
+  var command = ""
+  while not command.endsWith("$2\r\n60\r\n") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  if command.startsWith("*5\r\n$4\r\nEVAL\r\n"):
+    state.received.store(true)
+  client.send("*2\r\n:4\r\n:56\r\n")
+  client.close()
+  server.close()
 
 proc newFakeDependencyService(): DependencyService {.gcsafe.} =
   FakeDependencyService()
@@ -1999,6 +2027,23 @@ suite "Mahanaim core contracts":
       discard parseCounterResponse("*1\r\n:1\r\n")
     expect CatchableError:
       discard parseCounterResponse("-ERR unavailable\r\n")
+
+  test "Redis RESP client completes a real loopback socket exchange":
+    var state: RespFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.received.store(false)
+    var worker: Thread[ptr RespFixtureState]
+    createThread(worker, runRespFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    let client = newRedisValkeyRespClient(port = Port(state.port.load()))
+    let counter = client.incrementFixedWindow("live:key", 60)
+    client.close()
+    joinThread(worker)
+    check state.received.load()
+    check counter.count == 4
+    check counter.ttlSeconds == 56
 
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [

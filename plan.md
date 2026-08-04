@@ -17,7 +17,7 @@
 
 - [x] 원자적 remote counter 결과를 표현하는 `RateLimitCounterClient` 계약과 `RedisValkeyRateLimitStore` adapter를 제공한다.
 - [x] bounded immediate retry와 backend 오류 fail-closed 503 경로를 회귀 테스트한다.
-- [-] 실제 Redis/Valkey RESP client와 server-side TTL 응답 관측을 추가했다. live integration, timeout/reconnect와 eviction 운영 지침은 남아 있다.
+- [-] Redis/Valkey RESP client, server-side TTL 응답과 loopback live socket fixture를 추가했다. 실제 Redis/Valkey compatibility, reconnect와 eviction 운영 지침은 남아 있다.
 
 상태: 진행 중  
 작성일: 2026-08-04  
