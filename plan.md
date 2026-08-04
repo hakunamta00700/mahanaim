@@ -126,6 +126,7 @@
 - [x] registry 기반 nested DTO serializer를 제공한다.
 - [x] object field에서 backend-neutral metadata를 생성하는 model macro를 제공한다.
 - [x] 표준 serialization adapter 확장점과 DateTime·UUID·file metadata 정규화/검증을 제공한다.
+- [x] JSON serializer 결과를 결정적 MessagePack binary로 인코딩하는 adapter를 제공한다.
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [ ] SQLite/PostgreSQL query adapter, migration up/down, transaction, relation query를 제공한다.
 

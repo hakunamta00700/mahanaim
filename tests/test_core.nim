@@ -1537,6 +1537,20 @@ suite "Mahanaim core contracts":
     check not invalid.valid
     check invalid.errors[0].code == "adapter_error"
 
+  test "MessagePack encoder is deterministic and preserves serializer validity":
+    let document = parseJson("{\"b\":true,\"a\":1,\"items\":[null,\"ok\"]}")
+    let encoded = toMessagePack(document)
+    ## The map has three keys and sorted encoding starts with `a`.
+    check ord(encoded[0]) == 0x83
+    check ord(encoded[1]) == 0xA1
+    check encoded[2] == 'a'
+    check toMessagePack(document) == encoded
+    let invalid = SerializationResult(document: document,
+      errors: @[SerializationIssue(field: "a", code: "invalid",
+        message: "invalid")])
+    expect ValueError:
+      discard serializeMessagePack(invalid)
+
   test "database query compiler binds values for SQLite and PostgreSQL":
     let query = SelectQuery(
       table: "users",
