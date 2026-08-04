@@ -28,6 +28,15 @@ type
     body*: string
     pathParams*: Table[string, string]
     cancellation*: CancellationToken
+    ## Authentication is adapter-neutral: security middleware binds a verified
+    ## session subject here, while handlers never inspect cookie syntax.
+    auth*: AuthContext
+
+  AuthContext* = object
+    ## An empty subject means anonymous. The boolean makes the contract
+    ## explicit for handlers that should not infer identity from string state.
+    authenticated*: bool
+    subject*: string
 
   ResponseRepresentation* = enum
     ## Adapters use this hint to choose buffered HTTP, stream, SSE, or
@@ -130,6 +139,7 @@ proc newRequest*(httpMethod, path: string, body = ""): Request =
   result.headers = emptyTable()
   result.cookies = emptyTable()
   result.pathParams = emptyTable()
+  result.auth = AuthContext(authenticated: false, subject: "")
   new(result.cancellation)
   result.cancellation.cancelled.store(false)
 

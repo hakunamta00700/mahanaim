@@ -124,6 +124,12 @@ proc checkSecurityPolicy*(policy: SecurityPolicy): CheckReport =
     result.addError("security.csrf-cookie.empty", "CSRF cookie name must not be empty")
   if policy.csrfEnabled and policy.csrfHeaderName.strip().len == 0:
     result.addError("security.csrf-header.empty", "CSRF header name must not be empty")
+  if policy.session.enabled and policy.session.secret.len < 32:
+    result.addError("security.session-secret.weak",
+      "enabled session policy requires a secret of at least 32 characters")
+  if policy.session.enabled and policy.session.cookieName.strip().len == 0:
+    result.addError("security.session-cookie.empty",
+      "enabled session policy requires a cookie name")
   for host in policy.allowedHosts:
     if host.strip().len == 0:
       result.addError("security.host.empty", "allowed hosts must not contain empty values")

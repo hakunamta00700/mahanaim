@@ -10,6 +10,16 @@ import nimcrypto
 import ./core
 
 type
+  SessionPolicy* = object
+    ## Bind a verified signed session cookie to the framework request. This is
+    ## intentionally a small authentication seam; a database/session store
+    ## can replace cookie issuance without changing handler contracts.
+    enabled*: bool
+    cookieName*: string
+    secret*: string
+    secureCookie*: bool
+    requireAuthentication*: bool
+
   SignedValueVerification* = object
     ## Keyring verification reports whether a value was signed by a legacy key
     ## so callers can rotate the cookie on the next successful response.
@@ -32,6 +42,7 @@ type
     csrfCookieName*: string
     csrfHeaderName*: string
     csrfCookieSecure*: bool
+    session*: SessionPolicy
     contentSecurityPolicy*: string
     frameOptions*: string
     referrerPolicy*: string
@@ -51,6 +62,8 @@ proc defaultSecurityPolicy*(): SecurityPolicy =
     csrfCookieName: "mahanaim_csrf",
     csrfHeaderName: "x-csrf-token",
     csrfCookieSecure: false,
+    session: SessionPolicy(enabled: false, cookieName: "mahanaim_session",
+      secret: "", secureCookie: true, requireAuthentication: false),
     contentSecurityPolicy: "default-src 'self'",
     frameOptions: "DENY",
     referrerPolicy: "strict-origin-when-cross-origin")
@@ -211,6 +224,35 @@ proc signedCookieValue*(request: Request, name, secret: string): Option[string] 
     return none(string)
   verifySignedValue(secret, request.cookies[name])
 
+proc bindSession*(request: var Request, policy: SessionPolicy): bool =
+  ## Verify and bind one signed session subject without exposing cookie format
+  ## to handlers. Invalid credentials always become anonymous rather than
+  ## leaking whether a cookie was malformed, expired, or signed by another
+  ## deployment key.
+  request.auth = AuthContext(authenticated: false, subject: "")
+  if not policy.enabled or policy.secret.len == 0:
+    return false
+  let subject = signedCookieValue(request, policy.cookieName, policy.secret)
+  if subject.isSome and subject.get().strip().len > 0:
+    request.auth = AuthContext(authenticated: true, subject: subject.get())
+    return true
+  false
+
+proc setSessionCookie*(response: var Response, policy: SessionPolicy,
+                       subject: string, maxAge = -1) =
+  ## Issue a framework-owned signed session cookie after an auth flow succeeds.
+  if not policy.enabled or policy.secret.len == 0:
+    raise newException(ValueError, "Session policy is not configured")
+  if subject.strip().len == 0:
+    raise newException(ValueError, "Session subject must not be empty")
+  response.setSignedCookie(policy.cookieName, subject, policy.secret,
+    httpOnly = true, secure = policy.secureCookie, sameSite = "Lax", maxAge)
+
+proc clearSessionCookie*(response: var Response, policy: SessionPolicy) =
+  ## Expire a session without allowing callers to construct unsafe cookie text.
+  response.setCookie(policy.cookieName, "", httpOnly = true,
+    secure = policy.secureCookie, sameSite = "Lax", maxAge = 0)
+
 proc csrfToken*(policy: SecurityPolicy): string =
   ## Create a signed token for server-rendered forms or API clients.
   if policy.csrfSecret.len == 0:
@@ -254,6 +296,22 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       var rejected = textResponse("Request Entity Too Large", Http413)
       addSecurityHeaders(rejected, policy)
       return rejected
+    var requestWithAuth = request
+    if policy.session.enabled:
+      if policy.session.secret.len == 0 or
+         policy.session.cookieName.strip().len == 0:
+        var rejected = textResponse("Session Policy Misconfigured", Http500)
+        addSecurityHeaders(rejected, policy)
+        return rejected
+      let authenticated = requestWithAuth.bindSession(policy.session)
+      ## CORS preflight has no application credentials by design; rejecting it
+      ## here would prevent browsers from discovering the authenticated route.
+      let isCorsPreflight = request.httpMethod == "OPTIONS" and origin.isSome
+      if policy.session.requireAuthentication and not authenticated and
+         not isCorsPreflight:
+        var rejected = textResponse("Authentication Required", Http401)
+        addSecurityHeaders(rejected, policy)
+        return rejected
     let rateLimit = consumeRateLimit(rateLimitState, policy)
     if rateLimit.enabled and not rateLimit.allowed:
       var rejected = textResponse("Too Many Requests", Http429)
@@ -280,7 +338,7 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
       addCorsHeaders(preflight, policy, origin.get())
       addSecurityHeaders(preflight, policy)
       return preflight
-    var response = await next(request)
+    var response = await next(requestWithAuth)
     if rateLimit.enabled:
       addRateLimitHeaders(response, policy, rateLimit.remaining)
     if policy.csrfEnabled and

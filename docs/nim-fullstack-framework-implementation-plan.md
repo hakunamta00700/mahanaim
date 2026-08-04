@@ -106,21 +106,29 @@
 - [x] CORS preflight `OPTIONS` 204 응답을 추가했다.
 - [x] request body size limit과 413 응답을 추가했다.
 - [x] CORS 허용·거부·preflight·oversized body 회귀 테스트를 추가했다.
-- [ ] 기본 활성화 정책, session binding, rate limit, timeout policy는 남아 있다.
+- [ ] 기본 활성화 정책, rate limit, timeout policy는 남아 있다.
 
 ### 2026-08-04 — P0 보안 기본값 3차
 
 - [x] HMAC-SHA256 signed CSRF token과 보안 난수 nonce 생성을 추가했다.
 - [x] safe method 응답의 CSRF cookie 발급과 변경 method의 cookie/header 검증을 추가했다.
 - [x] constant-time signature 비교와 위조·누락 토큰 회귀 테스트를 추가했다.
-- [ ] 기본 활성화 정책, session binding, signed auth cookie와 rate limit은 남아 있다.
+- [ ] 기본 활성화 정책, signed auth cookie rotation과 rate limit은 남아 있다.
 
 ### 2026-08-04 — P0 보안 기본값 4차
 
 - [x] CSRF와 독립적으로 재사용 가능한 HMAC signed value·signed cookie API를 추가했다.
 - [x] signed cookie의 HttpOnly·Secure 기본값과 secret 누락·위조 검증을 테스트했다.
 - [x] Nimble test task가 lockfile dependency path를 명시해 CI와 로컬 실행을 일치시킨다.
-- [ ] session binding, signed auth cookie rotation, rate limit은 남아 있다.
+- [ ] signed auth cookie rotation과 rate limit은 남아 있다.
+
+### 2026-08-04 — P0 session binding 1차
+
+- [x] `SessionPolicy`와 `AuthContext`를 추가해 signed session cookie의 subject를 공통 `Request`에 바인딩했다.
+- [x] `requireAuthentication` 정책을 추가해 인증되지 않은 route 요청을 401로 거부한다.
+- [x] session cookie 발급·삭제 helper와 secure cookie 속성, secret/cookie-name pre-flight 검사를 추가했다.
+- [x] 유효·위조·누락 session, 인증 route, cookie lifecycle 회귀 테스트를 추가했다.
+- [ ] 분산 session 저장소, session rotation/탈취 대응, 일반 auth backend 연동은 남아 있다.
 
 ### 2026-08-04 — P0 라우팅 기반 1차
 
@@ -203,7 +211,7 @@
 - [x] 앱별 fixed-window rate limit 상태와 비활성화 가능한 `SecurityPolicy` 설정을 추가했다.
 - [x] 초과 요청을 429로 거부하고 `Retry-After` 및 quota headers를 반환한다.
 - [x] 정책 범위와 invalid window pre-flight 검사를 회귀 테스트로 검증했다.
-- [ ] session binding, auth-cookie rotation, 분산 rate limit 저장소와 retry/backpressure 정책은 남아 있다.
+- [ ] 분산 rate limit 저장소와 retry/backpressure 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backend 1차
 
@@ -236,7 +244,8 @@
 - [x] primary/legacy secret keyring 검증과 legacy key index 결과를 추가했다.
 - [x] legacy signed cookie를 primary key로 재발급하는 명시적 rotation helper를 추가했다.
 - [x] legacy acceptance, invalid key rejection, rotated signature 회귀 테스트를 추가했다.
-- [ ] session/auth middleware integration과 key retirement 운영 정책은 남아 있다.
+- [x] session/auth middleware integration의 1차 signed subject binding을 추가했다.
+- [ ] key retirement 운영 정책과 완전한 auth backend/session rotation은 남아 있다.
 
 ### 2026-08-04 — P0 router prefix index 1차
 

@@ -345,6 +345,52 @@ suite "Mahanaim core contracts":
     let forgedResponse = waitFor app.dispatch(forgedRequest)
     check forgedResponse.status == Http403
 
+  test "session policy binds a signed subject and protects authenticated routes":
+    var policy = defaultSecurityPolicy()
+    policy.session.enabled = true
+    policy.session.cookieName = "mahanaim_session"
+    policy.session.secret = "session-secret-that-is-long-enough-for-checks"
+    policy.session.requireAuthentication = true
+    let app = newApplication(defaultConfig(), policy)
+    proc me(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      return textResponse(request.auth.subject)
+    app.get("/me", "current-user", me)
+
+    let anonymous = waitFor app.dispatch(newRequest("GET", "/me"))
+    check anonymous.status == Http401
+    check anonymous.body == "Authentication Required"
+
+    var authenticated = newRequest("GET", "/me")
+    authenticated.cookies[policy.session.cookieName] =
+      signValue(policy.session.secret, "user-42")
+    let accepted = waitFor app.dispatch(authenticated)
+    check accepted.status == Http200
+    check accepted.body == "user-42"
+
+    var preflight = newRequest("OPTIONS", "/me")
+    preflight.headers["origin"] = "https://app.example.com"
+    let preflightResponse = waitFor app.dispatch(preflight)
+    check preflightResponse.status == Http204
+
+    var invalid = newRequest("GET", "/me")
+    invalid.cookies[policy.session.cookieName] = "tampered.value"
+    check (waitFor app.dispatch(invalid)).status == Http401
+
+    var loginResponse = textResponse("logged in")
+    setSessionCookie(loginResponse, policy.session, "user-42")
+    check loginResponse.header("Set-Cookie").get().startsWith(
+      "mahanaim_session=")
+    var logoutResponse = textResponse("logged out")
+    clearSessionCookie(logoutResponse, policy.session)
+    check logoutResponse.header("Set-Cookie").get().contains("Max-Age=0")
+
+    var invalidPolicy = defaultSecurityPolicy()
+    invalidPolicy.session.enabled = true
+    invalidPolicy.session.secret = "short"
+    let invalidReport = checkSecurityPolicy(invalidPolicy)
+    check not invalidReport.passed
+    check invalidReport.issues[0].code == "security.session-secret.weak"
+
   test "signed cookie helpers enforce integrity and secure defaults":
     let secret = "cookie-signing-secret-that-is-long-enough"
     let signed = signValue(secret, "user.42")
