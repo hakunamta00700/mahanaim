@@ -73,7 +73,11 @@ proc renderForm*(form: FormState, action = "", httpMethod = "post",
     escapeHtml(httpMethod.toLowerAscii()) & "\">"
   result.add(csrfHiddenInput(csrfPolicy))
   for field in form.fields:
-    let inputType = if field.inputType == itInteger: "number" else: "text"
+    let inputType = case field.inputType
+      of itInteger, itFloat: "number"
+      of itBoolean: "checkbox"
+      of itJson: "textarea"
+      of itString: "text"
     result.add("<label for=\"" & escapeHtml(field.name) & "\">" &
       escapeHtml(field.label) & "</label>")
     result.add("<input id=\"" & escapeHtml(field.name) & "\" name=\"" &

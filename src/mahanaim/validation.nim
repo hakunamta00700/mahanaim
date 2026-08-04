@@ -14,7 +14,7 @@ type
     flPath, flQuery, flHeader, flBody
 
   InputType* = enum
-    itString, itInteger
+    itString, itInteger, itFloat, itBoolean, itJson
 
   FieldSpec* = object
     ## A single input declaration and its validation constraints.
@@ -162,6 +162,19 @@ proc validate*(request: Request, schema: openArray[FieldSpec]): ValidationResult
           result.addIssue(spec, "max_value", "Value is above the maximum")
       except ValueError:
         result.addIssue(spec, "invalid_integer", "Value must be an integer")
+    of itFloat:
+      try:
+        discard parseFloat(raw)
+      except ValueError:
+        result.addIssue(spec, "invalid_float", "Value must be a number")
+    of itBoolean:
+      if raw.toLowerAscii() notin ["true", "false", "1", "0"]:
+        result.addIssue(spec, "invalid_boolean", "Value must be a boolean")
+    of itJson:
+      try:
+        discard parseJson(raw)
+      except JsonParsingError:
+        result.addIssue(spec, "invalid_json", "Value must be valid JSON")
     result.values[spec.name] = raw
 
 proc valid*(validation: ValidationResult): bool =

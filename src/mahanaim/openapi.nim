@@ -8,7 +8,12 @@ import ./validation
 
 proc fieldSchema(field: FieldSpec): JsonNode =
   result = newJObject()
-  result["type"] = newJString(if field.inputType == itInteger: "integer" else: "string")
+  result["type"] = newJString(case field.inputType
+    of itString: "string"
+    of itInteger: "integer"
+    of itFloat: "number"
+    of itBoolean: "boolean"
+    of itJson: "object")
   if field.inputType == itString:
     if field.minLength >= 0: result["minLength"] = newJInt(field.minLength)
     if field.maxLength >= 0: result["maxLength"] = newJInt(field.maxLength)

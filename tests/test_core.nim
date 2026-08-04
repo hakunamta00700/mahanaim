@@ -2152,3 +2152,47 @@ suite "Mahanaim core contracts":
     check generated.fields[0].kind == modelInteger
     check generated.fields[1].kind == modelString
     check generated.fields[2].kind == modelBoolean
+
+  test "model metadata drives validation forms and OpenAPI schema":
+    var metadata = newModelMetadata("Profile", "profiles")
+    metadata.addField(newModelField("id", modelInteger,
+      primaryKey = true))
+    metadata.addField(newModelField("name", modelString, maxLength = 24))
+    metadata.addField(newModelField("score", modelFloat))
+    metadata.addField(newModelField("active", modelBoolean))
+    metadata.addField(newModelField("settings", modelJson))
+    metadata.addField(newModelField("nickname", modelString, nullable = true))
+
+    let schema = modelInputSchema(metadata, includePrimaryKey = false)
+    check schema.len == 5
+    check schema[0].name == "name"
+    check schema[0].required
+    check schema[0].maxLength == 24
+    check schema[1].inputType == itFloat
+    check schema[2].inputType == itBoolean
+    check schema[3].inputType == itJson
+    check not schema[4].required
+
+    var request = newRequest("POST", "/profiles")
+    request.headers["Content-Type"] = "application/json"
+    request.body = "{" &
+      "\"name\":\"Ada\",\"score\":\"not-a-number\"," &
+      "\"active\":\"maybe\",\"settings\":\"{broken\"}"
+    let validation = request.validate(schema)
+    check not validation.valid
+    check validation.errors[0].code == "invalid_float"
+    check validation.errors[1].code == "invalid_boolean"
+    check validation.errors[2].code == "invalid_json"
+
+    let form = bindModelForm(request, metadata)
+    check form.fields.len == 5
+    check form.fields[0].name == "name"
+    check form.fields[1].errors[0] == "Value must be a number"
+
+    let document = modelOpenApiDocument("Profiles", "1.0.0", metadata,
+      includePrimaryKey = false)
+    let properties = document["paths"]["/generated"]["post"][
+      "requestBody"]["content"]["application/json"]["schema"]["properties"]
+    check properties["score"]["type"].getStr() == "number"
+    check properties["active"]["type"].getStr() == "boolean"
+    check properties["settings"]["type"].getStr() == "object"
