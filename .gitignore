@@ -7,6 +7,9 @@ nimcache/
 *.dll
 *.so
 *.dylib
+# Linux Nim build outputs created by cross-platform live gates
+/mahanaim_cli
+/tests/test_redis_live
 
 # Local configuration and secrets
 .env

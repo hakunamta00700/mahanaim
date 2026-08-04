@@ -8,7 +8,7 @@ import std/[locks, net, strutils]
 import ./security
 
 type
-  RespCommandTransport* = proc(payload: string): string
+  RespCommandTransport* = proc(payload: string): string {.gcsafe.}
 
   RedisServerFlavor* = enum
     ## INFO exposes a different version key for Redis and Valkey. Keeping the
@@ -302,14 +302,18 @@ proc receiveRespFrame(client: RedisValkeyRespClient): string =
     except ValueError as error:
       if not error.msg.startsWith("incomplete RESP"):
         raise
-    let chunk = client.socket.recv(4096, client.timeoutMs)
+    ## `net.recv(size, timeout)` does not have identical short-read behavior
+    ## across the supported C runtimes. Reading one byte keeps the timeout
+    ## contract portable; the frame parser still returns as soon as a complete
+    ## RESP value has been accumulated and preserves any following bytes.
+    let chunk = client.socket.recv(1, client.timeoutMs)
     if chunk.len == 0:
       raise newException(CatchableError, "Redis connection closed")
     payload.add(chunk)
   raise newException(ValueError, "Redis RESP response exceeds maximum size")
 
 proc executeCommandLocked(client: RedisValkeyRespClient,
-                          command: string): string =
+                          command: string): string {.gcsafe.} =
   if client.transport != nil:
     return client.transport(command)
   client.connectIfNeeded()
@@ -392,7 +396,7 @@ proc inspectRedisCompatibility*(client: RedisValkeyRespClient):
   result.supportsRequiredCommands = missingCommands.len == 0
 
 method incrementFixedWindow*(client: RedisValkeyRespClient, key: string,
-                             windowSeconds: int): RateLimitCounterResult =
+                             windowSeconds: int): RateLimitCounterResult {.gcsafe.} =
   if client.isNil:
     raise newException(ValueError, "Redis RESP client is required")
   let command = encodeFixedWindowCommand(key, windowSeconds)

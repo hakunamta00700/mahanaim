@@ -246,7 +246,7 @@ proc newRateLimitState(): RateLimitState =
   result.windowStarted = getMonoTime()
 
 method consume*(store: RateLimitStore, key: string, limit,
-                windowSeconds: int): RateLimitDecision {.base.} =
+                windowSeconds: int): RateLimitDecision {.base, gcsafe.} =
   ## A base store fails explicitly instead of silently allowing requests.
   discard store
   discard key
@@ -255,7 +255,7 @@ method consume*(store: RateLimitStore, key: string, limit,
   raise newException(ValueError, "RateLimitStore.consume is not implemented")
 
 method incrementFixedWindow*(client: RateLimitCounterClient, key: string,
-                             windowSeconds: int): RateLimitCounterResult {.base.} =
+                             windowSeconds: int): RateLimitCounterResult {.base, gcsafe.} =
   ## A concrete client should execute an atomic INCR/EXPIRE operation or an
   ## equivalent Lua script and return the server-side count and TTL.
   discard client
@@ -276,7 +276,7 @@ proc newRedisValkeyRateLimitStore*(client: RateLimitCounterClient,
   result.maxRetries = maxRetries
 
 method consume*(store: RedisValkeyRateLimitStore, key: string, limit,
-                windowSeconds: int): RateLimitDecision =
+                windowSeconds: int): RateLimitDecision {.gcsafe.} =
   ## Retry only the atomic command. If every attempt fails, propagate the
   ## backend error so security middleware returns a fail-closed 503 response.
   var lastError: ref CatchableError
@@ -339,7 +339,7 @@ proc evictOldestLocked(store: InMemoryRateLimitStore) =
     store.windows.del(oldestKey)
 
 method consume*(store: InMemoryRateLimitStore, key: string, limit,
-                windowSeconds: int): RateLimitDecision =
+                windowSeconds: int): RateLimitDecision {.gcsafe.} =
   if store.isNil or key.len == 0 or limit < 1 or windowSeconds < 1:
     raise newException(ValueError,
       "in-memory rate limit key, limit, and window must be valid")

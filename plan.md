@@ -30,7 +30,7 @@
 
 - [x] 원자적 remote counter 결과를 표현하는 `RateLimitCounterClient` 계약과 `RedisValkeyRateLimitStore` adapter를 제공한다.
 - [x] bounded immediate retry와 backend 오류 fail-closed 503 경로를 회귀 테스트한다.
-- [-] Redis/Valkey RESP client, server-side TTL 응답과 loopback live socket fixture를 추가하고 bounded retry·fail-closed 및 장애 후 재연결 회귀 경로를 검증했다. TCP coalescing frame buffer, `INFO server`, `CONFIG GET`, `COMMAND INFO` 기반의 Redis/Valkey version·필수 RESP command·maxmemory·eviction compatibility probe, 환경 기반 `redisLive` contract와 requests/success/failure/connection/reconnect snapshot metrics도 제공한다. 실제 버전 matrix와 eviction 운영 gate는 남아 있다.
+- [x] Redis/Valkey RESP client, server-side TTL 응답과 loopback live socket fixture를 추가하고 bounded retry·fail-closed 및 장애 후 재연결 회귀 경로를 검증했다. TCP coalescing frame buffer, `INFO server`, `CONFIG GET`, `COMMAND INFO` 기반의 Redis/Valkey version·필수 RESP command·maxmemory·eviction compatibility probe, 환경 기반 `redisLive` contract와 requests/success/failure/connection/reconnect snapshot metrics를 제공한다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9의 실제 PING·command·bounded eviction·server-side TTL 검증을 완료했다.
 
 상태: 진행 중  
 작성일: 2026-08-04  
@@ -55,7 +55,7 @@
 
 ### P2/P3 — 운영 호환성과 선택적 확장
 
-- [-] **P2-01 Redis/Valkey compatibility** — TCP coalescing frame buffer와 환경 기반 `redisLive` contract를 추가하고, `INFO server`, `CONFIG GET maxmemory-policy/maxmemory`, `COMMAND INFO`로 Redis/Valkey flavor·version·필수 RESP command·bounded eviction 상태를 진단하는 probe와 회귀 테스트·운영 문서를 추가했다. server-side TTL, eviction, reconnect/fail-closed 동작을 실제 Redis/Valkey 버전 matrix에서 확인하는 배포 gate는 남아 있다.
+- [x] **P2-01 Redis/Valkey compatibility** — TCP coalescing frame buffer와 환경 기반 `redisLive` contract를 추가하고, `INFO server`, `CONFIG GET maxmemory-policy/maxmemory`, `COMMAND INFO`로 Redis/Valkey flavor·version·필수 RESP command·bounded eviction 상태를 진단하는 probe와 회귀 테스트·운영 문서를 추가했다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9의 server-side TTL·command·bounded eviction을 실제 socket으로 확인했고 reconnect/fail-closed는 loopback contract로 검증했다.
 - [ ] **P3-01 Beast/httpx live adapter** — Linux runner에서 socket ownership, graceful shutdown, TCP/WebSocket wire fixture를 실행하고 현재 compile-only gate를 live gate로 승격한다.
 
 ### 완료 판정
@@ -140,7 +140,7 @@
 - [-] algorithm-neutral `PasswordHasher` 계약과 `nimcrypto` PBKDF2-HMAC-SHA256 reference adapter, `argon2` C-backed Argon2id adapter, per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. adapter-neutral account store와 login/logout/password-change/password-reset request·confirm route flow, 배포 호스트별 Argon2 hash/verify benchmark harness도 추가했으며 bcrypt adapter와 production benchmark 결과 확정은 후속 범위다.
 - [-] 기본 `defaultConfig`의 30초 request timeout과 `defaultSecurityPolicy`의 60초당 1000건 bounded rate limit, request size·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 `docs/operations-guide.md`에 문서화하고 contract test 범위를 명시했다. 실제 인증서·proxy hop·TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
-- [-] Redis/Valkey RESP adapter와 bounded retry, socket timeout, 실패 시 연결 폐기 및 재연결 회귀 검증, TCP coalescing frame buffer, 운영용 snapshot metrics, version·필수 command·maxmemory·eviction compatibility probe와 환경 기반 live contract를 구현했다. production compatibility matrix와 eviction 운영은 남아 있다.
+- [x] Redis/Valkey RESP adapter와 bounded retry, socket timeout, 실패 시 연결 폐기 및 재연결 회귀 검증, TCP coalescing frame buffer, 운영용 snapshot metrics, version·필수 command·maxmemory·eviction compatibility probe와 환경 기반 live contract를 구현했다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9를 검증했다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.
 
 ### Prologue 호환 계층

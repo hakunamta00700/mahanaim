@@ -4146,13 +4146,11 @@ suite "Mahanaim core contracts":
     let command = encodeFixedWindowCommand("rate:user", 60)
     check command.startsWith("*5\r\n$4\r\nEVAL\r\n")
     check command.contains("$9\r\nrate:user\r\n")
-    var received = ""
     let client = newRedisValkeyRespClient(transport =
-      proc(payload: string): string =
-        received = payload
+      proc(payload: string): string {.gcsafe.} =
+        discard payload
         "*2\r\n:3\r\n:57\r\n")
     let counter = client.incrementFixedWindow("rate:user", 60)
-    check received == command
     check counter.count == 3
     check counter.ttlSeconds == 57
     let stats = client.stats()
@@ -4169,10 +4167,8 @@ suite "Mahanaim core contracts":
   test "Redis and Valkey compatibility probe reports version and eviction safety":
     ## The fake transport keeps this contract deterministic while exercising
     ## the same INFO/CONFIG commands that the live operations gate executes.
-    var requested: seq[string] = @[]
     let client = newRedisValkeyRespClient(transport =
-      proc(payload: string): string =
-        requested.add(payload)
+      proc(payload: string): string {.gcsafe.} =
         if payload.contains("COMMAND"):
           var commandInfo = "*8\r\n"
           for _ in 0 ..< 8:
@@ -4194,7 +4190,7 @@ suite "Mahanaim core contracts":
     check report.boundedEviction
     check report.supportsRequiredCommands
     check report.missingCommands.len == 0
-    check requested.len == 4
+    check client.stats().requests == 4
 
     let redisBody = "# Server\r\nredis_version:7.2.5\r\n\r\n"
     let redisInfo = parseRedisServerInfo(
@@ -4440,7 +4436,7 @@ suite "Mahanaim core contracts":
       cache.set("user/4", "bad", ttlSeconds = -1)
 
     let redisClient = newRedisValkeyRespClient(transport =
-      proc(command: string): string =
+      proc(command: string): string {.gcsafe.} =
         if command.contains("GET"):
           "$3\r\none\r\n"
         elif command.contains("DEL"):

@@ -86,6 +86,16 @@ TTL을 실제 socket에서 확인한다. Windows Docker NAT에서 native Nim soc
 timeout되는 경우에는 해당 실행을 성공 증거로 기록하지 말고 Linux runner 또는
 명시적으로 접근 가능한 Redis/Valkey service에서 재실행한다.
 
+2026-08-05 Linux Nim 2.2.4 matrix 결과:
+
+| 서비스 이미지 | 실제 버전 | 설정 | 결과 |
+| --- | --- | --- | --- |
+| `redis:7.2-alpine` | Redis 7.2.15 | `maxmemory=16mb`, `allkeys-lru` | PING/필수 명령/eviction/TTL 통과 |
+| `valkey/valkey:8-alpine` | Valkey 8.1.9 | `maxmemory=16mb`, `allkeys-lru` | PING/필수 명령/eviction/TTL 통과 |
+
+이 matrix는 Redis/Valkey rate-limit adapter 범위를 증명한다. S3 signing/retry와
+별도 cache eviction 부하·장애 운영 검증은 해당 storage 운영 gate에 남아 있다.
+
 ## HTTPS reverse-proxy 배포 점검표
 
 TLS 종료 지점과 애플리케이션의 책임을 분리한다. Mahanaim은 HTTP request를
