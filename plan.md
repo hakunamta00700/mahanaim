@@ -57,7 +57,7 @@
 - [x] 고정 route cardinality와 반복 횟수의 deterministic router benchmark suite를 추가한다.
 - [x] Prologue raw form body와 `Content-Type`을 공통 body parser로 연결하고 contract test를 추가한다.
 - [x] multipart upload storage에 filename traversal, size, MIME, overwrite 정책을 추가한다.
-- [ ] Prologue upload/WebSocket adapter와 종료 가능한 socket-level smoke fixture를 추가한다.
+- [x] Prologue upload/WebSocket adapter와 Windows stdlib 종료 가능한 socket-level smoke fixture를 추가한다.
 
 ### 입력·출력과 오류
 
@@ -98,8 +98,9 @@
 - [x] WebSocket frame kind와 adapter-owned session callback core 계약을 추가한다.
 - [x] Prologue WebSocket API와 Windows native request upgrade adapter를 구현한다.
 - [x] Windows stdlib Prologue backend에 adapter-owned transport, ephemeral port, graceful close smoke fixture를 추가한다.
-- [ ] Prologue backend별 socket ownership과 종료 가능한 socket-level smoke fixture를 완성한다.
-- [ ] 실제 TCP 요청·응답과 graceful shutdown을 검증할 fixture를 만든다. Prologue 기본 backend의 비공개 서버 소유권 문제를 먼저 해결한다.
+- [x] Windows stdlib Prologue backend의 socket ownership과 종료 가능한 socket-level smoke fixture를 완성한다.
+- [x] Windows stdlib backend의 실제 TCP 요청·응답과 graceful shutdown을 fixture로 검증한다.
+- [ ] Beast backend의 socket ownership과 실제 TCP/WebSocket live fixture를 추가한다.
 
 ### 개발 품질
 

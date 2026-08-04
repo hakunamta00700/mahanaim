@@ -218,6 +218,11 @@
 - [ ] Beast backend live fixture는 Linux target C runtime 환경에서 다음 slice로 검증한다.
 - [ ] backend 공통 WebSocket representation policy와 Beast live fixture는 다음 P0 slice로 남긴다.
 
+### 2026-08-04 — P0 Prologue socket fixture 상태 정정
+
+- [x] Windows stdlib Prologue backend의 adapter-owned socket, 실제 TCP 응답, WebSocket echo, idempotent graceful close를 live fixture로 검증했다.
+- [ ] Beast backend의 socket ownership과 Linux target C runtime live fixture는 별도 환경에서 검증해야 한다.
+
 ### 2026-08-04 — P0 실행 timeout/cancellation 1차
 
 - [x] `AppConfig.requestTimeoutMs`와 환경변수 provider를 추가했다.
