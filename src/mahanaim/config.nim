@@ -17,11 +17,15 @@ type
     requestTimeoutMs*: int
     executorMaxConcurrentJobs*: int
     secrets*: Table[string, string]
+    ## Non-scalar settings remain typed JSON so arrays, dates, and nested
+    ## deployment settings are not flattened into lossy strings.
+    values*: Table[string, JsonNode]
 
 proc newConfig(environment, host: string, debug: bool, port: int): AppConfig =
   result = AppConfig(environment: environment, debug: debug, host: host,
     port: port, requestTimeoutMs: 0, executorMaxConcurrentJobs: 0)
   result.secrets = initTable[string, string]()
+  result.values = initTable[string, JsonNode]()
 
 proc defaultConfig*(): AppConfig =
   ## Safe development defaults; production loaders override these values.
@@ -90,6 +94,37 @@ proc applyValues(config: var AppConfig, values: Table[string, string], source: s
   for key, value in values:
     config.applyValue(key, value, source)
 
+proc isSecretKey(key: string): bool =
+  let normalized = key.toLowerAscii()
+  normalized.startsWith("secret.") or normalized.startsWith("secrets.") or
+  normalized.startsWith("secret_")
+
+proc isSupportedTomlKey(key: string): bool
+
+proc applyStructuredValues(config: var AppConfig,
+                           values: Table[string, JsonNode], source: string) =
+  ## Structured values use the same secret boundary as scalar providers.
+  for key, value in values:
+    if key.toLowerAscii() == "secrets":
+      if value.kind != JObject:
+        raise newException(ValueError, "secrets must be an object in " & source)
+      for secretKey, secretValue in value.pairs:
+        if secretValue.kind notin {JString, JInt, JFloat, JBool}:
+          raise newException(ValueError,
+            "structured secret value is not supported: " & secretKey)
+        config.secrets[secretKey.toLowerAscii()] =
+          if secretValue.kind == JString: secretValue.getStr() else: $secretValue
+      continue
+    if isSecretKey(key):
+      raise newException(ValueError,
+        "structured secret value is not supported in " & source)
+    if value.kind in {JString, JInt, JFloat, JBool} and
+       isSupportedTomlKey(key):
+      let scalar = if value.kind == JString: value.getStr() else: $value
+      config.applyValue(key, scalar, source)
+    else:
+      config.values[key.toLowerAscii()] = value
+
 proc loadJsonConfig*(path: string): Table[string, string] =
   ## Flatten supported JSON settings into the common provider representation.
   result = initTable[string, string]()
@@ -103,6 +138,82 @@ proc loadJsonConfig*(path: string): Table[string, string] =
           if secretValue.kind == JString: secretValue.getStr() else: $secretValue
     elif value.kind in {JString, JInt, JFloat, JBool}:
       result[key] = if value.kind == JString: value.getStr() else: $value
+
+proc loadJsonStructuredConfig*(path: string): Table[string, JsonNode] =
+  ## Preserve non-scalar root values for the typed AppConfig extension store.
+  result = initTable[string, JsonNode]()
+  let root = json.parseFile(path)
+  if root.kind != JObject:
+    raise newException(ValueError, "JSON config root must be an object")
+  for key, value in root.pairs:
+    if value.kind in {JArray, JObject}:
+      result[key] = value
+
+proc twoDigits(value: int): string =
+  if value < 10: "0" & $value else: $value
+
+proc tomlDateText(value: TomlValueRef): string =
+  case value.kind
+  of TomlValueKind.Date:
+    let date = value.dateVal
+    $date.year & "-" & twoDigits(date.month) & "-" & twoDigits(date.day)
+  of TomlValueKind.Time:
+    let time = value.timeVal
+    twoDigits(time.hour) & ":" & twoDigits(time.minute) & ":" &
+      twoDigits(time.second)
+  of TomlValueKind.Datetime:
+    let dateTime = value.dateTimeVal
+    var text = $dateTime.date.year & "-" & twoDigits(dateTime.date.month) &
+      "-" & twoDigits(dateTime.date.day) & "T" & twoDigits(dateTime.time.hour) &
+      ":" & twoDigits(dateTime.time.minute) & ":" & twoDigits(dateTime.time.second)
+    if dateTime.shift:
+      text.add(if dateTime.isShiftPositive: "+" else: "-")
+      text.add(twoDigits(dateTime.zoneHourShift) & ":" &
+        twoDigits(dateTime.zoneMinuteShift))
+    text
+  else:
+    raise newException(ValueError, "Value is not a TOML date/time")
+
+proc tomlJsonValue(value: TomlValueRef, key, source: string): JsonNode =
+  ## Convert the complete TOML value tree without losing array/table shape.
+  if value.isNil:
+    raise newException(ValueError, "invalid TOML value for " & key & " in " & source)
+  case value.kind
+  of TomlValueKind.String: result = newJString(value.stringVal)
+  of TomlValueKind.Int: result = newJInt(value.intVal)
+  of TomlValueKind.Float: result = newJFloat(value.floatVal)
+  of TomlValueKind.Bool: result = newJBool(value.boolVal)
+  of TomlValueKind.Datetime, TomlValueKind.Date, TomlValueKind.Time:
+    result = newJString(tomlDateText(value))
+  of TomlValueKind.Array:
+    result = newJArray()
+    for index, child in value.arrayVal:
+      result.add(tomlJsonValue(child, key & "[" & $index & "]", source))
+  of TomlValueKind.Table:
+    result = newJObject()
+    for childKey, child in value.tableVal[]:
+      result[childKey] = tomlJsonValue(child, key & "." & childKey, source)
+  of TomlValueKind.None:
+    raise newException(ValueError, "unsupported TOML value for " & key & " in " & source)
+
+proc loadTomlStructuredConfig*(path: string): Table[string, JsonNode] =
+  ## Parse complete TOML and retain structured root values for AppConfig.
+  let root = parsetoml.parseFile(path)
+  if root.isNil or root.kind != TomlValueKind.Table:
+    raise newException(ValueError, "TOML config root must be a table")
+  result = initTable[string, JsonNode]()
+  for key, value in root.tableVal[]:
+    if value.kind notin {TomlValueKind.Array, TomlValueKind.Table,
+                         TomlValueKind.Datetime, TomlValueKind.Date, TomlValueKind.Time} and
+       not isSupportedTomlKey(key):
+      raise newException(ValueError, "unknown TOML config key: " & key)
+    if isSecretKey(key) and key.toLowerAscii() != "secrets" and
+       value.kind in {TomlValueKind.Array, TomlValueKind.Table,
+                                           TomlValueKind.Datetime, TomlValueKind.Date,
+                                           TomlValueKind.Time}:
+      raise newException(ValueError,
+        "structured secret value is not supported: " & key)
+    result[key] = tomlJsonValue(value, key, path)
 
 proc isSupportedTomlKey(key: string): bool =
   ## Keep TOML's flexible document shape from silently becoming ignored config.
@@ -156,8 +267,9 @@ proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
     result.applyValues(loadDotEnv(dotEnvPath), dotEnvPath)
   if jsonPath.len > 0:
     result.applyValues(loadJsonConfig(jsonPath), jsonPath)
+    result.applyStructuredValues(loadJsonStructuredConfig(jsonPath), jsonPath)
   if tomlPath.len > 0:
-    result.applyValues(loadTomlConfig(tomlPath), tomlPath)
+    result.applyStructuredValues(loadTomlStructuredConfig(tomlPath), tomlPath)
   var environmentValues = initTable[string, string]()
   for key in ["MAHANAIM_ENV", "MAHANAIM_DEBUG", "MAHANAIM_HOST", "MAHANAIM_PORT",
               "MAHANAIM_REQUEST_TIMEOUT_MS", "MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS"]:

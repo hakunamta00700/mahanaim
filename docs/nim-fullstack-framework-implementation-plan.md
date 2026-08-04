@@ -403,6 +403,13 @@
 - [x] blocking 자동 감지와 backend cancellation hook 정책을 추가했다.
 - [ ] backend별 실제 worker cancellation은 남아 있다.
 
+### 2026-08-04 — P0 structured configuration mapping
+
+- [x] `AppConfig.values`를 추가해 JSON 배열/객체와 TOML 배열/날짜/시간/중첩 table을 typed JSON으로 보존한다.
+- [x] scalar 설정 precedence와 secrets object/redaction 경계를 유지하면서 structured provider를 연결했다.
+- [x] JSON/TOML structured value와 날짜 변환 회귀 테스트, 전체 `nimble test`를 통과했다.
+- [ ] 선언형 config schema와 환경변수에서 structured value를 직접 주입하는 기능은 남아 있다.
+
 ### 2026-08-04 — P0 signed cookie rotation 1차
 
 - [x] primary/legacy secret keyring 검증과 legacy key index 결과를 추가했다.

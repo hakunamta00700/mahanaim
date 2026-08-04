@@ -1520,9 +1520,12 @@ suite "Mahanaim core contracts":
     let jsonPath = root / "config.json"
     let tomlPath = root / "config.toml"
     writeFile(dotenvPath, "MAHANAIM_HOST=dotenv-host\nSECRET_TOKEN=dotenv-secret\n")
-    writeFile(jsonPath, "{\"port\":9000,\"request_timeout_ms\":25,\"secrets\":{\"token\":\"json-secret\"}}")
+    writeFile(jsonPath, "{\"port\":9000,\"request_timeout_ms\":25," &
+      "\"ports\":[8000,8001],\"features\":{\"beta\":true}," &
+      "\"secrets\":{\"token\":\"json-secret\"}}")
     writeFile(tomlPath, "environment = \"staging\" # deployment profile\n" &
-      "port = 9200\n[secrets]\ntoken = \"toml-secret\"\n")
+      "port = 9200\nrelease_date = 2026-08-04\n" &
+      "[database]\npool_size = 4\n[secrets]\ntoken = \"toml-secret\"\n")
     putEnv("MAHANAIM_PORT", "9100")
     putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
     putEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS", "3")
@@ -1533,6 +1536,11 @@ suite "Mahanaim core contracts":
     check config.requestTimeoutMs == 35
     check config.executorMaxConcurrentJobs == 3
     check config.secrets["token"] == "toml-secret"
+    check config.values["ports"].kind == JArray
+    check config.values["ports"][0].getInt() == 8000
+    check config.values["features"]["beta"].getBool()
+    check config.values["release_date"].getStr() == "2026-08-04"
+    check config.values["database"]["pool_size"].getInt() == 4
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
 
   test "TOML schema rejects unsupported and unknown values":

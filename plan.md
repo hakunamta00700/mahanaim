@@ -121,7 +121,7 @@
 - [x] TOML provider가 `parsetoml`로 전체 TOML 문법을 읽고, 지원 scalar와 `secrets.*`를 공통 설정 표현으로 flatten한다.
 - [x] TOML 배열·날짜·미등록 키를 조용히 버리지 않고 안전한 `ValueError`로 거부한다.
 - [x] TOML dependency lock, 설정 회귀 테스트, `nimble build`/`nimble test`를 검증한다.
-- [ ] 아직 AppConfig에 대응하지 않는 배열·날짜·복합 타입의 schema mapping을 추가한다.
+- [x] AppConfig에 배열·날짜·복합 타입을 보존하는 structured schema mapping을 추가한다.
 
 ## P1 — 첫 실사용 풀스택 제품
 
