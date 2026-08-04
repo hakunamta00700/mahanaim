@@ -31,6 +31,9 @@ type
     query*: SelectQuery
     pagination*: Pagination
     cursor*: Option[CursorPagination]
+    ## Total counting is opt-in because it can require a second query and must
+    ## never become an accidental cost for ordinary list endpoints.
+    includeTotal*: bool
     errors*: seq[ValidationIssue]
 
 proc defaultQueryComponentOptions*(): QueryComponentOptions =
@@ -53,6 +56,18 @@ proc parsePositive(parsed: var QueryComponentResult, values: Table[string, strin
   except ValueError:
     parsed.addQueryIssue(name, "invalid_integer", "Query value must be an integer")
     fallback
+
+proc parseBoolean(parsed: var QueryComponentResult,
+                  values: Table[string, string], name: string): bool =
+  ## Keep boolean query syntax deliberately small and predictable across
+  ## adapters; invalid input is reported through the common validation shape.
+  if not values.hasKey(name):
+    return false
+  let normalized = values[name].toLowerAscii()
+  if normalized notin ["true", "false", "1", "0"]:
+    parsed.addQueryIssue(name, "invalid_boolean", "Query value must be a boolean")
+    return false
+  normalized in ["true", "1"]
 
 proc findField(fields: openArray[ModelField], name: string): Option[ModelField] =
   ## Accept Nim, database, and JSON names while returning one canonical field.
@@ -108,6 +123,7 @@ proc parseQueryComponent*(request: Request,
      options.maxPageSize < 1 or options.defaultPageSize > options.maxPageSize:
     raise newException(ValueError, "Invalid query component pagination defaults")
   result.query = SelectQuery(filters: @[], orderBy: @[], columns: @[])
+  result.includeTotal = parseBoolean(result, request.query, "include_total")
   let page = result.parsePositive(request.query, "page", options.defaultPage)
   let pageSize = result.parsePositive(request.query, "page_size",
     options.defaultPageSize)

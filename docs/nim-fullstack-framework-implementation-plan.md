@@ -246,7 +246,7 @@
 - [x] query contract에 page/pageSize/maxPageSize와 deterministic SQL offset 계산을 추가했다.
 - [x] 음수·0 page/size와 maximum 초과를 사전 거부하고 base query 복사 semantics를 유지했다.
 - [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler, repository JSON result mapping, explicit aggregate route adapter를 추가했다. typed cursor bound filter는 추가했고 cursor 발급/다음 cursor metadata와 count/total metadata는 남아 있다.
+- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler, repository JSON result mapping, explicit aggregate route adapter를 추가했다. typed cursor bound filter와 opt-in count/total metadata를 추가했고 cursor 발급/다음 cursor metadata는 남아 있다.
 
 ### 2026-08-04 — P2 plugin manifest 1차
 
@@ -578,7 +578,7 @@ flowchart TB
 - [ ] JSON을 기본으로 구현하고 MessagePack을 동일 serializer 계약의 adapter로 추가한다.
 - [ ] 날짜·시간, UUID, enum, 파일 등 공통 타입 serializer와 validation error envelope을 정의한다.
 - [-] 수동 route/schema registry에서 OpenAPI 3.1을 만들고 Swagger UI·ReDoc route를 제공한다. route 자동 수집은 남아 있다.
-- [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, 명시적 cursor bound filter와 query validation 오류 형식을 제공한다. cursor 발급/다음 cursor metadata와 aggregate 표현식은 후속 범위다.
+- [-] metadata 기반 공통 query component로 pagination, filtering, sorting, field selection, 명시적 cursor bound filter, opt-in total metadata와 query validation 오류 형식을 제공한다. cursor 발급/다음 cursor metadata와 aggregate 표현식은 후속 범위다.
 
 완료 기준:
 
@@ -671,7 +671,7 @@ flowchart TB
 | [-] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [-] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route를 붙였다. route 자동 수집과 schema macro는 남아 있다. |
-| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor bound filter, 공통 validation 오류 형식을 제공했다. cursor 발급/다음 cursor metadata와 aggregate 표현식은 남아 있다. |
+| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor bound filter, opt-in total metadata, 공통 validation 오류 형식을 제공했다. cursor 발급/다음 cursor metadata와 aggregate 표현식은 남아 있다. |
 
 ### 데이터·ORM·마이그레이션
 

@@ -41,6 +41,8 @@ proc newDatabaseRepository*(metadata: ModelMetadata,
 ## allowing the repository implementation to remain grouped by operation.
 proc list*(repository: DatabaseRepository,
            query = SelectQuery()): seq[ResourceRow] {.gcsafe.}
+proc listWithTotal*(repository: DatabaseRepository,
+                    query = SelectQuery()): ResourceListResult {.gcsafe.}
 proc find*(repository: DatabaseRepository, id: string): Option[ResourceRow] {.gcsafe.}
 proc create*(repository: DatabaseRepository, row: ResourceRow): ResourceRow {.gcsafe.}
 proc update*(repository: DatabaseRepository, id: string,
@@ -58,6 +60,12 @@ proc newDatabaseRepositoryResourceStore*(repository: DatabaseRepository):
 method list*(store: DatabaseRepositoryResourceStore,
              query: SelectQuery): seq[ResourceRow] {.gcsafe.} =
   store.repository.list(query)
+
+method listWithTotal*(store: DatabaseRepositoryResourceStore,
+                      query: SelectQuery): ResourceListResult {.gcsafe.} =
+  ## Database-backed resources use a COUNT aggregate instead of materializing
+  ## every matching row merely to produce pagination metadata.
+  store.repository.listWithTotal(query)
 
 method find*(store: DatabaseRepositoryResourceStore,
              id: string): Option[ResourceRow] {.gcsafe.} =
@@ -194,6 +202,33 @@ proc list*(repository: DatabaseRepository,
   let compiled = repository.selectQuery(query)
   for values in repository.adapter.execute(compiled):
     result.add(repository.rowFromValues(values))
+
+proc listWithTotal*(repository: DatabaseRepository,
+                    query = SelectQuery()): ResourceListResult {.gcsafe.} =
+  ## Count and page use the same normalized filters, guaranteeing that total
+  ## metadata describes the requested query rather than the whole table.
+  if query.aggregates.len > 0 or query.groupBy.len > 0:
+    raise newException(ValueError,
+      "Aggregate queries must use DatabaseRepository.aggregate")
+  let normalized = repository.normalizeQuery(query)
+  var countQuery = normalized
+  countQuery.columns = @[]
+  countQuery.orderBy = @[]
+  countQuery.limit = 0
+  countQuery.offset = 0
+  countQuery.aggregates = @[QueryAggregate(function: aggregateCount,
+    field: "*", alias: "total")]
+  let countRows = repository.adapter.execute(
+    compileSelect(countQuery, repository.adapter.dialect))
+  if countRows.len > 0 and countRows[0].len > 0:
+    let countValue = countRows[0][0]
+    result.total = case countValue.kind
+      of sqlInteger: countValue.integer
+      of sqlText:
+        try: parseInt(countValue.text).int64
+        except ValueError: 0
+      else: 0
+  result.rows = repository.list(query)
 
 proc aggregateJson(function: QueryAggregateFunction,
                    field: Option[ModelField], value: SqlValue): JsonNode =

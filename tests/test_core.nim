@@ -1801,6 +1801,16 @@ suite "Mahanaim core contracts":
     check document[0]["score"].getInt() == 3
     check not document[0].hasKey("active")
 
+    var totalRequest = newRequest("GET", "/ranked-items")
+    totalRequest.query["filter.active"] = "true"
+    totalRequest.query["page_size"] = "1"
+    totalRequest.query["include_total"] = "true"
+    let withTotal = waitFor app.dispatch(totalRequest)
+    check withTotal.status == Http200
+    let totalDocument = parseJson(withTotal.body)
+    check totalDocument["items"].len == 1
+    check totalDocument["total"].getInt() == 2
+
   test "admin registry protects and audits metadata CRUD routes":
     var metadata = newModelMetadata("AdminItem", "admin_items")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
@@ -2211,9 +2221,19 @@ suite "Mahanaim core contracts":
     input["active"] = newJBool(true)
     let created = repository.create(input)
     check created["name"].getStr() == "Ada"
+    var second: ResourceRow
+    second["id"] = newJInt(2)
+    second["name"] = newJString("Grace")
+    second["active"] = newJBool(true)
+    discard repository.create(second)
     check repository.list(SelectQuery(filters: @[
       QueryFilter(field: "active", operator: filterEqual,
-        value: booleanValue(true))])).len == 1
+        value: booleanValue(true))])).len == 2
+    let counted = repository.listWithTotal(SelectQuery(
+      filters: @[QueryFilter(field: "active", operator: filterEqual,
+        value: booleanValue(true))], limit: 1))
+    check counted.rows.len == 1
+    check counted.total == 2
     var patch: ResourceRow
     patch["name"] = newJString("Grace")
     let updated = repository.update("1", patch)

@@ -17,6 +17,12 @@ import ./validation
 type
   ResourceRow* = Table[string, JsonNode]
 
+  ResourceListResult* = object
+    ## A list page keeps total metadata separate from row serialization so
+    ## stores can calculate it with an efficient COUNT query when available.
+    rows*: seq[ResourceRow]
+    total*: int64
+
   ResourceStore* = ref object of RootObj
     ## Persistence adapters own query execution and transaction details.
 
@@ -37,6 +43,16 @@ method list*(store: ResourceStore,
   discard store
   discard query
   raise newException(ValueError, "Resource store does not implement list")
+
+method listWithTotal*(store: ResourceStore,
+                      query: SelectQuery): ResourceListResult {.base, gcsafe.} =
+  ## The default fallback removes pagination before counting. Specialized
+  ## stores should override this to issue a single efficient count query.
+  var unpaged = query
+  unpaged.limit = 0
+  unpaged.offset = 0
+  result.rows = store.list(query)
+  result.total = int64(store.list(unpaged).len)
 
 method find*(store: ResourceStore, id: string): Option[ResourceRow] {.base, gcsafe.} =
   discard store
@@ -208,6 +224,16 @@ method list*(store: InMemoryResourceStore,
   elif first > 0 or last < result.len:
     result = result[first ..< last]
 
+method listWithTotal*(store: InMemoryResourceStore,
+                      query: SelectQuery): ResourceListResult {.gcsafe.} =
+  ## The in-memory adapter mirrors SQL semantics by counting the same filtered
+  ## query without page slicing, making route tests meaningful.
+  var unpaged = query
+  unpaged.limit = 0
+  unpaged.offset = 0
+  result.rows = store.list(query)
+  result.total = int64(store.list(unpaged).len)
+
 method find*(store: InMemoryResourceStore, id: string): Option[ResourceRow] {.gcsafe.} =
   for row in store.rows:
     if store.rowId(row) == id:
@@ -295,6 +321,25 @@ proc listResponse*(resource: CrudResource,
       document.add(serialized.document)
   jsonResponse(document)
 
+proc listResponseWithTotal*(resource: CrudResource,
+                            query = SelectQuery()): Response {.gcsafe.} =
+  ## Opt-in envelope preserves backwards compatibility for existing clients.
+  let page = resource.store.listWithTotal(query)
+  var items = newJArray()
+  for row in page.rows:
+    if query.columns.len == 0:
+      items.add(responseDocument(resource, row))
+    else:
+      let serialized = serializeProjection(resource.metadata, row, query.columns,
+        resource.responsePolicy)
+      if not serialized.valid:
+        raise newException(ValueError, "Stored resource row failed projection")
+      items.add(serialized.document)
+  var document = newJObject()
+  document["items"] = items
+  document["total"] = newJInt(page.total)
+  jsonResponse(document)
+
 proc getResponse*(resource: CrudResource, id: string): Response {.gcsafe.} =
   let row = resource.store.find(id)
   if row.isNone:
@@ -346,6 +391,8 @@ proc registerCrudRoutes*(app: Application, resource: CrudResource,
       if not parsed.valid:
         return request.problemResponseFor(Http400, "Invalid query",
           "One or more query parameters are invalid", parsed.errors)
+      if parsed.includeTotal:
+        return listResponseWithTotal(resource, parsed.query)
       return listResponse(resource, parsed.query))
   app.post(prefix, name & ".create",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
