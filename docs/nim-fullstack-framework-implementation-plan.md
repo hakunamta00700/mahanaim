@@ -187,6 +187,13 @@
 - [x] query binding·unsafe identifier 거부·index migration SQL 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] 실제 SQLite/PostgreSQL driver, connection pool, relation query, migration history/up/down 실행기는 남아 있다.
 
+### 2026-08-04 — P1 API schema/OpenAPI 1차
+
+- [x] explicit `FieldSpec`의 path/query/header/body 위치를 OpenAPI 3.1 parameter/requestBody로 투영했다.
+- [x] string/integer 타입, required/default, length/numeric constraint를 OpenAPI schema에 반영했다.
+- [x] 생성 문서의 위치·필수 필드·제약조건 회귀 테스트와 전체 `nimble test`를 통과했다.
+- [ ] schema macro, typed response schema, route별 operation/response 자동 수집, 완전한 content negotiation은 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

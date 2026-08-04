@@ -1538,6 +1538,16 @@ suite "Mahanaim core contracts":
       index: ModelIndex(name: "users_email_idx", fields: @["email"], unique: true)))
     check migration == "CREATE UNIQUE INDEX \"users_email_idx\" ON \"users\" (\"email\")"
 
+  test "explicit input schema projects to OpenAPI constraints":
+    let document = openApiDocument("Mahanaim API", "1.0.0", [
+      integerField("userId", flPath),
+      stringField("q", flQuery, required = false, minLength = 2,
+        maxLength = 80),
+      stringField("email", flBody)])
+    check document["openapi"].getStr() == "3.1.0"
+    check document["paths"]["/generated"]["post"]["parameters"][0]["required"].getBool()
+    check document["paths"]["/generated"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["email"]["type"].getStr() == "string"
+
   test "framework checks aggregate config route and security failures":
     let validReport = checkApplication(newApplication())
     check validReport.passed

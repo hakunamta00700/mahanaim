@@ -132,7 +132,8 @@
 ### API와 서버 렌더링
 
 - [x] named field extraction, scalar coercion, validation error aggregation을 제공한다.
-- [ ] macro 기반 schema와 일반 응답 타입, OpenAPI 생성, 완전한 content negotiation을 제공한다.
+- [x] 명시적 input schema에서 OpenAPI 3.1 문서와 제약조건을 생성한다.
+- [ ] macro 기반 schema와 일반 응답 타입, 완전한 content negotiation을 제공한다.
 - [ ] template/render context와 HTML form binding을 제공한다.
 - [ ] CRUD resource convention과 admin extension point를 제공한다.
 
