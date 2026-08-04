@@ -5,6 +5,7 @@
 ## adapter is intentionally a deterministic reference for local development.
 
 import std/[locks, os, strutils, tables]
+import pkg/db_connector/db_sqlite
 
 type
   IdempotencyStore* = ref object of RootObj
@@ -19,6 +20,13 @@ type
     ## or external queue adapter with an atomic unique constraint.
     path*: string
     keys: Table[string, bool]
+    lock: Lock
+
+  SqliteIdempotencyStore* = ref object of IdempotencyStore
+    ## SQLite's primary-key constraint provides atomic cross-connection claims
+    ## for one database file. The job payload is still external to this store.
+    path*: string
+    connection: DbConn
     lock: Lock
 
 method claim*(store: IdempotencyStore, key: string): bool {.base, gcsafe.} =
@@ -114,5 +122,61 @@ method release*(store: FileIdempotencyStore, key: string) {.gcsafe.} =
     if store.keys.hasKey(key):
       store.appendJournal('R', key)
       store.keys.del(key)
+  finally:
+    release(store.lock)
+
+const idempotencyTable = "__mahanaim_idempotency_keys"
+
+proc newSqliteIdempotencyStore*(path = ":memory:"): SqliteIdempotencyStore =
+  ## Keep schema creation inside construction so every process has the same
+  ## durable contract before a claim can be attempted.
+  if path.strip().len == 0:
+    raise newException(ValueError, "SQLite idempotency path is required")
+  new(result)
+  result.path = path
+  result.connection = db_sqlite.open(path, "", "", "")
+  initLock(result.lock)
+  result.connection.exec(SqlQuery(
+    "CREATE TABLE IF NOT EXISTS \"" & idempotencyTable &
+    "\" (\"key\" TEXT PRIMARY KEY NOT NULL)"))
+
+proc close*(store: SqliteIdempotencyStore) =
+  ## Close only the store-owned connection; queue/executor lifecycle remains
+  ## owned by the application that configured the adapter.
+  if store.isNil:
+    return
+  acquire(store.lock)
+  try:
+    if not store.connection.isNil:
+      store.connection.close()
+      store.connection = nil
+  finally:
+    release(store.lock)
+
+method claim*(store: SqliteIdempotencyStore, key: string): bool {.gcsafe.} =
+  if store.isNil or key.strip().len == 0:
+    raise newException(ValueError, "Idempotency store and key are required")
+  acquire(store.lock)
+  try:
+    if store.connection.isNil:
+      raise newException(ValueError, "SQLite idempotency store is closed")
+    ## INSERT OR IGNORE plus SELECT changes() makes the unique-key decision
+    ## atomic without interpolating the caller's key into SQL.
+    store.connection.exec(SqlQuery(
+      "INSERT OR IGNORE INTO \"" & idempotencyTable & "\" (\"key\") VALUES (?)"),
+      key)
+    store.connection.getValue(SqlQuery("SELECT changes()")) == "1"
+  finally:
+    release(store.lock)
+
+method release*(store: SqliteIdempotencyStore, key: string) {.gcsafe.} =
+  if store.isNil or key.strip().len == 0:
+    raise newException(ValueError, "Idempotency store and key are required")
+  acquire(store.lock)
+  try:
+    if store.connection.isNil:
+      raise newException(ValueError, "SQLite idempotency store is closed")
+    store.connection.exec(SqlQuery(
+      "DELETE FROM \"" & idempotencyTable & "\" WHERE \"key\" = ?"), key)
   finally:
     release(store.lock)

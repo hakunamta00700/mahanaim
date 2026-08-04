@@ -289,7 +289,7 @@
 - [x] existing ThreadPoolExecutor를 재사용하는 `BackgroundJobQueue`와 job result contract를 추가했다.
 - [x] max attempts/delay를 검증하고 retry를 event-loop sleep으로 bounded asynchronous scheduling한다.
 - [x] 성공·실패 attempt count와 retry policy invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] `IdempotencyStore` claim/release contract, in-memory·append-only file reference adapter와 `enqueueIdempotent` 중복 억제 경계를 추가했다. multi-process atomicity, durable job payload, crash recovery와 외부 queue adapter는 남아 있다.
+- [-] `IdempotencyStore` claim/release contract, in-memory·append-only file·SQLite reference adapter와 `enqueueIdempotent` 중복 억제 경계를 추가했다. durable job payload, crash recovery와 외부 queue adapter는 남아 있다.
 
 ### 2026-08-04 — P1 content negotiation 2차
 
@@ -398,7 +398,7 @@
 - [x] executor capacity 포화 시 무제한 대기 대신 configurable `queueWaitMs`를 적용했다.
 - [x] 짧은 burst는 대기해 처리하고 budget 초과는 `executor_queue_timeout` 503으로 구분한다.
 - [x] queue wait 성공과 음수 정책 pre-flight 회귀 테스트를 추가했다.
-- [-] 작업별 idempotency key claim/release와 bounded retry 경계를 추가하고 file journal로 restart 후 key 상태를 보존한다. durable 외부 queue adapter와 crash recovery는 남아 있다.
+- [-] 작업별 idempotency key claim/release와 bounded retry 경계를 추가하고 file journal/SQLite unique constraint로 restart 및 multi-connection key 상태를 보존한다. durable 외부 queue adapter와 crash recovery는 남아 있다.
 
 ### 2026-08-04 — P0 executor backend 1차
 

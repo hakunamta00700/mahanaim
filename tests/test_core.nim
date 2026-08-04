@@ -548,6 +548,22 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard durableRetry.claim("bad\tkey")
 
+    let sqlitePath = getTempDir() / "mahanaim_idempotency.sqlite"
+    if fileExists(sqlitePath):
+      removeFile(sqlitePath)
+    defer:
+      if fileExists(sqlitePath):
+        removeFile(sqlitePath)
+    let sqliteFirst = newSqliteIdempotencyStore(sqlitePath)
+    let sqliteSecond = newSqliteIdempotencyStore(sqlitePath)
+    defer:
+      sqliteFirst.close()
+      sqliteSecond.close()
+    check sqliteFirst.claim("multi-process:42")
+    check not sqliteSecond.claim("multi-process:42")
+    sqliteSecond.release("multi-process:42")
+    check sqliteFirst.claim("multi-process:42")
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
