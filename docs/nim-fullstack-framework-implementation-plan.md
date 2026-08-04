@@ -219,7 +219,7 @@
 - [x] string/integer 타입, required/default, length/numeric constraint를 OpenAPI schema에 반영했다.
 - [x] 생성 문서의 위치·필수 필드·제약조건 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [x] explicit `FieldSpec` response schema를 OpenAPI 3.1 `200` JSON response에 투영했다.
-- [-] 다중 operation registry와 Swagger/ReDoc UI route를 추가했고 scalar object용 `inputSchema` macro가 `FieldSpec`를 생성한다. response DTO macro, route 자동 수집과 완전한 content negotiation은 남아 있다.
+- [-] 다중 operation registry와 Swagger/ReDoc UI route를 추가했고 scalar object용 `inputSchema`/`responseSchema` macro가 `FieldSpec`를 생성한다. nested DTO, route 자동 수집과 완전한 content negotiation은 남아 있다.
 
 ### 2026-08-04 — P2 observability foundation 1차
 
@@ -678,7 +678,7 @@ flowchart TB
 | [x] | REQ-API-001 | P0 | Nim macro 또는 명시 schema로 입력 위치별 extractor, coercion, default, constraint, error path를 생성한다. |
 | [x] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [x] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. JSON-compatible decode와 JSON/MessagePack `Accept` negotiation을 포함한다. schema-level custom wire type은 후속 범위다. |
-| [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. scalar input object용 `inputSchema` macro를 추가했으며 response DTO macro와 route 자동 수집은 남아 있다. |
+| [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. scalar input/response object용 `inputSchema`·`responseSchema` macro를 추가했으며 nested DTO와 route 자동 수집은 남아 있다. |
 | [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |
 
 ### 데이터·ORM·마이그레이션

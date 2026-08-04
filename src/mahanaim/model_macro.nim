@@ -91,13 +91,14 @@ proc inputFieldConstructor(typeNode: NimNode): NimNode =
   of "JsonNode": ident("jsonField")
   else: error("Unsupported input schema field type: " & name, typeNode)
 
-macro inputSchema*(modelType: typedesc,
-                   location: static[FieldLocation] = flBody): untyped =
-  ## Generate deterministic FieldSpec values in source declaration order.
+proc generateScalarSchema(modelType, location: NimNode,
+                          symbolName: string): NimNode =
+  ## Shared generator keeps input and response DTO schemas semantically
+  ## aligned while exposing separate macro names at the public API boundary.
   let typeDesc = getTypeInst(modelType)
   let objectType = getImpl(typeDesc[1])
   let fields = recordFields(objectType)
-  let generated = genSym(nskVar, "inputSchema")
+  let generated = genSym(nskVar, symbolName)
   result = newStmtList()
   result.add quote do:
     var `generated`: seq[FieldSpec] = @[]
@@ -107,3 +108,15 @@ macro inputSchema*(modelType: typedesc,
     result.add quote do:
       `generated`.add(`constructor`(`fieldLiteral`, `location`))
   result.add generated
+
+macro inputSchema*(modelType: typedesc,
+                   location: static[FieldLocation] = flBody): untyped =
+  ## Generate deterministic request FieldSpec values in source order.
+  generateScalarSchema(modelType, newLit(location), "inputSchema")
+
+macro responseSchema*(modelType: typedesc,
+                      location: static[FieldLocation] = flBody): untyped =
+  ## Generate response projection fields from the same scalar type boundary.
+  ## Response schemas remain FieldSpec values so OpenAPI and serializers can
+  ## consume them without introducing a second schema representation.
+  generateScalarSchema(modelType, newLit(location), "responseSchema")

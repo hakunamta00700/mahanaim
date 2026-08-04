@@ -2251,7 +2251,8 @@ suite "Mahanaim core contracts":
     check decodeCursor(signedDocument["next_cursor"].getStr(), cursorSecret).isSome
     check decodeCursor(signedDocument["next_cursor"].getStr(), "wrong-secret").isNone
     var tamperedRequest = signedRequest
-    tamperedRequest.query["cursor"] = signedCursor[0 .. ^2] & "0"
+    let tamperedSuffix = if signedCursor[^1] == '0': "1" else: "0"
+    tamperedRequest.query["cursor"] = signedCursor[0 .. ^2] & tamperedSuffix
     check (waitFor app.dispatch(tamperedRequest)).status == Http400
     let expired = encodeCursor(integerValue(1), cursorSecret, 10, 100)
     check decodeCursor(expired, cursorSecret, 110).isNone
@@ -3418,6 +3419,10 @@ suite "Mahanaim core contracts":
     check generated[1].inputType == itString
     check generated[2].inputType == itBoolean
     check generated[0].location == flBody
+    let response = responseSchema(MacroUser)
+    check response.len == generated.len
+    check response[1].name == "email"
+    check response[1].required
 
   test "model metadata drives validation forms and OpenAPI schema":
     var metadata = newModelMetadata("Profile", "profiles")
