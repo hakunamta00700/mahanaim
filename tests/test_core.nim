@@ -1182,6 +1182,20 @@ suite "Mahanaim core contracts":
     request.headers["accept-language"] = "ja-JP, ko;q=0.8"
     check (waitFor app.dispatch(request)).body == "ja"
 
+  test "locale formatter applies explicit timezone and numeric conventions":
+    let german = newLocaleFormatPolicy("de-DE", timezoneOffsetMinutes = 540)
+    let utcValue = initDateTime(5, mAug, 2026, 15, 30, 0, 0, utc())
+    check german.formatDateTime(utcValue) == "2026-08-06 00:30"
+    check german.formatDecimal(1234567.5, 2) == "1.234.567,50"
+
+    let english = newLocaleFormatPolicy("en-US", timezoneOffsetMinutes = -300)
+    check english.formatDateTime(utcValue) == "8/5/2026 10:30 AM"
+    check english.formatDecimal(-1234.5, 1) == "-1,234.5"
+    expect ValueError:
+      discard newLocaleFormatPolicy("en", timezoneOffsetMinutes = 24 * 60 + 1)
+    expect ValueError:
+      discard english.formatDecimal(1.0, 13)
+
   test "lifecycle hooks are ordered and idempotent":
     let app = newApplication()
     var events: seq[string] = @[]
