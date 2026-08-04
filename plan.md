@@ -1,11 +1,13 @@
 # Mahanaim 구현 계획
 
+> 체크박스 규칙: `[x]`는 구현·테스트·문서화까지 완료한 항목이고, `[ ]`는 미완료 또는 진행 중인 항목이다. 부분 완료 항목은 본문에 남은 범위를 기록한다.
+
 ## 2026-08-04 transaction contract
 
 - [x] DatabaseAdapter transaction guard가 성공 시 commit, 예외 시 rollback을 보장한다.
 - [x] backend가 지원하지 않는 savepoint 연산은 명시적으로 실패하도록 계약화했다.
 - [x] fake adapter 회귀 테스트와 `nimble test`를 통과했다.
-- [-] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했으며, credential이 제공되지 않은 현재 환경에서는 live 실행을 건너뛴다.
+- [ ] SQLite driver의 transaction/savepoint/migration up·down history와 PostgreSQL libpq adapter, backend capability/isolation contract를 추가했다. 환경 기반 `postgres_testing` rollback fixture factory, compile gate와 선택적 `postgresLive` contract task를 추가했으며, credential이 제공되지 않은 현재 환경에서는 live 실행을 건너뛴다.
 
 ## 2026-08-04 executor lifecycle 안정화
 
@@ -17,7 +19,7 @@
 
 - [x] 원자적 remote counter 결과를 표현하는 `RateLimitCounterClient` 계약과 `RedisValkeyRateLimitStore` adapter를 제공한다.
 - [x] bounded immediate retry와 backend 오류 fail-closed 503 경로를 회귀 테스트한다.
-- [-] Redis/Valkey RESP client, server-side TTL 응답과 loopback live socket fixture를 추가했다. 실제 Redis/Valkey compatibility, reconnect와 eviction 운영 지침은 남아 있다.
+- [ ] Redis/Valkey RESP client, server-side TTL 응답과 loopback live socket fixture를 추가했다. 실제 Redis/Valkey compatibility, reconnect와 eviction 운영 지침은 남아 있다.
 
 상태: 진행 중  
 작성일: 2026-08-04  
@@ -97,10 +99,10 @@
 - [x] TOML 전체 문법 파서를 연결하고 AppConfig scalar schema validation을 구현한다.
 - [x] signed session cookie와 교체 가능한 `AuthBackend`, HMAC bearer token adapter를 `AuthContext` 및 required authentication route의 401 정책에 연결하고 SessionPolicy primary/legacy secret rotation을 제공한다.
 - [x] role/group permission, object-level policy와 route guard를 독립 `AuthorizationPolicy` 모듈로 제공한다.
-- [-] `nimcrypto` PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. Argon2id/bcrypt와 user/account route flow는 후속 범위다.
-- [-] rate limit·request size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화했다. 실제 TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
+- [ ] `nimcrypto` PBKDF2-HMAC-SHA256 password hashing adapter와 per-password salt/parameter encoding, work-factor 판단·`verifyAndRehash` rotation, current-password 검증 기반 `changePassword`, stateless signed reset token/expiry 검증, atomic one-time reset token store, 교체 가능한 login throttling hook과 in-memory·distributed counter adapter를 제공한다. Argon2id/bcrypt와 user/account route flow는 후속 범위다.
+- [ ] rate limit·request size·timeout·secure cookie 정책과 HTTPS reverse-proxy 배포 점검표를 문서화했다. 실제 TLS wire 검증과 `check`의 HTTPS 환경 검사 연동은 후속 범위다.
 - [x] 공유 가능한 backend-neutral rate limit store 계약과 메모리 구현을 연결한다.
-- [-] Redis/Valkey RESP adapter와 bounded retry 기반을 구현했다. production timeout/reconnect와 eviction 운영은 남아 있다.
+- [ ] Redis/Valkey RESP adapter와 bounded retry 기반을 구현했다. production timeout/reconnect와 eviction 운영은 남아 있다.
 - [x] executor에 bounded queue wait backpressure 정책을 연결한다.
 
 ### Prologue 호환 계층
@@ -120,7 +122,7 @@
 
 - [x] `nimble test`, `nimble verify`, `nimble check`를 CI와 동일하게 실행한다.
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
-- [-] 지원 OS/Nim matrix 계약과 cross-platform release artifact SHA-256 검증을 추가했다. OS별 CI matrix와 artifact 생성 pipeline 연결은 남아 있다.
+- [ ] 지원 OS/Nim matrix 계약과 cross-platform release artifact SHA-256 검증을 추가했다. OS별 CI matrix와 artifact 생성 pipeline 연결은 남아 있다.
 - [ ] 모든 기능의 Definition of Done을 적용한다: 구현, 단위/통합 테스트, 문서, 회귀 검증.
 
 ### 2026-08-04 구현 기록
@@ -145,20 +147,20 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [-] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live integration/isolation fixture와 repository route 연결은 남아 있으며 CI에서 compile/live contract task를 호출한다.
+- [ ] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live integration/isolation fixture와 repository route 연결은 남아 있으며 CI에서 compile/live contract task를 호출한다.
 
 ### API와 서버 렌더링
 
 - [x] named field extraction, scalar coercion, validation error aggregation을 제공한다.
 - [x] 명시적 input schema에서 OpenAPI 3.1 문서와 제약조건을 생성한다.
 - [x] parameterized query contract에 bounded pagination page/size/offset 정책을 연결한다.
-- [-] 공통 query component로 pagination/filter/sort/field-selection과 typed cursor filter/token 변환, signed/expiring next cursor metadata, opt-in total metadata, metadata-driven aggregate expression parser, query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler/repository mapping/route, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 추가했다. 관계 loading의 query batching 최적화는 후속 범위다.
+- [ ] 공통 query component로 pagination/filter/sort/field-selection과 typed cursor filter/token 변환, signed/expiring next cursor metadata, opt-in total metadata, metadata-driven aggregate expression parser, query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler/repository mapping/route, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 추가했다. 관계 loading의 query batching 최적화는 후속 범위다.
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
-- [-] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. schema macro는 남아 있다.
+- [ ] explicit typed response schema와 HTML/text/JSON/file/redirect/stream/SSE/WebSocket response helper, HTML·HTMX partial·JSON 선택 helper, 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가하고 `addDocumentedRoute`로 route/schema 동시 등록을 지원했다. schema macro는 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
-- [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공한다. i18n과 확장 helper는 후속 범위다.
+- [ ] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공한다. i18n과 확장 helper는 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
-- [-] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection을 지원했으며, bulk action·inline·custom layout은 남아 있다.
+- [ ] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행, `AuthorizationPolicy` guard와 append-only audit event store 계약을 연결하고 admin별 query pagination/cursor 정책, read-only field enforcement, custom list column projection을 지원했으며, bulk action·inline·custom layout은 남아 있다.
 
 ## P2 — 운영·확장성
 
@@ -171,13 +173,13 @@
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [ ] durable persistence, idempotency key와 외부 queue adapter를 제공한다.
-- [-] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
+- [ ] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation, live-server fixture, WebSocket/SSE test client는 남아 있다.
 
 ## P3 — 선택 확장
 
 - [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
-- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. fixture와 admin CLI는 남아 있다.
+- [ ] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 추가했다. fixture와 admin CLI는 남아 있다.
 
 ## 탄탄한 기반을 위한 설계 규칙
 
