@@ -5,6 +5,8 @@
 ## middleware, security, errors, and lifecycle semantics to Mahanaim's core.
 
 import std/[asyncdispatch, httpcore, options]
+when defined(windows):
+  import std/asynchttpserver
 import prologue/core/application as prologueApplication
 import ./application
 import ./prologue_adapter
@@ -18,6 +20,13 @@ type
     ## Prologue server while retaining the framework-neutral Application.
     framework*: Application
     server*: prologueApplication.Prologue
+    when defined(windows):
+      ## Prologue 0.6.8 keeps its AsyncHttpServer private. On Windows the
+      ## native request type is stdlib-compatible, so this owned transport
+      ## lets the adapter expose deterministic close and ephemeral-port
+      ## lifecycle semantics without reaching into private Prologue fields.
+      transport*: AsyncHttpServer
+      closed*: bool
 
 proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
   ## Adapt one Prologue Context without duplicating route registration.
@@ -32,9 +41,15 @@ proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
         if frameworkRequest.httpMethod != "GET" or
            not isWebSocketUpgrade(frameworkRequest):
           await ctx.request.respond(Http426, "WebSocket upgrade required")
+          ## Prologue's central response phase must not write a second
+          ## response after an adapter has already completed the socket.
+          ctx.handled = true
         else:
           await serveWebSocket(ctx.request.nativeRequest, frameworkRequest,
             websocketRoute.get())
+          ## The WebSocket adapter owns this connection after the 101
+          ## handshake; prevent Prologue from treating it as HTTP response.
+          ctx.handled = true
         return
     let frameworkResponse = negotiateResponse(frameworkRequest,
       await app.dispatch(frameworkRequest))
@@ -51,6 +66,9 @@ proc newPrologueServer*(app: Application,
   new(result)
   result.framework = app
   result.server = prologueApplication.newApp(settings = settings)
+  when defined(windows):
+    result.transport = newAsyncHttpServer()
+    result.closed = false
   # Register root and wildcard entries because Prologue treats the root as a
   # distinct route while Mahanaim's dispatcher owns the final route decision.
   result.server.all("/", bridgeHandler(app))
@@ -64,12 +82,48 @@ proc shutdown*(server: PrologueServer) =
   ## Expose an embedding-safe shutdown hook for graceful server integration.
   server.framework.shutdown()
 
-proc run*(server: PrologueServer) =
-  ## Synchronous Prologue server entry point.
-  server.startup()
-  server.server.run()
+when defined(windows):
+  proc close*(server: PrologueServer) =
+    ## Close only the socket owned by this adapter and make repeated cleanup
+    ## safe for tests, embedding hosts, and error paths.
+    if server.closed:
+      return
+    server.closed = true
+    server.transport.close()
+    server.shutdown()
+
+  proc boundPort*(server: PrologueServer): Port =
+    ## Expose the bound ephemeral port without exposing transport internals.
+    server.transport.getPort()
 
 proc runAsync*(server: PrologueServer): Future[void] {.async.} =
   ## Async counterpart for applications that own their event loop.
-  server.startup()
-  await server.server.runAsync()
+  when defined(windows):
+    ## Keep Prologue's router/context pipeline, but move socket creation to
+    ## the adapter-owned server so close() can deterministically interrupt
+    ## the accept loop. This path is limited to the stdlib-native backend;
+    ## the Beast backend still delegates to Prologue until its ownership API
+    ## is available.
+    server.server.gScope.router.compress()
+    server.server.execStartupEvent()
+    server.startup()
+    let callback = proc(request: asynchttpserver.Request): Future[void]
+        {.async, gcsafe.} =
+      await server.server.handleRequest(request, prologueApplication.Context)
+    try:
+      await server.transport.serve(server.server.gScope.settings.port,
+        callback, server.server.gScope.settings.address)
+    except OSError:
+      if not server.closed:
+        raise
+  else:
+    server.startup()
+    await server.server.runAsync()
+
+proc run*(server: PrologueServer) =
+  ## Synchronous Prologue server entry point.
+  when defined(windows):
+    waitFor server.runAsync()
+  else:
+    server.startup()
+    server.server.run()

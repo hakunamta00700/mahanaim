@@ -77,6 +77,7 @@
 - [x] Prologue multipart upload API를 core BodyPart/upload storage 계약으로 변환한다.
 - [x] WebSocket frame kind와 adapter-owned session callback core 계약을 추가한다.
 - [x] Prologue WebSocket API와 Windows native request upgrade adapter를 구현한다.
+- [x] Windows stdlib Prologue backend에 adapter-owned transport, ephemeral port, graceful close smoke fixture를 추가한다.
 - [ ] Prologue backend별 socket ownership과 종료 가능한 socket-level smoke fixture를 완성한다.
 - [ ] 실제 TCP 요청·응답과 graceful shutdown을 검증할 fixture를 만든다. Prologue 기본 backend의 비공개 서버 소유권 문제를 먼저 해결한다.
 

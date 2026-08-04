@@ -8,6 +8,7 @@ import std/[asyncdispatch, asyncnet, httpcore, json, options, os, strutils, tabl
             unittest, uri]
 import std/httpclient as hc
 import pkg/cookiejar
+import prologue/core/nativesettings as prologueSettings
 import prologue/core/httpcore/httplogue
 import prologue/core/request except Request
 import prologue/mocking/mocking
@@ -722,6 +723,42 @@ suite "Mahanaim core contracts":
     adapter.shutdown()
     adapter.shutdown()
     check not app.started
+
+  when defined(windows):
+    test "Prologue adapter owns a live socket and closes it gracefully":
+      ## The Windows Prologue backend uses stdlib AsyncHttpServer request
+      ## values. This fixture proves Mahanaim owns the transport boundary,
+      ## can select an ephemeral port, and can interrupt its accept loop.
+      let app = newApplication()
+      proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        discard request
+        return textResponse("hello from live prologue")
+      app.get("/live", "live-hello", hello)
+      let settings = prologueSettings.newSettings(
+        address = "127.0.0.1", port = Port(0), debug = false)
+      let adapter = newPrologueServer(app, settings)
+      asyncCheck adapter.runAsync()
+
+      var attempts = 0
+      while attempts < 50:
+        try:
+          if adapter.boundPort().uint16 > 0:
+            break
+        except OSError:
+          discard
+        waitFor sleepAsync(10)
+        inc attempts
+      check adapter.boundPort().uint16 > 0
+
+      let client = hc.newAsyncHttpClient()
+      let response = waitFor client.getContent(
+        "http://127.0.0.1:" & $adapter.boundPort().uint16 & "/live")
+      check response == "hello from live prologue"
+      client.close()
+
+      adapter.close()
+      adapter.close()
+      check adapter.closed
 
   test "test client preserves request contract and cookie state":
     let app = newTestApplication()

@@ -166,7 +166,8 @@
 - [x] Prologue raw form body와 `Content-Type`을 core body parser로 연결하는 contract test를 추가했다.
 - [x] Prologue multipart upload body를 core parser/storage contract로 연결했다.
 - [x] WebSocket frame kind와 adapter-owned session callback core contract를 추가했다.
-- [ ] WebSocket adapter와 socket-level Prologue smoke fixture는 남아 있다.
+- [x] Windows stdlib Prologue backend에 adapter-owned transport와 ephemeral-port/graceful-close live fixture를 추가했다.
+- [ ] Beast backend의 WebSocket adapter와 backend별 socket ownership fixture는 남아 있다.
 
 ### 2026-08-04 — 표준 TCP chunked stream wire
 
@@ -176,6 +177,8 @@
 - [x] HTTP route와 분리된 `WebSocketRoute` registry와 path precedence 회귀 테스트를 추가했다.
 - [x] 표준 TCP adapter의 RFC 6455 handshake, client masking, text frame echo, close lifecycle을 live socket으로 검증했다.
 - [x] Windows Prologue native request bridge가 공통 WebSocket handshake/session adapter로 위임하도록 연결했다.
+- [x] Windows Prologue bridge가 WebSocket/426 응답 뒤 Prologue central response를 중복 실행하지 않도록 handled 상태를 고정했다.
+- [x] Windows stdlib Prologue backend의 실제 TCP 응답과 idempotent graceful close를 live fixture로 검증했다.
 - [x] 최종 단일 response media type을 `Accept`와 비교해 불일치 시 406을 반환한다.
 - [x] 표준 HTTP와 Windows Prologue bridge에 response policy를 연결하고 WebSocket upgrade는 이를 우회한다.
 - [ ] Prologue socket ownership fixture와 stream/SSE/WebSocket variant negotiation은 다음 P0 slice로 남긴다.
