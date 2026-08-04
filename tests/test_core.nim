@@ -3192,6 +3192,15 @@ suite "Mahanaim core contracts":
     check usersWithPosts[0]["posts"][0]["title"].getStr() == "Nim"
     check usersWithPosts[1]["posts"].len == 1
     check usersWithPosts[1]["posts"][0]["title"].getStr() == "Ada"
+    let pagedUsers = userRepository.listRelationWithRelated(
+      ModelRelation(name: "posts", kind: relationOneToMany,
+        targetModel: "Post", localField: "id", foreignField: "user_id"), posts,
+      RelationSelectQuery(orderBy: @[QueryOrder(field: "id")], limit: 1,
+        offset: 1))
+    check pagedUsers.len == 1
+    check pagedUsers[0]["id"].getInt() == 2
+    check pagedUsers[0]["posts"].len == 1
+    check pagedUsers[0]["posts"][0]["title"].getStr() == "Ada"
     let postRepository = newDatabaseRepository(posts, adapter)
     let postsWithUser = postRepository.listRelationWithRelated(
       ModelRelation(name: "user", kind: relationManyToOne,

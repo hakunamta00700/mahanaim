@@ -561,9 +561,10 @@ proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
                                      relation: ModelRelation,
                                      target: ModelMetadata,
                                      query = RelationSelectQuery()): seq[ResourceRow] =
-  ## Execute one target query for all one-to-many parent keys. The previous
-  ## per-parent loop is still useful for paginated relation slices, but an
-  ## unpaged eager load should not turn N parents into N database round trips.
+  ## Execute one target query for all one-to-many parent keys on the selected
+  ## base page. Pagination belongs to the parent query; each returned parent
+  ## still receives its complete child collection, avoiding N+1 queries without
+  ## silently applying one global child LIMIT to every parent.
   if relation.kind != relationOneToMany:
     raise newException(ValueError,
       "Batched relation loading currently supports one-to-many relations")
@@ -597,7 +598,7 @@ proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
   for row in baseRows:
     if row.hasKey(localName) and row[localName].kind != JNull:
       let value = sqlValue(row[localName])
-      let key = $value.kind & ":" & $row[localName]
+      let key = relationJsonKey(row[localName], local.get())
       if not seen.hasKey(key):
         seen[key] = true
         localValues.add(value)
@@ -616,7 +617,7 @@ proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
     for related in targetRepository.list(relatedQuery):
       if not related.hasKey(foreignName):
         continue
-      let key = $related[foreignName]
+      let key = relationJsonKey(related[foreignName], foreign.get())
       if not grouped.hasKey(key):
         grouped[key] = @[]
       var projected = related
@@ -628,7 +629,7 @@ proc listRelationWithRelatedBatched*(repository: DatabaseRepository,
     var baseRow = originalRow
     var nested = newJArray()
     if baseRow.hasKey(localName) and baseRow[localName].kind != JNull:
-      let key = $baseRow[localName]
+      let key = relationJsonKey(baseRow[localName], local.get())
       if grouped.hasKey(key):
         for related in grouped[key]:
           nested.add(relationRowJson(related))
@@ -642,8 +643,7 @@ proc listRelationWithRelated*(repository: DatabaseRepository,
   ## Load one relation as nested JSON without duplicating base rows. This is
   ## intentionally a separate API from listRelation: the latter is a stable
   ## join/base-row contract, while this method owns eager DTO assembly.
-  if relation.kind == relationOneToMany and query.limit == 0 and
-      query.offset == 0 and query.joins.len == 0:
+  if relation.kind == relationOneToMany and query.joins.len == 0:
     return repository.listRelationWithRelatedBatched(relation, target, query)
   if relation.kind == relationManyToMany and query.limit == 0 and
       query.offset == 0 and query.joins.len == 0:
