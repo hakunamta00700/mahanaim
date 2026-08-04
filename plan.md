@@ -161,7 +161,7 @@
 
 - [x] `nimble test`, `nimble verify`, `nimble check`를 CI와 동일하게 실행한다.
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
-- [x] `new` 프로젝트 생성기가 환경 변수 예제, 안전한 `.gitignore`, health route를 가진 앱 모듈과 실제 dispatch 테스트를 생성하도록 확장한다.
+- [x] `new` 프로젝트 생성기가 환경 변수 예제·안전한 `.gitignore`와 함께 SQLite metadata migration, JSON/admin CRUD, session·CSRF 인증, OpenAPI route collection, health/request ID/lifecycle을 검증하는 앱 모듈·실제 dispatch 테스트를 생성하도록 확장한다.
 - [-] 지원 OS/Nim 2.2.4 matrix에서 test·verify·check·build를 실행하고 OS별 release candidate와 SHA-256 checksum artifact를 생성하도록 CI를 확장했다. 실제 GitHub runner 실행 결과와 추가 지원 버전 확대는 후속 검증 범위다.
 - [-] 모든 기능에 적용할 Definition of Done 체크리스트를 [`docs/definition-of-done.md`](docs/definition-of-done.md)에 고정했다. 기존 기능에 대한 항목별 적용과 외부 환경 gate 증거 수집은 진행 중이다.
 
