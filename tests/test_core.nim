@@ -1879,6 +1879,26 @@ suite "Mahanaim core contracts":
     check idFilter.value.integer == 10
     check activeFilter.value.boolean
 
+    var cursorRequest = newRequest("GET", "/users")
+    cursorRequest.query["cursor"] = "20"
+    cursorRequest.query["sort"] = "-id"
+    let cursorParsed = cursorRequest.parseQueryComponent(metadata.fields,
+      QueryComponentOptions(defaultPage: 1, defaultPageSize: 5,
+        maxPageSize: 50, cursorField: "id"))
+    check cursorParsed.valid
+    check cursorParsed.cursor.isSome
+    check cursorParsed.cursor.get().field == "id"
+    check cursorParsed.cursor.get().descending
+    check cursorParsed.cursor.get().value.integer == 20
+    check cursorParsed.query.filters[^1].operator == filterLess
+    check cursorParsed.query.orderBy[0].field == "id"
+
+    var invalidCursor = newRequest("GET", "/users")
+    invalidCursor.query["cursor"] = "20"
+    let rejectedCursor = invalidCursor.parseQueryComponent(metadata.fields)
+    check not rejectedCursor.valid
+    check rejectedCursor.errors[0].code == "cursor_field_required"
+
     var invalid = newRequest("GET", "/users")
     invalid.query["page_size"] = "1000"
     invalid.query["fields"] = "unknown"

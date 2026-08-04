@@ -16,16 +16,27 @@ type
     defaultPage*: int
     defaultPageSize*: int
     maxPageSize*: int
+    ## Cursor pagination is opt-in because a model must provide a stable,
+    ## uniquely ordered field. Empty means the component rejects `cursor`
+    ## rather than guessing a potentially unstable ordering.
+    cursorField*: string
+
+  CursorPagination* = object
+    ## The cursor is translated into a bound comparison; it never becomes SQL.
+    field*: string
+    value*: SqlValue
+    descending*: bool
 
   QueryComponentResult* = object
     query*: SelectQuery
     pagination*: Pagination
+    cursor*: Option[CursorPagination]
     errors*: seq[ValidationIssue]
 
 proc defaultQueryComponentOptions*(): QueryComponentOptions =
   ## Conservative defaults bound query cost before a backend sees the request.
   QueryComponentOptions(defaultPage: 1, defaultPageSize: 20,
-    maxPageSize: 100)
+    maxPageSize: 100, cursorField: "")
 
 proc addQueryIssue(result: var QueryComponentResult, field, code, message: string) =
   ## Reuse the framework validation envelope so query errors have the same
@@ -132,6 +143,41 @@ proc parseQueryComponent*(request: Request,
       else:
         result.query.orderBy.add(QueryOrder(field: field.get().name,
           descending: descending))
+
+  if request.query.hasKey("cursor"):
+    ## Offset and cursor semantics must not be combined: doing so would make
+    ## the starting row ambiguous and could silently skip records.
+    if request.query.hasKey("page"):
+      result.addQueryIssue("cursor", "conflicting_pagination",
+        "Cursor pagination cannot be combined with page")
+    if options.cursorField.strip().len == 0:
+      result.addQueryIssue("cursor", "cursor_field_required",
+        "Cursor pagination requires an explicitly configured cursor field")
+    else:
+      let cursorField = findField(fields, options.cursorField)
+      if cursorField.isNone:
+        result.addQueryIssue("cursor", "unknown_cursor_field",
+          "Unknown cursor field: " & options.cursorField)
+      else:
+        let canonical = cursorField.get().name
+        var descending = false
+        var ordered = false
+        for order in result.query.orderBy:
+          if order.field == canonical:
+            descending = order.descending
+            ordered = true
+            break
+        if not ordered:
+          ## A cursor without an explicit matching order gets one stable
+          ## default; callers can still request descending with `sort=-field`.
+          result.query.orderBy.add(QueryOrder(field: canonical,
+            descending: false))
+        result.cursor = some(CursorPagination(field: canonical,
+          value: typedValue(cursorField.get(), request.query["cursor"],
+            result, "cursor"), descending: descending))
+        result.query.filters.add(QueryFilter(field: canonical,
+          operator: if descending: filterLess else: filterGreater,
+          value: result.cursor.get().value))
 
   for key, rawValue in request.query:
     if not key.startsWith("filter."):
