@@ -54,6 +54,13 @@ proc bindModelForm*(request: Request, metadata: ModelMetadata,
   let schema = modelInputSchema(metadata, flBody, includePrimaryKey)
   bindForm(request, schema)
 
+proc bindModelFormSet*(requests: openArray[Request], metadata: ModelMetadata,
+                       includePrimaryKey = false): FormSetState =
+  ## Model formsets reuse the metadata-derived schema row by row, preserving a
+  ## single source of truth for validation, forms, and API projections.
+  let schema = modelInputSchema(metadata, flBody, includePrimaryKey)
+  bindFormSet(requests, schema)
+
 proc modelOpenApiDocument*(title, version: string,
                            metadata: ModelMetadata,
                            includePrimaryKey = true): JsonNode =

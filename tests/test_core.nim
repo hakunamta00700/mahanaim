@@ -2933,6 +2933,14 @@ suite "Mahanaim core contracts":
     expect ValueError:
       widgets.registerWidget("name", proc(field: FormFieldState): string = "")
 
+    var validRow = newRequest("POST", "/profiles", "{\"name\":\"Grace\"}")
+    validRow.headers["Content-Type"] = "application/json"
+    let formSet = bindModelFormSet([request, validRow], metadata)
+    check formSet.forms.len == 2
+    check formSet.forms[1].fields[0].value == "Grace"
+    check formSet.errors.len > 0
+    check renderFormSet(formSet).contains("formset-row")
+
     let document = modelOpenApiDocument("Profiles", "1.0.0", metadata,
       includePrimaryKey = false)
     let properties = document["paths"]["/generated"]["post"][

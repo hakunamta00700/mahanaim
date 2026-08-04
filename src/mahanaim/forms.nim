@@ -22,6 +22,13 @@ type
     fields*: seq[FormFieldState]
     errors*: seq[ValidationIssue]
 
+  FormSetState* = object
+    ## A formset is a collection of independent row forms. Request grouping is
+    ## deliberately owned by the HTTP adapter, so binding remains reusable for
+    ## JSON, URL-encoded, and server-rendered inputs.
+    forms*: seq[FormState]
+    errors*: seq[ValidationIssue]
+
   WidgetRenderer* = proc(field: FormFieldState): string {.gcsafe.}
 
   WidgetRegistry* = ref object
@@ -67,6 +74,15 @@ proc bindForm*(request: Request, schema: openArray[FieldSpec]): FormState =
       if issue.field == field.name:
         state.errors.add(issue.message)
     result.fields.add(state)
+
+proc bindFormSet*(requests: openArray[Request],
+                  schema: openArray[FieldSpec]): FormSetState =
+  ## Bind each row through the same single-form contract; no second validator
+  ## or row-specific escaping path is introduced.
+  for request in requests:
+    let form = bindForm(request, schema)
+    result.forms.add(form)
+    result.errors.add(form.errors)
 
 proc escapeHtml(value: string): string =
   ## `htmlgen` is not used for attributes because explicit escaping is easier to
@@ -118,3 +134,15 @@ proc renderForm*(form: FormState, action = "", httpMethod = "post",
     for error in field.errors:
       result.add("<div class=\"form-error\">" & escapeHtml(error) & "</div>")
   result.add("<button type=\"submit\">Submit</button></form>")
+
+proc renderFormSet*(formSet: FormSetState, action = "", httpMethod = "post",
+                    csrfPolicy: SecurityPolicy = defaultSecurityPolicy(),
+                    widgets: WidgetRegistry = nil): string =
+  ## Render rows through renderForm so CSRF, escaping, and custom widgets keep
+  ## one implementation. A formset is a presentation composition only.
+  result = "<div class=\"formset\">"
+  for form in formSet.forms:
+    result.add("<div class=\"formset-row\">")
+    result.add(renderForm(form, action, httpMethod, csrfPolicy, widgets))
+    result.add("</div>")
+  result.add("</div>")
