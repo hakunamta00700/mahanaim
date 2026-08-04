@@ -605,7 +605,7 @@ flowchart TB
 - [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했다. i18n과 고급 tag/helper는 후속 범위다.
 - [-] model metadata에서 validation `FieldSpec`, `bindModelForm`, OpenAPI schema를 생성하는 bridge를 추가했다. widget registry와 model formset은 남아 있다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
-- [-] metadata 등록으로 secure CRUD admin JSON/form route와 audit event를 생성하는 registry 기초를 추가하고, 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout·object-level permission은 남아 있다.
+- [x] metadata 등록으로 secure CRUD admin JSON/form route와 append-only audit event store를 생성하는 registry 기초를 추가하고, 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout·object-level permission은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
 - [ ] 사용자·그룹·role·permission·route guard·object-level authorization, password 관리, session rotation을 구현한다.
 - [ ] admin의 권한 검사와 audit log를 별도로 보장한다.
@@ -692,7 +692,7 @@ flowchart TB
 | [-] | REQ-UI-002 | P1 | model metadata를 form schema와 `bindModelForm`에 연결하고 CSRF·오류 표시를 유지한다. widget registry와 formset은 남아 있다. |
 | [-] | REQ-ADMIN-001 | P1 | metadata에서 authorization guard·audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. query customization과 object-level permission은 남아 있다. |
 | [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |
-| [ ] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 immutable audit event 저장을 기본 제공한다. |
+| [x] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 append-only audit event 저장소 계약 및 기본 in-memory adapter를 제공한다. |
 | [ ] | REQ-UI-003 | P1 | HTML partial response와 JSON response를 같은 route contract에서 선택하도록 하고 HTMX 예제를 제공한다. |
 
 ### 인증·보안

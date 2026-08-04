@@ -26,6 +26,17 @@ type
     action*: string
     resource*: string
     identifier*: string
+    actor*: string
+
+  AdminAuditStore* = ref object of RootObj
+    ## Audit persistence is an adapter boundary: applications can replace the
+    ## reference store with an append-only database or external log sink.
+
+  InMemoryAdminAuditStore* = ref object of AdminAuditStore
+    ## The default store is deterministic for tests and local development. Its
+    ## events are only exposed through snapshots, never through the backing
+    ## sequence, so callers cannot rewrite the audit history accidentally.
+    events: seq[AdminAuditEvent]
 
   AdminResource* = ref object
     ## One registered admin resource owns route and form policy while storage
@@ -40,13 +51,50 @@ type
   AdminRegistry* = ref object
     ## Registration is application-owned and isolated from global plugin state.
     resources*: seq[AdminResource]
+    auditStore*: AdminAuditStore
+    ## Kept as a compatibility projection for existing consumers. New code
+    ## should use auditEvents(), which reads the configured store snapshot.
     auditLog*: seq[AdminAuditEvent]
 
-proc newAdminRegistry*(): AdminRegistry =
+method appendAuditEvent*(store: AdminAuditStore,
+                         event: AdminAuditEvent) {.base, gcsafe.} =
+  ## A custom durable backend must opt into the append-only contract explicitly.
+  discard store
+  discard event
+  raise newException(ValueError, "Admin audit store does not implement append")
+
+method auditEvents*(store: AdminAuditStore): seq[AdminAuditEvent] {.base, gcsafe.} =
+  ## A snapshot prevents readers from obtaining a mutable persistence buffer.
+  discard store
+  raise newException(ValueError, "Admin audit store does not implement snapshot")
+
+method appendAuditEvent*(store: InMemoryAdminAuditStore,
+                         event: AdminAuditEvent) {.gcsafe.} =
+  store.events.add(event)
+
+method auditEvents*(store: InMemoryAdminAuditStore): seq[AdminAuditEvent] {.gcsafe.} =
+  store.events
+
+proc newInMemoryAdminAuditStore*(): InMemoryAdminAuditStore =
+  ## Provide a small reference adapter without coupling admin routes to a DB.
+  new(result)
+  result.events = @[]
+
+proc newAdminRegistry*(auditStore: AdminAuditStore = nil): AdminRegistry =
   ## Start with no routes; plugins or the application add explicit resources.
   new(result)
   result.resources = @[]
   result.auditLog = @[]
+  result.auditStore = if auditStore.isNil:
+    newInMemoryAdminAuditStore()
+  else:
+    auditStore
+
+proc auditEvents*(registry: AdminRegistry): seq[AdminAuditEvent] =
+  ## Expose a stable read snapshot while preserving the old auditLog field.
+  if registry.isNil or registry.auditStore.isNil:
+    return @[]
+  registry.auditStore.auditEvents()
 
 proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
                             metadata: ModelMetadata, store: ResourceStore,
@@ -65,10 +113,15 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
     metadata: metadata, resource: newCrudResource(metadata, store),
     authorize: authorize, formPolicy: formPolicy))
 
-proc recordAudit(registry: AdminRegistry, resource, action, identifier: string) =
+proc recordAudit(registry: AdminRegistry, resource, action, identifier,
+                 actor: string) =
   ## Keep audit creation centralized so every mutating route follows one shape.
-  registry.auditLog.add(AdminAuditEvent(action: action, resource: resource,
-    identifier: identifier))
+  let event = AdminAuditEvent(action: action, resource: resource,
+    identifier: identifier, actor: actor)
+  registry.auditStore.appendAuditEvent(event)
+  ## Compatibility projection is intentionally written only after the store;
+  ## a failed durable append must never look like a successful audit locally.
+  registry.auditLog.add(event)
 
 proc forbiddenResponse(): Response =
   ## Do not reveal whether a protected resource exists to unauthorized callers.
@@ -108,7 +161,7 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       if not current.authorize(request): return forbiddenResponse()
       let response = createResponse(current.resource, request.body)
       if response.status == Http201:
-        registry.recordAudit(current.name, "create", "")
+        registry.recordAudit(current.name, "create", "", request.auth.subject)
       return response)
   app.get(current.prefix & "/:id", "admin." & current.name & ".get",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
@@ -121,7 +174,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       let identifier = request.pathParams.getOrDefault("id")
       let response = updateResponse(current.resource, identifier, request.body)
       if response.status == Http200:
-        registry.recordAudit(current.name, "update", identifier)
+        registry.recordAudit(current.name, "update", identifier,
+          request.auth.subject)
       return response)
   app.addRoute("DELETE", current.prefix & "/:id",
     "admin." & current.name & ".delete",
@@ -130,7 +184,8 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       let identifier = request.pathParams.getOrDefault("id")
       let response = deleteResponse(current.resource, identifier)
       if response.status == Http204:
-        registry.recordAudit(current.name, "delete", identifier)
+        registry.recordAudit(current.name, "delete", identifier,
+          request.auth.subject)
       return response)
 
 proc registerAdminRoutes*(app: Application, registry: AdminRegistry) =

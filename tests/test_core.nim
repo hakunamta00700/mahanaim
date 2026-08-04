@@ -1875,11 +1875,16 @@ suite "Mahanaim core contracts":
     var createRequest = newRequest("POST", "/admin/items",
       "{\"title\":\"first\"}")
     createRequest.headers["x-admin"] = "yes"
+    createRequest.auth = AuthContext(authenticated: true, subject: "admin-1")
     let created = waitFor app.dispatch(createRequest)
     check created.status == Http201
     let id = parseJson(created.body)["id"].getInt()
     check registry.auditLog.len == 1
     check registry.auditLog[0].action == "create"
+    check registry.auditEvents()[0].actor == "admin-1"
+    var snapshot = registry.auditEvents()
+    snapshot[0].action = "tampered"
+    check registry.auditEvents()[0].action == "create"
 
     var updateRequest = newRequest("PUT", "/admin/items/" & $id,
       "{\"title\":\"updated\"}")

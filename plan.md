@@ -151,7 +151,7 @@
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.
 - [-] 독립 template engine의 auto-escaping, inheritance/block, include, filter registry를 제공한다. i18n과 확장 helper는 후속 범위다.
 - [x] metadata 기반 CRUD resource contract, in-memory reference store와 collection/detail route convention을 제공한다.
-- [-] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행을 연결했으며, admin customization과 object-level permission은 남아 있다.
+- [-] metadata-driven SQLite/PostgreSQL repository CRUD와 `ResourceStore` route adapter, secure admin registry 기초를 추가했다. 일반 CRUD와 admin list에 공통 query 실행을 연결하고 append-only audit event store 계약을 추가했으며, admin customization과 object-level permission은 남아 있다.
 
 ## P2 — 운영·확장성
 
