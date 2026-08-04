@@ -50,6 +50,13 @@ type RespFixtureState = object
   ready: Atomic[bool]
   received: Atomic[bool]
 
+type RedisReconnectFixtureState = object
+  ## The fixture deliberately drops the first connection to exercise the
+  ## adapter's socket disposal and bounded-retry reconnect contract.
+  port: Atomic[int]
+  ready: Atomic[bool]
+  connections: Atomic[int]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -74,6 +81,30 @@ proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
     state.received.store(true)
   client.send("*2\r\n:4\r\n:56\r\n")
   client.close()
+  server.close()
+
+proc runRedisReconnectFixture(state: ptr RedisReconnectFixtureState) {.thread, gcsafe.} =
+  ## The first accepted connection receives a valid command and then closes
+  ## without a response; the second connection returns a normal RESP result.
+  ## This models a transient peer/network failure without requiring Redis.
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  for connectionIndex in 1 .. 2:
+    var client: owned(Socket)
+    server.accept(client)
+    var command = ""
+    while not command.endsWith("$2\r\n60\r\n") and command.len < 4096:
+      command.add(client.recv(1, 5000))
+    discard command
+    state.connections.store(connectionIndex)
+    if connectionIndex == 2:
+      client.send("*2\r\n:1\r\n:60\r\n")
+    client.close()
   server.close()
 
 proc newFakeDependencyService(): DependencyService {.gcsafe.} =
@@ -3392,6 +3423,24 @@ suite "Mahanaim core contracts":
     check state.received.load()
     check counter.count == 4
     check counter.ttlSeconds == 56
+
+  test "Redis rate limit store reconnects after a dropped socket":
+    var state: RedisReconnectFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.connections.store(0)
+    var worker: Thread[ptr RedisReconnectFixtureState]
+    createThread(worker, runRedisReconnectFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    let client = newRedisValkeyRespClient(port = Port(state.port.load()))
+    let store = newRedisValkeyRateLimitStore(client, maxRetries = 1)
+    let decision = store.consume("reconnect:key", 2, 60)
+    client.close()
+    joinThread(worker)
+    check state.connections.load() == 2
+    check decision.allowed
+    check decision.remaining == 1
 
   test "explicit input schema projects to OpenAPI constraints":
     let document = openApiDocument("Mahanaim API", "1.0.0", [
