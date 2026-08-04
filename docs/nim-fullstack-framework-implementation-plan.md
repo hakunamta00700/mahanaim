@@ -247,6 +247,13 @@
 - [x] store backend 오류를 fail-open하지 않고 retryable 503으로 변환하는 회귀 경로를 추가했다.
 - [ ] Redis/Valkey 등 원격 atomic counter adapter와 분산 clock/eviction 운영 정책은 남아 있다.
 
+### 2026-08-04 — P0 Redis/Valkey rate-limit adapter 1차
+
+- [x] transport library를 핵심에 강제하지 않는 `RateLimitCounterClient` atomic increment/TTL 계약을 추가했다.
+- [x] `RedisValkeyRateLimitStore`가 server-side count/TTL을 quota decision으로 변환하고 bounded immediate retry를 적용한다.
+- [x] retry 성공, quota 초과, retry exhaustion의 fail-closed 503 회귀 테스트를 추가했다.
+- [ ] 실제 RESP/network client 연결과 분산 server clock·TTL/eviction 운영 정책은 남아 있다.
+
 ### 2026-08-04 — P0 executor backpressure 1차
 
 - [x] executor capacity 포화 시 무제한 대기 대신 configurable `queueWaitMs`를 적용했다.

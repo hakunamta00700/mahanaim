@@ -20,6 +20,22 @@ type MacroUser = object
   email: string
   active: bool
 
+type FakeRateLimitCounterClient = ref object of RateLimitCounterClient
+  calls: int
+  failuresRemaining: int
+  count: int
+
+method incrementFixedWindow(client: FakeRateLimitCounterClient, key: string,
+                            windowSeconds: int): RateLimitCounterResult =
+  ## Test double for an atomic Redis/Valkey INCR+EXPIRE response.
+  discard key
+  inc client.calls
+  if client.failuresRemaining > 0:
+    dec client.failuresRemaining
+    raise newException(ValueError, "remote counter unavailable")
+  inc client.count
+  RateLimitCounterResult(count: client.count, ttlSeconds: windowSeconds)
+
 suite "Mahanaim core contracts":
   test "request and response value objects have safe defaults":
     let request = newRequest("get", "/health")
@@ -405,6 +421,47 @@ suite "Mahanaim core contracts":
     let unavailable = waitFor unavailableApp.dispatch(newRequest("GET", "/shared"))
     check unavailable.status == Http503
     check unavailable.body == "Rate Limit Store Unavailable"
+
+  test "Redis and Valkey rate limit adapter retries atomically and fails closed":
+    let client = FakeRateLimitCounterClient()
+    expect ValueError:
+      discard newRedisValkeyRateLimitStore(client, maxRetries = -1)
+    let store = newRedisValkeyRateLimitStore(client, maxRetries = 1)
+    var policy = defaultSecurityPolicy()
+    policy.rateLimitRequests = 2
+    policy.rateLimitWindowSeconds = 60
+    policy.rateLimitStore = store
+    policy.rateLimitKey = "remote:application"
+    let app = newApplication(defaultConfig(), policy)
+    proc remote(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("accepted")
+    app.get("/remote", "remote", remote)
+
+    check (waitFor app.dispatch(newRequest("GET", "/remote"))).status == Http200
+    check client.calls == 1
+    check (waitFor app.dispatch(newRequest("GET", "/remote"))).status == Http200
+    let rejected = waitFor app.dispatch(newRequest("GET", "/remote"))
+    check rejected.status == Http429
+    check rejected.header("Retry-After").get() == "60"
+
+    let flakyClient = FakeRateLimitCounterClient(failuresRemaining: 1)
+    let flakyStore = newRedisValkeyRateLimitStore(flakyClient, maxRetries = 1)
+    var flakyPolicy = policy
+    flakyPolicy.rateLimitStore = flakyStore
+    let flakyApp = newApplication(defaultConfig(), flakyPolicy)
+    flakyApp.get("/remote", "remote-flaky", remote)
+    check (waitFor flakyApp.dispatch(newRequest("GET", "/remote"))).status == Http200
+    check flakyClient.calls == 2
+
+    let failedClient = FakeRateLimitCounterClient(failuresRemaining: 3)
+    let failedStore = newRedisValkeyRateLimitStore(failedClient, maxRetries = 1)
+    var failedPolicy = policy
+    failedPolicy.rateLimitStore = failedStore
+    let failedApp = newApplication(defaultConfig(), failedPolicy)
+    failedApp.get("/remote", "remote-failed", remote)
+    check (waitFor failedApp.dispatch(newRequest("GET", "/remote"))).status == Http503
+    check failedClient.calls == 2
 
   test "security policy issues and validates signed CSRF tokens":
     var policy = defaultSecurityPolicy()

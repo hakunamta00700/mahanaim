@@ -6,6 +6,12 @@
 - [x] job closure의 GC root 해제를 event-loop의 Flowvar 완료 이후로 제한한다.
 - [x] executor backend를 실제 sync 작업 시점에 lazy 초기화하고 반복 application lifecycle 회귀 테스트를 추가한다.
 
+## 2026-08-04 P0 분산 rate-limit store
+
+- [x] 원자적 remote counter 결과를 표현하는 `RateLimitCounterClient` 계약과 `RedisValkeyRateLimitStore` adapter를 제공한다.
+- [x] bounded immediate retry와 backend 오류 fail-closed 503 경로를 회귀 테스트한다.
+- [ ] 실제 Redis/Valkey RESP client 연결, server clock/TTL 관측, eviction 운영 지침을 추가한다.
+
 상태: 진행 중  
 작성일: 2026-08-04  
 상세 요구사항: [docs/nim-fullstack-framework-requirements.md](docs/nim-fullstack-framework-requirements.md)  

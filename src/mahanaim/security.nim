@@ -17,9 +17,23 @@ type
     remaining*: int
     retryAfter*: int
 
+  RateLimitCounterResult* = object
+    ## A Redis/Valkey client returns the result of one atomic server-side
+    ## increment. The framework never assumes a local clock or local count.
+    count*: int
+    ttlSeconds*: int
+
+  RateLimitCounterClient* = ref object of RootObj
+    ## Transport implementations can use any Redis/Valkey client library.
+    ## The core depends only on this small atomic counter contract.
+
   RateLimitStore* = ref object of RootObj
     ## Implementations may use an atomic remote increment, a database row, or
     ## another shared counter without changing SecurityPolicy semantics.
+
+  RedisValkeyRateLimitStore* = ref object of RateLimitStore
+    client*: RateLimitCounterClient
+    maxRetries*: int
 
   InMemoryRateLimitStore* = ref object of RateLimitStore
     windows: Table[string, tuple[started: MonoTime, count: int]]
@@ -151,6 +165,50 @@ method consume*(store: RateLimitStore, key: string, limit,
   discard limit
   discard windowSeconds
   raise newException(ValueError, "RateLimitStore.consume is not implemented")
+
+method incrementFixedWindow*(client: RateLimitCounterClient, key: string,
+                             windowSeconds: int): RateLimitCounterResult {.base.} =
+  ## A concrete client should execute an atomic INCR/EXPIRE operation or an
+  ## equivalent Lua script and return the server-side count and TTL.
+  discard client
+  discard key
+  discard windowSeconds
+  raise newException(ValueError,
+    "RateLimitCounterClient.incrementFixedWindow is not implemented")
+
+proc newRedisValkeyRateLimitStore*(client: RateLimitCounterClient,
+                                   maxRetries = 1): RedisValkeyRateLimitStore =
+  ## Keep retry bounded and immediate so middleware never sleeps the event loop.
+  if client == nil:
+    raise newException(ValueError, "rate limit counter client is required")
+  if maxRetries < 0:
+    raise newException(ValueError, "rate limit maxRetries must not be negative")
+  new(result)
+  result.client = client
+  result.maxRetries = maxRetries
+
+method consume*(store: RedisValkeyRateLimitStore, key: string, limit,
+                windowSeconds: int): RateLimitDecision =
+  ## Retry only the atomic command. If every attempt fails, propagate the
+  ## backend error so security middleware returns a fail-closed 503 response.
+  var lastError: ref CatchableError
+  for attempt in 0 .. store.maxRetries:
+    try:
+      let counter = store.client.incrementFixedWindow(key, windowSeconds)
+      if counter.count < 1 or counter.ttlSeconds < 0:
+        raise newException(ValueError, "invalid remote rate limit counter result")
+      result.allowed = counter.count <= limit
+      result.remaining = if result.allowed:
+        max(0, limit - counter.count) else: 0
+      result.retryAfter = if result.allowed:
+        0 else: max(1, counter.ttlSeconds)
+      return
+    except CatchableError as error:
+      lastError = error
+      if attempt == store.maxRetries:
+        raise error
+  if lastError != nil:
+    raise lastError
 
 proc newInMemoryRateLimitStore*(): InMemoryRateLimitStore =
   ## This backend is useful for local multi-application tests and as a
