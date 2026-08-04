@@ -22,6 +22,11 @@ type
     rehashed*: bool
     encoded*: string
 
+  PasswordChangeResult* = object
+    ## The account service persists `encoded` only after `valid` is true.
+    valid*: bool
+    encoded*: string
+
   PasswordResetTokenStore* = ref object of RootObj
     ## Token consumption is an adapter boundary because production systems
     ## should atomically persist this state in their existing user/session DB.
@@ -178,6 +183,18 @@ proc verifyAndRehash*(hasher: Pbkdf2PasswordHasher,
     result.rehashed = true
   else:
     result.encoded = encoded
+
+proc changePassword*(hasher: Pbkdf2PasswordHasher,
+                     currentPassword, newPassword, encoded: string):
+    PasswordChangeResult =
+  ## Keep current-password verification and new-hash issuance together. The
+  ## framework never persists accounts here; persistence remains the caller's
+  ## transaction responsibility, preserving this module's single purpose.
+  if currentPassword.len == 0 or newPassword.len == 0 or
+      currentPassword == newPassword or
+      not hasher.verifyPassword(currentPassword, encoded):
+    return PasswordChangeResult(valid: false, encoded: "")
+  PasswordChangeResult(valid: true, encoded: hasher.hashPassword(newPassword))
 
 proc issuePasswordResetTokenAt*(secret, subject: string, ttlSeconds,
                                 issuedAt: int64): string =

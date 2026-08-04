@@ -774,6 +774,14 @@ suite "Mahanaim core contracts":
     let rejectedUpgrade = strongerHasher.verifyAndRehash("wrong password", first)
     check not rejectedUpgrade.valid
     check rejectedUpgrade.encoded == ""
+    let changed = hasher.changePassword("correct horse battery staple",
+      "new secure password", first)
+    check changed.valid
+    check hasher.verifyPassword("new secure password", changed.encoded)
+    check not hasher.changePassword("wrong password", "another password",
+      first).valid
+    check not hasher.changePassword("correct horse battery staple",
+      "correct horse battery staple", first).valid
     check not hasher.verifyPassword("wrong password", first)
     check not hasher.verifyPassword("correct horse battery staple",
       first[0 .. ^2] & (if first[^1] == '0': "1" else: "0"))
