@@ -2354,6 +2354,25 @@ suite "Mahanaim core contracts":
     check graph.valid
     check graph.document["profile"]["displayName"].getStr() == "Ada"
 
+    let graphDocument = modelOpenApiDocument("Users", "1.0.0", user, registry)
+    let profileProperty = graphDocument["components"]["schemas"]["UserDto"][
+      "properties"]["profile"]
+    check profileProperty["$ref"].getStr() == "#/components/schemas/Profile"
+    check graphDocument["components"]["schemas"]["Profile"]["properties"][
+      "displayName"]["type"].getStr() == "string"
+
+    var cycle = newModelMetadata("Cycle", "cycles")
+    cycle.addField(newModelField("child", modelJson, nestedModel = "Cycle"))
+    registry.registerModel(cycle)
+    let cycleDocument = modelOpenApiDocument("Cycles", "1.0.0", cycle, registry)
+    check cycleDocument["components"]["schemas"]["Cycle"]["properties"][
+      "child"]["$ref"].getStr() == "#/components/schemas/Cycle"
+    var missing = newModelMetadata("MissingRoot")
+    missing.addField(newModelField("child", modelJson, nestedModel = "Unknown"))
+    registry.registerModel(missing)
+    expect ValueError:
+      discard modelOpenApiDocument("Missing", "1.0.0", missing, registry)
+
   test "standard serializer adapter canonicalizes date UUID and file metadata":
     var asset = newModelMetadata("Asset", "assets")
     asset.addField(newModelField("created_at", modelDateTime,

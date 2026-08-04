@@ -6,7 +6,7 @@
 ## request validation, HTML forms, and OpenAPI projections aligned without
 ## coupling any of those consumers to database adapters.
 
-import std/json
+import std/[json, options, strutils, tables]
 import ./core
 import ./models
 import ./validation
@@ -69,3 +69,97 @@ proc modelOpenApiDocument*(title, version: string,
   ## create/update shape by excluding primary keys.
   let schema = modelInputSchema(metadata, flBody, includePrimaryKey)
   openApiDocument(title, version, schema, schema)
+
+proc modelPrimitiveSchema(field: ModelField): JsonNode =
+  ## Keep model-to-OpenAPI scalar mapping separate from FieldSpec mapping so
+  ## JSON names, nullable fields, and nested references retain metadata that a
+  ## flattened validation schema intentionally does not carry.
+  result = newJObject()
+  result["type"] = newJString(case field.kind
+    of modelInteger: "integer"
+    of modelFloat: "number"
+    of modelBoolean: "boolean"
+    of modelJson: "object"
+    of modelString, modelDateTime, modelUuid, modelFile, modelReference: "string")
+  if field.kind == modelDateTime:
+    result["format"] = newJString("date-time")
+  elif field.kind == modelUuid:
+    result["format"] = newJString("uuid")
+  if field.maxLength > 0 and result["type"].getStr() == "string":
+    result["maxLength"] = newJInt(field.maxLength)
+  if field.enumValues.len > 0:
+    result["enum"] = newJArray()
+    for value in field.enumValues:
+      result["enum"].add(newJString(value))
+
+proc modelSchemaRef*(modelName: string): JsonNode =
+  ## References are generated in one place so route/document consumers cannot
+  ## accidentally use a different component path for nested DTOs.
+  if modelName.strip().len == 0:
+    raise newException(ValueError, "Nested model name is required")
+  %*{"$ref": "#/components/schemas/" & modelName}
+
+proc addModelSchema(metadata: ModelMetadata, registry: ModelRegistry,
+                    components: var JsonNode,
+                    includePrimaryKey: bool): JsonNode =
+  ## Register a placeholder before descending. This makes recursive DTO graphs
+  ## terminate naturally and emits a stable `$ref` instead of expanding forever.
+  if components.hasKey(metadata.name):
+    return modelSchemaRef(metadata.name)
+  components[metadata.name] = newJObject()
+  let schema = %*{
+    "type": "object",
+    "properties": newJObject()
+  }
+  var required = newJArray()
+  for field in metadata.fields:
+    if not includePrimaryKey and field.primaryKey:
+      continue
+    var property: JsonNode
+    if field.nestedModel.len > 0:
+      let nested = registry.model(field.nestedModel)
+      if nested.isNone:
+        raise newException(ValueError,
+          "Nested model is not registered: " & field.nestedModel)
+      discard addModelSchema(nested.get(), registry, components, true)
+      property = modelSchemaRef(field.nestedModel)
+    else:
+      property = modelPrimitiveSchema(field)
+    schema["properties"][field.jsonName] = property
+    if not field.nullable:
+      required.add(newJString(field.jsonName))
+  if required.len > 0:
+    schema["required"] = required
+  components[metadata.name] = schema
+  modelSchemaRef(metadata.name)
+
+proc modelOpenApiDocument*(title, version: string,
+                           metadata: ModelMetadata,
+                           registry: ModelRegistry,
+                           includePrimaryKey = true): JsonNode =
+  ## Project a registered model graph into reusable OpenAPI components. The
+  ## overload preserves the original scalar API while making nested DTO
+  ## documentation explicit wherever serializer graph metadata is available.
+  if title.strip().len == 0 or version.strip().len == 0:
+    raise newException(ValueError, "OpenAPI title and version are required")
+  if not registry.models.hasKey(metadata.name):
+    raise newException(ValueError,
+      "Root model is not registered: " & metadata.name)
+  var components = newJObject()
+  let root = addModelSchema(metadata, registry, components, includePrimaryKey)
+  result = %*{
+    "openapi": "3.1.0",
+    "info": {"title": title, "version": version},
+    "paths": {"/generated": {"post": {
+      "operationId": "generated",
+      "responses": {"200": {"description": "Successful response"}}
+    }}},
+    "components": {"schemas": components}
+  }
+  result["paths"]["/generated"]["post"]["requestBody"] = %*{
+    "required": true,
+    "content": {"application/json": {"schema": root}}
+  }
+  result["paths"]["/generated"]["post"]["responses"]["200"]["content"] = %*{
+    "application/json": {"schema": root}
+  }
