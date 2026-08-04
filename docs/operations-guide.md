@@ -42,6 +42,12 @@
   eviction 운영 검증은 별도 배포 gate다. 해당 조건을 검증하기 전
   `InMemoryRateLimitStore`를 수평 확장 정책으로 사용하지 않는다.
 
+`InMemoryRateLimitStore`는 monotonic clock으로 window TTL을 계산하고 매 요청
+시 만료 key를 정리한다. `newInMemoryRateLimitStore(maxKeys)`의 bound를 넘으면
+가장 오래된 active window를 제거하므로 local/test 환경에서도 attacker-controlled
+key cardinality가 메모리를 무한히 늘리지 않는다. Redis/Valkey 운영에서는 별도의
+`maxmemory`와 eviction policy를 설정하고 live gate에서 확인해야 한다.
+
 ## HTTPS reverse-proxy 배포 점검표
 
 TLS 종료 지점과 애플리케이션의 책임을 분리한다. Mahanaim은 HTTP request를

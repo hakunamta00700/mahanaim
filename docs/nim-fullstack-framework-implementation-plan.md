@@ -303,7 +303,7 @@
 
 - [x] timeout/cancellation, executor overload, rate-limit fail-closed, background retry와 graceful shutdown 정책을 문서화했다.
 - [x] request ID/health/readiness와 현재 미지원인 unsafe thread termination, external DB/queue drain 책임을 명시했다.
-- [ ] distributed rate-limit clock/TTL/eviction, durable queue recovery와 external backend runbook은 adapter 구현 뒤 확장한다.
+- [-] distributed rate-limit clock/TTL/eviction, durable queue recovery와 external backend runbook은 adapter 구현 뒤 확장한다. In-memory store에는 monotonic TTL cleanup과 bounded oldest eviction을 추가했으며 Redis/Valkey eviction 운영은 남아 있다.
 
 ### 2026-08-04 — P1 model metadata macro 1차
 
@@ -384,14 +384,14 @@
 - [x] process-local limiter와 분리된 backend-neutral `RateLimitStore` 계약을 추가했다.
 - [x] 여러 `Application`이 공유할 수 있는 `InMemoryRateLimitStore`와 store key 정책을 연결했다.
 - [x] store backend 오류를 fail-open하지 않고 retryable 503으로 변환하는 회귀 경로를 추가했다.
-- [-] Redis/Valkey 원격 atomic counter RESP adapter와 server TTL 응답을 추가했다. 분산 clock/eviction 운영 정책은 남아 있다.
+- [-] Redis/Valkey 원격 atomic counter RESP adapter와 server TTL 응답을 추가했고 in-memory adapter에는 monotonic TTL cleanup·bounded oldest eviction·lock을 추가했다. Redis/Valkey 분산 eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 Redis/Valkey rate-limit adapter 1차
 
 - [x] transport library를 핵심에 강제하지 않는 `RateLimitCounterClient` atomic increment/TTL 계약을 추가했다.
 - [x] `RedisValkeyRateLimitStore`가 server-side count/TTL을 quota decision으로 변환하고 bounded immediate retry를 적용한다.
 - [x] retry 성공, quota 초과, retry exhaustion의 fail-closed 503 회귀 테스트를 추가했다.
-- [-] 실제 RESP/network client, server TTL 파싱과 loopback live socket fixture를 추가했다. Redis/Valkey compatibility, reconnect와 clock/eviction 운영 정책은 남아 있다.
+- [-] 실제 RESP/network client, server TTL 파싱과 loopback live socket fixture를 추가했고 reconnect와 in-memory bounded eviction을 검증했다. Redis/Valkey compatibility와 분산 clock/eviction 운영 정책은 남아 있다.
 
 ### 2026-08-04 — P0 executor backpressure 1차
 
@@ -718,7 +718,7 @@ flowchart TB
 
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
-| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가했다. storage/cache·production compatibility와 eviction 정책은 남아 있다. |
+| [-] | REQ-OPS-001 | P2 | Redis/Valkey RESP rate-limit 구현체와 오류/재시도 경계, request/success/failure/connection/reconnect snapshot metrics를 추가하고 in-memory monotonic TTL·bounded eviction을 제공했다. storage/cache·production compatibility와 Redis/Valkey eviction 정책은 남아 있다. |
 | [-] | REQ-OPS-002 | P2 | task contract와 bounded retry, `IdempotencyStore` claim/release, `enqueueIdempotent`, SQLite durable payload state machine, processing recovery와 named-kind executor dispatch를 제공했다. 외부 queue adapter는 남아 있다. |
 | [-] | REQ-OPS-003 | P2 | structured logger/request ID와 health/readiness/metrics/tracing instrumentation을 lifecycle에 연결한다. Core sink·trace propagation은 구현했고 exporter 연결은 남아 있다. |
 | [ ] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. |

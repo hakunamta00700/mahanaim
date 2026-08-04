@@ -167,7 +167,7 @@
 - [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
 - [x] structured request logging sink과 W3C trace/span propagation 기반을 제공한다.
 - [x] 구현된 rate limit/timeout/retry/backpressure/graceful shutdown의 실패·복구 운영 정책을 문서화한다.
-- [-] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다. SQLite durable queue의 named handler 실행·복구 CLI와 애플리케이션 shutdown close 경계는 구현했으며, 분산 clock/eviction과 외부 queue·DB drain은 운영 환경 검증이 남아 있다.
+- [-] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다. SQLite durable queue의 named handler 실행·복구 CLI와 애플리케이션 shutdown close 경계, in-memory rate-limit의 monotonic TTL·bounded oldest eviction은 구현했으며, Redis/Valkey 분산 eviction과 외부 queue·DB drain은 운영 환경 검증이 남아 있다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.

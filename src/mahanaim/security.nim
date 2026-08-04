@@ -5,7 +5,7 @@
 ## and rate limiting remain separate policies so each concern can be tested and
 ## replaced independently.
 
-import std/[asyncdispatch, httpcore, monotimes, options, strutils, sysrand, tables, times]
+import std/[asyncdispatch, httpcore, locks, monotimes, options, strutils, sysrand, tables, times]
 import nimcrypto
 import ./core
 
@@ -37,6 +37,11 @@ type
 
   InMemoryRateLimitStore* = ref object of RateLimitStore
     windows: Table[string, tuple[started: MonoTime, count: int]]
+    ## A local adapter must remain bounded even when callers send unbounded
+    ## distinct keys. Distributed stores enforce an equivalent policy through
+    ## their configured maxmemory/eviction settings.
+    maxKeys: int
+    lock: Lock
 
 type
   SessionPolicy* = object
@@ -228,15 +233,57 @@ method consume*(store: RedisValkeyRateLimitStore, key: string, limit,
   if lastError != nil:
     raise lastError
 
-proc newInMemoryRateLimitStore*(): InMemoryRateLimitStore =
+proc newInMemoryRateLimitStore*(maxKeys = 10_000): InMemoryRateLimitStore =
   ## This backend is useful for local multi-application tests and as a
   ## contract reference; production deployments should use a shared adapter.
+  ## The explicit bound prevents a user-controlled rate-limit key from growing
+  ## process memory without limit.
+  if maxKeys < 1:
+    raise newException(ValueError, "in-memory rate limit maxKeys must be positive")
   new(result)
   result.windows = initTable[string, tuple[started: MonoTime, count: int]]()
+  result.maxKeys = maxKeys
+  initLock(result.lock)
+
+proc evictExpiredLocked(store: InMemoryRateLimitStore, now: MonoTime,
+                        windowSeconds: int) =
+  ## TTL cleanup is performed before every operation, so stale keys do not
+  ## consume the bounded capacity and no background thread is required.
+  var expired: seq[string] = @[]
+  for key, window in store.windows:
+    let elapsed = int((now - window.started).inMilliseconds div 1000)
+    if elapsed >= windowSeconds:
+      expired.add(key)
+  for key in expired:
+    store.windows.del(key)
+
+proc evictOldestLocked(store: InMemoryRateLimitStore) =
+  ## Evict the oldest active window deterministically when a new key would
+  ## exceed maxKeys. This mirrors common bounded-cache eviction semantics.
+  if store.windows.len < store.maxKeys:
+    return
+  var oldestKey = ""
+  var oldestStarted: MonoTime
+  var found = false
+  for key, window in store.windows:
+    if not found or window.started < oldestStarted:
+      oldestKey = key
+      oldestStarted = window.started
+      found = true
+  if found:
+    store.windows.del(oldestKey)
 
 method consume*(store: InMemoryRateLimitStore, key: string, limit,
                 windowSeconds: int): RateLimitDecision =
+  if store.isNil or key.len == 0 or limit < 1 or windowSeconds < 1:
+    raise newException(ValueError,
+      "in-memory rate limit key, limit, and window must be valid")
+  acquire(store.lock)
+  defer: release(store.lock)
   let now = getMonoTime()
+  store.evictExpiredLocked(now, windowSeconds)
+  if not store.windows.hasKey(key):
+    store.evictOldestLocked()
   var window = store.windows.getOrDefault(key,
     (started: now, count: 0))
   let elapsedSeconds = int((now - window.started).inMilliseconds div 1000)

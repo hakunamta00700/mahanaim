@@ -800,6 +800,17 @@ suite "Mahanaim core contracts":
     check unavailable.status == Http503
     check unavailable.body == "Rate Limit Store Unavailable"
 
+  test "in-memory rate limit store expires and bounds distinct keys":
+    expect ValueError:
+      discard newInMemoryRateLimitStore(0)
+    let store = newInMemoryRateLimitStore(2)
+    check store.consume("a", 1, 60).allowed
+    check store.consume("b", 1, 60).allowed
+    check store.consume("c", 1, 60).allowed
+    ## The oldest active key was evicted, so it starts a fresh window instead
+    ## of retaining the previous exhausted counter.
+    check store.consume("a", 1, 60).allowed
+
   test "Redis and Valkey rate limit adapter retries atomically and fails closed":
     let client = FakeRateLimitCounterClient()
     expect ValueError:
