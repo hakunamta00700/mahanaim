@@ -591,7 +591,7 @@ flowchart TB
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture 실행은 남아 있다.
 - [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping을 연결했다. annotate, eager/lazy loading은 후속 범위다.
-- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행을 제공했다. 프로젝트별 migration 정의 로딩, 생성·검토, schema diff/check, fixture/seed, 실제 `db` CLI wiring은 남아 있다.
+- [-] migration command parser/runner의 `status/up/rollback` 계약과 SQLite 실행, 명시적 registry 로딩을 제공했다. Application-aware `db status|up|rollback` CLI wiring까지 연결했으며, 생성·검토, schema diff/check, fixture/seed는 남아 있다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현하고 `postgres_testing` fixture factory를 추가했다. locking capability와 live isolation 실행은 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
 
@@ -680,7 +680,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
 | [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL 및 repository JSON result mapping을 제공한다. annotate와 loading 전략은 남아 있다. |
-| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, metadata migration 생성과 schema diff/check을 제공한다. 실제 `db` CLI wiring·fixture/seed는 남아 있다. |
+| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, 명시적 provider registry, Application-aware `db status|up|rollback` CLI, metadata migration 생성과 schema diff/check을 제공한다. fixture/seed는 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
 | [-] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만든다. |

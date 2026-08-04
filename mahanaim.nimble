@@ -1,5 +1,6 @@
 # Mahanaim framework package manifest.
-# Keep the first slice dependency-light so the core contracts are easy to audit.
+# Keep the framework frontend small while application-owned commands remain
+# explicit extension points.
 import std/[os, strutils]
 
 version       = "0.1.0"

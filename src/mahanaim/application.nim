@@ -11,6 +11,7 @@ import ./execution
 import ./observability
 import ./di
 import ./jobs
+import ./migration_commands
 
 type
   LifecycleHook* = proc ()
@@ -76,6 +77,8 @@ type
     services*: ServiceContainer
     jobs*: BackgroundJobQueue
     databasePool*: DatabaseConnectionPool
+    migrationRegistry*: MigrationRegistry
+    migrationDatabasePath*: string
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -112,6 +115,8 @@ proc newApplication*(config = defaultConfig(),
   result.observability = newObservability()
   result.services = newServiceContainer()
   result.jobs = newBackgroundJobQueue(result.executor)
+  result.migrationRegistry = newMigrationRegistry()
+  result.migrationDatabasePath = ".mahanaim.sqlite"
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 
@@ -139,6 +144,19 @@ proc configureDatabasePool*(app: Application,
     raise newException(ValueError,
       "Database pool must be configured before application startup")
   app.databasePool = pool
+
+proc configureMigrations*(app: Application, registry: MigrationRegistry,
+                          sqlitePath = ".mahanaim.sqlite") =
+  ## Migration definitions and the database path are explicit application
+  ## inputs; the CLI never scans source files or guesses project modules.
+  if app.isNil or registry.isNil or sqlitePath.strip().len == 0:
+    raise newException(ValueError,
+      "Application, migration registry, and SQLite path are required")
+  if app.started:
+    raise newException(ValueError,
+      "Migrations must be configured before application startup")
+  app.migrationRegistry = registry
+  app.migrationDatabasePath = sqlitePath
 
 proc registerCommand*(app: Application, command: CommandDefinition) =
   ## Registration is fail-fast so duplicate CLI names cannot shadow commands.

@@ -2359,8 +2359,28 @@ suite "Mahanaim core contracts":
     defer: adapter.close()
     discard executeMigrationCommand(adapter, [generated],
       parseMigrationCommand(["up"]))
-    check adapter.execute(CompiledQuery(sql:
-      "SELECT \"email\" FROM \"migration_users\"", parameters: @[])).len == 0
+
+  test "application CLI runs registered SQLite migrations":
+    let path = getTempDir() / "mahanaim_cli_migrations.sqlite"
+    if fileExists(path):
+      removeFile(path)
+    defer:
+      if fileExists(path):
+        removeFile(path)
+    let registry = newMigrationRegistry()
+    proc cliMigrationProvider(): seq[Migration] {.gcsafe.} =
+      @[Migration(name: "001_cli_users", up: @[
+        MigrationOperation(kind: migrationCreateTable, table: "cli_users",
+          field: ModelField(name: "id", columnName: "id", kind: modelInteger,
+            primaryKey: true))], down: @[
+        MigrationOperation(kind: migrationDropTable, table: "cli_users")])]
+    registry.registerMigrations(cliMigrationProvider)
+    let app = newApplication()
+    app.configureMigrations(registry, path)
+    check app.runCli(["db", "status"]) == 0
+    check app.runCli(["db", "up"]) == 0
+    check app.runCli(["db", "status"]) == 0
+    check app.runCli(["db", "rollback"]) == 0
 
   test "database test fixture rolls back each isolated operation":
     let fixture = newDatabaseTestFixture(

@@ -5,11 +5,12 @@
 ## without changing the Application API.
 
 import std/[os, osproc, strutils]
-import mahanaim/[application, checks, config, generator]
+import mahanaim/[application, checks, cli, config, generator]
 
 proc printUsage() =
   echo "mahanaim <command>"
   echo "  new NAME [PATH]  Generate a new project"
+  echo "  db status|up|rollback [PATH]  Run application migrations"
   echo "  dev      Load configuration and validate the app"
   echo "  test     Run the test suite through Nimble"
   echo "  check    Validate configuration and framework contracts"
@@ -59,6 +60,16 @@ proc main() =
     stdout.write(output)
     if exitCode != 0:
       quit(exitCode)
+  of "db":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @["db"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
   of "help", "--help", "-h":
     printUsage()
   else:
