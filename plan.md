@@ -138,14 +138,14 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [-] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler, migration history/JOIN compiler, bounded pool, request session, capability matrix와 metadata repository relation execution을 제공했다. aggregate row mapping과 PostgreSQL live integration/isolation fixture, repository route 연결은 남아 있다.
+- [-] SQLite/PostgreSQL query·transaction adapter, QuerySet/aggregate compiler와 repository aggregate result mapping, migration history/JOIN compiler, bounded pool, request session, capability matrix와 metadata repository relation execution을 제공했다. aggregate API route와 PostgreSQL live integration/isolation fixture, repository route 연결은 남아 있다.
 
 ### API와 서버 렌더링
 
 - [x] named field extraction, scalar coercion, validation error aggregation을 제공한다.
 - [x] 명시적 input schema에서 OpenAPI 3.1 문서와 제약조건을 생성한다.
 - [x] parameterized query contract에 bounded pagination page/size/offset 정책을 연결한다.
-- [-] 공통 query component로 pagination/filter/sort/field-selection과 query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler를 추가했다. cursor pagination과 aggregate row mapping은 후속 범위다.
+- [-] 공통 query component로 pagination/filter/sort/field-selection과 query validation 오류 형식을 제공하고 QuerySet aggregate SQL compiler/repository mapping을 추가했다. cursor pagination과 aggregate API route/total metadata는 후속 범위다.
 - [x] Accept quality(`q`) 우선순위와 `q=0` 거부를 포함한 content negotiation을 제공한다.
 - [-] explicit typed response schema와 다중 route OpenAPI registry, Swagger/ReDoc UI route를 추가했다. route 자동 수집과 schema macro는 남아 있다.
 - [x] 기존 FieldSpec 검증을 재사용하는 HTML form binding/render context와 escaping/CSRF hidden input을 제공한다.

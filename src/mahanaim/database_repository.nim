@@ -102,22 +102,34 @@ proc sqlValue(value: JsonNode): SqlValue =
   of JBool: booleanValue(value.getBool())
   of JObject, JArray: textValue($value)
 
+proc scalarText(value: SqlValue): string =
+  ## Drivers currently expose a text protocol at the neutral boundary, but
+  ## this conversion also keeps repository mapping correct for typed adapters.
+  case value.kind
+  of sqlNull: ""
+  of sqlText: value.text
+  of sqlInteger: $value.integer
+  of sqlFloat: $value.floating
+  of sqlBoolean:
+    if value.boolean: "true" else: "false"
+
 proc jsonValue(field: ModelField, value: SqlValue): JsonNode =
   if value.kind == sqlNull:
     return newJNull()
+  let text = scalarText(value)
   case field.kind
   of modelInteger:
-    try: newJInt(parseInt(value.text))
-    except ValueError: newJString(value.text)
+    try: newJInt(parseInt(text))
+    except ValueError: newJString(text)
   of modelFloat:
-    try: newJFloat(parseFloat(value.text))
-    except ValueError: newJString(value.text)
+    try: newJFloat(parseFloat(text))
+    except ValueError: newJString(text)
   of modelBoolean:
-    newJBool(value.text.toLowerAscii() in ["1", "true", "t", "yes"])
+    newJBool(text.toLowerAscii() in ["1", "true", "t", "yes"])
   of modelJson:
-    try: parseJson(value.text)
-    except CatchableError: newJString(value.text)
-  else: newJString(value.text)
+    try: parseJson(text)
+    except CatchableError: newJString(text)
+  else: newJString(text)
 
 proc columns(repository: DatabaseRepository): seq[string] =
   for field in repository.metadata.fields:
@@ -130,11 +142,11 @@ proc rowFromValues(repository: DatabaseRepository,
     if index < values.len:
       result[field.name] = jsonValue(field, values[index])
 
-proc selectQuery(repository: DatabaseRepository,
-                 query: SelectQuery): CompiledQuery =
+proc normalizeQuery(repository: DatabaseRepository,
+                    query: SelectQuery): SelectQuery =
   var normalized = query
   normalized.table = repository.metadata.tableName
-  if normalized.columns.len == 0:
+  if normalized.columns.len == 0 and normalized.aggregates.len == 0:
     normalized.columns = repository.columns()
   else:
     for index, name in normalized.columns:
@@ -152,14 +164,86 @@ proc selectQuery(repository: DatabaseRepository,
     if field.isNone:
       raise newException(ValueError, "Unknown repository order: " & order.field)
     order.field = field.get().columnName
-  compileSelect(normalized, repository.adapter.dialect)
+  for aggregate in normalized.aggregates.mitems:
+    if aggregate.field == "*":
+      if aggregate.function != aggregateCount:
+        raise newException(ValueError, "Only COUNT supports wildcard aggregate fields")
+    else:
+      let field = repository.fieldFor(aggregate.field)
+      if field.isNone:
+        raise newException(ValueError, "Unknown repository aggregate field: " &
+          aggregate.field)
+      aggregate.field = field.get().columnName
+  for group in normalized.groupBy.mitems:
+    let field = repository.fieldFor(group)
+    if field.isNone:
+      raise newException(ValueError, "Unknown repository group field: " & group)
+    group = field.get().columnName
+  normalized
+
+proc selectQuery(repository: DatabaseRepository,
+                 query: SelectQuery): CompiledQuery =
+  compileSelect(repository.normalizeQuery(query), repository.adapter.dialect)
 
 proc list*(repository: DatabaseRepository,
            query = SelectQuery()): seq[ResourceRow] {.gcsafe.} =
   ## List uses the shared compiler, including pagination and bound filters.
+  if query.aggregates.len > 0 or query.groupBy.len > 0:
+    raise newException(ValueError,
+      "Aggregate queries must use DatabaseRepository.aggregate")
   let compiled = repository.selectQuery(query)
   for values in repository.adapter.execute(compiled):
     result.add(repository.rowFromValues(values))
+
+proc aggregateJson(function: QueryAggregateFunction,
+                   field: Option[ModelField], value: SqlValue): JsonNode =
+  ## Restore useful JSON scalar types from the driver's text result protocol.
+  if value.kind == sqlNull:
+    return newJNull()
+  let text = scalarText(value)
+  case function
+  of aggregateCount:
+    try: newJInt(parseInt(text))
+    except ValueError: newJString(text)
+  of aggregateAverage:
+    try: newJFloat(parseFloat(text))
+    except ValueError: newJString(text)
+  of aggregateSum, aggregateMinimum, aggregateMaximum:
+    if field.isSome:
+      jsonValue(field.get(), value)
+    else:
+      newJString(text)
+
+proc aggregateRow(repository: DatabaseRepository, query: SelectQuery,
+                  values: seq[SqlValue]): ResourceRow =
+  ## Map selected group fields and aggregate aliases independently of model
+  ## serialization; aggregate aliases are not model fields by design.
+  var valueIndex = 0
+  for column in query.columns:
+    if valueIndex >= values.len: break
+    let field = repository.fieldFor(column)
+    if field.isSome:
+      result[field.get().name] = jsonValue(field.get(), values[valueIndex])
+    inc valueIndex
+  for aggregate in query.aggregates:
+    if valueIndex >= values.len: break
+    let field = if aggregate.field == "*": none(ModelField) else:
+      repository.fieldFor(aggregate.field)
+    result[aggregate.alias] = aggregateJson(aggregate.function, field,
+      values[valueIndex])
+    inc valueIndex
+
+proc aggregate*(repository: DatabaseRepository,
+                query: QuerySet): seq[ResourceRow] {.gcsafe.} =
+  ## Execute a QuerySet aggregate and expose stable JSON rows for API/service
+  ## layers. Ordinary CRUD list remains intentionally model-shaped.
+  let requested = query.toSelectQuery()
+  if requested.aggregates.len == 0:
+    raise newException(ValueError, "Aggregate query requires an aggregate")
+  let normalized = repository.normalizeQuery(requested)
+  let compiled = compileSelect(normalized, repository.adapter.dialect)
+  for values in repository.adapter.execute(compiled):
+    result.add(repository.aggregateRow(normalized, values))
 
 proc listRelation*(repository: DatabaseRepository,
                    relation: ModelRelation,

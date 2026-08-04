@@ -1941,13 +1941,14 @@ suite "Mahanaim core contracts":
         value: booleanValue(true)))
       .addAggregate(aggregateCount, "*", "total")
       .addAggregate(aggregateSum, "amount", "gross")
+      .addAggregate(aggregateAverage, "amount", "mean")
       .groupByFields(@["status"])
       .orderByField("status")
       .paginate(newPagination(2, 10, 50))
     check base.query.filters.len == 0
     check base.query.aggregates.len == 0
     let sqlite = grouped.compile()
-    check sqlite.sql == "SELECT \"status\", COUNT(*) AS \"total\", SUM(\"amount\") AS \"gross\" FROM \"orders\" WHERE \"active\" = ? GROUP BY \"status\" ORDER BY \"status\" ASC LIMIT 10 OFFSET 10"
+    check sqlite.sql == "SELECT \"status\", COUNT(*) AS \"total\", SUM(\"amount\") AS \"gross\", AVG(\"amount\") AS \"mean\" FROM \"orders\" WHERE \"active\" = ? GROUP BY \"status\" ORDER BY \"status\" ASC LIMIT 10 OFFSET 10"
     check sqlite.parameters.len == 1
     check sqlite.parameters[0].kind == sqlBoolean
     check sqlite.parameters[0].boolean
@@ -2159,6 +2160,50 @@ suite "Mahanaim core contracts":
     check updated.get()["name"].getStr() == "Grace"
     check repository.delete("1")
     check repository.find("1").isNone
+
+  test "database repository maps grouped aggregate rows to JSON scalars":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE \"orders\" (\"id\" INTEGER, \"status\" TEXT, " &
+      "\"amount\" INTEGER, \"active\" INTEGER)", parameters: @[]))
+    var metadata = newModelMetadata("Order", "orders")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("status", modelString))
+    metadata.addField(newModelField("amount", modelInteger))
+    metadata.addField(newModelField("active", modelBoolean))
+    let repository = newDatabaseRepository(metadata, adapter)
+    for values in @[
+        (1, "open", 10, true), (2, "open", 15, true),
+        (3, "closed", 7, true), (4, "open", 100, false)]:
+      var row: ResourceRow
+      row["id"] = newJInt(values[0])
+      row["status"] = newJString(values[1])
+      row["amount"] = newJInt(values[2])
+      row["active"] = newJBool(values[3])
+      discard repository.create(row)
+
+    let query = newQuerySet("orders")
+      .selectFields(@["status"])
+      .whereFilter(QueryFilter(field: "active", operator: filterEqual,
+        value: booleanValue(true)))
+      .addAggregate(aggregateCount, "*", "total")
+      .addAggregate(aggregateSum, "amount", "gross")
+      .addAggregate(aggregateAverage, "amount", "mean")
+      .groupByFields(@["status"])
+      .orderByField("status")
+    let rows = repository.aggregate(query)
+    check rows.len == 2
+    check rows[0]["status"].getStr() == "closed"
+    check rows[0]["total"].getInt() == 1
+    check rows[0]["gross"].getInt() == 7
+    check rows[0]["mean"].getFloat() == 7.0
+    check rows[1]["status"].getStr() == "open"
+    check rows[1]["total"].getInt() == 2
+    check rows[1]["gross"].getInt() == 25
+    check rows[1]["mean"].getFloat() == 12.5
+    expect ValueError:
+      discard repository.list(query.toSelectQuery())
 
   test "database repository store connects CRUD routes to SQLite":
     let adapter = newSqliteDatabaseAdapter()

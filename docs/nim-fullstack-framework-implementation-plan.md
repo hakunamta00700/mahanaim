@@ -246,7 +246,7 @@
 - [x] query contract에 page/pageSize/maxPageSize와 deterministic SQL offset 계산을 추가했다.
 - [x] 음수·0 page/size와 maximum 초과를 사전 거부하고 base query 복사 semantics를 유지했다.
 - [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler를 추가했다. cursor pagination, count/total metadata, aggregate row mapping/filter expression API는 남아 있다.
+- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결하고 QuerySet aggregate SQL compiler와 repository JSON result mapping을 추가했다. cursor pagination, count/total metadata, aggregate API/filter expression route는 남아 있다.
 
 ### 2026-08-04 — P2 plugin manifest 1차
 
@@ -266,7 +266,7 @@
 - [x] create/update 입력에서 required/type/unknown-field 검증을 저장 전에 적용하고 auto-generated primary key 예외를 분리했다.
 - [x] collection/detail route convention과 invalid body/404/204 semantics를 연결했다.
 - [x] create/list/update/delete/invalid input 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [-] metadata-driven repository가 SQLite adapter에 CRUD, typed JSON conversion과 bound filter를 연결했다. QuerySet aggregate compiler는 추가했으며 aggregate row mapping, PostgreSQL live repository, filtering/aggregate relation execution과 admin UI는 남아 있다.
+- [-] metadata-driven repository가 SQLite adapter에 CRUD, typed JSON conversion, bound filter와 QuerySet aggregate JSON mapping을 연결했다. PostgreSQL live repository, filtering/aggregate relation execution과 admin UI는 남아 있다.
 
 ### 2026-08-04 — P2 DI foundation 1차
 
@@ -589,7 +589,7 @@ flowchart TB
 
 - [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter를 동일 계약으로 추가했다. capability matrix는 추가했고 PostgreSQL live fixture는 남아 있다.
-- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, grouped aggregate SQL compiler를 연결했다. aggregate result mapping, annotate, eager/lazy loading은 후속 범위다.
+- [-] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, grouped aggregate SQL compiler/result mapping을 연결했다. annotate, eager/lazy loading은 후속 범위다.
 - [ ] migration 생성·검토·실행·롤백·상태 확인, fixture/seed, `db` CLI 명령을 제공한다.
 - [-] transaction/savepoint, backend-neutral connection pool, request 단위 DB session wiring, unit-of-work와 isolation capability contract를 구현했다. locking capability와 live isolation fixture는 남아 있다.
 - [-] 모델 metadata를 database repository의 CRUD/typed conversion과 연결했다. API CRUD route adapter와 form bridge는 추가했고, admin wiring과 raw SQL escape hatch 문서화는 남아 있다.
@@ -678,7 +678,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [-] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. |
-| [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST로 조건·정렬·pagination·grouping·aggregate SQL을 표현하고 SQLite/PostgreSQL compiler로 생성한다. aggregate result mapping과 loading 전략은 남아 있다. |
+| [-] | REQ-DATA-002 | P1 | QuerySet/query builder AST로 조건·정렬·pagination·grouping·aggregate SQL과 repository JSON result mapping을 제공한다. annotate와 loading 전략은 남아 있다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact의 up/down/status 일부를 제공했고 schema diff, check, fixture/seed 명령은 남아 있다. |
 | [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, unit-of-work와 isolation capability contract를 추가했고 locking/live isolation test는 남아 있다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, backend capability matrix를 추가했고 live compatibility test는 남아 있다. |
