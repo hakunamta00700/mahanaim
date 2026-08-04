@@ -226,6 +226,14 @@
 - [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
 - [ ] cursor pagination, count/total metadata, aggregate/filter expression API는 남아 있다.
 
+### 2026-08-04 — P2 plugin manifest 1차
+
+- [x] version/name/dependency metadata와 middleware/routes/services 등 registration phase enum을 추가했다.
+- [x] 기존 bare `Plugin` proc API를 유지하면서 manifest plugin overload를 제공했다.
+- [x] manifest를 application에 기록하고 duplicate/invalid manifest를 설치 전에 거부한다.
+- [x] phase 기록과 duplicate/name validation 회귀 테스트, 전체 `nimble test`를 통과했다.
+- [ ] dependency resolution, DI provider scope, command/admin extension registration은 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.

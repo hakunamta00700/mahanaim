@@ -276,6 +276,21 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "from plugin"
 
+  test "plugin manifest records registration phase and rejects duplicates":
+    let app = newApplication()
+    proc installManifest(app: Application) {.gcsafe.} =
+      discard app
+    let manifest = PluginManifest(name: "audit", version: "1.0.0",
+      phase: pluginMiddleware, dependencies: @[])
+    app.use(newPlugin(manifest, installManifest))
+    check app.pluginManifests.len == 1
+    check app.pluginManifests[0].phase == pluginMiddleware
+    expect ValueError:
+      app.use(newPlugin(manifest, installManifest))
+    expect ValueError:
+      discard newPlugin(PluginManifest(name: "", version: "1.0.0"),
+        installManifest)
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

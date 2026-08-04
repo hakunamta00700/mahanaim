@@ -1,6 +1,6 @@
 ## Application lifecycle and middleware dispatcher.
 
-import std/[asyncdispatch, httpcore, options]
+import std/[asyncdispatch, httpcore, options, strutils]
 import ./core
 import ./router
 import ./config
@@ -12,6 +12,31 @@ import ./observability
 type
   LifecycleHook* = proc ()
 
+  PluginRegistrationPhase* = enum
+    ## Phases make plugin ordering explicit without forcing a DI framework.
+    pluginMiddleware
+    pluginRoutes
+    pluginServices
+    pluginMetadata
+    pluginSerialization
+    pluginStorage
+    pluginAuth
+    pluginCommands
+    pluginAdmin
+
+  PluginManifest* = object
+    ## Versioned metadata is inspectable before plugin installation.
+    name*: string
+    version*: string
+    phase*: PluginRegistrationPhase
+    dependencies*: seq[string]
+
+  PluginInstaller* = proc (app: Application) {.gcsafe.}
+
+  PluginDefinition* = ref object
+    manifest*: PluginManifest
+    install*: PluginInstaller
+
   Application* = ref object
     ## Owns routing and lifecycle state for one application instance.
     config*: AppConfig
@@ -21,6 +46,7 @@ type
     shutdownHooks*: seq[LifecycleHook]
     errorHandler*: ErrorHandler
     plugins*: seq[Plugin]
+    pluginManifests*: seq[PluginManifest]
     models*: ModelRegistry
     executionPolicy*: ExecutionPolicy
     executor*: ThreadPoolExecutor
@@ -48,6 +74,7 @@ proc newApplication*(config = defaultConfig(),
   result.shutdownHooks = @[]
   result.errorHandler = defaultErrorHandler
   result.plugins = @[]
+  result.pluginManifests = @[]
   result.models = initModelRegistry()
   result.executionPolicy = executionPolicy
   result.executor = newThreadPoolExecutor(
@@ -72,6 +99,16 @@ proc defaultErrorHandler(request: Request,
 proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
   app.middlewares.add(middleware)
+
+proc newPlugin*(manifest: PluginManifest,
+                install: PluginInstaller): PluginDefinition =
+  ## Keep plugin declaration immutable after construction and fail early on
+  ## malformed manifests rather than during application startup.
+  if manifest.name.strip().len == 0 or manifest.version.strip().len == 0:
+    raise newException(ValueError, "Plugin manifest requires name and version")
+  if install.isNil:
+    raise newException(ValueError, "Plugin installer cannot be nil")
+  PluginDefinition(manifest: manifest, install: install)
 
 proc addRoute*(app: Application, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[]) =
@@ -141,6 +178,19 @@ proc use*(app: Application, plugin: Plugin) =
   ## commands, or future extension points through the Application contract.
   app.plugins.add(plugin)
   plugin(app)
+
+proc use*(app: Application, plugin: PluginDefinition) =
+  ## Manifest plugins are recorded before install so checks and tooling can
+  ## inspect registration intent without executing arbitrary plugin code.
+  if plugin.isNil:
+    raise newException(ValueError, "Plugin definition cannot be nil")
+  for existing in app.pluginManifests:
+    if existing.name == plugin.manifest.name:
+      raise newException(ValueError,
+        "Duplicate plugin manifest: " & plugin.manifest.name)
+  app.pluginManifests.add(plugin.manifest)
+  app.plugins.add(plugin.install)
+  plugin.install(app)
 
 proc registerModel*(app: Application, metadata: ModelMetadata) =
   ## Model registration follows the same isolated application ownership model
