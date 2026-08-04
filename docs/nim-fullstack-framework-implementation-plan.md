@@ -246,7 +246,7 @@
 - [x] query contract에 page/pageSize/maxPageSize와 deterministic SQL offset 계산을 추가했다.
 - [x] 음수·0 page/size와 maximum 초과를 사전 거부하고 base query 복사 semantics를 유지했다.
 - [x] page 3/size 10의 `LIMIT/OFFSET`와 invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
-- [ ] cursor pagination, count/total metadata, aggregate/filter expression API는 남아 있다.
+- [-] 공통 query component를 CRUD/admin list의 in-memory reference adapter까지 연결했다. cursor pagination, count/total metadata, aggregate/filter expression API는 남아 있다.
 
 ### 2026-08-04 — P2 plugin manifest 1차
 
@@ -605,7 +605,7 @@ flowchart TB
 - [-] 안전한 기본 escaping, inheritance, include/partial, filter registry를 갖춘 독립 template engine을 추가했다. i18n과 고급 tag/helper는 후속 범위다.
 - [-] model metadata에서 validation `FieldSpec`, `bindModelForm`, OpenAPI schema를 생성하는 bridge를 추가했다. widget registry와 model formset은 남아 있다.
 - [ ] CSRF token과 form validation을 서버 렌더링 흐름에 통합한다.
-- [-] metadata 등록으로 secure CRUD admin JSON/form route와 audit event를 생성하는 registry 기초를 추가했다. 검색·필터·정렬·pagination·bulk action·inline·custom layout은 남아 있다.
+- [-] metadata 등록으로 secure CRUD admin JSON/form route와 audit event를 생성하는 registry 기초를 추가하고, 공통 query component를 admin list에 연결했다. bulk action·inline·custom layout·object-level permission은 남아 있다.
 - [ ] 세션 인증과 token/JWT API 인증을 같은 auth contract로 제공한다.
 - [ ] 사용자·그룹·role·permission·route guard·object-level authorization, password 관리, session rotation을 구현한다.
 - [ ] admin의 권한 검사와 audit log를 별도로 보장한다.

@@ -10,7 +10,9 @@ import ./application
 import ./core
 import ./database
 import ./models
+import ./query_components
 import ./serialization
+import ./validation
 
 type
   ResourceRow* = Table[string, JsonNode]
@@ -80,13 +82,131 @@ proc rowId(store: InMemoryResourceStore, row: ResourceRow): string =
   of JInt: $row[store.idField].getInt()
   else: ""
 
+proc comparableSqlValue(value: SqlValue): string =
+  ## Keep reference-adapter comparisons aligned with the typed query contract.
+  case value.kind
+  of sqlNull: ""
+  of sqlText: value.text
+  of sqlInteger: $value.integer
+  of sqlFloat: $value.floating
+  of sqlBoolean: $value.boolean
+
+proc likeMatch(value, pattern: string): bool =
+  ## Support SQL's portable `%` and `_` wildcards without introducing a
+  ## backend-specific regex dependency into the in-memory reference adapter.
+  var valueIndex = 0
+  var patternIndex = 0
+  var wildcardIndex = -1
+  var wildcardMatch = 0
+  while valueIndex < value.len:
+    if patternIndex < pattern.len and
+        (pattern[patternIndex] == '_' or pattern[patternIndex] == value[valueIndex]):
+      inc valueIndex
+      inc patternIndex
+    elif patternIndex < pattern.len and pattern[patternIndex] == '%':
+      wildcardIndex = patternIndex
+      wildcardMatch = valueIndex
+      inc patternIndex
+    elif wildcardIndex >= 0:
+      patternIndex = wildcardIndex + 1
+      inc wildcardMatch
+      valueIndex = wildcardMatch
+    else:
+      return false
+  while patternIndex < pattern.len and pattern[patternIndex] == '%':
+    inc patternIndex
+  patternIndex == pattern.len
+
+proc compareJsonValues(left, right: JsonNode): int =
+  ## Numeric JSON values must sort numerically, not by their textual spelling.
+  if left.kind in {JInt, JFloat} and right.kind in {JInt, JFloat}:
+    let leftNumber = if left.kind == JInt: left.getInt().float else: left.getFloat()
+    let rightNumber = if right.kind == JInt: right.getInt().float else: right.getFloat()
+    if leftNumber < rightNumber: -1 elif leftNumber > rightNumber: 1 else: 0
+  else:
+    let leftText = if left.kind == JString: left.getStr() else: $left
+    let rightText = if right.kind == JString: right.getStr() else: $right
+    cmp(leftText, rightText)
+
 method list*(store: InMemoryResourceStore,
              query: SelectQuery): seq[ResourceRow] {.gcsafe.} =
-  ## Pagination is applied by the query contract; this reference adapter keeps
-  ## ordering deterministic and leaves filtering to future backend adapters.
-  discard query
+  ## The in-memory adapter is also a behavioral reference implementation. It
+  ## executes the same query intent as SQL adapters so route tests can verify
+  ## filtering, ordering, and pagination without requiring a live database.
   for row in store.rows:
-    result.add(row)
+    var matches = true
+    for filter in query.filters:
+      let value = if row.hasKey(filter.field): row[filter.field] else: newJNull()
+      if filter.operator in {filterIsNull, filterIsNotNull}:
+        let isNull = value.kind == JNull
+        matches = if filter.operator == filterIsNull: isNull else: not isNull
+      else:
+        let filterValue = filter.value
+        if value.kind == JNull:
+          matches = false
+        elif filterValue.kind == sqlInteger and
+             value.kind in {JInt, JFloat}:
+          let left = if value.kind == JInt: value.getInt().float else: value.getFloat()
+          let right = filterValue.integer.float
+          matches = case filter.operator
+            of filterEqual: left == right
+            of filterNotEqual: left != right
+            of filterGreater: left > right
+            of filterGreaterOrEqual: left >= right
+            of filterLess: left < right
+            of filterLessOrEqual: left <= right
+            else: false
+        elif filterValue.kind == sqlFloat and value.kind in {JInt, JFloat}:
+          let left = if value.kind == JInt: value.getInt().float else: value.getFloat()
+          let right = filterValue.floating
+          matches = case filter.operator
+            of filterEqual: left == right
+            of filterNotEqual: left != right
+            of filterGreater: left > right
+            of filterGreaterOrEqual: left >= right
+            of filterLess: left < right
+            of filterLessOrEqual: left <= right
+            else: false
+        else:
+          let left = if value.kind == JString: value.getStr() else: $value
+          let right = comparableSqlValue(filterValue)
+          matches = case filter.operator
+            of filterEqual: left == right
+            of filterNotEqual: left != right
+            of filterLike: likeMatch(left, right)
+            else: false
+      if not matches:
+        break
+    if matches:
+      result.add(row)
+
+  ## Stable insertion sorting keeps equal values in creation order, while the
+  ## first differing order remains the primary key like SQL ORDER BY.
+  if query.orderBy.len > 0:
+    var sorted: seq[ResourceRow] = @[]
+    for row in result:
+      var insertAt = sorted.len
+      for index, existing in sorted:
+        var before = false
+        for order in query.orderBy:
+          let candidate = if row.hasKey(order.field): row[order.field] else: newJNull()
+          let current = if existing.hasKey(order.field): existing[order.field] else: newJNull()
+          let comparison = compareJsonValues(candidate, current)
+          if comparison != 0:
+            before = if order.descending: comparison > 0 else: comparison < 0
+            break
+        if before:
+          insertAt = index
+          break
+      sorted.insert(row, insertAt)
+    result = sorted
+
+  let first = min(query.offset, result.len)
+  let last = if query.limit > 0: min(first + query.limit, result.len) else: result.len
+  if first >= last:
+    result = @[]
+  elif first > 0 or last < result.len:
+    result = result[first ..< last]
 
 method find*(store: InMemoryResourceStore, id: string): Option[ResourceRow] {.gcsafe.} =
   for row in store.rows:
@@ -165,7 +285,14 @@ proc listResponse*(resource: CrudResource,
                    query = SelectQuery()): Response {.gcsafe.} =
   var document = newJArray()
   for row in resource.store.list(query):
-    document.add(responseDocument(resource, row))
+    if query.columns.len == 0:
+      document.add(responseDocument(resource, row))
+    else:
+      let serialized = serializeProjection(resource.metadata, row, query.columns,
+        resource.responsePolicy)
+      if not serialized.valid:
+        raise newException(ValueError, "Stored resource row failed projection")
+      document.add(serialized.document)
   jsonResponse(document)
 
 proc getResponse*(resource: CrudResource, id: string): Response {.gcsafe.} =
@@ -215,8 +342,11 @@ proc registerCrudRoutes*(app: Application, resource: CrudResource,
     raise newException(ValueError, "CRUD route requires prefix and name")
   app.get(prefix, name & ".list",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
-      discard request
-      return listResponse(resource))
+      let parsed = request.parseQueryComponent(resource.metadata.fields)
+      if not parsed.valid:
+        return request.problemResponseFor(Http400, "Invalid query",
+          "One or more query parameters are invalid", parsed.errors)
+      return listResponse(resource, parsed.query))
   app.post(prefix, name & ".create",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       return createResponse(resource, request.body))

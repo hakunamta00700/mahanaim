@@ -1754,6 +1754,36 @@ suite "Mahanaim core contracts":
     check (waitFor app.dispatch(newRequest("POST", "/items",
       "{\"title\":\"ok\",\"unknown\":true}"))).status == Http400
 
+  test "CRUD list route executes shared query filtering ordering pagination and projection":
+    var metadata = newModelMetadata("RankedItem", "ranked_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("name", modelString))
+    metadata.addField(newModelField("active", modelBoolean))
+    metadata.addField(newModelField("score", modelInteger))
+    let app = newApplication()
+    let resource = newCrudResource(metadata, newInMemoryResourceStore(metadata))
+    registerCrudRoutes(app, resource, "/ranked-items", "ranked-items")
+    discard waitFor app.dispatch(newRequest("POST", "/ranked-items",
+      "{\"name\":\"low\",\"active\":true,\"score\":1}"))
+    discard waitFor app.dispatch(newRequest("POST", "/ranked-items",
+      "{\"name\":\"high\",\"active\":true,\"score\":3}"))
+    discard waitFor app.dispatch(newRequest("POST", "/ranked-items",
+      "{\"name\":\"inactive\",\"active\":false,\"score\":9}"))
+
+    var request = newRequest("GET", "/ranked-items")
+    request.query["filter.active"] = "true"
+    request.query["filter.name__like"] = "h%"
+    request.query["sort"] = "-score"
+    request.query["page_size"] = "1"
+    request.query["fields"] = "name,score"
+    let listed = waitFor app.dispatch(request)
+    check listed.status == Http200
+    let document = parseJson(listed.body)
+    check document.len == 1
+    check document[0]["name"].getStr() == "high"
+    check document[0]["score"].getInt() == 3
+    check not document[0].hasKey("active")
+
   test "admin registry protects and audits metadata CRUD routes":
     var metadata = newModelMetadata("AdminItem", "admin_items")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
