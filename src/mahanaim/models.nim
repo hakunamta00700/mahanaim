@@ -43,6 +43,10 @@ type
     ## Optional closed value set for string-backed enum fields. Keeping enums
     ## as strings preserves backend-neutral storage while sharing one contract.
     enumValues*: seq[string]
+    ## Collections cross the HTTP and persistence boundaries as JSON arrays.
+    ## The element type remains intentionally open for the JSON adapter until
+    ## a typed collection codec is registered by the application.
+    collection*: bool
 
   ModelIndex* = object
     ## Composite indexes remain backend-neutral until a migration compiler reads
@@ -86,7 +90,8 @@ type
 proc newModelField*(name: string, kind: ModelValueKind,
                     columnName = "", jsonName = "", nullable = false,
                     primaryKey = false, unique = false, indexed = false,
-    maxLength = 0, sensitive = false, nestedModel = ""): ModelField =
+                    maxLength = 0, sensitive = false, nestedModel = "",
+                    collection = false): ModelField =
   ## Nim, database, and JSON names are independent so each adapter can use the
   ## naming convention appropriate to its boundary.
   result = ModelField(
@@ -101,7 +106,8 @@ proc newModelField*(name: string, kind: ModelValueKind,
     maxLength: maxLength,
     sensitive: sensitive,
     nestedModel: nestedModel,
-    enumValues: @[])
+    enumValues: @[],
+    collection: collection)
 
 proc newModelIndex*(name: string, fields: openArray[string],
                     unique = false): ModelIndex =

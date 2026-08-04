@@ -94,12 +94,19 @@ proc modelPrimitiveSchema(field: ModelField): JsonNode =
   ## JSON names, nullable fields, and nested references retain metadata that a
   ## flattened validation schema intentionally does not carry.
   result = newJObject()
-  result["type"] = newJString(case field.kind
-    of modelInteger: "integer"
-    of modelFloat: "number"
-    of modelBoolean: "boolean"
-    of modelJson: "object"
-    of modelString, modelDateTime, modelUuid, modelFile, modelReference: "string")
+  if field.collection:
+    ## Collection fields are JSON arrays at the neutral boundary. A typed
+    ## collection adapter may refine `items` later without changing the model
+    ## metadata or the route/schema contract.
+    result["type"] = newJString("array")
+    result["items"] = newJObject()
+  else:
+    result["type"] = newJString(case field.kind
+      of modelInteger: "integer"
+      of modelFloat: "number"
+      of modelBoolean: "boolean"
+      of modelJson: "object"
+      of modelString, modelDateTime, modelUuid, modelFile, modelReference: "string")
   if field.kind == modelDateTime:
     result["format"] = newJString("date-time")
   elif field.kind == modelUuid:

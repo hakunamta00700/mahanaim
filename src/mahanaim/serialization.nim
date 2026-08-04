@@ -94,6 +94,8 @@ proc expectedKind(kind: ModelValueKind): string =
 proc valueMatches(field: ModelField, value: JsonNode): bool =
   ## Validate only the JSON boundary type; domain constraints stay in the
   ## validation layer so serialization remains single-purpose.
+  if field.collection:
+    return value.kind == JArray
   case field.kind
   of modelString, modelDateTime, modelUuid, modelReference:
     value.kind == JString or (field.kind == modelReference and
@@ -183,7 +185,8 @@ proc serializeValues(metadata: ModelMetadata,
     if value.kind != JNull and not valueMatches(field, value):
       result.errors.add(SerializationIssue(field: field.name,
         code: "invalid_type",
-        message: "Expected " & expectedKind(field.kind)))
+        message: "Expected " & (if field.collection: "JSON array" else:
+          expectedKind(field.kind))))
       continue
     try:
       result.document[field.jsonName] = if adapter.isNil: value else:

@@ -25,6 +25,10 @@ type OptionalMacroUser = object
   displayName: Option[string]
   age: Option[int]
 
+type CollectionMacroUser = object
+  tags: seq[string]
+  scores: Option[array[3, int]]
+
 type AnnotatedMacroUser = object
   id: int
   email: string
@@ -4240,6 +4244,36 @@ suite "Mahanaim core contracts":
       discard newModelConstraint("", "email <> ''")
     expect ValueError:
       discard newModelRelation("profile", relationOneToOne, "", "id", "id")
+
+  test "model macro maps collections to JSON metadata and array OpenAPI shape":
+    let generated = modelMetadata(CollectionMacroUser, "CollectionMacroUser",
+      "collection_macro_users")
+    check generated.fields.len == 2
+    check generated.fields[0].kind == modelJson
+    check generated.fields[0].collection
+    check generated.fields[1].kind == modelJson
+    check generated.fields[1].collection
+    check generated.fields[1].nullable
+    let schema = inputSchema(CollectionMacroUser)
+    check schema[0].inputType == itJson
+    check schema[0].required
+    check schema[1].inputType == itJson
+    check not schema[1].required
+    var registry = initModelRegistry()
+    registry.registerModel(generated)
+    let document = modelOpenApiDocument("Collections", "1", generated,
+      registry)
+    let properties = document["components"]["schemas"]["CollectionMacroUser"]["properties"]
+    check properties["tags"]["type"].getStr() == "array"
+    check properties["scores"]["type"].getStr() == "array"
+    var values = initTable[string, JsonNode]()
+    values["tags"] = %*["nim", "web"]
+    values["scores"] = %*[1, 2, 3]
+    check serializeModel(generated, values).valid
+    values["tags"] = %*{"not": "an array"}
+    let invalid = serializeModel(generated, values)
+    check not invalid.valid
+    check invalid.errors[0].code == "invalid_type"
 
   test "input schema macro generates ordered FieldSpec values":
     let generated = inputSchema(MacroUser)
