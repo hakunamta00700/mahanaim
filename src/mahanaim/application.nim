@@ -9,6 +9,7 @@ import ./models
 import ./execution
 import ./observability
 import ./di
+import ./jobs
 
 type
   LifecycleHook* = proc ()
@@ -53,6 +54,7 @@ type
     executor*: ThreadPoolExecutor
     observability*: Observability
     services*: ServiceContainer
+    jobs*: BackgroundJobQueue
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -86,6 +88,7 @@ proc newApplication*(config = defaultConfig(),
     queueWaitMs = executionPolicy.queueWaitMs)
   result.observability = newObservability()
   result.services = newServiceContainer()
+  result.jobs = newBackgroundJobQueue(result.executor)
   result.middlewares.add(observabilityMiddleware(result.observability))
   result.started = false
 

@@ -309,6 +309,21 @@ suite "Mahanaim core contracts":
     expect ValueError:
       app.provide("singleton", dependencyApplication, newFakeDependencyService)
 
+  test "background jobs use executor and bounded asynchronous retries":
+    let app = newApplication()
+    let queue = newBackgroundJobQueue(app.executor,
+      JobRetryPolicy(maxAttempts: 2, delayMs: 0))
+    let result = waitFor queue.enqueue(proc() {.gcsafe.} = discard)
+    check result.succeeded
+    check result.attempts == 1
+    let failed = waitFor queue.enqueue(proc() {.gcsafe.} =
+      raise newException(ValueError, "permanent job failure"))
+    check not failed.succeeded
+    check failed.attempts == 2
+    expect ValueError:
+      discard newBackgroundJobQueue(app.executor,
+        JobRetryPolicy(maxAttempts: 0, delayMs: 0))
+
   test "custom error handler receives route exceptions":
     let app = newApplication()
     proc failure(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

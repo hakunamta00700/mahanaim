@@ -250,6 +250,13 @@
 - [x] singleton identity, factory recreation, unknown/duplicate dependency 회귀 테스트와 전체 `nimble test`를 통과했다.
 - [ ] request/task container ownership, dependency graph resolution, lifecycle disposal과 command/admin extension은 남아 있다.
 
+### 2026-08-04 — P2 background job 1차
+
+- [x] existing ThreadPoolExecutor를 재사용하는 `BackgroundJobQueue`와 job result contract를 추가했다.
+- [x] max attempts/delay를 검증하고 retry를 event-loop sleep으로 bounded asynchronous scheduling한다.
+- [x] 성공·실패 attempt count와 retry policy invalid input 회귀 테스트, 전체 `nimble test`를 통과했다.
+- [ ] durable job persistence, idempotency key, crash recovery와 외부 queue adapter는 남아 있다.
+
 ### 2026-08-04 — P1 model metadata macro 1차
 
 - [x] Nim object field를 source order대로 읽어 backend-neutral `ModelMetadata`를 생성하는 macro를 추가했다.
