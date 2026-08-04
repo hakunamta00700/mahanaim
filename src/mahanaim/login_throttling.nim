@@ -13,6 +13,15 @@ type
     failures*: int
     retryAfterSeconds*: int
 
+  LoginThrottleCounterResult* = object
+    ## A shared backend returns the current count and server-side TTL together.
+    count*: int
+    ttlSeconds*: int
+
+  LoginThrottleCounterClient* = ref object of RootObj
+    ## Separate read/increment/reset operations preserve login semantics; the
+    ## generic rate-limit counter cannot safely stand in for this contract.
+
   LoginThrottleStore* = ref object of RootObj
     ## Backend-neutral boundary for process-local or distributed stores.
 
@@ -25,6 +34,31 @@ type
     windowSeconds*: int
     states: Table[string, LoginThrottleState]
     lock: Lock
+
+  DistributedLoginThrottle* = ref object of LoginThrottleStore
+    client*: LoginThrottleCounterClient
+    maxFailures*: int
+    windowSeconds*: int
+    maxRetries*: int
+
+method readFailureCount*(client: LoginThrottleCounterClient, key: string,
+                         windowSeconds: int): LoginThrottleCounterResult {.base.} =
+  discard client
+  discard key
+  discard windowSeconds
+  raise newException(ValueError, "Login throttle counter read is not implemented")
+
+method incrementFailure*(client: LoginThrottleCounterClient, key: string,
+                         windowSeconds: int): LoginThrottleCounterResult {.base.} =
+  discard client
+  discard key
+  discard windowSeconds
+  raise newException(ValueError, "Login throttle counter increment is not implemented")
+
+method resetFailures*(client: LoginThrottleCounterClient, key: string) {.base.} =
+  discard client
+  discard key
+  raise newException(ValueError, "Login throttle counter reset is not implemented")
 
 method checkAttempt*(store: LoginThrottleStore,
                      key: string): LoginThrottleDecision {.base.} =
@@ -59,6 +93,53 @@ proc newInMemoryLoginThrottle*(maxFailures = 5,
 proc validateKey(key: string) =
   if key.strip().len == 0:
     raise newException(ValueError, "Login throttle key must not be empty")
+
+proc newDistributedLoginThrottle*(client: LoginThrottleCounterClient,
+                                  maxFailures = 5, windowSeconds = 60,
+                                  maxRetries = 1): DistributedLoginThrottle =
+  ## Bounded retries avoid blocking login handlers indefinitely while an
+  ## unavailable shared store remains fail-closed through raised errors.
+  if client.isNil or maxFailures <= 0 or windowSeconds <= 0 or maxRetries < 0:
+    raise newException(ValueError, "Invalid distributed login throttle configuration")
+  DistributedLoginThrottle(client: client, maxFailures: maxFailures,
+    windowSeconds: windowSeconds, maxRetries: maxRetries)
+
+proc readRemote(store: DistributedLoginThrottle, key: string):
+    LoginThrottleCounterResult =
+  var lastError: ref CatchableError
+  for _ in 0 .. store.maxRetries:
+    try:
+      return store.client.readFailureCount(key, store.windowSeconds)
+    except CatchableError as error:
+      lastError = error
+  raise lastError
+
+proc incrementRemote(store: DistributedLoginThrottle, key: string):
+    LoginThrottleCounterResult =
+  var lastError: ref CatchableError
+  for _ in 0 .. store.maxRetries:
+    try:
+      return store.client.incrementFailure(key, store.windowSeconds)
+    except CatchableError as error:
+      lastError = error
+  raise lastError
+
+method checkAttempt*(store: DistributedLoginThrottle,
+                     key: string): LoginThrottleDecision =
+  validateKey(key)
+  let counter = store.readRemote(key)
+  result.failures = max(0, counter.count)
+  result.allowed = result.failures < store.maxFailures
+  if not result.allowed:
+    result.retryAfterSeconds = max(1, counter.ttlSeconds)
+
+method recordFailure*(store: DistributedLoginThrottle, key: string) =
+  validateKey(key)
+  discard store.incrementRemote(key)
+
+method recordSuccess*(store: DistributedLoginThrottle, key: string) =
+  validateKey(key)
+  store.client.resetFailures(key)
 
 proc refreshState(store: InMemoryLoginThrottle, key: string,
                   now: MonoTime): LoginThrottleState =

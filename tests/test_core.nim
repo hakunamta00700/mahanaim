@@ -80,6 +80,37 @@ method incrementFixedWindow(client: FakeRateLimitCounterClient, key: string,
   inc client.count
   RateLimitCounterResult(count: client.count, ttlSeconds: windowSeconds)
 
+type FakeLoginThrottleCounterClient = ref object of LoginThrottleCounterClient
+  count: int
+  ttl: int
+  readFailures: int
+  incrementFailures: int
+  resets: int
+
+method readFailureCount(client: FakeLoginThrottleCounterClient, key: string,
+                        windowSeconds: int): LoginThrottleCounterResult =
+  discard key
+  discard windowSeconds
+  if client.readFailures > 0:
+    dec client.readFailures
+    raise newException(ValueError, "login counter read unavailable")
+  LoginThrottleCounterResult(count: client.count, ttlSeconds: client.ttl)
+
+method incrementFailure(client: FakeLoginThrottleCounterClient, key: string,
+                        windowSeconds: int): LoginThrottleCounterResult =
+  discard key
+  discard windowSeconds
+  if client.incrementFailures > 0:
+    dec client.incrementFailures
+    raise newException(ValueError, "login counter increment unavailable")
+  inc client.count
+  LoginThrottleCounterResult(count: client.count, ttlSeconds: client.ttl)
+
+method resetFailures(client: FakeLoginThrottleCounterClient, key: string) =
+  discard key
+  client.count = 0
+  inc client.resets
+
 suite "Mahanaim core contracts":
   test "request and response value objects have safe defaults":
     let request = newRequest("get", "/health")
@@ -820,6 +851,24 @@ suite "Mahanaim core contracts":
     check blocked.retryAfterSeconds >= 1
     throttle.recordSuccess("user-42")
     check throttle.checkAttempt("user-42").allowed
+
+  test "distributed login throttle retries and resets through its counter contract":
+    let client = FakeLoginThrottleCounterClient(ttl: 17,
+      readFailures: 1, incrementFailures: 1)
+    let throttle = newDistributedLoginThrottle(client, maxFailures = 2,
+      maxRetries = 1)
+    check throttle.checkAttempt("user-42").allowed
+    throttle.recordFailure("user-42")
+    check client.count == 1
+    client.count = 2
+    let blocked = throttle.checkAttempt("user-42")
+    check not blocked.allowed
+    check blocked.retryAfterSeconds == 17
+    throttle.recordSuccess("user-42")
+    check client.count == 0
+    check client.resets == 1
+    expect ValueError:
+      discard newDistributedLoginThrottle(client, maxRetries = -1)
     expect ValueError:
       discard throttle.checkAttempt("")
 
