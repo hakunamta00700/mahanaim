@@ -500,11 +500,12 @@ proc runLiveContract() =
   var observedValue = ""
   var routeObserved = false
   fixture.withTestDatabase(proc(adapter: DatabaseAdapter) =
-    ## Reuse the same adapter-neutral assertions executed by the SQLite suite.
-    runCommonDatabaseContract(adapter, "postgres_shared_contract")
     ## The fixture has already begun a transaction; isolation must be applied
     ## before the first statement so the adapter cannot silently defer it.
     adapter.setIsolationLevel(isolationSerializable)
+    ## Reuse the same adapter-neutral assertions executed by the SQLite suite
+    ## after the transaction's isolation contract is established.
+    runCommonDatabaseContract(adapter, "postgres_shared_contract")
     discard adapter.execute(CompiledQuery(sql:
       "CREATE TABLE \"mahanaim_live_items\" (\"id\" INTEGER PRIMARY KEY, " &
       "\"title\" TEXT, \"status\" TEXT, \"active\" BOOLEAN, " &

@@ -233,6 +233,17 @@ proc rollbackMigration*(adapter: PostgresDatabaseAdapter,
         sql: migrationSql(operation, dialectPostgres), parameters: @[])))
 
 const postgresMigrationTable = "__mahanaim_migrations"
+const postgresMigrationLockExpression =
+  "SELECT pg_advisory_xact_lock(hashtext('mahanaim:migrations'))"
+
+proc acquireMigrationLock(adapter: PostgresDatabaseAdapter) =
+  ## Serialize migration runners across independent PostgreSQL connections.
+  ## The lock is transaction-scoped, so a crashed or closed runner cannot
+  ## leave a process-global mutex behind. SQLite relies on its write lock;
+  ## PostgreSQL needs this explicit coordination because DDL transactions can
+  ## otherwise observe the same empty history before either insert commits.
+  discard adapter.execute(CompiledQuery(sql: postgresMigrationLockExpression,
+    parameters: @[]))
 
 proc ensureMigrationTable(adapter: PostgresDatabaseAdapter) =
   ## BIGSERIAL preserves execution order across independent connections while
@@ -268,24 +279,32 @@ proc validatePostgresMigrations(migrations: openArray[Migration]) =
 proc migrate*(adapter: PostgresDatabaseAdapter,
               migrations: openArray[Migration]): seq[string] =
   ## Apply only pending migrations and record each name in the same commit.
+  ## Acquire the advisory lock before reading history so concurrent runners
+  ## cannot both decide that the same migration is still pending.
   if adapter.isNil:
     raise newException(ValueError, "PostgreSQL migration adapter is required")
   validatePostgresMigrations(migrations)
-  adapter.ensureMigrationTable()
-  let applied = adapter.appliedMigrations()
-  for migration in migrations:
-    if migration.name in applied:
-      continue
-    let currentMigration = migration
-    adapter.withTransaction(proc() =
+  ## Own the migration list before capturing it in the transaction callback;
+  ## the public openArray view may belong to a caller's temporary sequence.
+  let ownedMigrations = @migrations
+  var appliedNames: seq[string] = @[]
+  adapter.withTransaction(proc() =
+    adapter.acquireMigrationLock()
+    adapter.ensureMigrationTable()
+    let applied = adapter.appliedMigrations()
+    for migration in ownedMigrations:
+      if migration.name in applied:
+        continue
+      let currentMigration = migration
       for operation in currentMigration.up:
         discard adapter.execute(CompiledQuery(
           sql: migrationSql(operation, dialectPostgres), parameters: @[]))
       discard adapter.execute(CompiledQuery(
         sql: "INSERT INTO \"" & postgresMigrationTable &
           "\" (\"name\") VALUES ($1)",
-        parameters: @[textValue(currentMigration.name)])))
-    result.add(currentMigration.name)
+        parameters: @[textValue(currentMigration.name)]))
+      appliedNames.add(currentMigration.name))
+  result = appliedNames
 
 proc rollbackLatest*(adapter: PostgresDatabaseAdapter,
                      migrations: openArray[Migration]): Option[string] =

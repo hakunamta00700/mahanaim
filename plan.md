@@ -56,7 +56,7 @@
 ### P1 — 핵심 제품 기능의 남은 범위
 
 - [x] **P1-01 구조형 template AST** — `TemplateNode` 구조형 AST parser/render를 추가하고 block/include/helper 인자를 typed node로 검증했다. nested collection projection, quoted literal, named argument, 교차 종료 태그의 parser/render regression test와 사용자 문서를 함께 반영했다.
-- [x] **P1-02 PostgreSQL migration evidence** — PostgreSQL adapter의 migration history table, transactional up/down, idempotent migrate, status/latest rollback 및 shared command overload를 compile/live contract에 연결했다. PostgreSQL 16 컨테이너에서 shared command status/up/migrate/status/history/rollback/status를 통과했고 SQLite/PostgreSQL capability·isolation 차이를 운영 contract report로 기록했다.
+- [x] **P1-02 PostgreSQL migration evidence** — PostgreSQL adapter의 migration history table, transactional up/down, idempotent migrate, status/latest rollback 및 shared command overload를 compile/live contract에 연결했다. PostgreSQL 16 컨테이너에서 shared command status/up/migrate/status/history/rollback/status와 transaction-scoped advisory-lock concurrent migration convergence를 통과했고 SQLite/PostgreSQL capability·isolation 차이를 운영 contract report로 기록했다.
 - [x] **P1-03 DB pool/live HTTP contract** — 실제 TCP 요청이 `Application.dispatch`의 request-scoped database pool borrow/release를 통과하고, 응답 후 idle 반환·shutdown 후 pool close를 보장하는 SQLite fixture를 추가했다. PostgreSQL 16 컨테이너의 `postgresLive`에서도 pool/session commit·rollback·isolation·close와 PostgreSQL-backed HTTP/SSE/WebSocket wire 경로를 실제로 통과시켰다.
 - [x] **P1-04 공통 DML 결과 계약** — `DatabaseResult.affectedRows`와 `statementKeyword`/`statementMutatesRows` 공통 판별 계약을 추가하고, SQLite는 connection-local `changes()`, PostgreSQL은 command tag 또는 `RETURNING` row 수를 backend-neutral 결과로 반환한다. SQLite 회귀 테스트와 PostgreSQL 16 live insert contract를 통과시켰다.
 - [x] **P1-05 request/response DTO 경계** — typed documented route가 request DTO와 response DTO를 독립적으로 schema화해 입력 전용 `age`가 응답에 노출되지 않고 응답 전용 `id`가 입력에 요구되지 않도록 회귀 테스트로 고정했다. rename·partial update·nested·sensitive exclusion은 기존 metadata serializer contract에서 함께 검증한다.
@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 disposable Docker PostgreSQL 16과 Redis 7.2.15 service에서 `nimble postgresLive`와 `nimble redisLive`를 실제 실행했다. PostgreSQL advisory-lock concurrent migration, Redis two-process fan-out/reconnect/backpressure/eviction 계약이 통과했으며 GitHub runner와 staging evidence는 별도 범위다.
 - [x] 2026-08-05 PostgreSQL live fixture에도 독립 libpq 연결 2개의 concurrent migration 계약을 추가하고 `postgresLiveCheck` compile gate 및 credential 부재 명시적 skip을 검증했다. credential이 제공되는 CI/staging의 실제 실행 로그는 외부 evidence 범위다.
 - [x] 2026-08-05 `tests/test_core.nim`에 독립 SQLite 연결 2개가 같은 migration을 동시에 실행하는 계약을 추가해 실패 없이 단일 history row/schema로 수렴하는지 검증했다. PostgreSQL concurrent migration 및 staging 운영 evidence는 별도 범위다.
 - [x] 2026-08-05 semantic versioning, 지원 버전/adapter matrix, deprecation migration guide, API maturity label, security release 규칙을 `docs/api-stability-policy.md`와 `docs/support-matrix.md`에 고정하고 문서 계약 테스트로 계획 상태와 정책 artifact의 정합성을 검증했다.

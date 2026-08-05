@@ -190,10 +190,13 @@ nimble test
   test "PostgreSQL live migration contract includes concurrent connections":
     let liveSuite = readFile(getCurrentDir() / "tests" /
       "test_postgres_live.nim")
+    let adapter = readFile(getCurrentDir() / "src" / "mahanaim" /
+      "postgres_adapter.nim")
     let guide = readFile(getCurrentDir() / "docs" /
       "operations-guide.md")
     check liveSuite.contains("runLiveConcurrentMigrationContract")
     check liveSuite.contains("PostgreSQL concurrent migration history")
+    check adapter.contains("pg_advisory_xact_lock")
     check guide.contains("two independent PostgreSQL connections")
 
   test "direct httpx deployment adapter has an explicit compile gate":

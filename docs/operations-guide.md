@@ -316,6 +316,13 @@ committed. `nimble postgresLiveCheck` proves the fixture compiles everywhere;
 `nimble postgresLive` requires the documented credentials to produce the real
 database evidence.
 
+On 2026-08-05 the local disposable Docker matrix ran this contract against
+PostgreSQL 16 and passed the concurrent migration history check. The same
+matrix ran the Redis/Valkey live contract against Redis 7.2.15 and passed
+two-process fan-out, reconnect, ordering, backpressure, and bounded eviction
+checks. These local results complement, but do not replace, GitHub runner and
+staging deployment evidence.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and
