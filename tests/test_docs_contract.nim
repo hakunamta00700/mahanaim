@@ -55,3 +55,15 @@ nimble test
     check guide.contains("readiness")
     check guide.contains("rollback")
     check guide.contains("nimble redisLive")
+
+  test "implementation plan distinguishes local adapter baselines from live evidence":
+    ## The implementation plan is also a maintenance boundary: it must not
+    ## describe already-tested local adapters as entirely unimplemented, while
+    ## retaining the provider-specific signing and deployment evidence that
+    ## still belongs to an application-owned environment.
+    let plan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check not plan.contains("object-storage backend와 WebSocket adapter는 남아 있다.")
+    check plan.contains("[x] HTML·JSON·upload·WebSocket route를 같은 앱에서 실행한다.")
+    check not plan.contains("OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 설계 항목이다.")
+    check plan.contains("S3 signing/retry와 별도 cache eviction 부하 운영 정책은 남아 있다.")

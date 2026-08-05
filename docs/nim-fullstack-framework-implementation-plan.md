@@ -509,7 +509,7 @@
 - [x] filename traversal, size, MIME allow-list, overwrite 정책을 검증한다.
 - [x] 저장 결과에 원본 파일명과 실제 저장 경로를 분리해 보존하는 회귀 테스트를 추가했다.
 - [x] Prologue upload field 선택과 safe storage 위임 회귀 테스트를 추가했다.
-- [ ] object-storage backend와 WebSocket adapter는 남아 있다.
+- [-] backend-neutral object storage와 WebSocket adapter는 구현·계약 테스트를 완료했다. S3-compatible signing/retry 운영과 추가 provider matrix는 application-owned 범위로 남긴다.
 
 ### 2026-08-04 — P0 test client 1차
 
@@ -619,7 +619,7 @@ flowchart TB
 
 완료 기준:
 
-- [ ] HTML·JSON·upload·WebSocket route를 같은 앱에서 실행한다.
+- [x] HTML·JSON·upload·WebSocket route를 같은 앱에서 실행한다.
 - [ ] 테스트 client가 동일한 handler를 호출한다.
 
 ### Phase 1 — 타입 안전 HTTP/API 기반 (P0/P1)
@@ -690,7 +690,7 @@ flowchart TB
 - [ ] 선택한 기본 template engine과 다른 엔진을 연결하는 adapter를 제공한다.
 - [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
 - [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
-- [ ] WebSocket channel/group broadcast, Redis-backed channel layer, compression, ETag, response cache를 추가한다.
+- [-] WebSocket channel/group broadcast, Redis-backed channel layer, ETag, response cache를 추가했고 contract/live gate를 연결했다. compression과 실제 rolling deployment evidence는 후속 범위다.
 - [ ] Docker multi-stage, reverse proxy, systemd/컨테이너 배포와 graceful shutdown 예제를 제공한다.
 - [ ] Geo/GIS, multi-tenant, CMS, frontend adapter, distributed scheduler, search, presence, GraphQL은 별도 패키지로 검토한다.
 
@@ -935,7 +935,7 @@ flowchart TB
 
 - [x] AST `for` renderer가 현재 loop에 한정된 `index`/`index0`/`first`/`last`/`length` metadata를 주입한다.
 - [x] two-item rendering contract와 nested-loop shadowing 경계를 테스트로 고정하고, 기존 explicit collection/projection API를 변경하지 않는다.
-- [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 설계 항목이다.
+- [-] OpenAPI Swagger/ReDoc UI route와 WebSocket/SSE 기본 contract는 구현했다. WebSocket/SSE 고급 확장과 추가 UI asset packaging은 후속 설계 항목이다.
 
 ### 2026-08-05 — OpenAPI UI script boundary baseline
 
