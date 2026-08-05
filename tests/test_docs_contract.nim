@@ -179,6 +179,14 @@ nimble test
     check policy.contains("Security release")
     check supportMatrix.contains("Nim")
 
+  test "migration plan records concurrent SQLite evidence":
+    let coreSuite = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check coreSuite.contains(
+      "SQLite migration is idempotent across concurrent connections")
+    check implementationPlan.contains("동시 요청 조건에서 검증한다")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

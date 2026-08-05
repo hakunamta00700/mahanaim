@@ -15,6 +15,7 @@ import prologue/core/httpcore/httplogue
 import prologue/core/request except Request
 import prologue/mocking/mocking
 import mahanaim
+import mahanaim/sqlite_adapter
 import database_contracts
 
 type MacroUser = object
@@ -140,6 +141,44 @@ type RedisChannelLayerReconnectFixtureState = object
   ## socket drop, then verifies that reconnect restores the same group.
   port: Atomic[int]
   ready: Atomic[bool]
+
+type ConcurrentMigrationFixtureState = object
+  ## Two independent SQLite connections share this copy-safe barrier. The
+  ## migration itself remains adapter-owned; the test only coordinates when
+  ## both callers enter the same migration boundary.
+  path: string
+  ready: Atomic[int]
+  failures: Atomic[int]
+
+proc concurrentMigrationDefinition(): Migration =
+  ## Keep the fixture schema deliberately small so a failure represents the
+  ## migration lock/history contract rather than unrelated query behavior.
+  Migration(name: "001_concurrent_items", up: @[
+    MigrationOperation(kind: migrationCreateTable, table: "concurrent_items",
+      field: ModelField(name: "value", kind: modelString))], down: @[
+    MigrationOperation(kind: migrationDropTable, table: "concurrent_items")])
+
+proc runConcurrentMigration(state: ptr ConcurrentMigrationFixtureState)
+    {.thread, gcsafe.} =
+  discard state.ready.fetchAdd(1)
+  while state.ready.load() < 2:
+    sleep(1)
+  let adapter = newSqliteDatabaseAdapter(state.path)
+  try:
+    ## The production migration callback type intentionally remains flexible
+    ## for adapter-owned transaction closures. This test crosses a native
+    ## thread boundary explicitly, so keep the unsafe cast isolated here
+    ## instead of weakening the framework's public callback contract.
+    let migrateProc = cast[proc(adapter: SqliteDatabaseAdapter,
+        migrations: openArray[Migration]): seq[string] {.nimcall, gcsafe.}](
+      sqlite_adapter.migrate)
+    discard migrateProc(adapter, @[concurrentMigrationDefinition()])
+  except CatchableError:
+    ## The caller observes this atomically after both workers join; no
+    ## exception crosses a native thread boundary or is silently swallowed.
+    discard state.failures.fetchAdd(1)
+  finally:
+    adapter.close()
 
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
@@ -4709,6 +4748,32 @@ suite "Mahanaim core contracts":
       "001_users"]
     check historyAdapter.rollbackLatest([first]).get() == "001_users"
     check historyAdapter.appliedMigrations().len == 0
+
+  test "SQLite migration is idempotent across concurrent connections":
+    ## Application startup and an operator CLI can legitimately race. Both
+    ## callers must converge on one committed history row instead of exposing
+    ## a transient unique-constraint or database-lock failure.
+    let path = getTempDir() / "mahanaim-concurrent-migrations.sqlite"
+    if fileExists(path):
+      removeFile(path)
+    defer:
+      if fileExists(path):
+        removeFile(path)
+    var state = ConcurrentMigrationFixtureState(path: path)
+    var first: Thread[ptr ConcurrentMigrationFixtureState]
+    var second: Thread[ptr ConcurrentMigrationFixtureState]
+    createThread(first, runConcurrentMigration, addr state)
+    createThread(second, runConcurrentMigration, addr state)
+    joinThread(first)
+    joinThread(second)
+    check state.failures.load() == 0
+
+    let verifier = newSqliteDatabaseAdapter(path)
+    defer: verifier.close()
+    check verifier.appliedMigrations() == @[
+      "001_concurrent_items"]
+    check verifier.execute(CompiledQuery(sql:
+      "SELECT \"value\" FROM \"concurrent_items\"", parameters: @[])).len == 0
 
   test "migration command contract parses and runs status up and rollback":
     let first = Migration(name: "001_users", up: @[
