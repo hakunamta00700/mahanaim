@@ -906,7 +906,22 @@ suite "Mahanaim core contracts":
     ## Extension registration is configuration, not a late mutation of a
     ## running application. Rejecting it after startup keeps the command
     ## surface, admin routes, and lifecycle checks stable for every request.
+    var commandRejectedDuringStartup = false
+    var adminRejectedDuringStartup = false
+    app.onStartup(proc() =
+      try:
+        app.registerCommand(CommandDefinition(name: "during-start",
+          handler: command))
+      except ValueError:
+        commandRejectedDuringStartup = true
+      try:
+        app.registerAdminExtension(AdminExtension(name: "during-start-users",
+          install: installAdmin))
+      except ValueError:
+        adminRejectedDuringStartup = true)
     app.startup()
+    check commandRejectedDuringStartup
+    check adminRejectedDuringStartup
     expect ValueError:
       app.registerCommand(CommandDefinition(name: "late", handler: command))
     expect ValueError:
