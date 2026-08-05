@@ -63,6 +63,7 @@
 - [x] **P2-01 Redis/Valkey compatibility** — TCP coalescing frame buffer와 환경 기반 `redisLive` contract를 추가하고, `INFO server`, `CONFIG GET maxmemory-policy/maxmemory`, `COMMAND INFO`로 Redis/Valkey flavor·version·필수 RESP command·bounded eviction 상태를 진단하는 probe와 회귀 테스트·운영 문서를 추가했다. Linux Nim 2.2.4 matrix에서 Redis 7.2.15와 Valkey 8.1.9의 server-side TTL·command·bounded eviction을 실제 socket으로 확인했고 reconnect/fail-closed는 loopback contract로 검증했다.
 - [x] **P2-02 plugin 확장 경계** — Application 소유 serialization codec registry, named object storage registry, ordered auth backend 등록 API를 추가해 plugin이 route·DI·middleware·command·metadata·admin과 같은 명시적 경계로 serializer·storage·auth를 확장하도록 했다. 중복 등록과 실제 codec/storage/auth 연결을 plugin contract test로 검증했다.
 - [x] **P2-03 서버 렌더링 flash message contract** — session key별 bounded FIFO `FlashStore`와 기본 in-memory adapter를 추가하고, consume-once·session isolation·capacity eviction을 `Application.flashStore`에서 제공한다. durable/distributed adapter는 동일 contract를 구현할 수 있는 확장 경계로 남긴다.
+- [x] **P2-04 sitemap/RSS renderer** — framework-neutral XML renderer로 absolute HTTP URL을 검증하고 XML escaping, deterministic caller order, sitemap metadata와 RSS 2.0 channel/item을 제공한다. invalid URL·priority/frequency와 필수 feed/item 값은 fail fast하며 email/Atom은 별도 범위로 남긴다.
 - [x] **P3-01 Beast/httpx live adapter** — Linux runner용 실제 TCP/WebSocket fixture와 `beastLiveCheck`/`beastLive` gate를 추가하고 `forget()` 후 async selector 등록·`AsyncSocket` lifetime을 명시했다. unbuffered client wire test에서 handshake, masked text echo, close frame, handler finalization을 통과시켰다.
 
 ### 완료 판정

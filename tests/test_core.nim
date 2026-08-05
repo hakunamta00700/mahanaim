@@ -232,6 +232,28 @@ suite "Mahanaim core contracts":
     check app.flashStore.consume("app-session")[0].message ==
       "application-owned"
 
+  test "sitemap and RSS renderers escape XML and reject unsafe URLs":
+    let sitemap = renderSitemap([
+      SiteMapEntry(location: "https://example.test/articles?a=1&b=2",
+        lastModified: "2026-08-05", changeFrequency: "daily", priority: 0.8),
+      SiteMapEntry(location: "https://example.test/about")])
+    check sitemap.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+    check sitemap.contains("&amp;b=2")
+    check sitemap.contains("<changefreq>daily</changefreq>")
+    check sitemap.contains("<priority>0.8</priority>")
+    expect ValueError:
+      discard renderSitemap([SiteMapEntry(location: "/relative")])
+    let rss = renderRss(RssFeed(title: "News & Updates",
+      link: "https://example.test", description: "A <safe> feed",
+      items: @[RssItem(title: "First & foremost",
+        link: "https://example.test/posts/1", guid: "post-1",
+        description: "Body <text>", publishedAt: "2026-08-05T12:00:00Z")]))
+    check rss.contains("<rss version=\"2.0\">")
+    check rss.contains("News &amp; Updates")
+    check rss.contains("First &amp; foremost")
+    check rss.contains("Body &lt;text&gt;")
+    check rss.contains("<guid>post-1</guid>")
+
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
     ## requiring every application to remember a security setting. Explicit
