@@ -232,12 +232,14 @@
 - [x] request ID, 구조화 request event sink, 기본 request/error/in-flight metrics, health/readiness endpoint를 제공한다.
 - [x] structured request logging sink과 W3C trace/span propagation 기반을 제공한다.
 - [x] 구현된 rate limit/timeout/retry/backpressure/graceful shutdown의 실패·복구 운영 정책을 문서화한다.
-- [-] distributed rate-limit clock/TTL/eviction, durable queue와 외부 DB drain 운영을 완성한다. SQLite durable queue의 named handler 실행·복구 CLI와 애플리케이션 shutdown close 경계, in-memory rate-limit의 monotonic TTL·bounded oldest eviction은 구현했으며, Redis/Valkey 분산 eviction과 외부 queue·DB drain은 운영 환경 검증이 남아 있다.
+- [x] distributed rate-limit의 backend-neutral counter 경계, in-memory monotonic TTL·bounded oldest eviction, Redis/Valkey RESP compatibility probe와 bounded retry/fail-closed 정책을 구현하고 live contract를 연결했다. SQLite durable queue의 named handler 실행·복구 CLI와 애플리케이션 shutdown close 경계도 contract test로 검증했다.
+- [-] Redis/Valkey 분산 eviction과 외부 queue·DB drain의 실제 운영 검증은 배포 환경에서 후속 확인한다.
 - [x] versioned plugin manifest와 명시적 registration phase를 기존 Plugin API와 호환되게 제공한다.
 - [x] application/request/task scope를 구분하는 최소 DI provider와 dependency resolution을 제공한다.
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
-- [-] background job에 `IdempotencyStore`/in-memory·append-only file·SQLite claim-release adapter와 `enqueueIdempotent`, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner, application-owned `jobs run [max]|recover` bounded drain CLI를 추가했다. 외부 queue callback bridge도 제공하며, 실제 provider protocol·visibility timeout·ack 정책은 application-owned 범위다.
+- [x] background job에 `IdempotencyStore`/in-memory·append-only file·SQLite claim-release adapter와 `enqueueIdempotent`, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner, application-owned `jobs run [max]|recover` bounded drain CLI를 추가했다. `ExternalDurableJobStore` callback bridge와 shutdown close 경계도 제공한다.
+- [-] 실제 외부 queue provider protocol·visibility timeout·ack 정책의 운영 검증은 application-owned 배포 환경 범위다.
 - [x] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory 및 `newPostgresTestFixtureFromEnv` convenience API를 추가했다. PostgreSQL live fixture에 isolation·repository route·custom codec·DDL rollback·pool/session·HTTP/SSE/WebSocket live-server contract를 연결했고 PostgreSQL 16 컨테이너에서 통과했다.
 
 ## P3 — 선택 확장
