@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- model/DI/serialization/storage/auth application extension 등록에도 pre-startup lifecycle boundary를 적용했다.
 - route, WebSocket, middleware와 error handler의 runtime late mutation을 차단하는 공통 registration window를 추가했다.
 - startup/shutdown lifecycle hook의 late registration을 차단하고 실행 순서 불변 회귀 테스트를 추가했다.
 - plugin registration도 command/admin과 동일한 startup lifecycle boundary를 사용하도록 제한하고 회귀 테스트를 추가했다.

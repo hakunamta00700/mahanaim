@@ -481,12 +481,14 @@ proc use*(app: Application, plugin: PluginDefinition) =
 proc registerModel*(app: Application, metadata: ModelMetadata) =
   ## Model registration follows the same isolated application ownership model
   ## as routes and plugins, which keeps test applications deterministic.
+  app.ensureRegistrationWindow("Models")
   app.models.registerModel(metadata)
 
 proc provide*(app: Application, name: string, scope: DependencyScope,
               provider: DependencyProvider,
               disposer: DependencyDisposer = nil) =
   ## Plugin-facing wrapper keeps service registration on the application owner.
+  app.ensureRegistrationWindow("Dependencies")
   app.services.provide(name, scope, provider, disposer)
 
 proc provideFactory*(app: Application, name: string, scope: DependencyScope,
@@ -495,6 +497,7 @@ proc provideFactory*(app: Application, name: string, scope: DependencyScope,
                      disposer: DependencyDisposer = nil) =
   ## Application-owned graph registration keeps dependency edges explicit while
   ## preserving the same provider API for plugins and generated applications.
+  app.ensureRegistrationWindow("Dependencies")
   app.services.provideFactory(name, scope, dependencies, factory, disposer)
 
 proc resolve*(app: Application, name: string): DependencyService =
@@ -514,13 +517,13 @@ proc registerSerializationCodec*(app: Application, wireType: string,
                                  codec: SerializationCodec) =
   ## Serialization plugins register against the application-owned registry;
   ## model serializers can then consume the same codec without a global hook.
-  if app.isNil:
-    raise newException(ValueError, "Application is required")
+  app.ensureRegistrationWindow("Serialization codecs")
   app.serializationRegistry.registerCodec(wireType, codec)
 
 proc registerStorage*(app: Application, name: string, store: ObjectStorage) =
   ## Storage names are explicit dependency keys. A duplicate is rejected so a
   ## plugin cannot silently replace an application's upload or cache backend.
+  app.ensureRegistrationWindow("Storage adapters")
   if app.isNil or name.strip().len == 0 or store.isNil:
     raise newException(ValueError, "Storage requires an application, name, and adapter")
   if app.storageAdapters.hasKey(name):
@@ -536,8 +539,7 @@ proc storage*(app: Application, name: string): ObjectStorage =
 proc registerAuthBackend*(app: Application, backend: AuthBackend) =
   ## Authentication plugins enter the same ordered policy list used by the
   ## security middleware, preserving one credential negotiation boundary.
-  if app.isNil:
-    raise newException(ValueError, "Application is required")
+  app.ensureRegistrationWindow("Authentication backends")
   app.securityPolicy.addAuthBackend(backend)
   ## `securityMiddleware` captures an immutable policy snapshot by design. It
   ## must be rebuilt after plugin registration so the new backend is effective

@@ -2191,6 +2191,16 @@ suite "Mahanaim core contracts":
       app.addMiddleware(securityMiddleware(defaultSecurityPolicy()))
     expect ValueError:
       app.onError(nil)
+    expect ValueError:
+      app.registerModel(newModelMetadata("LateModel", "late_models"))
+    expect ValueError:
+      app.provide("late-service", dependencyApplication,
+        newFakeDependencyService)
+    expect ValueError:
+      app.registerStorage("late-storage", newInMemoryObjectStorage())
+    expect ValueError:
+      app.registerAuthBackend(newBearerTokenAuthBackend(
+        "late-auth-secret-that-is-long-enough"))
     app.shutdown()
     app.shutdown()
     check events == @["start", "stop"]

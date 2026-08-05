@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] model metadata, DI providers, serialization codec, storage adapter와 auth backend 등록도 동일한 pre-startup registration window로 통합하고 late mutation 회귀 테스트를 추가했다.
+
 - [x] route, grouped route, WebSocket route, global middleware와 error handler도 동일한 pre-startup registration window를 사용하도록 통합하고, 실행 후 mutation 회귀 테스트를 추가했다.
 
 - [x] `onStartup`과 `onShutdown`도 startup 전 등록만 허용하고, hook 내부 또는 실행 후 lifecycle 순서를 변경하는 late registration을 거부한다. ordered/idempotent lifecycle 테스트로 경계를 검증했다.
