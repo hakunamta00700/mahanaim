@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- P1 migration 요구사항 표를 SQLite/PostgreSQL migration runner·provider·CLI·metadata schema contract와 PostgreSQL live evidence에 맞춰 완료로 갱신하고, provider 선택/CI wiring은 application-owned extension으로 분리했다.
 - P1 query/API 요구사항 표에서 pagination·cursor·filter/sort/field-selection·aggregate·relation loading을 실제 contract 테스트가 증명하는 구현 완료 범위로 갱신했다.
 - P2 운영 계획에서 rate-limit·SQLite durable queue·background job의 로컬 contract/CLI/복구 범위와 외부 Redis eviction·queue provider 운영 검증 범위를 분리해 체크리스트 상태를 정합화했다.
 - P0 보안 기본값 계획에서 timeout·rate limit·request size·secure cookie·config scalar validation·공개 host warning의 로컬 구현 범위와 운영 staging TLS 증거 범위를 분리해 체크리스트 상태를 정합화했다.
