@@ -903,6 +903,17 @@ suite "Mahanaim core contracts":
     expect ValueError:
       app.registerAdminExtension(AdminExtension(name: "users", install: installAdmin))
 
+    ## Extension registration is configuration, not a late mutation of a
+    ## running application. Rejecting it after startup keeps the command
+    ## surface, admin routes, and lifecycle checks stable for every request.
+    app.startup()
+    expect ValueError:
+      app.registerCommand(CommandDefinition(name: "late", handler: command))
+    expect ValueError:
+      app.registerAdminExtension(AdminExtension(name: "late-users",
+        install: installAdmin))
+    app.shutdown()
+
   test "DI container caches application scope and recreates task scope":
     let app = newApplication()
     app.provide("singleton", dependencyApplication, newFakeDependencyService)

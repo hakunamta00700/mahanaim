@@ -113,6 +113,10 @@ type
     ## dispatcher so an alternate engine does not alter routing or security.
     templateAdapter*: TemplateAdapter
     started*: bool
+    ## A separate flag closes the registration window while startup hooks run.
+    ## `started` remains false until readiness is published, but extension
+    ## registration must already be immutable during that transition.
+    starting: bool
 
   ErrorHandler* = proc (request: Request,
                         error: ref CatchableError): Future[Response] {.gcsafe.}
@@ -266,6 +270,9 @@ proc configureDurableJobs*(app: Application, store: DurableJobStore,
 
 proc registerCommand*(app: Application, command: CommandDefinition) =
   ## Registration is fail-fast so duplicate CLI names cannot shadow commands.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Commands must be registered before application startup")
   if command.name.strip().len == 0 or command.handler.isNil:
     raise newException(ValueError, "Command requires a name and handler")
   if app.commands.hasKey(command.name):
@@ -298,6 +305,9 @@ proc runCommand*(app: Application, name: string,
 proc registerAdminExtension*(app: Application, extension: AdminExtension) =
   ## Admin installers are retained for explicit startup integration and are
   ## never silently replaced by a later plugin.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Admin extensions must be registered before application startup")
   if extension.name.strip().len == 0 or extension.install.isNil:
     raise newException(ValueError, "Admin extension requires a name and installer")
   for existing in app.adminExtensions:
@@ -630,12 +640,18 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
 
 proc startup*(app: Application) =
   ## Hooks execute once and in registration order.
-  if app.started:
+  if app.started or app.starting:
     return
-  for hook in app.startupHooks:
-    hook()
-  app.observability.setReady(true)
-  app.started = true
+  app.starting = true
+  try:
+    for hook in app.startupHooks:
+      hook()
+    app.observability.setReady(true)
+    app.started = true
+  finally:
+    ## A failed startup must leave the application configurable only through
+    ## the normal pre-start path and must not strand the transition flag.
+    app.starting = false
 
 proc shutdown*(app: Application) =
   ## Shutdown is idempotent so signal handlers can safely call it repeatedly.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- command/admin extension registration을 startup 전용 lifecycle boundary로 제한하고 late mutation 회귀 테스트를 추가했다.
 - GitHub Actions cross-platform matrix에서 Linux/macOS Nim bootstrap archive를 runner별로 분리하고 계약 테스트를 추가했다.
 
 - class-based `Controller.handle` virtual contract와 `addControllerRoute` bridge를 추가해 controller action dispatch와 Application route/middleware lifecycle을 분리했다.
