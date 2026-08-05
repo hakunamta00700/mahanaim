@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] 상세 구현계획서의 CLI, Prologue/JSON/TOML, test client, template adapter 상태를 실제 구현 증거와 일치시켰고, native worker 강제 종료는 안전한 backend API 전까지 미지원으로 명시했다.
+
 - [x] `BackgroundJobQueue`와 `ExternalDurableJobStore`의 repository-owned contract를 상세 계획에서 구현 상태로 분리하고, 외부 queue provider protocol·visibility timeout·ack 운영 검증은 application-owned 범위로 명시했다.
 
 - [x] database pool/template/migration/seed/durable-job/admin provisioning 설정도 startup transition을 포함한 pre-startup configuration window로 통합하고 regression test를 추가했다.

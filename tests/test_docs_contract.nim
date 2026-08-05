@@ -127,6 +127,17 @@ nimble test
       "- [-] request lifecycle과 분리된 `BackgroundJobQueue`")
     check implementationPlan.contains("외부 queue provider protocol")
 
+  test "implementation plan distinguishes unsupported native cancellation":
+    ## Cooperative cancellation is a shipped contract; arbitrary native
+    ## worker termination is intentionally unsupported without a safe backend
+    ## primitive. The roadmap must preserve that safety boundary explicitly.
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check implementationPlan.contains(
+      "- [-] taskpools worker의 cooperative cancellation")
+    check implementationPlan.contains(
+      "- [x] Nim `taskpools`가 제공하지 않는 임의 native thread 강제 종료")
+
   test "release matrix declares the supported macOS runner boundary":
     ## The matrix is a source-level release contract. It must describe the
     ## runner before external GitHub evidence is collected, otherwise a green

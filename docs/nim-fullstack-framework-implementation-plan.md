@@ -52,7 +52,7 @@
 - [x] 환경변수 기반 개발 설정(`MAHANAIM_ENV`, `MAHANAIM_DEBUG`, `MAHANAIM_HOST`, `MAHANAIM_PORT`)을 구현했다.
 - [x] `tests/test_core.nim`에 core contract test 7개를 작성했고 모두 통과했다.
 - [x] CLI `check`/`dev`를 컴파일하고 실행 검증했다.
-- [ ] 실제 Prologue HTTP adapter, JSON/TOML 설정, CI는 다음 작업으로 남아 있다.
+- [-] Prologue HTTP adapter와 JSON/TOML 설정, CI workflow wiring은 repository contract로 구현했다. 실제 clean runner 설치·실행 로그와 추가 adapter/backend live evidence는 외부 matrix 범위다.
 
 ### 2026-08-04 — P0 기반 수직 슬라이스 2차
 
@@ -113,7 +113,7 @@
 - [x] GC-managed `Response`를 worker에서 copy-safe shared buffer로 변환하고 event loop에서 복원했다.
 - [x] 실행 중 cooperative cancellation 신호를 atomic token으로 전달하고 worker 안전 지점 종료를 검증했다.
 - [x] blocking 감지 threshold, atomic cancellation escalation, backend cancellation hook과 pre-flight 검사를 추가했다.
-- [ ] taskpools worker를 안전하게 중단하는 실제 backend 강제 cancellation 구현은 남아 있다.
+- [-] taskpools worker의 cooperative cancellation, blocking detection과 backend cancellation hook 경계는 구현했다. 임의 native worker 강제 종료는 taskpools가 안전한 backend API를 제공하기 전까지 지원하지 않는다.
 
 ### 2026-08-04 — P0 설정 provider 1차
 
@@ -346,7 +346,7 @@
 - [x] synchronous handler를 기본 check warning으로 노출하고 strict policy에서 거부하도록 추가했다.
 - [x] sync handler가 비동기 wrapper 뒤에서 실행되는 기존 contract를 유지하면서 정책 회귀 테스트를 추가했다.
 - [x] taskpools executor adapter와 blocking 감지·cancellation hook 운영 경계를 추가했다.
-- [ ] backend별 자동 전환과 안전한 native worker 중단은 남아 있다.
+- [-] backend별 cancellation policy와 cooperative escalation 경계는 제공하지만, 안전한 native worker 강제 종료 API가 없어 실제 강제 중단은 지원하지 않는다.
 
 ### 2026-08-04 — P0 Prologue adapter 1차
 
@@ -390,14 +390,14 @@
 - [x] 공통 dispatch 경계에서 timeout을 감지하고 504 응답으로 변환한다.
 - [x] Nim의 비선점 실행 모델에 맞춰 cooperative cancellation token과 회귀 테스트를 추가했다.
 - [x] taskpools executor backend 교체와 blocking 감지 threshold를 연결했다.
-- [ ] backend별 안전한 native worker 강제 cancellation은 남아 있다.
+- [-] backend별 안전한 native worker 강제 cancellation은 외부 backend API가 제공될 때까지 미지원으로 유지한다.
 
 ### 2026-08-04 — P0 executor blocking policy 1차
 
 - [x] 실행 중인 sync 작업의 elapsed time을 event loop에서 감시하는 blocking detection hook을 추가했다.
 - [x] force-cancellation threshold에서 request atomic token을 취소하고 executor-specific backend hook을 호출한다.
 - [x] 감지 callback, backend hook, cooperative worker exit, invalid threshold pre-flight 회귀 테스트를 추가했다.
-- [ ] Nim `taskpools`가 제공하지 않는 임의 native thread 강제 종료는 안전한 backend API가 제공될 때까지 미지원으로 명시한다.
+- [x] Nim `taskpools`가 제공하지 않는 임의 native thread 강제 종료는 안전한 backend API가 제공될 때까지 미지원임을 명시했다.
 
 ### 2026-08-04 — P0 보안 rate limit 1차
 
@@ -433,7 +433,7 @@
 - [x] closure는 synchronized registry로 보관하고 worker에는 copy-safe ID만 전달한다.
 - [x] response/header/error buffer 복원과 worker 예외 전파 회귀 테스트를 유지한다.
 - [x] blocking 자동 감지와 backend cancellation policy hook을 추가했다.
-- [ ] queue limit과 backend별 실제 worker cancellation은 남아 있다.
+- [-] queue limit과 cooperative/backend cancellation policy는 구현했으며, backend별 실제 native worker 강제 cancellation은 안전한 API가 없어 미지원이다.
 
 ### 2026-08-04 — P0 executor cooperative cancellation
 
@@ -615,12 +615,12 @@ flowchart TB
 - [x] `Application`, `Config`, `RequestContext`, `Response`, `Handler`, `Middleware`, `Error` 계약을 정의한다.
 - [x] Prologue adapter를 격리하고 method/path/query/header/cookie/body를 공통 context로 변환한다.
 - [x] router, route name/URL building, global·route middleware, lifecycle, error handler를 구현한다.
-- [ ] CLI의 `new`, `dev`, `test`, `check`를 먼저 제공하고, 최소 예제 앱을 CI에서 실행한다.
+- [-] CLI의 `new`, `dev`, `test`, `check`와 최소 예제 앱 contract를 제공하고 compile/test gate로 검증했다. 실제 외부 CI runner 실행 증거는 matrix 범위다.
 
 완료 기준:
 
 - [x] HTML·JSON·upload·WebSocket route를 같은 앱에서 실행한다.
-- [ ] 테스트 client가 동일한 handler를 호출한다.
+- [x] in-process test client가 application과 동일한 handler/route contract를 호출하고 cookie·response·SSE/WebSocket 경계를 회귀 테스트로 검증한다.
 
 ### Phase 1 — 타입 안전 HTTP/API 기반 (P0/P1)
 
@@ -687,7 +687,7 @@ flowchart TB
 ### Phase 5 — 생태계와 선택 기능 (P2/P3)
 
 - [-] class-based controller, function handler, application/request/task DI scope를 추가한다. DI scope는 P2-05에서 완료했고, `Controller.handle`/`addControllerRoute` action bridge는 2026-08-05 baseline으로 추가했으며 controller discovery/convention 자동화는 후속 범위다.
-- [ ] 선택한 기본 template engine과 다른 엔진을 연결하는 adapter를 제공한다.
+- [x] `TemplateAdapter` protocol과 engine callback wrapper를 제공해 선택한 기본 engine과 다른 renderer를 application-owned HTML response 경계에 연결한다.
 - [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
 - [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
 - [-] WebSocket channel/group broadcast, Redis-backed channel layer, ETag, response cache를 추가했고 contract/live gate를 연결했다. compression과 실제 rolling deployment evidence는 후속 범위다.

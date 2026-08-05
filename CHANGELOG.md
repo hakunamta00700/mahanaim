@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 상세 구현계획서의 stale 상태를 실제 구현/외부 증거 범위와 일치시키고 native worker 강제 종료 미지원 경계를 명시했다.
 - background job/external durable store contract와 외부 queue provider 운영 검증 범위를 상세 계획에서 분리했다.
 - 상세 구현계획서의 command/admin lifecycle integration 상태를 구현 결과와 일치시키고 문서 계약 테스트를 추가했다.
 - database/template/migration/seed/durable-job/admin provisioning 설정의 startup transition late mutation을 차단했다.
