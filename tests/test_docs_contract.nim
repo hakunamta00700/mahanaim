@@ -131,3 +131,38 @@ nimble test
       "ci.yml")
     check workflow.contains("run: nimble releaseManifest")
     check workflow.contains("release-artifacts.manifest")
+
+  test "deployment recipes define bounded graceful shutdown":
+    ## Deployment files are templates for an application-owned binary. The
+    ## contract test keeps their safety-critical process boundaries visible
+    ## even when Docker/systemd are unavailable on a developer machine.
+    let dockerfile = getCurrentDir() / "deploy" / "Dockerfile"
+    let compose = getCurrentDir() / "deploy" / "docker-compose.yml"
+    let nginx = getCurrentDir() / "deploy" / "nginx.conf"
+    let systemd = getCurrentDir() / "deploy" / "mahanaim.service"
+    let guide = getCurrentDir() / "docs" / "deployment-recipes.md"
+    check fileExists(dockerfile)
+    check fileExists(compose)
+    check fileExists(nginx)
+    check fileExists(systemd)
+    check fileExists(guide)
+    let dockerText = readFile(dockerfile)
+    check dockerText.contains("AS build")
+    check dockerText.contains("STOPSIGNAL SIGTERM")
+    check dockerText.contains("USER mahanaim")
+    check dockerText.contains("MAHANAIM_HOST")
+    let composeText = readFile(compose)
+    check composeText.contains("stop_grace_period")
+    check composeText.contains("healthcheck")
+    check composeText.contains("nginx")
+    let nginxText = readFile(nginx)
+    check nginxText.contains("proxy_set_header X-Forwarded-Proto")
+    check nginxText.contains("proxy_read_timeout")
+    let systemdText = readFile(systemd)
+    check systemdText.contains("KillSignal=SIGTERM")
+    check systemdText.contains("TimeoutStopSec=")
+    check systemdText.contains("ExecStart=")
+    let guideText = readFile(guide)
+    check guideText.contains("docker compose")
+    check guideText.contains("readiness")
+    check guideText.contains("graceful shutdown")

@@ -1,0 +1,20 @@
+[Unit]
+Description=Mahanaim application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mahanaim
+Group=mahanaim
+EnvironmentFile=-/etc/mahanaim/mahanaim.env
+ExecStart=/opt/mahanaim/bin/mahanaim_app
+Restart=on-failure
+RestartSec=3s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

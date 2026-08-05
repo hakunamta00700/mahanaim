@@ -691,7 +691,7 @@ flowchart TB
 - [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
 - [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
 - [-] WebSocket channel/group broadcast, Redis-backed channel layer, ETag, response cache를 추가했고 contract/live gate를 연결했다. compression과 실제 rolling deployment evidence는 후속 범위다.
-- [ ] Docker multi-stage, reverse proxy, systemd/컨테이너 배포와 graceful shutdown 예제를 제공한다.
+- [x] Docker multi-stage, reverse proxy, systemd/컨테이너 배포와 graceful shutdown 예제를 `deploy/` 템플릿과 `docs/deployment-recipes.md`로 제공한다. 실제 application entrypoint, secret, staging rollout 증거는 application-owned 범위다.
 - [ ] Geo/GIS, multi-tenant, CMS, frontend adapter, distributed scheduler, search, presence, GraphQL은 별도 패키지로 검토한다.
 
 ## 5. 요구사항별 구현 계획과 우선순위

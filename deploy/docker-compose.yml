@@ -1,0 +1,36 @@
+# Local deployment recipe. Replace APP_MAIN with the generated application
+# entrypoint and mount real TLS material only through deployment secrets.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        APP_MAIN: ${MAHANAIM_APP_MAIN:-src/app.nim}
+    environment:
+      MAHANAIM_HOST: 0.0.0.0
+      MAHANAIM_PORT: 8080
+    expose:
+      - "8080"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mahanaim_app", "health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  nginx:
+    image: nginx:1.27.5
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    stop_signal: SIGQUIT
+    stop_grace_period: 30s

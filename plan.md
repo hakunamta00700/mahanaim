@@ -384,3 +384,9 @@
 - [x] `RedisChannelLayer.deliverySnapshot`과 `registerRedisChannelMetrics`가 adapter snapshot을 application-owned `Observability` provider로 연결한다.
 - [x] 네트워크 연결 없이 layer wiring과 공통 Prometheus endpoint 노출을 검증하는 회귀 테스트를 추가했다.
 - [-] 실제 Redis metrics scrape/alert rule과 production endpoint 운영 증거는 배포 환경에서 계속한다.
+
+### 2026-08-05 deployment recipes
+
+- [x] `deploy/Dockerfile`이 Nim 2.2.4 multi-stage build, compiler 없는 non-root runtime, SIGTERM 경계를 제공한다.
+- [x] `deploy/docker-compose.yml`, `deploy/nginx.conf`, `deploy/mahanaim.service`와 `docs/deployment-recipes.md`가 health/readiness, TLS reverse proxy, WebSocket forwarding, graceful shutdown 운영 절차를 고정한다.
+- [-] 실제 application entrypoint build, certificate/secret injection과 staging rollout evidence는 application-owned 배포 환경에서 계속한다.
