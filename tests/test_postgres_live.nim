@@ -285,6 +285,57 @@ proc runLiveServerContract(configuration: PostgresTestConfiguration) =
     "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
   cleanup.close()
 
+proc runLiveRowLockContract(configuration: PostgresTestConfiguration) =
+  ## Execute both typed row-lock modes through a real PostgreSQL transaction.
+  ## Compilation alone proves SQL shape; this fixture also proves the active
+  ## session and PostgreSQL adapter preserve the lock clause at execution time.
+  let tableName = "mahanaim_live_lock_items"
+  let setup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "CREATE TABLE \"" & tableName & "\" (\"id\" INTEGER PRIMARY KEY, " &
+    "\"value\" TEXT)", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
+    parameters: @[integerValue(1), textValue("lock-ready")]))
+  setup.close()
+
+  let pool = newDatabaseConnectionPool(
+    proc(): DatabaseAdapter {.gcsafe.} =
+      newPostgresDatabaseAdapter(configuration.host & ":" &
+        $configuration.port, configuration.user, configuration.password,
+        configuration.database),
+    maxConnections = 2,
+    closer = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+      PostgresDatabaseAdapter(adapter).close())
+  defer:
+    pool.close()
+
+  for mode in [lockForUpdate, lockForShare]:
+    let session = newDatabaseSession(pool, transactional = true)
+    session.setIsolationLevel(isolationSerializable)
+    let query = SelectQuery(table: tableName, columns: @[
+      "id", "value"], filters: @[
+      QueryFilter(field: "id", operator: filterEqual,
+        value: integerValue(1))], lockMode: mode)
+    let rows = session.adapter.execute(compileSelect(query, dialectPostgres))
+    if rows.len != 1 or rows[0][1].text != "lock-ready":
+      session.rollback()
+      session.close()
+      raise newException(ValueError, "PostgreSQL row-lock result mismatch")
+    session.commit()
+    session.close()
+
+  let cleanup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard cleanup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  cleanup.close()
+
 proc runLiveContract() =
   let configuration = postgresTestConfigurationFromEnv()
   if configuration.isNone:
@@ -293,6 +344,7 @@ proc runLiveContract() =
 
   runLiveMigrationContract(configuration.get())
   runLivePoolSessionContract(configuration.get())
+  runLiveRowLockContract(configuration.get())
   runLiveServerContract(configuration.get())
 
   let fixture = newPostgresTestFixture(configuration.get())

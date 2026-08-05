@@ -58,6 +58,7 @@
 - [x] **P1-04 공통 DML 결과 계약** — `DatabaseResult.affectedRows`와 `statementKeyword`/`statementMutatesRows` 공통 판별 계약을 추가하고, SQLite는 connection-local `changes()`, PostgreSQL은 command tag 또는 `RETURNING` row 수를 backend-neutral 결과로 반환한다. SQLite 회귀 테스트와 PostgreSQL 16 live insert contract를 통과시켰다.
 - [x] **P1-05 request/response DTO 경계** — typed documented route가 request DTO와 response DTO를 독립적으로 schema화해 입력 전용 `age`가 응답에 노출되지 않고 응답 전용 `id`가 입력에 요구되지 않도록 회귀 테스트로 고정했다. rename·partial update·nested·sensitive exclusion은 기존 metadata serializer contract에서 함께 검증한다.
 - [x] **P1-06 공통 runtime content negotiation** — `Application.dispatch`가 in-process client와 모든 transport adapter의 response variant를 같은 `Accept` 정책으로 선택하고, 406·`Vary: Accept`·stream/SSE/WebSocket 표현 경계를 공통 계약으로 보장한다. adapter별 중복 negotiation은 제거했다.
+- [x] **P1-09 PostgreSQL typed row-lock live contract** — `QueryLockMode`의 `FOR UPDATE`·`FOR SHARE`를 PostgreSQL serializable `DatabaseSession`에서 실제 실행하고 결과와 commit lifecycle을 검증했다. SQLite는 unsupported capability를 계속 fail fast하며, aggregate lock도 명시적으로 거부한다.
 
 ### P2/P3 — 운영 호환성과 선택적 확장
 
@@ -195,7 +196,7 @@
 - [x] SQLite/PostgreSQL에 공통 적용할 parameterized query·migration·transaction adapter 계약을 제공한다.
 - [x] transaction guard와 savepoint lifecycle 계약, commit/rollback 회귀 테스트를 제공한다.
 - [x] DatabaseSession unit-of-work가 borrowed connection에서 begin/commit/rollback/release를 보장한다.
-- [x] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, repository CRUD route, typed metadata, custom JSONB wire codec, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session commit·rollback·close, HTTP/SSE/WebSocket live-server request 검증을 연결했고 source compile gate도 추가했다. PostgreSQL 16 컨테이너에서 live contract를 통과했다.
+- [x] SQLite/PostgreSQL query·transaction adapter, 공통 `DatabaseResult`/column metadata contract, SQLite 선언 타입·runtime storage class 및 PostgreSQL type OID 기반 typed scalar result mapping, QuerySet/aggregate compiler와 repository aggregate result mapping, aggregate route adapter, migration history/JOIN compiler, typed row-lock mode, bounded pool, request session의 active isolation 설정, capability matrix와 metadata repository relation execution을 제공했다. PostgreSQL live task에 serializable isolation, `FOR UPDATE`/`FOR SHARE` row-lock execution, repository CRUD route, typed metadata, custom JSONB wire codec, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session commit·rollback·close, HTTP/SSE/WebSocket live-server request 검증을 연결했고 source compile gate도 추가했다. PostgreSQL 16 컨테이너에서 live contract를 통과했다.
 
 ### API와 서버 렌더링
 
