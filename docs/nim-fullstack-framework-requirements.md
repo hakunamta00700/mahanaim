@@ -263,12 +263,12 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 ## Redis subscription backpressure baseline (2026-08-05)
 
 - [x] SHOULD baseline: subscription ordering과 connection별 bounded queue/overflow policy(`close`, `drop newest`, `drop oldest`)를 loopback contract로 검증한다.
-- [ ] SHOULD remaining: 실제 Redis service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring.
+- [x] SHOULD baseline: 실제 Redis service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring을 `redisLive` OS worker contract로 검증한다.
 
 ## Redis service fan-out evidence (2026-08-05)
 
 - [x] SHOULD baseline: 실제 Redis 서비스에서 독립 subscription socket 2개와 publisher의 multi-connection fan-out, subscriber count, delivery timeout을 `redisLive`로 검증한다.
-- [ ] SHOULD remaining: 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence.
+- [x] SHOULD baseline: 별도 프로세스 `ChannelLayer` distributed backend wiring과 worker graceful shutdown을 `redisLive`에서 검증한다.
 
 ## Redis ChannelLayer adapter baseline (2026-08-05)
 
@@ -278,4 +278,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 ## Redis ChannelLayer lifecycle baseline (2026-08-05)
 
 - [x] SHOULD baseline: active group 재구독을 수행하는 bounded reconnect retry와 UNSUBSCRIBE acknowledgement를 drain하는 graceful shutdown을 loopback/live contract로 검증한다.
-- [ ] SHOULD remaining: 별도 OS 프로세스 rolling deployment evidence와 production runbook.
+- [x] SHOULD baseline: `redisLive`가 별도 OS worker 2개에서 readiness, Redis `ChannelLayer` payload fan-out, subscriber count와 graceful shutdown exit를 검증한다.
+- [ ] SHOULD remaining: 실제 rolling deployment 중 reconnect budget, probe와 rollback evidence를 production runbook에 연결한다.

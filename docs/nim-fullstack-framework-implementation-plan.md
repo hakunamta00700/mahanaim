@@ -913,7 +913,7 @@ flowchart TB
 ### 2026-08-05 — Redis service multi-connection fan-out evidence
 
 - [x] `redisLive`가 실제 Redis 7.2.15 서비스에서 독립 subscription socket 2개와 publisher를 사용해 subscriber count 2, 양쪽 payload delivery, bounded timeout을 검증한다.
-- [ ] 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence는 후속 범위다.
+- [x] 별도 프로세스 `ChannelLayer` distributed backend wiring과 worker graceful shutdown을 `redisLive`에서 검증했다. 실제 rolling deployment evidence는 아래 후속 항목이다.
 
 ### 2026-08-05 — Redis ChannelLayer adapter baseline
 
@@ -923,4 +923,5 @@ flowchart TB
 ### 2026-08-05 — Redis ChannelLayer lifecycle baseline
 
 - [x] `RedisChannelLayer.reconnectWithRetry`가 active group을 재구독하고 `shutdown`이 UNSUBSCRIBE acknowledgement를 drain한 뒤 socket을 닫도록 구현했다. loopback reconnect/shutdown test와 Redis 7.2.15 live contract를 통과시켰다.
-- [ ] 별도 OS 프로세스 rolling deployment evidence와 production runbook은 후속 범위다.
+- [x] `redisLive`가 별도 OS worker 2개와 parent publisher를 실행해 Redis 7.2.15 cross-process fan-out, readiness, payload와 graceful shutdown exit를 검증한다.
+- [ ] 실제 rolling deployment 중 reconnect budget, readiness/liveness probe와 rollback evidence를 production runbook에 연결하는 작업은 남아 있다.
