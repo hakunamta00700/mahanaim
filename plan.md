@@ -408,6 +408,11 @@
 - [x] `deploy/Dockerfile`이 Nim 2.2.4 multi-stage build, compiler 없는 non-root runtime, SIGTERM 경계를 제공한다.
 - [x] `deploy/docker-compose.yml`, `deploy/nginx.conf`, `deploy/mahanaim.service`와 `docs/deployment-recipes.md`가 health/readiness, TLS reverse proxy, WebSocket forwarding, graceful shutdown 운영 절차를 고정한다.
 
+### 2026-08-06 Redis live evidence reconciliation
+
+- [x] Disposable Redis 7.2.15에서 `nimble redisLive`를 재실행해 compatibility probe, bounded eviction, server-side TTL, fan-out, 독립 OS worker 2개와 graceful shutdown을 통과시켰다.
+- [-] 실제 staging readiness transition, reconnect budget, metrics scrape/alert, drain/rollback 로그는 배포 환경 증거로 남긴다.
+
 ### 2026-08-05 concurrent password benchmark
 
 - [x] `password_hash_benchmark`에 독립 worker process 기반 `--concurrency=N` 측정을 추가하고 각 worker의 hash/verify 검증을 유지했다.

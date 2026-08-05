@@ -1,5 +1,11 @@
 # Nim 풀스택 웹 프레임워크 구현 계획
 
+### 2026-08-06 — Redis live evidence reconciliation
+
+- [x] Disposable Redis 7.2.15 live evidence revalidated `INFO`/command compatibility, bounded eviction, server-side TTL, two independent subscription sockets, publisher fan-out, and two OS worker processes through `nimble redisLive`.
+- [x] The local adapter contract now covers reconnect, ordering, bounded queue overflow, and graceful unsubscribe; the executable live fixture covers cross-process fan-out and worker shutdown.
+- [-] Production Redis/Valkey rollout evidence remains: real staging readiness transitions, reconnect budget, scrape/alert wiring, external queue drain, and rollback logs require the deployment environment.
+
 ## Custom model field foundation
 
 - [x] 임의 Nim custom type은 `newModelCustomField(name, wireType)` 명시 선언으로만 JSON metadata와 serializer codec 경계에 연결한다.

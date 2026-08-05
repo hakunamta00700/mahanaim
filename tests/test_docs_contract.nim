@@ -114,6 +114,16 @@ nimble test
     check source.contains("--worker")
     check guide.contains("--concurrency")
 
+  test "detailed implementation plan records the latest Redis live evidence":
+    ## Keep the detailed plan aligned with the repository checklist: local
+    ## service evidence may be complete while production rollout evidence is
+    ## deliberately retained as a partial item.
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check implementationPlan.contains("2026-08-06 — Redis live evidence reconciliation")
+    check implementationPlan.contains("Redis 7.2.15")
+    check implementationPlan.contains("Production Redis/Valkey rollout evidence remains")
+
   test "API stability policy matches the package manifest":
     ## The manifest declares the installable dependency boundary while the
     ## policy explains compatibility promises. Keep both machine-checkable so
