@@ -3221,6 +3221,11 @@ suite "Mahanaim core contracts":
     check closeFrame.payload == "going away"
     expect ValueError:
       discard controlWebSocketMessage(wsmText)
+    for invalidCode in [999, 1004, 1005, 1006, 1015, 2000, 5000]:
+      expect ValueError:
+        discard closeWebSocketMessage(invalidCode)
+    expect ValueError:
+      discard closeWebSocketMessage(1000, repeat("x", 124))
     expect ValueError:
       discard newWebSocketSession().send(textFrame)
 

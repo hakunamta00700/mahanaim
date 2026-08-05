@@ -239,8 +239,24 @@ proc controlWebSocketMessage*(kind: WebSocketMessageKind,
     raise newException(ValueError, "Control WebSocket message must be ping or pong")
   WebSocketMessage(kind: kind, payload: payload, closeCode: 0)
 
+proc isValidWebSocketCloseCode(code: int): bool =
+  ## RFC 6455 reserves the gap between protocol-defined and application-defined
+  ## close codes. Keeping this predicate in core means every adapter and test
+  ## client applies the same close-frame contract.
+  (code >= 1000 and code <= 1003) or
+    (code >= 1007 and code <= 1014) or
+    (code >= 3000 and code <= 4999)
+
 proc closeWebSocketMessage*(code = 1000,
                             reason = ""): WebSocketMessage =
+  if not isValidWebSocketCloseCode(code):
+    raise newException(ValueError, "Invalid WebSocket close code: " & $code)
+  ## The two-byte status code and UTF-8 reason share the 125-byte control
+  ## frame limit; the reason therefore has at most 123 bytes. UTF-8 validity
+  ## remains an adapter-owned byte decoder concern until a shared Unicode
+  ## validation contract is introduced.
+  if reason.len > 123:
+    raise newException(ValueError, "WebSocket close reason exceeds 123 bytes")
   WebSocketMessage(kind: wsmClose, payload: reason, closeCode: code)
 
 proc send*(session: WebSocketSession,

@@ -946,3 +946,8 @@ flowchart TB
 
 - [x] `sseResponse`가 single-line SSE `event`/`id` field의 CR/LF를 fail-fast validation한다.
 - [x] multiline `data`는 line-oriented SSE framing으로 유지하고, event/id injection 및 정상 framing을 regression test로 고정한다.
+
+### 2026-08-05 — WebSocket close frame boundary baseline
+
+- [x] core close message가 RFC 6455 protocol/application close code와 reserved code gap을 공통 predicate로 검증한다.
+- [x] close reason을 123 bytes 이하로 제한해 status code와 함께 125-byte control frame 한계를 넘지 않도록 하고 invalid code·oversized reason test를 추가했다.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.
 - Swagger UI bootstrap의 외부 schema URL을 HTML-significant code point까지 JavaScript Unicode escape 처리하고 `</script>` 삽입 회귀 테스트를 추가했다.
 - template loop에 request-local `loop.index`·`index0`·`first`·`last`·`length` metadata를 추가하고 nested-loop shadowing 및 접근성 목록 렌더링 회귀 테스트를 추가했다.

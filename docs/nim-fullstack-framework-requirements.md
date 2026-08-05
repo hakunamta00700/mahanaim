@@ -287,4 +287,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] nested loop는 현재 반복문의 metadata가 부모 값을 shadow하도록 하며, parser/renderer 경계와 자동 escaping을 유지한다.
 - [x] Swagger UI의 caller-controlled schema URL은 JSON quoting만으로 끝내지 않고 HTML-significant code point를 JavaScript Unicode escape로 변환해 `</script>` 삽입을 차단한다.
 - [x] SSE `event`/`id` metadata는 CR/LF를 거부해 field injection을 방지하고, `data`의 의도된 multiline framing은 계속 지원한다.
+- [x] WebSocket close message는 RFC 6455 허용 code 범위와 control frame의 123-byte reason 한계를 공통 core 경계에서 검증한다.
 - [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 별도 범위로 남긴다.
