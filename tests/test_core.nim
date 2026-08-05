@@ -2804,12 +2804,20 @@ suite "Mahanaim core contracts":
     createDir(root)
     let arrayPath = root / "array.toml"
     let unknownPath = root / "unknown.toml"
+    let wrongTomlTypePath = root / "wrong_type.toml"
+    let wrongJsonTypePath = root / "wrong_type.json"
     writeFile(arrayPath, "ports = [8000, 8001]\n")
     writeFile(unknownPath, "feature_flag = true\n")
+    writeFile(wrongTomlTypePath, "port = \"9200\"\n")
+    writeFile(wrongJsonTypePath, "{\"debug\":\"true\"}")
     expect ValueError:
       discard loadTomlConfig(arrayPath)
     expect ValueError:
       discard loadTomlConfig(unknownPath)
+    expect ValueError:
+      discard loadTomlStructuredConfig(wrongTomlTypePath)
+    expect ValueError:
+      discard loadConfig(dotEnvPath = "", jsonPath = wrongJsonTypePath)
     delEnv("MAHANAIM_PORT")
     delEnv("MAHANAIM_REQUEST_TIMEOUT_MS")
     delEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS")

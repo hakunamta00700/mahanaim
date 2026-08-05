@@ -121,7 +121,7 @@
 - [x] provider 병합 순서를 정의하고 process environment가 최종 우선하도록 했다.
 - [x] secret store와 `redactSecrets`를 추가해 로그·오류 출력 전 비밀값 치환을 지원한다.
 - [x] 설정 병합·TOML secrets section·redaction 테스트 2개를 추가했다.
-- [ ] 완전한 TOML 문법, JSON/TOML schema validation, CI 재현 설치는 남아 있다.
+- [-] TOML parser의 표준 문법과 JSON/TOML provider를 사용하고, framework-owned `environment`·`debug`·`host`·`port`·timeout·executor capacity scalar의 원본 타입 schema validation 및 잘못된 JSON/TOML 타입 회귀 테스트를 추가했다. 임의 확장 구조는 typed values로 보존하며 clean CI dependency 설치 증거는 별도 matrix 범위다.
 
 ### 2026-08-04 — P0 application extension 1차
 
@@ -699,7 +699,7 @@ flowchart TB
 | 상태 | ID | 우선순위 | 구현 계획 |
 | --- | --- | --- | --- |
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
-| [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·structured log redaction으로 로그·오류·빌드 노출을 차단한다. Application config secret은 observability sink 직전에 JSON tree 전체에서 치환하며, 외부 logger/build pipeline 통합은 남아 있다. |
+| [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 framework-owned scalar schema validation, secret 타입·structured log redaction으로 로그·오류·빌드 노출을 차단한다. Application config secret은 observability sink 직전에 JSON tree 전체에서 치환하며, 임의 확장 구조는 typed values로 보존한다. 외부 logger/build pipeline 통합은 남아 있다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
 | [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했고, 생성 앱 모듈은 `createApp()`·migration registry·admin creator를 명시적으로 구성한다. persistence와 credential 정책은 프로젝트 소유 범위다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고, `validateDependencyLock`·`nimble lockCheck`로 lock JSON version·package metadata·필수 dependency·SHA-1 checksum shape를 CI/verify에서 검증한다. clean OS runner의 실제 dependency 재설치 증거와 추가 지원 버전 matrix는 남아 있다. |

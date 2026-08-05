@@ -107,6 +107,48 @@ proc isSecretKey(key: string): bool =
 
 proc isSupportedTomlKey(key: string): bool
 
+proc validateJsonConfigType(key: string, value: JsonNode, source: string) =
+  ## Validate framework-owned scalar types before string conversion. Unknown
+  ## extension values intentionally remain typed JSON in AppConfig.values.
+  let normalized = key.toLowerAscii()
+  case normalized
+  of "environment", "mahanaim_env", "host", "mahanaim_host":
+    if value.kind != JString:
+      raise newException(ValueError,
+        key & " must be a string in " & source)
+  of "debug", "mahanaim_debug":
+    if value.kind != JBool:
+      raise newException(ValueError,
+        key & " must be a boolean in " & source)
+  of "port", "mahanaim_port", "request_timeout_ms",
+     "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
+     "mahanaim_executor_max_concurrent_jobs":
+    if value.kind != JInt:
+      raise newException(ValueError,
+        key & " must be an integer in " & source)
+
+proc validateTomlConfigType(key: string, value: TomlValueRef, source: string) =
+  ## TOML has native scalar kinds, so preserve them through schema validation
+  ## rather than accepting a quoted number that only looks numeric later.
+  let normalized = key.toLowerAscii()
+  let expected = case normalized
+    of "environment", "mahanaim_env", "host", "mahanaim_host": "string"
+    of "debug", "mahanaim_debug": "boolean"
+    of "port", "mahanaim_port", "request_timeout_ms",
+       "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
+       "mahanaim_executor_max_concurrent_jobs": "integer"
+    else: ""
+  if expected.len == 0:
+    return
+  let matches = case expected
+    of "string": value.kind == TomlValueKind.String
+    of "boolean": value.kind == TomlValueKind.Bool
+    of "integer": value.kind == TomlValueKind.Int
+    else: false
+  if not matches:
+    raise newException(ValueError,
+      key & " must be a TOML " & expected & " in " & source)
+
 proc applyStructuredValues(config: var AppConfig,
                            values: Table[string, JsonNode], source: string) =
   ## Structured values use the same secret boundary as scalar providers.
@@ -124,6 +166,7 @@ proc applyStructuredValues(config: var AppConfig,
     if isSecretKey(key):
       raise newException(ValueError,
         "structured secret value is not supported in " & source)
+    validateJsonConfigType(key, value, source)
     if value.kind in {JString, JInt, JFloat, JBool} and
        isSupportedTomlKey(key):
       let scalar = if value.kind == JString: value.getStr() else: $value
@@ -143,6 +186,7 @@ proc loadJsonConfig*(path: string): Table[string, string] =
         result["secret." & secretKey] =
           if secretValue.kind == JString: secretValue.getStr() else: $secretValue
     elif value.kind in {JString, JInt, JFloat, JBool}:
+      validateJsonConfigType(key, value, path)
       result[key] = if value.kind == JString: value.getStr() else: $value
 
 proc loadJsonStructuredConfig*(path: string): Table[string, JsonNode] =
@@ -152,6 +196,7 @@ proc loadJsonStructuredConfig*(path: string): Table[string, JsonNode] =
   if root.kind != JObject:
     raise newException(ValueError, "JSON config root must be an object")
   for key, value in root.pairs:
+    validateJsonConfigType(key, value, path)
     if value.kind in {JArray, JObject}:
       result[key] = value
 
@@ -209,6 +254,7 @@ proc loadTomlStructuredConfig*(path: string): Table[string, JsonNode] =
     raise newException(ValueError, "TOML config root must be a table")
   result = initTable[string, JsonNode]()
   for key, value in root.tableVal[]:
+    validateTomlConfigType(key, value, path)
     if value.kind notin {TomlValueKind.Array, TomlValueKind.Table,
                          TomlValueKind.Datetime, TomlValueKind.Date, TomlValueKind.Time} and
        not isSupportedTomlKey(key):
@@ -255,6 +301,7 @@ proc flattenTomlValue(values: var Table[string, string], value: TomlValueRef,
     return
   if not isSupportedTomlKey(prefix):
     raise newException(ValueError, "unknown TOML config key: " & prefix)
+  validateTomlConfigType(prefix, value, source)
   values[prefix] = tomlScalar(value, prefix, source)
 
 proc loadTomlConfig*(path: string): Table[string, string] =
