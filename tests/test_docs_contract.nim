@@ -161,6 +161,24 @@ nimble test
     check coreSuite.contains("untrusted forwarded host cannot bypass host allow list")
     check implementationPlan.contains("untrusted forwarded host")
 
+  test "release policy requirements are marked complete only with policy artifacts":
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    let policy = readFile(getCurrentDir() / "docs" /
+      "api-stability-policy.md")
+    let supportMatrix = readFile(getCurrentDir() / "docs" /
+      "support-matrix.md")
+    check implementationPlan.contains(
+      "- [x] 코어 계약과 adapter API를 분리해 semantic versioning")
+    check implementationPlan.contains("- [x] 지원 Nim 버전, Prologue adapter 버전")
+    check implementationPlan.contains("- [x] deprecated API는 최소 한 주기")
+    check implementationPlan.contains("- [x] 기능 성숙도는 `experimental`")
+    check implementationPlan.contains("- [x] 보안 수정은 별도 changelog")
+    check policy.contains("Semantic versioning")
+    check policy.contains("Deprecation and migration guide")
+    check policy.contains("Security release")
+    check supportMatrix.contains("Nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

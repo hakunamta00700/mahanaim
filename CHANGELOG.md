@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- API stability 정책의 semantic versioning, 지원 matrix, deprecation/migration, maturity label, security release 문서 계약을 계획의 완료 항목으로 정리했다.
 - 보안 회귀 테스트에 untrusted `X-Forwarded-Host`와 missing `Host`가 allowed-host 정책을 우회하지 못하는 실패 경로를 추가했다.
 - SQLite와 PostgreSQL fixture가 공유하는 database adapter contract helper를 추가해 parameter binding, CRUD, affectedRows 의미를 같은 테스트로 검증한다.
 

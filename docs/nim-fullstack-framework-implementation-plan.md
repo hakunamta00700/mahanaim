@@ -811,11 +811,11 @@ flowchart TB
 
 ### 7.3 릴리스와 호환성 정책
 
-- [ ] 코어 계약과 adapter API를 분리해 semantic versioning을 적용한다.
-- [ ] 지원 Nim 버전, Prologue adapter 버전, SQLite/PostgreSQL 버전을 매 릴리스에 명시한다.
-- [ ] deprecated API는 최소 한 주기 동안 경고를 내고 migration guide를 제공한다.
-- [ ] 기능 성숙도는 `experimental`, `stable`, `deprecated`로 표시한다.
-- [ ] 보안 수정은 별도 changelog와 영향 범위를 공개한다.
+- [x] 코어 계약과 adapter API를 분리해 semantic versioning을 적용한다. `docs/api-stability-policy.md`가 core/adapter ownership과 버전 변경 규칙을 정의한다.
+- [x] 지원 Nim 버전, Prologue adapter 버전, SQLite/PostgreSQL 버전을 매 릴리스에 명시한다. `docs/support-matrix.md`와 manifest/lockfile이 baseline을 기록한다.
+- [x] deprecated API는 최소 한 주기 동안 경고를 내고 migration guide를 제공한다. 정책 문서가 warning·before/after 예제·migration 기록을 요구한다.
+- [x] 기능 성숙도는 `experimental`, `stable`, `deprecated`로 표시한다. public API 문서·implementation plan·changelog에 같은 label을 사용한다.
+- [x] 보안 수정은 별도 changelog와 영향 범위를 공개한다. security release 정책과 보안 회귀 변경 항목을 `CHANGELOG.md`에 연결한다.
 
 ## 8. 초기 백로그
 

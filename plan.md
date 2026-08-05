@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 semantic versioning, 지원 버전/adapter matrix, deprecation migration guide, API maturity label, security release 규칙을 `docs/api-stability-policy.md`와 `docs/support-matrix.md`에 고정하고 문서 계약 테스트로 계획 상태와 정책 artifact의 정합성을 검증했다.
 - [x] 2026-08-05 보안 실패·우회 경로를 우선 검증하도록 `tests/test_core.nim`에 untrusted `X-Forwarded-Host`와 missing `Host`의 allowed-host bypass 회귀 테스트를 추가했다. HTTPS/CORS/body-limit/CSRF/session/rate-limit 실패 계약과 함께 로컬 gate에서 검증하고, staging TLS 증거는 별도 범위로 유지한다.
 - [x] 2026-08-05 `tests/database_contracts.nim`의 공통 adapter contract를 SQLite unit fixture와 PostgreSQL live fixture에서 재사용해 parameter binding, CRUD 결과와 affectedRows 의미를 같은 코드로 검증했다. backend별 capability와 전체 matrix 증거는 별도 gate 범위다.
 - [x] 2026-08-05 `tests/test_public_api_compile.nim`과 `nimble publicApiCheck`를 추가해 public package entry point의 core·route·metadata·serializer·database·storage·template·security·testing 대표 API compile contract를 verify에 연결했다. 전체 exported symbol별 독립 test matrix는 후속 범위다.
