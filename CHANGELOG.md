@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- DI service container에 명시적 child scope, dependency factory graph/cycle 검증, disposer와 Application shutdown disposal을 추가했다. application singleton과 request/task 소유권을 분리하는 contract test를 포함한다.
 - Application 소유 `MigrationDatabaseProvider`를 추가해 migration CLI가 명시적 backend connection lifecycle과 command runner를 사용하도록 연결했다. 기본 SQLite와 provider-backed `db seed`를 유지하고 DSN·credential 자동 추측을 금지한다.
 - PostgreSQL 16 live contract에서 serializable session의 typed `FOR UPDATE`/`FOR SHARE` row-lock 실행, commit lifecycle, 두 session 간 bounded `lock_timeout` contention을 검증하고, SQLite·aggregate lock의 fail-fast 경계를 유지했다.
 - 서버 렌더링용 XML sitemap 및 RSS 2.0 renderer를 추가했다. absolute URL 검증, XML escaping, sitemap metadata, RSS channel/item 필수값 검증을 공통 contract로 제공한다.

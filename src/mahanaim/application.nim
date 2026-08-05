@@ -414,14 +414,31 @@ proc registerModel*(app: Application, metadata: ModelMetadata) =
   app.models.registerModel(metadata)
 
 proc provide*(app: Application, name: string, scope: DependencyScope,
-              provider: DependencyProvider) =
+              provider: DependencyProvider,
+              disposer: DependencyDisposer = nil) =
   ## Plugin-facing wrapper keeps service registration on the application owner.
-  app.services.provide(name, scope, provider)
+  app.services.provide(name, scope, provider, disposer)
+
+proc provideFactory*(app: Application, name: string, scope: DependencyScope,
+                     dependencies: openArray[string],
+                     factory: DependencyFactory,
+                     disposer: DependencyDisposer = nil) =
+  ## Application-owned graph registration keeps dependency edges explicit while
+  ## preserving the same provider API for plugins and generated applications.
+  app.services.provideFactory(name, scope, dependencies, factory, disposer)
 
 proc resolve*(app: Application, name: string): DependencyService =
   ## Resolution remains explicit so request/task lifecycle owners can decide
   ## when to create and release narrower-scope values.
   app.services.resolve(name)
+
+proc newServiceScope*(app: Application): ServiceContainer =
+  ## Request/task adapters create an owned child scope instead of sharing the
+  ## application cache. The caller must dispose the returned scope at the end
+  ## of its lifecycle, which keeps core services framework-neutral.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  app.services.newChildScope()
 
 proc registerSerializationCodec*(app: Application, wireType: string,
                                  codec: SerializationCodec) =
@@ -593,4 +610,5 @@ proc shutdown*(app: Application) =
     app.databasePool.close()
   if app.durableJobStore != nil:
     app.durableJobStore.close()
+  app.services.dispose()
   app.started = false

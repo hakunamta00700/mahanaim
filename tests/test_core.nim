@@ -620,6 +620,47 @@ suite "Mahanaim core contracts":
     expect ValueError:
       app.provide("singleton", dependencyApplication, newFakeDependencyService)
 
+  test "DI child scopes resolve dependency graphs and dispose owned services":
+    ## Narrow scopes belong to the request/task owner; application services stay
+    ## cached by the root and are released only when that root is disposed.
+    type DisposableDependencyService = ref object of DependencyService
+      dependency: DependencyService
+      disposed: bool
+    proc newDisposable(): DependencyService {.gcsafe.} =
+      DisposableDependencyService()
+    proc disposeDisposable(service: DependencyService) {.gcsafe.} =
+      cast[DisposableDependencyService](service).disposed = true
+    proc compose(dependencies: seq[DependencyService]): DependencyService {.gcsafe.} =
+      DisposableDependencyService(dependency: dependencies[0])
+    let root = newServiceContainer()
+    root.provide("base", dependencyApplication, newDisposable,
+      disposeDisposable)
+    let request = root.newChildScope()
+    request.provideFactory("composed", dependencyRequest, @[
+      "base"], compose, disposeDisposable)
+    let base = root.resolve("base")
+    let composed = request.resolve("composed")
+    check cast[DisposableDependencyService](composed).dependency == base
+    check request.resolve("composed") == request.resolve("composed")
+    request.dispose()
+    check cast[DisposableDependencyService](composed).disposed
+    check not cast[DisposableDependencyService](base).disposed
+    root.dispose()
+    check cast[DisposableDependencyService](base).disposed
+    let cycle = newServiceContainer()
+    cycle.provideFactory("a", dependencyApplication, @["b"], compose)
+    cycle.provideFactory("b", dependencyApplication, @["a"], compose)
+    expect ValueError:
+      discard cycle.resolve("a")
+    cycle.dispose()
+    let lifecycleApp = newApplication()
+    lifecycleApp.provide("owned", dependencyApplication, newDisposable,
+      disposeDisposable)
+    let owned = lifecycleApp.resolve("owned")
+    lifecycleApp.startup()
+    lifecycleApp.shutdown()
+    check cast[DisposableDependencyService](owned).disposed
+
   test "background jobs use executor and bounded asynchronous retries":
     let app = newApplication()
     let queue = newBackgroundJobQueue(app.executor,

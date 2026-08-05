@@ -290,7 +290,7 @@
 - [x] dependency 누락·중복·순환을 검증하는 deterministic topological resolver를 추가했다.
 - [x] dependency-first ordering과 invalid graph 회귀 테스트를 추가했다.
 - [x] command registry와 admin installer extension point, duplicate registration 검증을 추가했다.
-- [ ] command frontend integration, admin authorization/UI/audit와 DI lifecycle disposal은 남아 있다.
+- [-] command frontend integration과 admin authorization/UI/audit는 추가 통합 범위가 남아 있다. DI lifecycle disposal은 Application service scope와 shutdown contract로 연결했다.
 
 ### 2026-08-04 — P1 CRUD resource 1차
 
@@ -307,7 +307,8 @@
 - [x] application scope singleton cache와 request/task factory semantics를 구현했다.
 - [x] Application wrapper와 plugin에서 사용할 수 있는 explicit provide/resolve API를 연결했다.
 - [x] singleton identity, factory recreation, unknown/duplicate dependency 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] request/task container ownership, dependency graph resolution, lifecycle disposal과 command/admin extension은 남아 있다.
+- [x] child scope가 request/task instance를 소유하고 application instance는 root에 위임하며, dependency factory graph의 cycle rejection과 reverse-order disposer를 제공한다. Application shutdown도 root service disposal을 실행한다.
+- [ ] command/admin extension의 추가 lifecycle integration은 남아 있다.
 
 ### 2026-08-04 — P2 background job 1차
 
