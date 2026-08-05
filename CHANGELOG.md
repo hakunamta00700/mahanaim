@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- deterministic `Application.dispatch` HTTP benchmark와 `nimble httpDispatchBenchmark` gate를 추가해 routing·security middleware·handler·response 경계를 반복 검증한다. socket/production network latency는 live gate 범위로 분리한다.
+
 - deterministic template AST/render benchmark와 `nimble templateBenchmark` gate를 추가해 auto-escaping 및 loop metadata invariant를 반복 검증한다.
 
 - deterministic metadata serialization benchmark와 `nimble serializationBenchmark` gate를 추가해 JSON projection 및 sensitive-field exclusion invariant를 반복 검증한다.

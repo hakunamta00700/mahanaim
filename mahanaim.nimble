@@ -63,6 +63,12 @@ task templateBenchmark, "Run the deterministic template benchmark":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r benchmarks/template_benchmark.nim"
 
+task httpDispatchBenchmark, "Run the deterministic HTTP dispatch benchmark":
+  ## Measure the core dispatch pipeline without conflating it with socket or
+  ## deployment latency; live network behavior has its own contract gates.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r benchmarks/http_dispatch_benchmark.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 

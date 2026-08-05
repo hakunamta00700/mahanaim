@@ -86,6 +86,16 @@ nimble test
     check manifest.contains("task templateBenchmark")
     check manifest.contains("benchmarks/template_benchmark.nim")
 
+  test "HTTP dispatch benchmark is wired as a repeatable Nimble gate":
+    ## Dispatch is the framework-owned HTTP workload; socket and production
+    ## network latency belong to the separate live-server gates.
+    let benchmark = getCurrentDir() / "benchmarks" /
+      "http_dispatch_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(benchmark)
+    check manifest.contains("task httpDispatchBenchmark")
+    check manifest.contains("benchmarks/http_dispatch_benchmark.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

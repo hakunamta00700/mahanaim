@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 `httpDispatchBenchmark`를 추가해 Application dispatch의 route·security middleware·handler·response 경계를 10,000회 반복하고 HTTP 200/body invariant를 검증했다. socket/production network latency와 버전별 결과 기록은 별도 live/release 범위다.
 - [x] 2026-08-05 template AST/render benchmark를 `nimble templateBenchmark` gate로 연결하고 10,000회 workload에서 auto-escaping과 loop metadata output invariant를 검증했다. HTTP benchmark 분리와 버전별 결과 기록은 후속 범위다.
 - [x] 2026-08-05 metadata serialization benchmark를 `nimble serializationBenchmark` gate로 연결하고 10,000회 workload에서 JSON name projection과 sensitive-field exclusion invariant를 검증했다. template/HTTP benchmark 분리와 버전별 결과 기록은 후속 범위다.
 - [x] 2026-08-05 ORM query compiler benchmark를 `nimble databaseQueryBenchmark` gate로 연결하고 SQLite/PostgreSQL parameter binding과 no-interpolation invariant를 10,000회 workload로 검증했다. serialization/template/HTTP benchmark 분리와 버전별 결과 기록은 후속 범위다.

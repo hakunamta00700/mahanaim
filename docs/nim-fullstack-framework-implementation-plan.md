@@ -806,7 +806,7 @@ flowchart TB
 - [ ] 모든 보안 기본값은 성공 케이스보다 실패·우회 케이스를 먼저 테스트한다.
 - [ ] migration은 빈 DB, 기존 데이터, rollback, 동시 요청 조건에서 검증한다.
 - [ ] adapter는 공통 contract test suite를 공유한다. SQLite와 PostgreSQL 테스트가 같은 의미를 가져야 한다.
-- [-] benchmark를 HTTP, router, serialization, ORM query, template rendering 경계로 분리한다. router·password hash·`databaseQueryBenchmark` ORM query compiler·`serializationBenchmark` metadata serializer·`templateBenchmark` AST/render gate를 추가했고, HTTP workload와 버전별 release artifact 기록은 후속 범위다.
+- [-] benchmark를 HTTP, router, serialization, ORM query, template rendering 경계로 분리한다. router·password hash·`databaseQueryBenchmark` ORM query compiler·`serializationBenchmark` metadata serializer·`templateBenchmark` AST/render·`httpDispatchBenchmark` Application dispatch gate를 추가했고, 버전별 release artifact 기록은 후속 범위다.
 - [ ] 문서 예제는 CI에서 컴파일·실행해 문서와 코드의 drift를 방지한다.
 
 ### 7.3 릴리스와 호환성 정책
