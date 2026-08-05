@@ -269,6 +269,25 @@ suite "Mahanaim core contracts":
         link: "https://example.test", id: "",
         updatedAt: "2026-08-05T12:00:00Z"))
 
+  test "email message contract renders safely and delegates through a transport":
+    let message = EmailMessage(sender: "no-reply@example.test",
+      recipients: @["ada@example.test"], cc: @[], bcc: @[],
+      subject: "Welcome & onboarding", contentType: "text/plain; charset=utf-8",
+      body: "Hello Ada\nYour account is ready.")
+    let wire = renderEmail(message)
+    check wire.contains("From: no-reply@example.test\r\n")
+    check wire.contains("To: ada@example.test\r\n")
+    check wire.contains("Subject: Welcome & onboarding\r\n")
+    check wire.contains("\r\n\r\nHello Ada\r\nYour account is ready.\r\n")
+    let transport = newInMemoryEmailTransport()
+    transport.send(message)
+    check transport.messages.len == 1
+    check transport.messages[0].subject == "Welcome & onboarding"
+    expect ValueError:
+      discard renderEmail(EmailMessage(sender: "sender@example.test",
+        recipients: @["victim@example.test\r\nBcc: injected@example.test"],
+        subject: "Unsafe", contentType: "text/plain; charset=utf-8", body: "x"))
+
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
     ## requiring every application to remember a security setting. Explicit
