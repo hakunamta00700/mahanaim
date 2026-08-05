@@ -80,6 +80,13 @@ production 권고값이 아니며, 실제 배포 호스트에서 concurrent memo
 concurrent wall 1927 ms였다. 이 수치는 호스트별 비교용이며 production cost
 확정값이 아니다.
 
+## Implementation plan status
+
+`nimble planStatus`는 canonical `plan.md`를 구조 검증한 뒤 완료(`completed`),
+부분 완료(`partial`), 미착수(`pending`) 항목 수를 출력한다. 이 집계는 우선순위
+검토를 돕는 지표이며 staging·production 증거가 필요한 항목을 자동 완료로
+판정하지 않는다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.

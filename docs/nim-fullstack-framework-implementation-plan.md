@@ -10,6 +10,7 @@
 
 - [x] `summarizePlanChecklist` counts supported checklist markers independently from structural validation, so planning and release tooling can report completed, partial, and pending work without treating external evidence as code completion.
 - [x] A regression contract covers all three statuses through `nimble docsCheck`.
+- [x] `nimble planStatus` prints the canonical `plan.md` counts (`completed=240 partial=25 pending=7`) for repeatable priority review.
 
 ## Custom model field foundation
 

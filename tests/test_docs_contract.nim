@@ -63,6 +63,20 @@ nimble test
     check summary.partial == 1
     check summary.pending == 1
 
+  test "planStatus is wired as a repeatable planning gate":
+    ## The summary API is useful only if maintainers can run it without
+    ## writing a custom Nim program. Keep the executable and task discoverable
+    ## beside the other repository-owned verification gates.
+    let tool = getCurrentDir() / "tools" / "plan_status.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let source = readFile(tool)
+    check fileExists(tool)
+    check manifest.contains("task planStatus")
+    check manifest.contains("tools/plan_status.nim")
+    check source.contains("completed=")
+    check source.contains("partial=")
+    check source.contains("pending=")
+
   test "router benchmark is wired as a repeatable Nimble gate":
     let benchmark = getCurrentDir() / "benchmarks" / "router_benchmark.nim"
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")

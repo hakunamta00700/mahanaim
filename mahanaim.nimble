@@ -98,6 +98,13 @@ task docsCheck, "Validate the Definition of Done document contract":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r tests/test_docs_contract.nim"
 
+task planStatus, "Summarize implementation plan checklist status":
+  ## Keep planning status available as a lightweight, repeatable repository
+  ## gate. The repository task intentionally uses the canonical plan.md;
+  ## embedding callers can pass another path to summarizePlanChecklist.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r tools/plan_status.nim"
+
 task lockCheck, "Validate the checked-in dependency lockfile":
   ## Keep lock validation independent from package installation so a malformed
   ## lock is reported before the compiler starts a long dependency build.
