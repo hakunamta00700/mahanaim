@@ -258,3 +258,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [ ] SHOULD remaining: retry/backoff orchestration, ordering·backpressure, production cross-process fan-out.
 - [x] SHOULD retry baseline: reconnect max attempts와 exponential delay bound를 검증하고 bounded async retry로 재구독 성공 attempt를 반환한다.
 - [ ] SHOULD remaining: message ordering·backpressure 및 production cross-process fan-out.
+- [x] SHOULD ordering baseline: 같은 Redis subscription connection에서 slow subscriber가 있어도 coalesced message callback 순서를 보장한다.
+- [ ] SHOULD remaining: bounded queue/overflow backpressure와 production cross-process fan-out.

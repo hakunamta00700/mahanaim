@@ -114,6 +114,12 @@ type RedisPubSubRetryFixtureState = object
   ready: Atomic[bool]
   connections: Atomic[int]
 
+type RedisPubSubOrderingFixtureState = object
+  ## Coalesced frames let the test prove ordering without relying on network
+  ## timing or an externally installed broker.
+  port: Atomic[int]
+  ready: Atomic[bool]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -201,6 +207,30 @@ proc runRedisPubSubRetryFixture(
         command.add(client.recv(1, 5000))
       client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
     client.close()
+  server.close()
+
+proc runRedisPubSubOrderingFixture(
+    state: ptr RedisPubSubOrderingFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  var client: owned(Socket)
+  server.accept(client)
+  var command = ""
+  while not command.contains("SUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\none\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\ntwo\r\n")
+  command = ""
+  while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+  client.close()
   server.close()
 
 proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
@@ -5125,6 +5155,38 @@ suite "Mahanaim core contracts":
     check state.connections.load() == 3
     expect ValueError:
       discard waitFor client.reconnectWithRetry(maxAttempts = 0)
+
+  test "async Redis pubsub client preserves ordered delivery under slow subscribers":
+    var state: RedisPubSubOrderingFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    var worker: Thread[ptr RedisPubSubOrderingFixtureState]
+    createThread(worker, runRedisPubSubOrderingFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var firstFinished: Atomic[bool]
+    var outOfOrder: Atomic[bool]
+    var delivered: Atomic[int]
+    firstFinished.store(false)
+    outOfOrder.store(false)
+    delivered.store(0)
+    let client = newRedisPubSubClient(port = Port(state.port.load()))
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        if payload == "one":
+          await sleepAsync(20)
+          firstFinished.store(true)
+        else:
+          if not firstFinished.load():
+            outOfOrder.store(true)
+        discard delivered.fetchAdd(1))
+    waitFor sleepAsync(50)
+    check delivered.load() == 2
+    check not outOfOrder.load()
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
 
   test "Redis RESP client publishes channel messages through its transport":
     let client = newRedisValkeyRespClient(transport =

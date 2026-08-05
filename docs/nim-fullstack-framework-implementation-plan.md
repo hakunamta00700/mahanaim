@@ -903,3 +903,5 @@ flowchart TB
 - [ ] reconnect orchestration/backoff, ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.
 - [x] reconnect orchestration에 bounded exponential backoff와 max attempt/delay validation을 추가하고, 한 번 실패 후 다음 attempt 성공 및 invalid policy를 loopback contract로 검증한다.
 - [ ] Redis subscription message ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.
+- [x] subscription reader가 callback을 순차적으로 `await`해 같은 connection의 coalesced message ordering을 보장한다는 slow-subscriber loopback contract를 추가했다.
+- [ ] bounded queue/overflow backpressure 정책과 실제 Redis/Valkey cross-process production live evidence는 남긴다.
