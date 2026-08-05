@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docker nginx HTTPS reverse-proxy wire fixture를 재실행하고 redirect, TLS handshake, proxy hop, secure cookie 계약 통과 결과를 계획에 기록했다.
 - PostgreSQL migration에 transaction-scoped advisory lock을 추가해 독립 연결의 동시 실행이 단일 history로 수렴하도록 보장하고, Redis/PostgreSQL disposable live gate 결과를 기록했다.
 - PostgreSQL live fixture에 독립 연결 2개의 concurrent migration과 단일 history 수렴 계약을 추가했다.
 - 독립 SQLite 연결의 동시 migration 실행이 단일 history row와 schema로 수렴하는 회귀 테스트를 추가했다.

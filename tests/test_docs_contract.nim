@@ -376,3 +376,14 @@ nimble test
     check guideText.contains("docker compose")
     check guideText.contains("readiness")
     check guideText.contains("graceful shutdown")
+
+  test "HTTPS local wire fixture is wired as a repeatable deployment gate":
+    let script = getCurrentDir() / "tests" / "run_https_wire.ps1"
+    let guide = readFile(getCurrentDir() / "docs" /
+      "operations-guide.md")
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(script)
+    check manifest.contains("task httpsLiveCheck")
+    check manifest.contains("task httpsLive")
+    check guide.contains("run_https_wire.ps1")
+    check guide.contains("HTTPS reverse-proxy live contract passed")

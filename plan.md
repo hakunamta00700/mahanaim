@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 `tests/run_https_wire.ps1`를 실제 실행해 Docker nginx TLS 1.2/1.3 reverse proxy, Nim/Linux upstream, HTTP→HTTPS redirect, trusted forwarded metadata와 secure cookie wire 계약을 통과시켰다. staging 인증서 체인·renewal 증거는 별도 범위다.
 - [x] 2026-08-05 disposable Docker PostgreSQL 16과 Redis 7.2.15 service에서 `nimble postgresLive`와 `nimble redisLive`를 실제 실행했다. PostgreSQL advisory-lock concurrent migration, Redis two-process fan-out/reconnect/backpressure/eviction 계약이 통과했으며 GitHub runner와 staging evidence는 별도 범위다.
 - [x] 2026-08-05 PostgreSQL live fixture에도 독립 libpq 연결 2개의 concurrent migration 계약을 추가하고 `postgresLiveCheck` compile gate 및 credential 부재 명시적 skip을 검증했다. credential이 제공되는 CI/staging의 실제 실행 로그는 외부 evidence 범위다.
 - [x] 2026-08-05 `tests/test_core.nim`에 독립 SQLite 연결 2개가 같은 migration을 동시에 실행하는 계약을 추가해 실패 없이 단일 history row/schema로 수렴하는지 검증했다. PostgreSQL concurrent migration 및 staging 운영 evidence는 별도 범위다.
