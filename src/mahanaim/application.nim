@@ -199,7 +199,7 @@ proc configureDatabasePool*(app: Application,
   ## borrowing and closes idle/active connections during shutdown.
   if app.isNil or pool.isNil:
     raise newException(ValueError, "Application and database pool are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Database pool must be configured before application startup")
   app.databasePool = pool
@@ -211,7 +211,7 @@ proc configureTemplateAdapter*(app: Application,
   ## request from observing a renderer being swapped mid-lifecycle.
   if app.isNil or adapter.isNil:
     raise newException(ValueError, "Application and template adapter are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Template adapter must be configured before application startup")
   app.templateAdapter = adapter
@@ -233,7 +233,7 @@ proc configureMigrations*(app: Application, registry: MigrationRegistry,
   if app.isNil or registry.isNil or sqlitePath.strip().len == 0:
     raise newException(ValueError,
       "Application, migration registry, and SQLite path are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Migrations must be configured before application startup")
   app.migrationRegistry = registry
@@ -247,7 +247,7 @@ proc configureMigrationDatabase*(app: Application,
       provider.runMigrations.isNil:
     raise newException(ValueError,
       "Application migration database provider is incomplete")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Migration database provider must be configured before application startup")
   app.migrationDatabaseProvider = provider
@@ -257,7 +257,7 @@ proc configureSeeds*(app: Application, registry: SeedRegistry) =
   ## before startup just like migrations and database pools.
   if app.isNil or registry.isNil:
     raise newException(ValueError, "Application and seed registry are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Seeds must be configured before application startup")
   app.seedRegistry = registry
@@ -271,7 +271,7 @@ proc configureDurableJobs*(app: Application, store: DurableJobStore,
   if app.isNil or store.isNil or registry.isNil:
     raise newException(ValueError,
       "Application, durable job store, and registry are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Durable jobs must be configured before application startup")
   app.durableJobStore = store
@@ -294,7 +294,7 @@ proc configureAdminUserCreator*(app: Application,
   ## accidentally mutate an application with a different runtime policy.
   if app.isNil or creator.isNil:
     raise newException(ValueError, "Application and admin user creator are required")
-  if app.started:
+  if app.started or app.starting:
     raise newException(ValueError,
       "Admin user creator must be configured before application startup")
   if not app.adminUserCreator.isNil:

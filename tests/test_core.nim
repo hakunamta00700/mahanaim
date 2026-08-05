@@ -2170,14 +2170,21 @@ suite "Mahanaim core contracts":
     app.onShutdown(proc() = events.add("stop"))
     proc lateHook() = discard
     var rejectedDuringStartup = false
+    var configurationRejectedDuringStartup = false
     app.onStartup(proc() =
       try:
         app.onStartup(lateHook)
       except ValueError:
         rejectedDuringStartup = true)
+    app.onStartup(proc() =
+      try:
+        app.configureMigrations(newMigrationRegistry(), "late.sqlite")
+      except ValueError:
+        configurationRejectedDuringStartup = true)
     app.startup()
     app.startup()
     check rejectedDuringStartup
+    check configurationRejectedDuringStartup
     expect ValueError:
       app.onStartup(lateHook)
     expect ValueError:
