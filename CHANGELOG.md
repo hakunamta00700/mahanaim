@@ -11,6 +11,7 @@
 - Prologue와 독립적인 direct httpx HTTP/WebSocket deployment adapter와 Windows/Linux compile·settings validation gate를 추가했다.
 - WebSocket adapter에 fragmented text continuation 재조립과 interleaved ping/pong 처리를 추가하고 loopback wire 회귀 테스트를 확장했다.
 - template engine에 `if/elif/else/endif` 조건 분기 AST와 short-circuit 렌더링, true/false branch 회귀 테스트를 추가했다.
+- template engine에 빈 collection의 empty-state를 위한 `for/else/endfor` 분기와 항목 존재·부재 회귀 테스트를 추가했다.
 - executor에 active worker와 waiting queue를 분리한 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
 
 - `TemplateRenderContext`에 request-owned locale formatter snapshot과 자동 `format_decimal`/`format_datetime` helper를 추가하고 unconfigured/invalid input/reserved name 경계를 회귀 테스트했다.

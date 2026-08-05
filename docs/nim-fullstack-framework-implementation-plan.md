@@ -873,3 +873,8 @@ flowchart TB
 
 - [x] template parser가 `if/elif/else/endif` 체인을 nested `templateIf` AST로 구성해 기존 renderer 경계에서 short-circuit 평가를 유지하도록 확장했다.
 - [x] true `elif` branch와 최종 `else` fallback 회귀 테스트를 추가하고, 구현 전 실패(red)와 구현 후 전체 테스트(green)를 확인했다.
+
+### 2026-08-05 — P3 template empty collection branching
+
+- [x] template parser와 renderer가 `for/else/endfor`를 지원해 collection이 비어 있을 때 empty-state branch를 렌더링하고, 항목이 있으면 loop body만 렌더링하도록 확장했다.
+- [x] 빈 collection·비어 있지 않은 collection 회귀 테스트를 추가하고 구현 전 실패(red)와 구현 후 전체 테스트(green)를 확인했다.

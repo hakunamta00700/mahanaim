@@ -3880,6 +3880,20 @@ suite "Mahanaim core contracts":
       "{{ item.name }}")
     expect ValueError:
       discard engine.render("unclosed-items", context)
+    engine.registerTemplate("empty-items", "{% for item in empty %}" &
+      "<li>{{ item.name }}</li>{% else %}<li>empty</li>{% endfor %}")
+    var emptyContext = newTemplateRenderContext()
+    emptyContext.addCollection("empty", @[])
+    check engine.render("empty-items", emptyContext) == "<li>empty</li>"
+    var populatedContext = newTemplateRenderContext()
+    populatedContext.addCollection("empty", @[
+      newTemplateContext([("name", "Ada")])])
+    check engine.render("empty-items", populatedContext) == "<li>Ada</li>"
+    let loopAst = parseTemplate("{% for item in empty %}body{% else %}" &
+      "fallback{% endfor %}")
+    check loopAst.nodes.len == 1
+    check loopAst.nodes[0].kind == templateFor
+    check loopAst.nodes[0].elseChildren.len == 1
 
     let ast = parseTemplate("{% if enabled %}{% for item in items %}" &
       "{{ item.name }}{% endfor %}{% else %}empty{% endif %}")

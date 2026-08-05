@@ -744,7 +744,7 @@ proc parseTemplateNodes(source: string, cursor: int,
     let directive = source[nextStart + 2 ..< close].strip()
     let after = close + 2
     if directive == "else":
-      if mode != parseIf:
+      if mode notin {parseIf, parseFor}:
         raise newException(ValueError, "Unexpected template else directive")
       result.cursor = after
       result.stop = parseElse
@@ -794,12 +794,23 @@ proc parseTemplateNodes(source: string, cursor: int,
         raise newException(ValueError,
           "Template for directive must use: for item in collection")
       let body = parseTemplateNodes(source, after, parseFor)
-      if body.stop != parseEndFor:
+      if body.stop notin {parseElse, parseEndFor}:
         raise newException(ValueError, "Template for block has no endfor")
-      result.nodes.add(TemplateNode(kind: templateFor,
+      var node = TemplateNode(kind: templateFor,
         variableName: parts[0], collectionName: parts[2],
-        children: body.nodes))
-      position = body.cursor
+        children: body.nodes, elseChildren: @[])
+      if body.stop == parseElse:
+        ## A loop's else branch is selected only when the resolved collection
+        ## is empty. Parsing it as another parseFor block keeps nested loops
+        ## and their end markers owned by the same recursive boundary.
+        let alternate = parseTemplateNodes(source, body.cursor, parseFor)
+        if alternate.stop != parseEndFor:
+          raise newException(ValueError, "Template for block has no endfor")
+        node.elseChildren = alternate.nodes
+        position = alternate.cursor
+      else:
+        position = body.cursor
+      result.nodes.add(node)
       continue
 
     if directive.startsWith("include "):
@@ -945,6 +956,10 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
         for key, value in item:
           itemContext[node.variableName & "." & key] = value
         result.add(engine.renderAstNodes(node.children, itemContext,
+          collections, projections, depth + 1, hasLocaleFormatter,
+          localeFormatter))
+      if items.len == 0 and node.elseChildren.len > 0:
+        result.add(engine.renderAstNodes(node.elseChildren, context,
           collections, projections, depth + 1, hasLocaleFormatter,
           localeFormatter))
     of templateInclude:
