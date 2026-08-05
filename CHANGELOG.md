@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- plugin registration도 command/admin과 동일한 startup lifecycle boundary를 사용하도록 제한하고 회귀 테스트를 추가했다.
 - command/admin extension registration을 startup 전용 lifecycle boundary로 제한하고 late mutation 회귀 테스트를 추가했다.
 - GitHub Actions cross-platform matrix에서 Linux/macOS Nim bootstrap archive를 runner별로 분리하고 계약 테스트를 추가했다.
 

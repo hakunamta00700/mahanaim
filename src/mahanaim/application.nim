@@ -432,12 +432,18 @@ proc onError*(app: Application, handler: ErrorHandler) =
 proc use*(app: Application, plugin: Plugin) =
   ## Plugins are installed before startup and can register routes, middleware,
   ## commands, or future extension points through the Application contract.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Plugins must be registered before application startup")
   app.plugins.add(plugin)
   plugin(app)
 
 proc use*(app: Application, plugin: PluginDefinition) =
   ## Manifest plugins are recorded before install so checks and tooling can
   ## inspect registration intent without executing arbitrary plugin code.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Plugins must be registered before application startup")
   if plugin.isNil:
     raise newException(ValueError, "Plugin definition cannot be nil")
   var candidates = app.pluginManifests

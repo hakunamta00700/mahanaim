@@ -817,6 +817,24 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "from plugin"
 
+  test "plugin registration is closed during and after application startup":
+    ## Plugins can mutate routes, middleware, and services, so their
+    ## registration window must match command/admin extension registration.
+    let app = newApplication()
+    proc installPlugin(app: Application) =
+      discard app
+    var rejectedDuringStartup = false
+    app.onStartup(proc() =
+      try:
+        app.use(installPlugin)
+      except ValueError:
+        rejectedDuringStartup = true)
+    app.startup()
+    check rejectedDuringStartup
+    expect ValueError:
+      app.use(installPlugin)
+    app.shutdown()
+
   test "plugin manifest records registration phase and rejects duplicates":
     let app = newApplication()
     proc installManifest(app: Application) {.gcsafe.} =

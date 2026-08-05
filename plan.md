@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] `use(plugin)`과 manifest plugin 등록도 startup 전용 lifecycle boundary를 공유하고, startup transition 및 실행 이후 등록을 거부한다. route·middleware·service surface의 late mutation을 회귀 테스트로 검증했다.
+
 - [-] 실제 application entrypoint build, certificate/secret injection과 staging rollout evidence는 application-owned 배포 환경에서 계속한다.
 - [x] `registerCommand`와 `registerAdminExtension`은 application startup 전 등록만 허용하고, startup transition 중에도 late mutation을 거부한다. lifecycle contract 회귀 테스트로 command surface와 admin extension registration의 불변 경계를 검증했다.
 - [ ] 실제 GitHub macOS runner와 staging deployment의 외부 evidence 수집은 배포 환경에서 계속한다.
