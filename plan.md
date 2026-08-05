@@ -267,4 +267,4 @@
 ### P1-11 generated application CLI entrypoint
 
 - [x] `mahanaim new`가 생성하는 애플리케이션 모듈을 실제 실행 진입점으로 사용하도록 연결한다. 생성 모듈의 `when isMainModule`이 `createApp()`과 `commandLineParams()`를 공통 `runCli` 계약에 전달해, standalone 실행이 빈 `newApplication()`을 우회하고 프로젝트 소유 wiring을 사용하게 한다.
-- [ ] standalone에서 app-owned migration provider와 admin account provisioning callback을 자동 구성한다. 이 범위는 프로젝트별 저장소·credential 정책을 추측하지 않도록 생성기 설정 API와 fixture를 먼저 정의한 뒤 진행한다.
+- [x] standalone에서 app-owned migration provider와 admin account provisioning callback을 자동 구성한다. 생성 앱은 동일한 migration 정의를 초기 SQLite 준비와 `Application` registry에 공유하고, 인증 account store/hasher 기반 provisioning callback을 명시적으로 등록한다. 저장소/credential 정책은 프로젝트 소유 설정으로 남긴다.

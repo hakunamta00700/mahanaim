@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- `mahanaim new`가 생성하는 애플리케이션 모듈을 `createApp()`과 `commandLineParams()`를 공통 `runCli`에 연결하는 명시적 standalone CLI 진입점으로 만들었다. 프레임워크가 임의 프로젝트 모듈을 자동 import하지 않도록 경계를 유지했으며, migration provider/account callback 자동 구성은 후속 범위로 기록했다.
+- 생성 프로젝트가 동일한 migration 정의를 초기 SQLite 준비와 Application migration registry에 연결하고, 인증 account store/hasher 기반 admin provisioning callback을 standalone CLI에 제공하도록 보완했다. 저장소 영속화와 credential 정책은 프로젝트 소유 범위로 유지했다.
+- `mahanaim new`가 생성하는 애플리케이션 모듈을 `createApp()`과 `commandLineParams()`를 공통 `runCli`에 연결하는 명시적 standalone CLI 진입점으로 만들었다. 프레임워크가 임의 프로젝트 모듈을 자동 import하지 않도록 경계를 유지하면서 migration registry/account callback wiring과 startup/shutdown lifecycle을 생성 앱에 연결했다.
 
 - `Application.dispatch`가 request-scoped service child container를 자동 생성·정리하도록 연결했다. shutdown 시 instance는 release하지만 명시적 registration은 reopen해 post-shutdown health dispatch와 lifecycle restart 계약을 보존한다.
 - 구현계획의 기존 회귀 테스트 증거를 재감사해 관계 query·migration up/down, admin query/action/layout, 권한 거부, MessagePack·storage·plugin·system check 항목의 체크 상태와 잔여 production 범위를 정리했다.

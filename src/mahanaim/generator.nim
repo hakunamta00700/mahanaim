@@ -85,6 +85,12 @@ proc sliceMetadata(): ModelMetadata =
   result.addField(newModelField("id", modelInteger, primaryKey = true))
   result.addField(newModelField("title", modelString))
 
+proc sliceMigrations(): seq[Migration] =
+  ## Keep migration discovery explicit and deterministic for both the runtime
+  ## app and its standalone db CLI; no source-file scanning is involved.
+  let metadata = sliceMetadata()
+  result.add(migrationFromMetadata(metadata, "001_items"))
+
 proc slicePolicy(): SecurityPolicy =
   ## Development defaults are explicit so generated tests can exercise the
   ## same CSRF/session boundary without relying on ambient environment state.
@@ -103,9 +109,16 @@ proc createApp*(config = loadConfig()): Application =
   let app = newApplication(config, policy)
   let adapter = newSqliteDatabaseAdapter()
   let metadata = sliceMetadata()
-  let migration = migrationFromMetadata(metadata, "001_items")
-  discard executeMigrationCommand(adapter, @[migration],
+  let migrations = sliceMigrations()
+  discard executeMigrationCommand(adapter, migrations,
     parseMigrationCommand(["migrate"]))
+  let migrationRegistry = newMigrationRegistry()
+  proc migrationProvider(): seq[Migration] {.gcsafe.} =
+    ## The provider is project-owned and can be consumed by embedded and
+    ## standalone command frontends through the same Application contract.
+    sliceMigrations()
+  migrationRegistry.registerMigrations(migrationProvider)
+  app.configureMigrations(migrationRegistry)
   app.onShutdown(proc() {.gcsafe.} = adapter.close())
 
   let repository = newDatabaseRepository(metadata, adapter)
@@ -121,6 +134,7 @@ proc createApp*(config = loadConfig()): Application =
   let authentication = newAccountAuthentication(accountStore, hasher,
     policy.session, newInMemoryLoginThrottle())
   app.registerAccountAuthenticationRoutes(authentication)
+  app.configureAdminUserCreator(newAdminUserCreator(accountStore, hasher))
 
   let adminRegistry = newAdminRegistry()
   proc authorize(request: Request): bool {.gcsafe.} =
@@ -138,10 +152,19 @@ proc createApp*(config = loadConfig()): Application =
 when isMainModule:
   ## The generated module is the explicit standalone entry point: project
   ## wiring remains in createApp while the shared CLI owns parsing/dispatch.
-  quit(runCli(createApp(), commandLineParams()))
+  ## Startup/shutdown are explicit here so adapters opened during construction
+  ## are released even when a command handler raises an exception.
+  let app = createApp()
+  app.startup()
+  var exitCode = 0
+  try:
+    exitCode = runCli(app, commandLineParams())
+  finally:
+    app.shutdown()
+  quit(exitCode)
 """)
   writeIfMissing(testDir / "test_app.nim",
-    """import std/[asyncdispatch, httpcore, json, tables, unittest]
+    """import std/[asyncdispatch, httpcore, json, os, tables, unittest]
 import mahanaim
 import """ & spec.name & """
 
@@ -170,6 +193,10 @@ suite "generated app vertical slice":
     check openApi.collectRoutes(app.router) > 0
     check openApi.document()["paths"].hasKey("/items")
     check openApi.document()["paths"].hasKey("/admin/items")
+    check app.runCli(["db", "status"]) == 0
+    putEnv("MAHANAIM_ADMIN_PASSWORD", "generated-cli-password")
+    defer: delEnv("MAHANAIM_ADMIN_PASSWORD")
+    check app.runCli(["admin", "create-user", "cli@example.test", "cli-user"]) == 0
 
     app.startup()
     let health = waitFor client.get("/health")

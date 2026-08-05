@@ -2367,7 +2367,12 @@ suite "Mahanaim core contracts":
     check readFile(root / "src" / "sample_app.nim").contains("registerAdminRoutes")
     check readFile(root / "src" / "sample_app.nim").contains("registerAccountAuthenticationRoutes")
     check readFile(root / "src" / "sample_app.nim").contains("newOpenApiRegistry")
-    check readFile(root / "src" / "sample_app.nim").contains("runCli(createApp(), commandLineParams())")
+    check readFile(root / "src" / "sample_app.nim").contains("app.startup()")
+    check readFile(root / "src" / "sample_app.nim").contains("runCli(app, commandLineParams())")
+    check readFile(root / "src" / "sample_app.nim").contains("finally:")
+    check readFile(root / "src" / "sample_app.nim").contains("app.shutdown()")
+    check readFile(root / "src" / "sample_app.nim").contains("app.configureMigrations")
+    check readFile(root / "src" / "sample_app.nim").contains("app.configureAdminUserCreator")
     check readFile(root / "tests" / "test_app.nim").contains("/health")
     check readFile(root / "tests" / "test_app.nim").contains("/admin/items/new")
     check readFile(root / "tests" / "test_app.nim").contains("/items")
@@ -2387,6 +2392,12 @@ suite "Mahanaim core contracts":
     if compileExitCode != 0:
       echo compileOutput
     check compileExitCode == 0
+    let entryCompileCommand = "nim c --path:src" & dependencyArgs &
+      " " & quoteShell(root / "src" / "sample_app.nim")
+    let (entryCompileOutput, entryCompileExitCode) = execCmdEx(entryCompileCommand)
+    if entryCompileExitCode != 0:
+      echo entryCompileOutput
+    check entryCompileExitCode == 0
     expect IOError:
       generateProject(ProjectSpec(name: "sample_app", root: root))
     removeDir(root)
