@@ -968,6 +968,8 @@ flowchart TB
 
 - [x] `ReleaseArtifact` metadata를 path 순서로 정렬해 deterministic line manifest로 렌더링하는 `renderArtifactManifest`와 파일 출력용 `writeArtifactManifest`를 추가했다.
 - [x] manifest path의 newline/NUL injection과 malformed SHA-256 metadata를 거부하는 contract test를 추가했다. 실제 target artifact 생성·checksum publish는 release runner가 소유한다.
+- [x] `collectReleaseArtifacts`와 `writeArtifactManifestForFiles`가 실제 artifact bytes에서 checksum을 계산하고 중복·누락 path를 fail-fast한 뒤 동일 manifest contract를 재사용한다.
+- [x] cross-platform CI release job이 `nimble releaseManifest`를 통해 Linux·Windows·macOS artifact와 deterministic manifest를 함께 업로드하도록 연결했다. 실제 runner 성공 로그는 외부 CI evidence로 남긴다.
 
 ### 2026-08-05 — Class-based controller baseline
 

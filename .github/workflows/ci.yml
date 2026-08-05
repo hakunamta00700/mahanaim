@@ -224,6 +224,21 @@ jobs:
           $actual = (Get-FileHash .\mahanaim_cli.exe -Algorithm SHA256).Hash.ToLower()
           if ($expected -ne $actual) { throw "release checksum mismatch" }
 
+      - name: Generate release artifact manifest (Linux/macOS)
+        if: runner.os != 'Windows'
+        env:
+          MAHANAIM_RELEASE_MANIFEST: release-artifacts.manifest
+          MAHANAIM_RELEASE_ARTIFACTS: mahanaim_cli
+        run: nimble releaseManifest
+
+      - name: Generate release artifact manifest (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MAHANAIM_RELEASE_MANIFEST: release-artifacts.manifest
+          MAHANAIM_RELEASE_ARTIFACTS: mahanaim_cli.exe
+        run: nimble releaseManifest
+
       - name: Upload release candidate and checksum
         uses: actions/upload-artifact@v4
         with:
@@ -231,3 +246,4 @@ jobs:
           path: |
             mahanaim_cli*
             mahanaim_cli.sha256
+            release-artifacts.manifest

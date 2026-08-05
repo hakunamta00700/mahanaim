@@ -33,6 +33,10 @@ sha256=<64 hexadecimal characters>
 오류·불일치를 모두 실패로 처리한다. 따라서 Windows 줄바꿈 변환이나 경로
 오류가 checksum 검증을 우회하지 못한다.
 
+`collectReleaseArtifacts`와 `writeArtifactManifestForFiles`는 release runner가
+파일 목록만 넘겨도 checksum 계산·중복 검사·path 정렬을 공통 API로 수행하게
+하며, shell별 checksum 구현이 manifest 형식을 따로 재구성하지 않도록 한다.
+
 ## 운영 원칙
 
 - [ ] 각 release artifact를 Linux·Windows·macOS target에서 생성한다.
@@ -41,7 +45,8 @@ sha256=<64 hexadecimal characters>
 - [ ] 지원 matrix 밖의 OS/Nim 조합은 experimental로 표시하고 stable release에 포함하지 않는다.
 - [x] Beast/httpx live fixture와 `beastLiveCheck`/`beastLive` gate를 Linux CI에 연결해 httpx/asyncdispatch ownership handoff와 WebSocket wire를 검증한다. macOS release runner 연결은 별도 matrix 확장 범위다.
 
-CI나 release script는 `renderArtifactManifest`로 artifact path와 SHA-256을
-path 순서의 deterministic manifest로 만들고, `writeArtifactManifest`로 파일에
-저장할 수 있다. manifest 생성은 metadata 형식과 경로 주입을 검증하지만, 실제
-파일 bytes 검증은 배포 전에 `validateReleaseArtifacts`로 별도 수행한다.
+CI release job은 `nimble releaseManifest`와 `MAHANAIM_RELEASE_ARTIFACTS`를
+사용해 `collectReleaseArtifacts`에서 실제 bytes checksum을 계산하고,
+`writeArtifactManifestForFiles`로 path 순서의 deterministic manifest를 만든다.
+`renderArtifactManifest`/`validateReleaseArtifacts`는 embedding release script가
+동일한 metadata·파일 검증 contract를 재사용할 수 있게 유지한다.

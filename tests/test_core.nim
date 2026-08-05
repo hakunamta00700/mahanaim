@@ -2282,6 +2282,29 @@ suite "Mahanaim core contracts":
       minimumNim: NimVersionSpec(major: 999, minor: 0, patch: 0),
       operatingSystems: @[currentOperatingSystem()])).len > 0
 
+  test "release manifest can be built from artifact files":
+    ## The release runner should not duplicate checksum and ordering logic in
+    ## shell-specific scripts. This test drives the file-owned API first so
+    ## every runner can share the same bytes and failure policy.
+    let firstPath = getTempDir() / "mahanaim-release-first.bin"
+    let secondPath = getTempDir() / "mahanaim-release-second.bin"
+    let manifestPath = getTempDir() / "mahanaim-release-files.manifest"
+    writeFile(firstPath, "first artifact")
+    writeFile(secondPath, "second artifact")
+    defer:
+      for path in [firstPath, secondPath, manifestPath]:
+        if fileExists(path):
+          removeFile(path)
+    let artifacts = collectReleaseArtifacts(@[secondPath, firstPath])
+    check artifacts.len == 2
+    check artifacts[0].path == firstPath
+    check artifacts[0].sha256 == sha256File(firstPath)
+    check artifacts[1].path == secondPath
+    writeArtifactManifestForFiles(manifestPath, @[secondPath, firstPath])
+    check readFile(manifestPath) == renderArtifactManifest(artifacts)
+    expect ValueError:
+      discard collectReleaseArtifacts(@[getTempDir() / "missing-release.bin"])
+
   test "dependency lock contract validates package metadata and checksums":
     let lockPath = getTempDir() / "mahanaim-lock-contract.json"
     defer:

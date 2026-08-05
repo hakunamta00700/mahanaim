@@ -104,3 +104,14 @@ nimble test
     check workflow.contains("name: Upload release candidate and checksum")
     check supportMatrix.contains("macOS")
     check supportMatrix.contains("release matrix")
+
+  test "release manifest runner uses the shared checksum boundary":
+    let tool = getCurrentDir() / "tools" / "release_manifest.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(tool)
+    check manifest.contains("task releaseManifest")
+    check readFile(tool).contains("writeArtifactManifestForFiles")
+    let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
+      "ci.yml")
+    check workflow.contains("run: nimble releaseManifest")
+    check workflow.contains("release-artifacts.manifest")

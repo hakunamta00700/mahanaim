@@ -113,6 +113,32 @@ proc writeArtifactManifest*(path: string,
     raise newException(ValueError, "Release manifest path is invalid")
   writeFile(path, renderArtifactManifest(artifacts))
 
+proc collectReleaseArtifacts*(paths: openArray[string]): seq[ReleaseArtifact] =
+  ## Convert actual files into manifest metadata in one framework-owned step.
+  ## Release scripts should provide only the artifact paths; checksum encoding,
+  ## duplicate rejection, and deterministic ordering remain shared across
+  ## Linux, Windows, macOS, and embedding applications.
+  if paths.len == 0:
+    raise newException(ValueError, "At least one release artifact is required")
+  for path in paths:
+    if path.strip().len == 0 or path.contains({'\r', '\n', '\0'}):
+      raise newException(ValueError, "Release artifact path is invalid")
+    if not fileExists(path):
+      raise newException(ValueError, "Release artifact does not exist: " & path)
+    for existing in result:
+      if existing.path == path:
+        raise newException(ValueError, "Duplicate release artifact: " & path)
+    result.add(ReleaseArtifact(path: path, sha256: sha256File(path)))
+  result.sort(proc(left, right: ReleaseArtifact): int =
+    cmp(left.path, right.path))
+
+proc writeArtifactManifestForFiles*(manifestPath: string,
+                                    paths: openArray[string]) =
+  ## Keep file discovery and manifest output composable: callers can inspect
+  ## the collected metadata, while the convenience API handles the common
+  ## release-runner path without duplicating checksum logic.
+  writeArtifactManifest(manifestPath, collectReleaseArtifacts(paths))
+
 proc validHex(value: string, expectedLength: int): bool =
   ## Lockfile digests are metadata, not secrets; validate their shape before
   ## a package manager consumes the file so malformed locks fail closed.

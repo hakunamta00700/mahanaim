@@ -175,3 +175,13 @@ task passwordBenchmark, "Measure password hashing on this machine":
   ## settings; the executable's defaults mirror the adapter policy.
   exec "nim c -d:release --path:src" & dependencyPathArgs() &
     " -r benchmarks/password_hash_benchmark.nim"
+
+task releaseManifest, "Generate a deterministic release artifact manifest":
+  ## The artifact list and output path are supplied by the CI runner, while
+  ## checksum calculation and ordering stay inside the shared framework API.
+  if getEnv("MAHANAIM_RELEASE_MANIFEST").len == 0 or
+      getEnv("MAHANAIM_RELEASE_ARTIFACTS").len == 0:
+    echo "release manifest skipped: artifact environment is not configured"
+  else:
+    exec "nim c --path:src" & dependencyPathArgs() &
+      " -r tools/release_manifest.nim"

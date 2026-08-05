@@ -9,6 +9,8 @@
 - Application이 선택된 template adapter를 공통 HTML response로 연결하도록 `configureTemplateAdapter`와 `renderTemplateResponse`를 추가했다.
 - 상세 구현계획의 핵심 기반선 체크박스를 public contract·회귀 테스트 증거와 정합화하고, P0-09 외부 검증 범위를 명시했다.
 - GitHub Actions cross-platform release matrix에 macOS Nim 2.2.4 runner와 Homebrew `libpq`·`shasum` 경계를 추가했다.
+- release artifact 파일 목록에서 checksum을 계산해 deterministic manifest를 생성하는 `collectReleaseArtifacts`와 `writeArtifactManifestForFiles`를 추가했다.
+- cross-platform CI release job이 `nimble releaseManifest`로 artifact manifest를 생성해 checksum artifact와 함께 업로드하도록 연결했다.
 - WebSocket close reason의 malformed UTF-8을 공통 core에서 거부하고 정상 Unicode reason을 허용하는 계약 테스트를 추가했다.
 - WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.
