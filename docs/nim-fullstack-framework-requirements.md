@@ -285,4 +285,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 
 - [x] 반복문이 request-local `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.length` metadata를 제공해 접근성 목록과 부분 템플릿이 위치 정보를 안전하게 표현한다.
 - [x] nested loop는 현재 반복문의 metadata가 부모 값을 shadow하도록 하며, parser/renderer 경계와 자동 escaping을 유지한다.
+- [x] Swagger UI의 caller-controlled schema URL은 JSON quoting만으로 끝내지 않고 HTML-significant code point를 JavaScript Unicode escape로 변환해 `</script>` 삽입을 차단한다.
 - [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 별도 범위로 남긴다.

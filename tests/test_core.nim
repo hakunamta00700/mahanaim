@@ -5510,6 +5510,10 @@ suite "Mahanaim core contracts":
         requestContentTypes: @["application/json; charset=utf-8"]))
     check swaggerUiHtml("/schema.json").contains("/schema.json")
     check redocHtml("/schema.json").contains("spec-url=\"/schema.json\"")
+    let hostileSpecUrl = "</script><script>window.pwned=true</script>"
+    let safeSwagger = swaggerUiHtml(hostileSpecUrl)
+    check not safeSwagger.contains("url:\"</script><script>")
+    check safeSwagger.contains("url:\"\\u003c/script\\u003e")
     let typescriptClient = registry.typescriptClient("UsersClient")
     check typescriptClient.contains("export class UsersClient")
     check typescriptClient.contains("export interface GetUserRequest")

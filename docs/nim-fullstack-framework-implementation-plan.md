@@ -936,3 +936,8 @@ flowchart TB
 - [x] AST `for` renderer가 현재 loop에 한정된 `index`/`index0`/`first`/`last`/`length` metadata를 주입한다.
 - [x] two-item rendering contract와 nested-loop shadowing 경계를 테스트로 고정하고, 기존 explicit collection/projection API를 변경하지 않는다.
 - [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 설계 항목이다.
+
+### 2026-08-05 — OpenAPI UI script boundary baseline
+
+- [x] Swagger UI `specUrl`을 JSON 문자열로 만든 뒤 `<`, `>`, `&`, U+2028, U+2029를 JavaScript Unicode escape로 변환한다.
+- [x] hostile URL의 `</script><script>` 삽입 위치를 계약 테스트로 검증하고, 정상 UI bootstrap·ReDoc attribute 경계를 보존한다.

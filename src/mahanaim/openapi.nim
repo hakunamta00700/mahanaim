@@ -288,10 +288,22 @@ proc htmlAttribute(value: string): string =
   result = result.replace("<", "&lt;")
   result = result.replace(">", "&gt;")
 
+proc javascriptStringLiteral(value: string): string =
+  ## JSON quoting handles quotes and backslashes, but HTML parsers still end a
+  ## classic script element when they see `</script>`. Escape HTML-significant
+  ## characters after JSON serialization so a caller-controlled spec URL can
+  ## never terminate the UI bootstrap script or create a second script node.
+  result = $(newJString(value))
+  result = result.replace("<", "\\u003c")
+  result = result.replace(">", "\\u003e")
+  result = result.replace("&", "\\u0026")
+  result = result.replace("\u2028", "\\u2028")
+  result = result.replace("\u2029", "\\u2029")
+
 proc swaggerUiHtml*(specUrl = "/openapi.json"): string =
   ## Keep the UI shell dependency-free at the framework boundary; the browser
   ## loads the well-known Swagger UI bundle and the registry JSON URL.
-  let jsonUrl = $(newJString(specUrl))
+  let jsonUrl = javascriptStringLiteral(specUrl)
   "<!doctype html><html><head><title>API docs</title>" &
     "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist/swagger-ui.css\"></head>" &
     "<body><div id=\"swagger-ui\"></div>" &
