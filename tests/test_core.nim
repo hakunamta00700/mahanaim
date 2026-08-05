@@ -2177,6 +2177,23 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard prometheusMetrics(observability, "bad metric name")
 
+  test "observability composes application-owned metrics providers":
+    ## The core owns exposition assembly while adapters own their metric
+    ## names and values. This keeps Redis, database, and queue integrations
+    ## optional and avoids a dependency from observability to every adapter.
+    let observability = newObservability()
+    observability.registerMetricsProvider(
+      proc(): string {.gcsafe.} =
+        "# TYPE mahanaim_custom_events_total counter\n" &
+        "mahanaim_custom_events_total 7")
+    let metrics = prometheusMetrics(observability)
+    check metrics.contains("# TYPE mahanaim_custom_events_total counter")
+    check metrics.contains("mahanaim_custom_events_total 7\n")
+    let response = metricsResponse(observability)
+    check response.body.contains("mahanaim_custom_events_total 7")
+    expect ValueError:
+      observability.registerMetricsProvider(nil)
+
   test "Redis channel snapshot renders deterministic Prometheus metrics":
     ## Rendering is kept separate from the socket adapter so an application
     ## can expose the same counters through any HTTP or metrics transport.

@@ -20,6 +20,7 @@ type
 
   RequestEventSink* = proc (event: RequestEvent) {.gcsafe.}
   StructuredLogSink* = proc (record: JsonNode) {.gcsafe.}
+  MetricsProvider* = proc (): string {.gcsafe.}
 
   Observability* = ref object
     ## Counters are updated on the event loop, so they remain deterministic and
@@ -31,6 +32,10 @@ type
     ready*: bool
     sink*: RequestEventSink
     logSink*: StructuredLogSink
+    ## Adapter metrics are registered as providers rather than imported here.
+    ## This lets Redis/database/queue modules expose counters without making
+    ## the framework observability core depend on every optional backend.
+    metricsProviders*: seq[MetricsProvider]
     ## Secret values are copied into the observability boundary at application
     ## construction. This avoids importing configuration into the logger and
     ## guarantees that every structured record is sanitized before delivery.
@@ -42,7 +47,17 @@ proc newObservability*(sink: RequestEventSink = nil,
   ## A fresh app gets isolated counters and request-id state.
   Observability(requestCount: 0, errorCount: 0, inFlight: 0,
     nextRequestId: 0, ready: false, sink: sink, logSink: logSink,
-    redactedSecrets: redactedSecrets)
+    redactedSecrets: redactedSecrets, metricsProviders: @[])
+
+proc registerMetricsProvider*(observability: Observability,
+                              provider: MetricsProvider) =
+  ## Registration is application-owned and intentionally explicit. A nil
+  ## provider would otherwise fail only when the metrics endpoint is scraped.
+  if observability.isNil:
+    raise newException(ValueError, "Observability instance is required")
+  if provider.isNil:
+    raise newException(ValueError, "Metrics provider must not be nil")
+  observability.metricsProviders.add(provider)
 
 proc redactLogText(value: string, secrets: openArray[string]): string =
   ## Redact literal configured values without interpreting them as patterns.
@@ -205,6 +220,12 @@ proc prometheusMetrics*(observability: Observability,
     "# HELP " & prefix & "_ready Whether the application is ready to receive traffic.\n" &
     "# TYPE " & prefix & "_ready gauge\n" &
     prefix & "_ready " & $ready & "\n"
+  for provider in observability.metricsProviders:
+    let customMetrics = provider()
+    if customMetrics.len > 0:
+      result.add(customMetrics)
+      if not customMetrics.endsWith("\n"):
+        result.add("\n")
 
 proc metricsResponse*(observability: Observability): Response =
   ## Keep endpoint wiring application-owned while making content type and

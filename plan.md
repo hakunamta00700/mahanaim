@@ -372,3 +372,9 @@
 - [x] `redisChannelPrometheusMetrics`가 snapshot counters를 deterministic Prometheus exposition text로 렌더링하고 metric namespace와 음수 counter를 fail-fast 검증한다.
 - [x] renderer의 정상 출력과 잘못된 namespace/counter 회귀 테스트를 추가해 adapter를 특정 metrics vendor에 결합하지 않았다.
 - [-] 실제 metrics endpoint wiring과 production scrape/alert evidence는 application deployment 환경에서 계속한다.
+
+### 2026-08-05 Observability metrics provider wiring
+
+- [x] `Observability`가 `MetricsProvider` 등록 경계를 소유하고, nil provider를 구성 단계에서 거부한다.
+- [x] `prometheusMetrics`와 `metricsResponse`가 application-owned provider output을 newline-safe하게 조합해 Redis channel 등 선택적 adapter metric을 같은 endpoint에서 노출한다.
+- [-] 실제 deployment의 scrape 설정·alert rule·production metrics evidence는 application 운영 환경에서 계속한다.
