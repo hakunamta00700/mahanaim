@@ -7,6 +7,7 @@
 - 상세 구현 계획의 macro schema, route validation, model metadata, observability, WebSocket/Beast gate 상태를 현재 코드·테스트 증거와 일치하도록 감사했다.
 - deterministic router benchmark를 `nimble routerBenchmark` gate로 추가해 route-index 변경을 반복 측정할 수 있도록 했다.
 - router index를 static segment run을 압축하는 radix edge와 first-segment lookup으로 개선하고 precedence 회귀 테스트를 추가했다.
+- S3-compatible object transport에 application-owned callback을 감싸는 bounded retry decorator와 성공·최종 실패 contract test를 추가했다.
 - executor에 active worker와 waiting queue를 분리한 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
 
 - `TemplateRenderContext`에 request-owned locale formatter snapshot과 자동 `format_decimal`/`format_datetime` helper를 추가하고 unconfigured/invalid input/reserved name 경계를 회귀 테스트했다.

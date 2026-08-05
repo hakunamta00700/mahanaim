@@ -5039,6 +5039,36 @@ suite "Mahanaim core contracts":
     expect StorageError:
       discard newS3CompatibleObjectStorage("assets", remote, "../private")
 
+    var putAttempts = 0
+    let retrying = newRetryingS3ObjectTransport(
+      newS3ObjectTransport(
+        proc(bucket, key, data, contentType: string): string =
+          inc putAttempts
+          if putAttempts < 3:
+            raise newException(IOError, "temporary object-store outage")
+          "etag-recovered",
+        proc(bucket, key: string): Option[StoredObject] = none(StoredObject),
+        proc(bucket, key: string): bool = true), maxAttempts = 3)
+    let retriedStore = newS3CompatibleObjectStorage("assets", retrying)
+    check retriedStore.putObject("retry.txt", "payload").etag == "etag-recovered"
+    check putAttempts == 3
+
+    var failedAttempts = 0
+    let failingRetry = newRetryingS3ObjectTransport(
+      newS3ObjectTransport(
+        proc(bucket, key, data, contentType: string): string =
+          inc failedAttempts
+          raise newException(IOError, "persistent object-store outage"),
+        proc(bucket, key: string): Option[StoredObject] = none(StoredObject),
+        proc(bucket, key: string): bool = true), maxAttempts = 2)
+    let failingStore = newS3CompatibleObjectStorage("assets", failingRetry)
+    expect IOError:
+      discard failingStore.putObject("failed.txt", "payload")
+    check failedAttempts == 2
+
+    expect StorageError:
+      discard newRetryingS3ObjectTransport(remote, maxAttempts = 0)
+
     let cache = newInMemoryCacheStore(maxEntries = 2)
     cache.set("user/1", "one")
     cache.set("user/2", "two")

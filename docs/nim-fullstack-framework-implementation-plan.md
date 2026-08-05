@@ -41,7 +41,7 @@
 
 - [x] `admin create-user <identifier> [subject]`를 Application 소유 provisioning callback에 연결했다. 비밀번호는 argv에 노출되지 않도록 `MAHANAIM_ADMIN_PASSWORD`에서 읽고, account store/password hasher adapter와 중복 생성 회귀 테스트로 검증한다.
 - [x] `static collect <source...> --output <path>`를 추가하고, deterministic manifest 순서·중복 경로·기존 파일·source 내부 output·symbolic link 거부를 독립 storage contract와 CLI 회귀 테스트로 검증했다.
-- [x] backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge를 추가하고 key traversal·prefix·TTL·oldest eviction contract를 검증했다. 공통 RESP command encoder와 bounded frame reader를 재사용하는 Redis/Valkey `GET`·`SETEX`·`SET`·`DEL` cache adapter도 추가했다. S3 signing/retry와 cache eviction 운영 정책은 후속 범위다.
+- [x] backend-neutral `ObjectStorage`/`CacheStore`, bounded in-memory object/cache adapter와 S3-compatible transport bridge를 추가하고 key traversal·prefix·TTL·oldest eviction contract를 검증했다. 공통 RESP command encoder와 bounded frame reader를 재사용하는 Redis/Valkey `GET`·`SETEX`·`SET`·`DEL` cache adapter도 추가했다. application-owned S3 callback을 감싸는 bounded retry decorator와 성공·최종 실패 회귀 테스트를 추가했으며, provider-specific signing/backoff와 cache eviction 운영 정책은 후속 범위다.
 
 ### 2026-08-04 — P0 기반 수직 슬라이스 1차
 

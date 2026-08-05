@@ -142,6 +142,65 @@ proc newS3ObjectTransport*(put: S3PutObject, get: S3GetObject,
     raise newException(StorageError, "S3 object transport requires put/get/delete")
   S3ObjectTransport(put: put, get: get, delete: delete)
 
+proc retryS3Put(transport: S3ObjectTransport, maxAttempts: int,
+                bucket, key, data, contentType: string): string =
+  ## Retry only the application-owned transport callback. The framework does
+  ## not guess which HTTP failures are safe to retry and does not implement
+  ## provider-specific signing; the callback remains responsible for those
+  ## choices while this boundary guarantees a finite attempt budget.
+  var attempt = 0
+  while true:
+    inc attempt
+    try:
+      return transport.put(bucket, key, data, contentType)
+    except CatchableError:
+      if attempt >= maxAttempts:
+        raise
+
+proc retryS3Get(transport: S3ObjectTransport, maxAttempts: int,
+                bucket, key: string): Option[StoredObject] =
+  ## Keep GET retry behavior symmetrical with PUT while preserving the
+  ## provider's missing-object `none` result as a successful operation.
+  var attempt = 0
+  while true:
+    inc attempt
+    try:
+      return transport.get(bucket, key)
+    except CatchableError:
+      if attempt >= maxAttempts:
+        raise
+
+proc retryS3Delete(transport: S3ObjectTransport, maxAttempts: int,
+                   bucket, key: string): bool =
+  ## A delete callback decides whether a false result means "not found" or a
+  ## provider-specific condition; only thrown transport failures are retried.
+  var attempt = 0
+  while true:
+    inc attempt
+    try:
+      return transport.delete(bucket, key)
+    except CatchableError:
+      if attempt >= maxAttempts:
+        raise
+
+proc newRetryingS3ObjectTransport*(transport: S3ObjectTransport,
+                                   maxAttempts = 3): S3ObjectTransport =
+  ## Decorate an application-owned S3 transport with a deterministic bounded
+  ## retry budget. `maxAttempts` counts the initial call, so 1 disables
+  ## retries. Backoff and idempotency classification stay outside this core
+  ## wrapper because they depend on the concrete HTTP provider and scheduler.
+  if transport.isNil:
+    raise newException(StorageError, "S3 transport is required")
+  if maxAttempts < 1:
+    raise newException(StorageError, "S3 maxAttempts must be positive")
+  newS3ObjectTransport(
+    proc(bucket, key, data, contentType: string): string =
+      retryS3Put(transport, maxAttempts, bucket, key, data, contentType),
+    proc(bucket, key: string): Option[StoredObject] =
+      retryS3Get(transport, maxAttempts, bucket, key),
+    proc(bucket, key: string): bool =
+      retryS3Delete(transport, maxAttempts, bucket, key))
+
 proc newS3CompatibleObjectStorage*(bucket: string,
                                    transport: S3ObjectTransport,
                                    prefix = ""): S3CompatibleObjectStorage =
