@@ -242,3 +242,8 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - Litestar의 DI, DTO, middleware, OpenAPI, plugins, security, stores, templating, testing, WebSockets, SQLAlchemy/Piccolo 통합은 [공식 latest 사용 목차](https://docs.litestar.dev/latest/usage/index.html)와 [API reference](https://docs.litestar.dev/latest/reference/index.html)에서 확인했다.
 - Prologue의 Core/Plugin 기능과 `devel` 버전은 [공식 저장소 README](https://github.com/planety/prologue)와 [manifest](https://github.com/planety/prologue/blob/devel/prologue.nimble)에서 확인했고, 동작 세부사항은 [공식 문서 홈](https://planety.github.io/prologue/)에서 연결되는 각 가이드로 대조했다.
 - 조사 기준일 이후 기능이 바뀔 수 있으므로 구현 시작 시 위 URL과 버전을 다시 확인하고, 변경된 기능은 이 문서의 “현재 지원/목표/범위 제외” 분류를 함께 갱신한다.
+### 2026-08-05 implementation status — channel/group broadcast
+
+- [x] SHOULD baseline: framework-neutral `ChannelLayer` group subscribe/publish/unsubscribe contract and deterministic in-memory backend.
+- [x] SHOULD baseline: idempotent subscription cleanup, invalid group/subscriber validation, and isolated subscriber callback failure.
+- [ ] SHOULD remaining: Redis/Valkey cross-process fan-out, reconnect/ordering/backpressure policy, and automatic WebSocket session lifecycle integration.

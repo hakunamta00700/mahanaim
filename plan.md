@@ -302,3 +302,7 @@
 - [-] 추가 OS runner matrix와 generic handler 자동 DTO 추론은 별도 범위로 명시했다.
 - [x] `benchmarks/router_benchmark.nim`을 `nimble routerBenchmark` gate로 연결하고 2,000 route·20,000 iteration workload의 route-hit invariant를 실행했다.
 - [x] compressed static radix edge와 first-segment lookup으로 route candidate traversal을 최적화하고 precedence 회귀 테스트를 추가했다.
+## 2026-08-05 channel layer foundation
+
+- [x] **P3-02 channel layer foundation** — framework-neutral `ChannelLayer`/`ChannelSubscription` contract과 deterministic in-memory group subscribe/publish/unsubscribe backend를 추가했다. callback failure isolation, idempotent unsubscribe, invalid input validation을 회귀 테스트로 검증했다.
+- [-] **P3-03 distributed channel integration** — Redis/Valkey cross-process fan-out, WebSocket session lifecycle 자동 구독/해제, backpressure·ordering·reconnect 운영 정책은 외부 adapter와 live 환경 검증이 필요하다.

@@ -2427,6 +2427,32 @@ suite "Mahanaim core contracts":
     check second.status == Http200
     check second.body == "abc:payload"
 
+  test "in-memory channel layer broadcasts groups and unsubscribes safely":
+    let layer = newInMemoryChannelLayer()
+    var firstCount: Atomic[int]
+    var secondCount: Atomic[int]
+    firstCount.store(0)
+    secondCount.store(0)
+    let firstSubscription = layer.subscribe("room:42",
+      proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+        doAssert message.payload == "hello"
+        discard firstCount.fetchAdd(1))
+    let secondSubscription = layer.subscribe("room:42",
+      proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+        doAssert message.kind == wsmText
+        discard secondCount.fetchAdd(1))
+    check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 2
+    check firstCount.load() == 1
+    check secondCount.load() == 1
+    layer.unsubscribe(secondSubscription)
+    check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 1
+    check firstCount.load() == 2
+    check secondCount.load() == 1
+    layer.unsubscribe(firstSubscription)
+    check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 0
+    expect ValueError:
+      discard layer.subscribe("", nil)
+
   test "test client parses SSE events and drives in-process WebSocket sessions":
     let app = newTestApplication()
     app.get("/events", "test-events",
