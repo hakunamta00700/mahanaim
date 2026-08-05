@@ -598,11 +598,11 @@ flowchart TB
 
 ### 핵심 설계 원칙
 
-- [ ] **계약 우선**: `Request`, `Response`, `Handler`, `Middleware`, `Plugin`, `ModelMetadata`, `Storage`를 먼저 정의하고 구현체는 adapter로 둔다.
-- [ ] **단일 메타데이터 원천**: 모델 메타데이터가 validation, serialization, form, admin, OpenAPI에 재사용되도록 한다. 기능별로 같은 필드를 중복 선언하지 않는다.
-- [ ] **명시적 실행 경계**: sync handler, async handler, blocking 작업, background task의 경계를 타입·문서·진단으로 드러낸다.
+- [x] **계약 우선**: `Request`, `Response`, `Handler`, `Middleware`, `Plugin`, `ModelMetadata`, `Storage`를 먼저 정의하고 구현체는 adapter로 둔다.
+- [x] **단일 메타데이터 원천**: 모델 메타데이터가 validation, serialization, form, admin, OpenAPI에 재사용되도록 한다. 기능별로 같은 필드를 중복 선언하지 않는다.
+- [x] **명시적 실행 경계**: sync handler, async handler, blocking 작업, background task의 경계를 타입·문서·진단으로 드러낸다.
 - [-] **안전한 기본값**: 비밀값 비노출, HTML escaping, CSRF, secure cookie, request size/timeout 제한을 기본값으로 두고, 명시적 `requireHttps`와 `trustedProxies`를 통해 forwarded scheme/host를 제한한다. 실제 TLS wire는 배포 환경 gate다.
-- [ ] **Prologue 비종속 코어**: Prologue는 초기 HTTP adapter와 호환 계층으로 활용하되, 핵심 도메인 계약이 Prologue 내부 API에 종속되지 않도록 한다.
+- [x] **Prologue 비종속 코어**: Prologue는 초기 HTTP adapter와 호환 계층으로 활용하되, 핵심 도메인 계약이 Prologue 내부 API에 종속되지 않도록 한다.
 - [ ] **기능마다 세 가지 산출물**: 구현 코드, 회귀 테스트, 사용자 문서를 하나의 작업으로 취급한다.
 
 ## 4. 단계별 로드맵
@@ -612,9 +612,9 @@ flowchart TB
 목표는 `new`로 생성한 앱이 설정을 읽고, 하나의 HTML route와 JSON route를 테스트·실행할 수 있게 하는 것이다.
 
 - [ ] Nim 버전, 컴파일 옵션, 의존성 버전, 공개 API 안정성 정책을 manifest에 고정한다.
-- [ ] `Application`, `Config`, `RequestContext`, `Response`, `Handler`, `Middleware`, `Error` 계약을 정의한다.
-- [ ] Prologue adapter를 격리하고 method/path/query/header/cookie/body를 공통 context로 변환한다.
-- [ ] router, route name/URL building, global·route middleware, lifecycle, error handler를 구현한다.
+- [x] `Application`, `Config`, `RequestContext`, `Response`, `Handler`, `Middleware`, `Error` 계약을 정의한다.
+- [x] Prologue adapter를 격리하고 method/path/query/header/cookie/body를 공통 context로 변환한다.
+- [x] router, route name/URL building, global·route middleware, lifecycle, error handler를 구현한다.
 - [ ] CLI의 `new`, `dev`, `test`, `check`를 먼저 제공하고, 최소 예제 앱을 CI에서 실행한다.
 
 완료 기준:
@@ -974,3 +974,9 @@ flowchart TB
 - [x] `Controller` base type의 virtual `handle(action, request)`와 `addControllerRoute`를 별도 module로 제공한다.
 - [x] controller action route가 기존 Application router/middleware/request-scope/error pipeline을 그대로 통과하는 contract test를 추가한다.
 - [ ] convention-based controller discovery와 자동 action schema 생성은 명시적 route boundary 이후의 후속 범위다.
+
+### 2026-08-05 — Core foundation evidence reconciliation
+
+- [x] 계약 우선, 단일 메타데이터 원천, 명시적 실행 경계와 Prologue 비종속 코어 원칙을 현재 public module·contract test 증거에 맞춰 체크했다.
+- [x] Phase 0의 Application/config/request-response 계약, Prologue 변환 adapter, router·middleware·lifecycle·error 경계를 구현·테스트된 baseline으로 정합화했다.
+- [ ] 기능별 Definition of Done, OS/Nim matrix, staging TLS와 production live evidence는 외부 검증 범위로 계속 추적한다.

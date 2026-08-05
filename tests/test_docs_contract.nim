@@ -76,3 +76,17 @@ nimble test
     check implementationPlan.contains("TemplateAdapter")
     check implementationPlan.contains("alternate template engine")
     check requirements.contains("TemplateAdapter")
+
+  test "foundation checklist records the implemented core boundaries":
+    ## These are repository-owned contracts, so their status must follow the
+    ## public modules and repeatable tests rather than remain a stale roadmap
+    ## placeholder after the vertical slices have landed.
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check implementationPlan.contains("- [x] **계약 우선**")
+    check implementationPlan.contains("- [x] **단일 메타데이터 원천**")
+    check implementationPlan.contains("- [x] **명시적 실행 경계**")
+    check implementationPlan.contains("- [x] **Prologue 비종속 코어**")
+    check implementationPlan.contains("- [x] `Application`, `Config`, `RequestContext`")
+    check implementationPlan.contains("- [x] Prologue adapter를 격리하고")
+    check implementationPlan.contains("- [x] router, route name/URL building")
