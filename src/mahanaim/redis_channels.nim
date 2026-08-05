@@ -158,6 +158,59 @@ proc deliverySnapshot*(client: RedisPubSubClient): RedisChannelDeliverySnapshot 
     reconnectSuccesses: client.reconnectSuccesses,
     connectionFailures: client.connectionFailures)
 
+proc validRedisMetricPrefix(prefix: string): bool =
+  ## Keep metric-name validation local to this adapter so it does not depend on
+  ## the application's chosen observability implementation.
+  if prefix.len == 0:
+    return false
+  for character in prefix:
+    if character notin {'a'..'z', 'A'..'Z', '0'..'9', '_', ':'}:
+      return false
+  true
+
+proc validateRedisChannelDeliverySnapshot(snapshot: RedisChannelDeliverySnapshot) =
+  ## Counters are monotonic by contract.  Rejecting forged negative values
+  ## keeps a metrics endpoint from emitting misleading exposition data.
+  if snapshot.receivedMessages < 0 or snapshot.deliveredMessages < 0 or
+      snapshot.droppedMessages < 0 or snapshot.deliveryFailures < 0 or
+      snapshot.reconnectAttempts < 0 or snapshot.reconnectSuccesses < 0 or
+      snapshot.connectionFailures < 0:
+    raise newException(ValueError,
+      "Redis channel delivery snapshot counters must be non-negative")
+
+proc redisChannelPrometheusMetrics*(
+    snapshot: RedisChannelDeliverySnapshot,
+    namespace = "mahanaim_redis_channel"): string =
+  ## Export the adapter's counters without coupling Redis to a metrics client.
+  ## A host can append this text to its aggregate exposition or translate the
+  ## same value snapshot to another observability backend.
+  let prefix = namespace.strip()
+  if not validRedisMetricPrefix(prefix):
+    raise newException(ValueError,
+      "Redis channel metric namespace is not a valid metric prefix")
+  validateRedisChannelDeliverySnapshot(snapshot)
+  result = "# HELP " & prefix & "_received_messages_total Total messages received from Redis.\n" &
+    "# TYPE " & prefix & "_received_messages_total counter\n" &
+    prefix & "_received_messages_total " & $snapshot.receivedMessages & "\n" &
+    "# HELP " & prefix & "_delivered_messages_total Total subscriber callback deliveries completed.\n" &
+    "# TYPE " & prefix & "_delivered_messages_total counter\n" &
+    prefix & "_delivered_messages_total " & $snapshot.deliveredMessages & "\n" &
+    "# HELP " & prefix & "_dropped_messages_total Total messages discarded by backpressure policy.\n" &
+    "# TYPE " & prefix & "_dropped_messages_total counter\n" &
+    prefix & "_dropped_messages_total " & $snapshot.droppedMessages & "\n" &
+    "# HELP " & prefix & "_delivery_failures_total Total subscriber callbacks that failed.\n" &
+    "# TYPE " & prefix & "_delivery_failures_total counter\n" &
+    prefix & "_delivery_failures_total " & $snapshot.deliveryFailures & "\n" &
+    "# HELP " & prefix & "_reconnect_attempts_total Total reconnect attempts.\n" &
+    "# TYPE " & prefix & "_reconnect_attempts_total counter\n" &
+    prefix & "_reconnect_attempts_total " & $snapshot.reconnectAttempts & "\n" &
+    "# HELP " & prefix & "_reconnect_successes_total Total successful reconnects.\n" &
+    "# TYPE " & prefix & "_reconnect_successes_total counter\n" &
+    prefix & "_reconnect_successes_total " & $snapshot.reconnectSuccesses & "\n" &
+    "# HELP " & prefix & "_connection_failures_total Total subscription connection failures.\n" &
+    "# TYPE " & prefix & "_connection_failures_total counter\n" &
+    prefix & "_connection_failures_total " & $snapshot.connectionFailures & "\n"
+
 proc nextRespFrame(client: RedisPubSubClient): Future[string] {.async.} =
   ## Preserve coalesced RESP frames and wait for partial frames without
   ## guessing whether a pub/sub payload contains textual delimiters.

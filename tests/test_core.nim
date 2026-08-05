@@ -2177,6 +2177,32 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard prometheusMetrics(observability, "bad metric name")
 
+  test "Redis channel snapshot renders deterministic Prometheus metrics":
+    ## Rendering is kept separate from the socket adapter so an application
+    ## can expose the same counters through any HTTP or metrics transport.
+    let snapshot = RedisChannelDeliverySnapshot(
+      receivedMessages: 12,
+      deliveredMessages: 9,
+      droppedMessages: 2,
+      deliveryFailures: 1,
+      reconnectAttempts: 4,
+      reconnectSuccesses: 3,
+      connectionFailures: 1)
+    let metrics = redisChannelPrometheusMetrics(snapshot,
+      "mahanaim_redis_channel")
+    check metrics.contains("# TYPE mahanaim_redis_channel_received_messages_total counter")
+    check metrics.contains("mahanaim_redis_channel_received_messages_total 12")
+    check metrics.contains("mahanaim_redis_channel_delivered_messages_total 9")
+    check metrics.contains("mahanaim_redis_channel_dropped_messages_total 2")
+    check metrics.contains("mahanaim_redis_channel_delivery_failures_total 1")
+    check metrics.contains("mahanaim_redis_channel_reconnect_successes_total 3")
+    expect ValueError:
+      discard redisChannelPrometheusMetrics(snapshot, "bad metric name")
+    var invalid = snapshot
+    invalid.droppedMessages = -1
+    expect ValueError:
+      discard redisChannelPrometheusMetrics(invalid)
+
   test "observability propagates traceparent and emits structured logs":
     var logCount: Atomic[int]
     logCount.store(0)

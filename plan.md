@@ -366,3 +366,9 @@
 - [x] `RedisChannelDeliverySnapshot`이 수신·성공 전달·callback 실패·drop·reconnect 시도/성공·connection failure를 value snapshot으로 노출한다.
 - [x] loopback reconnect/backpressure/callback failure 테스트가 snapshot 수치를 검증해 운영 정책과 실제 adapter 동작의 차이를 조기에 감지한다.
 - [-] snapshot을 production metrics sink와 staging rollout evidence에 연결하는 작업은 외부 운영 환경에서 계속한다.
+
+### 2026-08-05 Redis channel metrics renderer
+
+- [x] `redisChannelPrometheusMetrics`가 snapshot counters를 deterministic Prometheus exposition text로 렌더링하고 metric namespace와 음수 counter를 fail-fast 검증한다.
+- [x] renderer의 정상 출력과 잘못된 namespace/counter 회귀 테스트를 추가해 adapter를 특정 metrics vendor에 결합하지 않았다.
+- [-] 실제 metrics endpoint wiring과 production scrape/alert evidence는 application deployment 환경에서 계속한다.
