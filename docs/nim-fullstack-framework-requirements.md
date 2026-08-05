@@ -247,3 +247,4 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] SHOULD baseline: framework-neutral `ChannelLayer` group subscribe/publish/unsubscribe contract and deterministic in-memory backend.
 - [x] SHOULD baseline: idempotent subscription cleanup, invalid group/subscriber validation, and isolated subscriber callback failure.
 - [ ] SHOULD remaining: Redis/Valkey cross-process fan-out, reconnect/ordering/backpressure policy, and automatic WebSocket session lifecycle integration.
+- [x] SHOULD baseline extension: `bindWebSocketSession`이 channel delivery와 WebSocket `send`를 연결하고 session close 시 subscription을 자동 해제한다.

@@ -892,3 +892,4 @@ flowchart TB
 
 - [x] buffered response에 SHA-256 기반 strong `ETag`를 생성하고, application dispatch 이후 공통 정책에서 `If-None-Match` weak comparison을 처리하도록 추가했다.
 - [x] 일치하는 `GET`/`HEAD`는 body 없는 304로 반환하고 stream/SSE/WebSocket은 제외하는 unit·dispatch 회귀 테스트를 추가했다.
+- [x] WebSocket session lifecycle binding이 channel subscription을 adapter-owned `send` callback에 연결하고, 원래 close callback을 복원하면서 idempotent cleanup한다.

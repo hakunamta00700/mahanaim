@@ -306,3 +306,4 @@
 
 - [x] **P3-02 channel layer foundation** — framework-neutral `ChannelLayer`/`ChannelSubscription` contract과 deterministic in-memory group subscribe/publish/unsubscribe backend를 추가했다. callback failure isolation, idempotent unsubscribe, invalid input validation을 회귀 테스트로 검증했다.
 - [-] **P3-03 distributed channel integration** — Redis/Valkey cross-process fan-out, WebSocket session lifecycle 자동 구독/해제, backpressure·ordering·reconnect 운영 정책은 외부 adapter와 live 환경 검증이 필요하다.
+- [x] **P3-04 WebSocket channel lifecycle binding** — `bindWebSocketSession`이 channel message를 adapter-owned `WebSocketSession.send`로 전달하고, 원래 close callback을 보존·복원하며 session close 시 subscription을 idempotent하게 해제한다. send/close/cleanup contract를 회귀 테스트로 검증했다.

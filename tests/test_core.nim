@@ -2453,6 +2453,28 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard layer.subscribe("", nil)
 
+  test "channel binding forwards WebSocket messages and cleans up on close":
+    let layer = newInMemoryChannelLayer()
+    var sentCount: Atomic[int]
+    var closeCount: Atomic[int]
+    sentCount.store(0)
+    closeCount.store(0)
+    let session = newWebSocketSession(
+      sendMessage = proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+        doAssert message.payload == "hello"
+        discard sentCount.fetchAdd(1),
+      closeSession = proc(code: int, reason: string): Future[void] {.async, gcsafe.} =
+        doAssert code == 1000
+        doAssert reason == "done"
+        discard closeCount.fetchAdd(1))
+    let binding = bindWebSocketSession(layer, "room:42", session)
+    check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 1
+    check sentCount.load() == 1
+    waitFor session.close(1000, "done")
+    check closeCount.load() == 1
+    check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 0
+    waitFor binding.unbind()
+
   test "test client parses SSE events and drives in-process WebSocket sessions":
     let app = newTestApplication()
     app.get("/events", "test-events",

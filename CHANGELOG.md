@@ -126,3 +126,4 @@
 
 변경 사항은 사용자 영향, migration 필요 여부, 보안 기본값 변경 여부를 함께
 기록한다.
+- WebSocket channel binding을 추가해 group broadcast를 adapter-owned `send` callback으로 전달하고, 원래 close callback 복원과 session 종료 시 idempotent subscription cleanup을 보장한다.
