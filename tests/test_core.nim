@@ -126,6 +126,12 @@ type RedisPubSubBackpressureFixtureState = object
   port: Atomic[int]
   ready: Atomic[bool]
 
+type RedisChannelLayerReconnectFixtureState = object
+  ## The adapter test receives one framed message, observes a broker-side
+  ## socket drop, then verifies that reconnect restores the same group.
+  port: Atomic[int]
+  ready: Atomic[bool]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -262,6 +268,37 @@ proc runRedisPubSubBackpressureFixture(
     command.add(client.recv(1, 5000))
   client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
   client.close()
+  server.close()
+
+proc runRedisChannelLayerReconnectFixture(
+    state: ptr RedisChannelLayerReconnectFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  for connectionIndex in 1 .. 2:
+    var client: owned(Socket)
+    server.accept(client)
+    var command = ""
+    while not command.contains("SUBSCRIBE") and command.len < 4096:
+      command.add(client.recv(1, 5000))
+    let payload = if connectionIndex == 1: "one" else: "two"
+    let encoded = encodeRedisChannelMessage(textWebSocketMessage(payload))
+    client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+      "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$" &
+      $encoded.len & "\r\n" & encoded & "\r\n")
+    if connectionIndex == 1:
+      ## Force the client reader to finish before reconnectWithRetry starts.
+      client.close()
+    else:
+      command = ""
+      while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+        command.add(client.recv(1, 5000))
+      client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+      client.close()
   server.close()
 
 proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
@@ -5256,6 +5293,31 @@ suite "Mahanaim core contracts":
     check client.droppedMessages == 2
     waitFor client.unsubscribe(subscription)
     client.close()
+    joinThread(worker)
+
+  test "Redis ChannelLayer reconnects and shuts down with broker acknowledgement":
+    var state: RedisChannelLayerReconnectFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    var worker: Thread[ptr RedisChannelLayerReconnectFixtureState]
+    createThread(worker, runRedisChannelLayerReconnectFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let layer = newRedisChannelLayer(port = Port(state.port.load()))
+    let subscription = waitFor layer.subscribeAsync("room:42",
+      proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+        doAssert message.kind == wsmText
+        doAssert message.payload in ["one", "two"]
+        discard delivered.fetchAdd(1))
+    waitFor sleepAsync(10)
+    check delivered.load() == 1
+    check (waitFor layer.reconnectWithRetry(maxAttempts = 2,
+      initialDelayMs = 1, maxDelayMs = 2)) == 1
+    waitFor sleepAsync(10)
+    check delivered.load() == 2
+    waitFor layer.shutdown()
     joinThread(worker)
 
   test "Redis RESP client publishes channel messages through its transport":

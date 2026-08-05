@@ -44,8 +44,10 @@ proc runLiveFanoutContract(host: string, port: Port): Future[void] {.async.} =
       "Redis live fan-out expected two subscribers, got " & $subscribers)
   if not await completed.withTimeout(2000):
     raise newException(ValueError, "Redis live fan-out delivery timed out")
-  await first.unsubscribeAsync(firstSubscription)
-  await second.unsubscribeAsync(secondSubscription)
+  discard firstSubscription
+  discard secondSubscription
+  await first.shutdown()
+  await second.shutdown()
 
 proc runLiveContract() =
   ## Keep missing-service behavior explicit: compile gates prove the source

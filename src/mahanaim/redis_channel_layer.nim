@@ -80,6 +80,7 @@ type
     backpressurePolicy*: RedisBackpressurePolicy
     client: RedisPubSubClient
     nextId: int
+    localSubscriptions: Table[int, ChannelSubscription]
     remoteSubscriptions: Table[int, RedisPubSubSubscription]
     started: bool
     closed: bool
@@ -101,6 +102,7 @@ proc newRedisChannelLayer*(host = "127.0.0.1", port = Port(6379),
   result.client = newRedisPubSubClient(host, port,
     maxPendingMessages = maxPendingMessages,
     backpressurePolicy = backpressurePolicy)
+  result.localSubscriptions = initTable[int, ChannelSubscription]()
   result.remoteSubscriptions = initTable[int, RedisPubSubSubscription]()
 
 proc start*(layer: RedisChannelLayer): Future[void] {.async.} =
@@ -118,6 +120,9 @@ proc stop*(layer: RedisChannelLayer) =
     return
   layer.closed = true
   layer.started = false
+  for subscription in layer.localSubscriptions.values:
+    subscription.active = false
+  layer.localSubscriptions.clear()
   layer.remoteSubscriptions.clear()
   layer.client.close()
 
@@ -128,7 +133,8 @@ proc nextSubscription(layer: RedisChannelLayer, group: string,
   if subscriber.isNil:
     raise newException(ValueError, "channel subscriber must not be nil")
   inc layer.nextId
-  newChannelSubscription(layer.nextId, group, subscriber)
+  result = newChannelSubscription(layer.nextId, group, subscriber)
+  layer.localSubscriptions[result.id] = result
 
 proc attachRemote(layer: RedisChannelLayer,
                   subscription: ChannelSubscription): Future[void] {.async.} =
@@ -154,6 +160,7 @@ proc attachRemoteSafely(layer: RedisChannelLayer,
     await layer.attachRemote(subscription)
   except CatchableError:
     subscription.active = false
+    layer.localSubscriptions.del(subscription.id)
 
 method subscribeAsync*(layer: RedisChannelLayer, group: string,
                        subscriber: ChannelSubscriber): Future[ChannelSubscription] {.async, gcsafe.} =
@@ -179,6 +186,7 @@ method unsubscribeAsync*(layer: RedisChannelLayer,
   if subscription.isNil or not subscription.active:
     return
   subscription.active = false
+  layer.localSubscriptions.del(subscription.id)
   if layer.remoteSubscriptions.hasKey(subscription.id):
     let remote = layer.remoteSubscriptions[subscription.id]
     layer.remoteSubscriptions.del(subscription.id)
@@ -189,6 +197,7 @@ method unsubscribe*(layer: RedisChannelLayer,
   if layer.isNil or subscription.isNil or not subscription.active:
     return
   subscription.active = false
+  layer.localSubscriptions.del(subscription.id)
   if layer.remoteSubscriptions.hasKey(subscription.id):
     let remote = layer.remoteSubscriptions[subscription.id]
     layer.remoteSubscriptions.del(subscription.id)
@@ -213,3 +222,33 @@ proc publishRedisChannelAsync(layer: RedisChannelLayer, group: string,
 method publish*(layer: RedisChannelLayer, group: string,
                 message: WebSocketMessage): Future[int] {.gcsafe.} =
   publishRedisChannelAsync(layer, group, message)
+
+proc reconnectWithRetry*(layer: RedisChannelLayer, maxAttempts = 3,
+                         initialDelayMs = 25,
+                         maxDelayMs = 1000): Future[int] {.async.} =
+  ## Reconnect delegates retry timing to the socket adapter while this layer
+  ## retains local and remote subscription identity. The underlying client
+  ## re-subscribes every active group after the new socket is acknowledged.
+  validateRedisChannelLayer(layer)
+  if not layer.started:
+    await layer.start()
+    return 1
+  await layer.client.reconnectWithRetry(maxAttempts, initialDelayMs, maxDelayMs)
+
+proc shutdown*(layer: RedisChannelLayer): Future[void] {.async.} =
+  ## Graceful shutdown drains UNSUBSCRIBE acknowledgements before closing the
+  ## socket. This is intentionally separate from stop(), which is the fast
+  ## synchronous path for process abort or already-failed transports.
+  if layer.isNil or layer.closed:
+    return
+  try:
+    var remoteIds: seq[int] = @[]
+    for id in layer.remoteSubscriptions.keys:
+      remoteIds.add(id)
+    for id in remoteIds:
+      if layer.remoteSubscriptions.hasKey(id):
+        let remote = layer.remoteSubscriptions[id]
+        await layer.client.unsubscribe(remote)
+        layer.remoteSubscriptions.del(id)
+  finally:
+    layer.stop()

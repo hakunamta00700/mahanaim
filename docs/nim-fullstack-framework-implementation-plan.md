@@ -919,3 +919,8 @@ flowchart TB
 
 - [x] `RedisChannelLayer`를 별도 adapter module로 추가하고 `subscribeAsync`/`unsubscribeAsync` 확장점, bounded Redis subscription client, non-blocking short-lived publish socket, length-delimited WebSocket message envelope를 연결했다. Redis 7.2.15 live contract에서 두 adapter instance의 fan-out을 통과시켰다.
 - [ ] 별도 OS 프로세스 rolling shutdown/reconnect 운영 evidence와 deployment runbook은 후속 범위다.
+
+### 2026-08-05 — Redis ChannelLayer lifecycle baseline
+
+- [x] `RedisChannelLayer.reconnectWithRetry`가 active group을 재구독하고 `shutdown`이 UNSUBSCRIBE acknowledgement를 drain한 뒤 socket을 닫도록 구현했다. loopback reconnect/shutdown test와 Redis 7.2.15 live contract를 통과시켰다.
+- [ ] 별도 OS 프로세스 rolling deployment evidence와 production runbook은 후속 범위다.

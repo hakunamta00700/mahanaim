@@ -274,3 +274,8 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 
 - [x] SHOULD baseline: `RedisChannelLayer`가 async subscribe/unsubscribe acknowledgement, bounded pub/sub delivery, non-blocking publish socket과 length-delimited `WebSocketMessage` envelope를 공통 `ChannelLayer`에 연결한다.
 - [ ] SHOULD remaining: 별도 OS 프로세스의 rolling shutdown/reconnect 운영 evidence와 deployment runbook.
+
+## Redis ChannelLayer lifecycle baseline (2026-08-05)
+
+- [x] SHOULD baseline: active group 재구독을 수행하는 bounded reconnect retry와 UNSUBSCRIBE acknowledgement를 drain하는 graceful shutdown을 loopback/live contract로 검증한다.
+- [ ] SHOULD remaining: 별도 OS 프로세스 rolling deployment evidence와 production runbook.
