@@ -96,6 +96,30 @@ nimble test
     check manifest.contains("task httpDispatchBenchmark")
     check manifest.contains("benchmarks/http_dispatch_benchmark.nim")
 
+  test "API stability policy matches the package manifest":
+    ## The manifest declares the installable dependency boundary while the
+    ## policy explains compatibility promises. Keep both machine-checkable so
+    ## a release cannot silently change one without updating the other.
+    let policyPath = getCurrentDir() / "docs" /
+      "api-stability-policy.md"
+    let policy = readFile(policyPath)
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let supportMatrix = readFile(getCurrentDir() / "docs" /
+      "support-matrix.md")
+    check fileExists(policyPath)
+    check policy.contains("Semantic versioning")
+    check policy.contains("experimental")
+    check policy.contains("deprecated")
+    check policy.contains("migration guide")
+    check policy.contains("Security release")
+    check manifest.contains("version       = \"0.1.0\"")
+    check manifest.contains("requires \"nim >= 2.2.0\"")
+    check manifest.contains("requires \"prologue >= 0.6.8\"")
+    check policy.contains("SQLite")
+    check policy.contains("PostgreSQL")
+    check supportMatrix.contains("Nim")
+    check supportMatrix.contains("macOS")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

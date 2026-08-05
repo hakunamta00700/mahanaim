@@ -611,7 +611,7 @@ flowchart TB
 
 목표는 `new`로 생성한 앱이 설정을 읽고, 하나의 HTML route와 JSON route를 테스트·실행할 수 있게 하는 것이다.
 
-- [ ] Nim 버전, 컴파일 옵션, 의존성 버전, 공개 API 안정성 정책을 manifest에 고정한다.
+- [-] `mahanaim.nimble`의 package version/minimum Nim·dependency와 `nimble.lock` checksum 경계를 고정하고, `docs/api-stability-policy.md`에 semantic versioning·maturity label·deprecation/migration·security release 정책을 문서화했다. 실제 clean OS runner 결과, compile option별 release matrix와 backend version evidence는 외부 release 범위다.
 - [x] `Application`, `Config`, `RequestContext`, `Response`, `Handler`, `Middleware`, `Error` 계약을 정의한다.
 - [x] Prologue adapter를 격리하고 method/path/query/header/cookie/body를 공통 context로 변환한다.
 - [x] router, route name/URL building, global·route middleware, lifecycle, error handler를 구현한다.
