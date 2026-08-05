@@ -2169,7 +2169,7 @@ suite "Mahanaim core contracts":
     client.close()
     network.close()
 
-  test "network adapter upgrades a WebSocket and exchanges masked text frames":
+  test "network adapter reassembles fragmented masked text frames":
     let app = newApplication()
     app.websocket("/echo", "echoSocket",
       proc(request: Request, session: WebSocketSession): Future[void] {.async, gcsafe.} =
@@ -2206,13 +2206,32 @@ suite "Mahanaim core contracts":
     check handshake.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
 
     let clearText = "hello"
-    let mask = [byte(1), byte(2), byte(3), byte(4)]
-    var frame = "\x81" & char(0x80 or clearText.len)
-    for value in mask:
-      frame.add(char(value))
-    for index, value in clearText:
-      frame.add(char(ord(value) xor int(mask[index mod 4])))
-    waitFor client.send(frame)
+    let firstPart = "hel"
+    let secondPart = "lo"
+    let firstMask = [byte(1), byte(2), byte(3), byte(4)]
+    let secondMask = [byte(5), byte(6), byte(7), byte(8)]
+    var firstFrame = "\x01" & char(0x80 or firstPart.len)
+    for value in firstMask:
+      firstFrame.add(char(value))
+    for index, value in firstPart:
+      firstFrame.add(char(ord(value) xor int(firstMask[index mod 4])))
+    var secondFrame = "\x80" & char(0x80 or secondPart.len)
+    for value in secondMask:
+      secondFrame.add(char(value))
+    for index, value in secondPart:
+      secondFrame.add(char(ord(value) xor int(secondMask[index mod 4])))
+    let pingPayload = "p"
+    let pingMask = [byte(9), byte(10), byte(11), byte(12)]
+    var pingFrame = "\x89" & char(0x80 or pingPayload.len)
+    for value in pingMask:
+      pingFrame.add(char(value))
+    for index, value in pingPayload:
+      pingFrame.add(char(ord(value) xor int(pingMask[index mod 4])))
+    waitFor client.send(firstFrame & pingFrame & secondFrame)
+    let pongHeader = waitFor client.recv(2)
+    check (ord(pongHeader[0]) and 0x0f) == 0xA
+    let pongPayload = waitFor client.recv(ord(pongHeader[1]) and 0x7f)
+    check pongPayload == pingPayload
     let responseHeader = waitFor client.recv(2)
     check (ord(responseHeader[0]) and 0x0f) == 0x1
     let echoed = waitFor client.recv(ord(responseHeader[1]) and 0x7f)

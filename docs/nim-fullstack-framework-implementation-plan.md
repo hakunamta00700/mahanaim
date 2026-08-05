@@ -367,7 +367,7 @@
 - [x] 표준 TCP adapter가 `Transfer-Encoding: chunked`와 terminating zero chunk를 직접 작성한다.
 - [x] 여러 chunk를 생성하는 live HTTP 회귀 테스트를 추가했다.
 - [x] HTTP route와 분리된 `WebSocketRoute` registry와 path precedence 회귀 테스트를 추가했다.
-- [x] 표준 TCP adapter의 RFC 6455 handshake, client masking, text frame echo, close lifecycle을 live socket으로 검증했다.
+- [x] 표준 TCP adapter의 RFC 6455 handshake, client masking, fragmented text continuation 재조립, interleaved ping/pong, close lifecycle을 live socket으로 검증했다.
 - [x] Windows Prologue native request bridge가 공통 WebSocket handshake/session adapter로 위임하도록 연결했다.
 - [x] Windows Prologue bridge가 WebSocket/426 응답 뒤 Prologue central response를 중복 실행하지 않도록 handled 상태를 고정했다.
 - [x] Windows stdlib Prologue backend의 실제 TCP 응답과 idempotent graceful close를 live fixture로 검증했다.
@@ -863,3 +863,8 @@ flowchart TB
 
 - [x] Prologue와 분리된 direct `httpx` adapter가 framework-neutral request/response를 변환하고, 기존 WebSocket byte transport handoff와 Application startup/shutdown lifecycle을 재사용하도록 추가했다.
 - [x] Windows 조건부 import와 Linux `--os:linux` compile contract, binding-free settings validation test, `httpxCheck`/`httpxTest` gate를 연결했다. httpx listener 종료는 backend가 제공하는 process/supervisor lifecycle 범위로 명시했다.
+
+### 2026-08-05 — P3 WebSocket fragmented message contract
+
+- [x] WebSocket parser가 FIN/opcode를 분리해 initial text/binary frame과 continuation frame을 최대 message limit 안에서 재조립한다.
+- [x] fragmented message 중 ping은 adapter가 pong으로 처리하고, control frame의 FIN·125-byte 제한과 unexpected/nested data frame 경계를 검증하도록 보강했다. 실제 loopback wire test에서 fragmented masked text와 interleaved ping/pong을 통과시켰다.

@@ -27,6 +27,7 @@ type
       beastSocket: AsyncSocket
 
   ParsedFrame = object
+    fin: bool
     opcode: byte
     payload: string
 
@@ -84,12 +85,14 @@ proc sendFrame(transport: WebSocketByteTransport, opcode: byte,
     await transport.sendBytes(payload)
 
 proc receiveFrame(transport: WebSocketByteTransport): Future[ParsedFrame] {.async.} =
-  ## This first adapter slice rejects fragmented frames and requires masking.
+  ## Parse one RFC 6455 frame. Message reassembly is intentionally handled by
+  ## receiveMessage so control frames can be serviced between fragments.
   let header = await recvExactly(transport, 2)
   let first = byte(ord(header[0]))
   let second = byte(ord(header[1]))
-  if (first and 0x80) == 0:
-    raise newException(ValueError, "Fragmented WebSocket frames are unsupported")
+  if (first and 0x70) != 0:
+    raise newException(ValueError, "WebSocket reserved bits are unsupported")
+  result.fin = (first and 0x80) != 0
   let opcode = first and 0x0f
   if (second and 0x80) == 0:
     raise newException(ValueError, "Client WebSocket frames must be masked")
@@ -100,6 +103,8 @@ proc receiveFrame(transport: WebSocketByteTransport): Future[ParsedFrame] {.asyn
     length = readUint64(await recvExactly(transport, 8))
   if length > uint64(maxWebSocketPayload):
     raise newException(ValueError, "WebSocket payload exceeds adapter limit")
+  if opcode >= 0x8 and (not result.fin or length > 125):
+    raise newException(ValueError, "Invalid fragmented or oversized control frame")
   let mask = await recvExactly(transport, 4)
   let encoded = await recvExactly(transport, int(length))
   result.opcode = opcode
@@ -138,15 +143,30 @@ proc newSocketSession(transport: WebSocketByteTransport): WebSocketSession =
     await writeFrame(opcode, payload)
 
   let receiveMessage: WebSocketReceiveProc = proc(): Future[WebSocketMessage] {.async, gcsafe.} =
+    ## A logical message may span one initial data frame and any number of
+    ## continuation frames. Control frames are independent of fragmentation;
+    ## responding to ping here prevents an interleaved heartbeat from being
+    ## delivered as application data.
+    var messageOpcode: byte = 0
+    var messagePayload = ""
     while true:
       let frame = await receiveFrame(transport)
       case frame.opcode
-      of 0x1: return textWebSocketMessage(frame.payload)
-      of 0x2: return binaryWebSocketMessage(frame.payload)
+      of 0x0:
+        if messageOpcode == 0:
+          raise newException(ValueError, "Unexpected WebSocket continuation")
+      of 0x1, 0x2:
+        if messageOpcode != 0:
+          raise newException(ValueError, "Nested WebSocket data frame")
+        messageOpcode = frame.opcode
       of 0x9:
         # RFC 6455 requires an endpoint to answer ping control frames.
         await writeFrame(0xA, frame.payload)
-      of 0xA: return controlWebSocketMessage(wsmPong, frame.payload)
+        continue
+      of 0xA:
+        if messageOpcode == 0:
+          return controlWebSocketMessage(wsmPong, frame.payload)
+        continue
       of 0x8:
         if frame.payload.len >= 2:
           return closeWebSocketMessage(int(readUint16(frame.payload[0 .. 1])),
@@ -154,6 +174,15 @@ proc newSocketSession(transport: WebSocketByteTransport): WebSocketSession =
         return closeWebSocketMessage()
       else:
         raise newException(ValueError, "Unsupported WebSocket opcode")
+      messagePayload.add(frame.payload)
+      if messagePayload.len > maxWebSocketPayload:
+        raise newException(ValueError, "WebSocket message exceeds adapter limit")
+      if frame.fin:
+        if messageOpcode == 0:
+          raise newException(ValueError, "WebSocket message has no data opcode")
+        if messageOpcode == 0x1:
+          return textWebSocketMessage(messagePayload)
+        return binaryWebSocketMessage(messagePayload)
 
   let closeSession: WebSocketCloseProc = proc(code: int,
                                                reason: string): Future[void] {.async, gcsafe.} =
