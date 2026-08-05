@@ -3852,6 +3852,38 @@ suite "Mahanaim core contracts":
     invalidApp.config.port = 0
     check invalidApp.runCli(["check"]) == 1
 
+  test "application CLI uses an explicit migration database provider":
+    ## A provider can own PostgreSQL, a test double, or another backend while
+    ## the CLI keeps parsing and migration orchestration backend-neutral.
+    let impossibleDefaultPath = getTempDir() / "missing-provider-dir" /
+      "provider.sqlite"
+    let registry = newMigrationRegistry()
+    proc providerMigration(): seq[Migration] {.gcsafe.} =
+      @[Migration(name: "001_provider_cli", up: @[MigrationOperation(
+        kind: migrationCreateTable, table: "provider_items",
+        field: ModelField(name: "id", columnName: "id", kind: modelInteger,
+          primaryKey: true))], down: @[MigrationOperation(
+        kind: migrationDropTable, table: "provider_items")])]
+    registry.registerMigrations(providerMigration)
+    proc openProvider(location: string): DatabaseAdapter {.gcsafe.} =
+      discard location
+      newSqliteDatabaseAdapter()
+    proc closeProvider(adapter: DatabaseAdapter) {.gcsafe.} =
+      cast[SqliteDatabaseAdapter](adapter).close()
+    proc runProviderMigrations(location: string,
+                               migrations: openArray[Migration],
+                               command: MigrationCommand): MigrationCommandResult =
+      discard location
+      let adapter = newSqliteDatabaseAdapter()
+      defer: adapter.close()
+      executeMigrationCommand(adapter, migrations, command)
+    let app = newApplication()
+    app.configureMigrations(registry, impossibleDefaultPath)
+    app.configureMigrationDatabase(newMigrationDatabaseProvider(
+      openProvider, closeProvider, runProviderMigrations))
+    check app.runCli(["db", "up"]) == 0
+    check not fileExists(impossibleDefaultPath)
+
   test "database test fixture rolls back each isolated operation":
     let fixture = newDatabaseTestFixture(
       proc(): DatabaseAdapter {.gcsafe.} = newSqliteDatabaseAdapter(),

@@ -28,6 +28,15 @@ type
 
   MigrationDefinitionProvider* = proc(): seq[Migration] {.gcsafe.}
 
+  MigrationDatabaseProvider* = object
+    ## The CLI owns command parsing, while this provider owns the database
+    ## connection lifecycle. A PostgreSQL application can therefore inject
+    ## its adapter without making the framework guess DSNs or credentials.
+    open*: proc(location: string): DatabaseAdapter {.gcsafe.}
+    close*: proc(adapter: DatabaseAdapter) {.gcsafe.}
+    runMigrations*: proc(location: string, migrations: openArray[Migration],
+                         command: MigrationCommand): MigrationCommandResult
+
   MigrationRegistry* = ref object
     ## Project code registers definitions explicitly; the framework never
     ## scans arbitrary files or executes imports as a hidden side effect.
@@ -51,6 +60,19 @@ proc newMigrationRegistry*(): MigrationRegistry =
   ## A fresh registry keeps tests and application modules isolated.
   new(result)
   result.providers = @[]
+
+proc newMigrationDatabaseProvider*(
+    open: proc(location: string): DatabaseAdapter {.gcsafe.},
+    close: proc(adapter: DatabaseAdapter) {.gcsafe.},
+    runMigrations: proc(location: string, migrations: openArray[Migration],
+                        command: MigrationCommand): MigrationCommandResult):
+                                   MigrationDatabaseProvider =
+  ## Keep provider validation at construction so CLI execution can assume both
+  ## sides of the ownership contract exist and always release the adapter.
+  if open.isNil or close.isNil or runMigrations.isNil:
+    raise newException(ValueError,
+      "Migration database provider requires open, close, and migration callbacks")
+  MigrationDatabaseProvider(open: open, close: close, runMigrations: runMigrations)
 
 proc registerMigrations*(registry: MigrationRegistry,
                          provider: MigrationDefinitionProvider) =

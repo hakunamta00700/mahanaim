@@ -97,6 +97,7 @@ type
     databasePool*: DatabaseConnectionPool
     migrationRegistry*: MigrationRegistry
     migrationDatabasePath*: string
+    migrationDatabaseProvider*: MigrationDatabaseProvider
     seedRegistry*: SeedRegistry
     durableJobStore*: DurableJobStore
     durableJobRegistry*: DurableJobRegistry
@@ -195,6 +196,19 @@ proc configureMigrations*(app: Application, registry: MigrationRegistry,
       "Migrations must be configured before application startup")
   app.migrationRegistry = registry
   app.migrationDatabasePath = sqlitePath
+
+proc configureMigrationDatabase*(app: Application,
+                                 provider: MigrationDatabaseProvider) =
+  ## Inject the CLI database backend explicitly. The default remains SQLite;
+  ## custom providers are application-owned and must be configured before boot.
+  if app.isNil or provider.open.isNil or provider.close.isNil or
+      provider.runMigrations.isNil:
+    raise newException(ValueError,
+      "Application migration database provider is incomplete")
+  if app.started:
+    raise newException(ValueError,
+      "Migration database provider must be configured before application startup")
+  app.migrationDatabaseProvider = provider
 
 proc configureSeeds*(app: Application, registry: SeedRegistry) =
   ## Seed handlers are explicit application inputs and must be configured

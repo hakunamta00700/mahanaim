@@ -255,3 +255,10 @@
 - [x] 구현된 운영 기능은 [운영 정책 문서](docs/operations-guide.md)에 실패 시나리오와 복구 절차를 기록한다.
 - [-] 지원 Nim/OS, 의존성 lock, 보안 기본값, 외부 live gate와 변경 로그 규칙을 [`docs/support-policy.md`](docs/support-policy.md)와 `CHANGELOG.md`에 고정했다. 실제 릴리스별 gate 증거와 변경 항목 누적은 진행 중이다.
 - [x] 관계 로딩: 기존 JOIN 기반 `listRelation` 계약은 유지하고, `listRelationWithRelated`로 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. one-to-many와 through metadata 기반 many-to-many 모두 parent page 기준 batched query를 지원한다.
+
+### P1-10 migration CLI provider boundary
+
+- [x] Application이 `MigrationDatabaseProvider`를 명시적으로 소유하도록 연결하고, provider가 database location·connection lifecycle·migration command 실행을 책임지게 한다.
+- [x] 기본 SQLite CLI 동작은 유지하고, custom provider를 구성한 애플리케이션은 `db status|up|rollback`을 backend-neutral command contract로 실행한다.
+- [x] `db seed`는 provider의 open/close lifecycle을 사용하며, CLI가 DSN·credential을 추측하거나 다른 backend로 조용히 fallback하지 않도록 한다.
+- [x] provider wiring contract test를 추가하고, standalone 자동 발견은 명시적 application configuration이 필요한 후속 범위로 기록한다.

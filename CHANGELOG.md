@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Application 소유 `MigrationDatabaseProvider`를 추가해 migration CLI가 명시적 backend connection lifecycle과 command runner를 사용하도록 연결했다. 기본 SQLite와 provider-backed `db seed`를 유지하고 DSN·credential 자동 추측을 금지한다.
 - PostgreSQL 16 live contract에서 serializable session의 typed `FOR UPDATE`/`FOR SHARE` row-lock 실행, commit lifecycle, 두 session 간 bounded `lock_timeout` contention을 검증하고, SQLite·aggregate lock의 fail-fast 경계를 유지했다.
 - 서버 렌더링용 XML sitemap 및 RSS 2.0 renderer를 추가했다. absolute URL 검증, XML escaping, sitemap metadata, RSS channel/item 필수값 검증을 공통 contract로 제공한다.
 - 실제 loopback live-server smoke test를 재사용할 수 있도록 ephemeral-port readiness와 wire 응답 정규화를 제공하는 `NetworkTestFixture`/`NetworkTestClient`를 추가했다. status·header·body와 idempotent shutdown 회귀 테스트를 포함한다.

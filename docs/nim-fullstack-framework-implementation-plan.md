@@ -520,6 +520,13 @@
 
 - [x] `QueryLockMode`의 `FOR UPDATE`와 `FOR SHARE`를 PostgreSQL 16 serializable `DatabaseSession`에서 실제 실행했다.
 - [x] row-lock query 결과, commit lifecycle, 두 session 간 bounded `lock_timeout` contention, SQLite unsupported capability와 aggregate lock 거부를 compile·live contract로 검증했다.
+
+### 2026-08-05 — P1 migration CLI provider boundary
+
+- [x] Application이 `MigrationDatabaseProvider`를 명시적으로 소유하고, provider가 database location·connection lifecycle·migration command 실행을 담당하도록 연결했다.
+- [x] 기본 SQLite CLI를 유지하면서 custom provider의 `db status|up|rollback`을 backend-neutral command contract로 실행한다.
+- [x] `db seed`도 provider의 open/close lifecycle을 사용하며, CLI는 DSN·credential을 추측하거나 다른 backend로 조용히 fallback하지 않는다.
+- [x] provider wiring contract test를 추가했다. standalone 자동 발견은 명시적 application configuration이 필요한 후속 범위다.
 - [x] 환경 기반 `postgresLive` gate에서 위 contract를 통과시키고 운영 증거를 기록했다.
 
 ### 2026-08-04 — P0 dependency and CI 1차
@@ -692,7 +699,7 @@ flowchart TB
 | [x] | NFR-APP-001 | P0 | `new`가 재현 가능한 앱/모듈 구조와 환경별 설정 파일을 생성하도록 CLI를 설계한다. |
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·structured log redaction으로 로그·오류·빌드 노출을 차단한다. Application config secret은 observability sink 직전에 JSON tree 전체에서 치환하며, 외부 logger/build pipeline 통합은 남아 있다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
-| [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했으며, 애플리케이션 자동 발견 wiring은 남아 있다. |
+| [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했고, database CLI에는 명시적 `MigrationDatabaseProvider` wiring을 추가했으며, 애플리케이션 자동 발견 wiring은 남아 있다. |
 | [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |
 
 ### HTTP·라우팅·응답
@@ -721,7 +728,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | [x] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. macro는 필드를 source order로 읽고 추가 선언은 명시적 constructor로 받아 AST 추측을 피한다. `seq[T]`/`array[N,T]`는 JSON collection metadata로 투영한다. |
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
-| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL 16 live fixture에서 shared command status/up/idempotency/history/rollback evidence를 통과했으며 CLI/provider wiring의 남은 범위는 별도 기록한다. |
+| [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 `MigrationDatabaseProvider`, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL 16 live fixture와 provider wiring contract test를 통과했으며 standalone 자동 발견과 CI fixture wiring은 남아 있다. |
 | [x] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 PostgreSQL 16 serializable session에서 두 row-lock mode의 실제 실행과 두 session 간 bounded `lock_timeout` contention을 검증했다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata/`affectedRows` contract, DML 판별 helper, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session과 live-server를 검증했다. 추가 backend 확장과 production matrix evidence가 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |

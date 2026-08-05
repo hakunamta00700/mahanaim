@@ -8,6 +8,7 @@
 import std/[asyncdispatch, json, options, os, strutils, tables]
 import ./application
 import ./checks
+import ./database
 import ./migration_commands
 import ./openapi
 import ./sqlite_adapter
@@ -21,10 +22,9 @@ proc cliArguments(arguments: openArray[string]): seq[string] =
     result.add(argument)
 
 proc runDatabaseCli*(app: Application, arguments: openArray[string]): int =
-  ## Execute the built-in SQLite migration or seed command using app-owned
-  ## registries.
-  ## PostgreSQL remains an adapter-specific follow-up until its live contract is
-  ## available; this path never silently falls back to a different backend.
+  ## Execute the migration or seed command using app-owned registries. SQLite
+  ## remains the safe default, while an explicit provider owns another backend
+  ## and its close policy; the CLI never infers credentials or DSNs.
   if app.isNil or app.migrationRegistry.isNil:
     raise newException(ValueError, "Application migration registry is required")
   if arguments.len < 1 or arguments.len > 2:
@@ -33,18 +33,47 @@ proc runDatabaseCli*(app: Application, arguments: openArray[string]): int =
   var commandArgs = @[arguments[0]]
   let path = if arguments.len == 2: arguments[1] else: app.migrationDatabasePath
   if path.strip().len == 0:
-    raise newException(ValueError, "SQLite database path cannot be empty")
-  let adapter = newSqliteDatabaseAdapter(path)
-  defer: adapter.close()
+    raise newException(ValueError, "Migration database location cannot be empty")
+  let migrations = app.migrationRegistry.loadMigrations()
   if arguments[0].toLowerAscii() == "seed":
     if app.seedRegistry.isNil:
       raise newException(ValueError, "Application seed registry is required")
+    var adapter: DatabaseAdapter
+    var closeAdapter: proc(adapter: DatabaseAdapter) {.gcsafe.}
+    if not app.migrationDatabaseProvider.open.isNil:
+      adapter = app.migrationDatabaseProvider.open(path)
+      closeAdapter = app.migrationDatabaseProvider.close
+    else:
+      adapter = newSqliteDatabaseAdapter(path)
+      closeAdapter = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+        cast[SqliteDatabaseAdapter](adapter).close()
+    if adapter.isNil:
+      raise newException(ValueError, "Migration database provider returned nil")
+    defer: closeAdapter(adapter)
     for name in app.seedRegistry.runSeeds(adapter):
       echo "seeded " & name
     return 0
   let command = parseMigrationCommand(commandArgs)
-  let migrations = app.migrationRegistry.loadMigrations()
-  let outcome = executeMigrationCommand(adapter, migrations, command)
+  if not app.migrationDatabaseProvider.runMigrations.isNil:
+    let outcome = app.migrationDatabaseProvider.runMigrations(path, migrations, command)
+    case outcome.kind
+    of migrationCommandStatus:
+      for name in outcome.applied:
+        echo name
+    of migrationCommandUp:
+      for name in outcome.applied:
+        echo "applied " & name
+    of migrationCommandRollback:
+      if outcome.rolledBack.isSome:
+        echo "rolled back " & outcome.rolledBack.get()
+    return 0
+  let adapter = newSqliteDatabaseAdapter(path)
+  defer: adapter.close()
+  if adapter.dialect != dialectSqlite:
+    raise newException(ValueError,
+      "Migration adapter must provide runMigrations for non-SQLite backends")
+  let outcome = executeMigrationCommand(
+    cast[SqliteDatabaseAdapter](adapter), migrations, command)
   case outcome.kind
   of migrationCommandStatus:
     for name in outcome.applied:
