@@ -162,6 +162,50 @@ proc registerTemplate*(engine: TemplateEngine, name, source: string) =
     raise newException(ValueError, "Duplicate template: " & name)
   engine.templates[name] = source
 
+proc registerTemplateFile*(engine: TemplateEngine, name, path: string) =
+  ## Load one deployment-owned template while preserving the same duplicate
+  ## and empty-source policy as programmatic registration. Applications choose
+  ## the path; rendering continues to operate on the engine's owned snapshot.
+  if path.strip().len == 0 or not fileExists(path):
+    raise newException(ValueError, "Template file does not exist: " & path)
+  let source = try:
+    readFile(path)
+  except CatchableError as error:
+    raise newException(ValueError, "Template file cannot be read: " & error.msg)
+  engine.registerTemplate(name, source)
+
+proc loadTemplateDirectory*(engine: TemplateEngine, directory: string,
+                            extension = ".html") =
+  ## Register templates recursively using extension-free, slash-normalized
+  ## paths relative to the selected root. For example,
+  ## `templates/layouts/base.html` becomes `layouts/base`, which can be used by
+  ## render, include, and extends without exposing an absolute filesystem path.
+  if engine.isNil or directory.strip().len == 0:
+    raise newException(ValueError,
+      "Template engine and template directory are required")
+  if not dirExists(directory):
+    raise newException(ValueError,
+      "Template directory does not exist: " & directory)
+  var normalizedExtension = extension.strip().toLowerAscii()
+  if normalizedExtension.len == 0:
+    normalizedExtension = ".html"
+  elif normalizedExtension[0] != '.':
+    normalizedExtension = "." & normalizedExtension
+  var paths: seq[string] = @[]
+  for path in walkDirRec(directory):
+    if fileExists(path) and splitFile(path).ext.toLowerAscii() ==
+        normalizedExtension:
+      paths.add(path)
+  paths.sort()
+  for path in paths:
+    let relative = relativePath(path, directory).replace('\\', '/')
+    let suffixLength = splitFile(relative).ext.len
+    let name = relative[0 ..< relative.len - suffixLength]
+    if name.strip().len == 0:
+      raise newException(ValueError,
+        "Template file name cannot be empty: " & path)
+    engine.registerTemplateFile(name, path)
+
 proc registerFilter*(engine: TemplateEngine, name: string,
                       filter: TemplateFilter) =
   ## Filters transform text before the final mandatory HTML escaping step.
