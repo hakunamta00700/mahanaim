@@ -95,7 +95,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         nim: ["2.2.4"]
     steps:
       - name: Check out source
@@ -143,6 +143,13 @@ jobs:
           }
           $pgBin | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
 
+      - name: macOS PostgreSQL client runtime
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew install libpq
+          brew link --force libpq
+
       - name: Install locked dependencies
         run: nimble install -y --depsOnly
 
@@ -183,9 +190,14 @@ jobs:
         run: nimble build
 
       - name: Hash release candidate (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         shell: bash
         run: sha256sum mahanaim_cli > mahanaim_cli.sha256
+
+      - name: Hash release candidate (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: shasum -a 256 mahanaim_cli > mahanaim_cli.sha256
 
       - name: Hash release candidate (Windows)
         if: runner.os == 'Windows'
@@ -195,9 +207,14 @@ jobs:
           "$hash  mahanaim_cli.exe" | Set-Content -NoNewline mahanaim_cli.sha256
 
       - name: Verify release candidate checksum (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         shell: bash
         run: sha256sum --check mahanaim_cli.sha256
+
+      - name: Verify release candidate checksum (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: shasum -a 256 -c mahanaim_cli.sha256
 
       - name: Verify release candidate checksum (Windows)
         if: runner.os == 'Windows'

@@ -14,6 +14,12 @@
 플랫폼별 소켓 ownership이나 C runtime 차이를 공통 unit test의 성공만으로
 추론하지 않는다.
 
+## macOS release runner baseline (2026-08-05)
+
+- [x] GitHub Actions cross-platform matrix에 `macos-latest`와 Nim 2.2.4 runner를 선언했다.
+- [x] macOS는 Homebrew `libpq` runtime을 별도 설치하고 `shasum -a 256`으로 release candidate checksum을 생성·검증한다.
+- [ ] 실제 GitHub macOS runner의 test·verify·check·build 성공 로그와 artifact 업로드 증거는 외부 CI 실행에서 수집한다.
+
 ## Release artifact manifest
 
 Release automation은 다음과 같은 `ReleaseArtifact` 항목을 생성한다.

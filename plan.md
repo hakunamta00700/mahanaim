@@ -182,7 +182,7 @@
 - [x] `nimble test`, `nimble verify`, `nimble check`를 CI와 동일하게 실행한다.
 - [x] lockfile 기반 dependency 설치와 기본 CI를 구성한다.
 - [x] `new` 프로젝트 생성기가 환경 변수 예제·안전한 `.gitignore`와 함께 SQLite metadata migration, JSON/admin CRUD, session·CSRF 인증, OpenAPI route collection, health/request ID/lifecycle을 검증하는 앱 모듈·실제 dispatch 테스트를 생성하도록 확장한다.
-- [-] 지원 OS/Nim 2.2.4 matrix에서 test·verify·check·build를 실행하고 OS별 release candidate와 SHA-256 checksum artifact를 생성하도록 CI를 확장했다. Windows runner에는 PostgreSQL client runtime(`libpq.dll`) 설치 경계를 추가했으며, 실제 GitHub runner 실행 결과와 추가 지원 버전 확대는 후속 검증 범위다.
+- [-] 지원 OS/Nim 2.2.4 matrix에서 Linux·Windows·macOS runner, OS별 PostgreSQL client runtime, release candidate와 SHA-256 checksum artifact 생성을 CI에 연결했다. 실제 GitHub runner 실행 결과와 추가 지원 버전 확대는 후속 검증 범위다.
 - [x] Definition of Done 체크리스트를 [`docs/definition-of-done.md`](docs/definition-of-done.md)에 고정하고, 필수 섹션·체크박스 표기·검증 명령을 `validateDefinitionOfDone`/`nimble docsCheck`로 자동 검증하도록 `verify`와 CI에 연결했다.
 - [-] 기존 기능에 Definition of Done을 항목별로 적용하고 외부 환경 gate 증거를 누적한다.
 
@@ -339,3 +339,8 @@
 ### 2026-08-05 기반선 증거 정합화
 
 - [x] **P0-09 core foundation evidence** — 상세 implementation plan의 계약 우선·단일 메타데이터 원천·명시적 실행 경계·Prologue 비종속 원칙과 Phase 0 Application/config/request-response/router/middleware/lifecycle/error 계약을 현재 public module 및 contract test 증거에 맞춰 체크했다. 기능별 DoD, OS/Nim matrix, staging TLS와 production live evidence는 외부 검증 범위로 남긴다.
+
+### 2026-08-05 macOS release matrix baseline
+
+- [x] GitHub Actions에 Nim 2.2.4 `macos-latest` runner, Homebrew `libpq` 설치와 macOS 전용 `shasum` release checksum 경계를 추가하고 workflow 문서 계약 테스트를 연결했다.
+- [ ] 실제 GitHub macOS runner의 test·verify·check·build와 artifact upload 성공 로그는 외부 CI 실행 후 최종 체크한다.

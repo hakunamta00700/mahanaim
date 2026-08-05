@@ -90,3 +90,17 @@ nimble test
     check implementationPlan.contains("- [x] `Application`, `Config`, `RequestContext`")
     check implementationPlan.contains("- [x] Prologue adapter를 격리하고")
     check implementationPlan.contains("- [x] router, route name/URL building")
+
+  test "release matrix declares the supported macOS runner boundary":
+    ## The matrix is a source-level release contract. It must describe the
+    ## runner before external GitHub evidence is collected, otherwise a green
+    ## Linux/Windows job can silently omit a declared supported platform.
+    let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
+      "ci.yml")
+    let supportMatrix = readFile(getCurrentDir() / "docs" /
+      "support-matrix.md")
+    check workflow.contains("os: [ubuntu-latest, windows-latest, macos-latest]")
+    check workflow.contains("name: macOS PostgreSQL client runtime")
+    check workflow.contains("name: Upload release candidate and checksum")
+    check supportMatrix.contains("macOS")
+    check supportMatrix.contains("release matrix")

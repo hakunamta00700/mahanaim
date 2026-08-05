@@ -975,6 +975,12 @@ flowchart TB
 - [x] controller action route가 기존 Application router/middleware/request-scope/error pipeline을 그대로 통과하는 contract test를 추가한다.
 - [ ] convention-based controller discovery와 자동 action schema 생성은 명시적 route boundary 이후의 후속 범위다.
 
+### 2026-08-05 — macOS release runner baseline
+
+- [x] GitHub Actions cross-platform matrix에 Nim 2.2.4 `macos-latest` runner를 추가하고 Homebrew `libpq` runtime 경계를 분리했다.
+- [x] macOS checksum 명령은 Linux `sha256sum`과 분리해 `shasum -a 256`을 사용하도록 release artifact gate를 연결했다.
+- [ ] 실제 GitHub macOS runner의 test·verify·check·build와 artifact upload 성공 로그는 외부 CI 증거로 남긴다.
+
 ### 2026-08-05 — Core foundation evidence reconciliation
 
 - [x] 계약 우선, 단일 메타데이터 원천, 명시적 실행 경계와 Prologue 비종속 코어 원칙을 현재 public module·contract test 증거에 맞춰 체크했다.
