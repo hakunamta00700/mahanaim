@@ -688,7 +688,7 @@ flowchart TB
 
 - [-] class-based controller, function handler, application/request/task DI scope를 추가한다. DI scope는 P2-05에서 완료했고, `Controller.handle`/`addControllerRoute` action bridge는 2026-08-05 baseline으로 추가했으며 controller discovery/convention 자동화는 후속 범위다.
 - [x] `TemplateAdapter` protocol과 engine callback wrapper를 제공해 선택한 기본 engine과 다른 renderer를 application-owned HTML response 경계에 연결한다.
-- [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
+- [x] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 `docs/storage-and-orm-integration.md`에 문서화한다. `ObjectStorage`/`CacheStore`/`DatabaseRepository` 계약과 provider·ORM session 소유권, transaction·lifecycle·공통 adapter contract test 경계를 명시했다.
 - [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
 - [-] WebSocket channel/group broadcast, Redis-backed channel layer, ETag, response cache를 추가했고 contract/live gate를 연결했다. compression과 실제 rolling deployment evidence는 후속 범위다.
 - [x] Docker multi-stage, reverse proxy, systemd/컨테이너 배포와 graceful shutdown 예제를 `deploy/` 템플릿과 `docs/deployment-recipes.md`로 제공한다. 실제 application entrypoint, secret, staging rollout 증거는 application-owned 범위다.

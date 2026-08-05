@@ -93,6 +93,25 @@ nimble test
     check implementationPlan.contains("alternate template engine")
     check requirements.contains("TemplateAdapter")
 
+  test "storage and ORM integration patterns are documented":
+    ## Storage and ORM integrations are intentionally adapter-owned. This
+    ## contract keeps the usage guide discoverable and prevents future edits
+    ## from silently coupling application code to a provider SDK or ORM.
+    let guidePath = getCurrentDir() / "docs" /
+      "storage-and-orm-integration.md"
+    let guide = readFile(guidePath)
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check fileExists(guidePath)
+    check guide.contains("ObjectStorage and CacheStore")
+    check guide.contains("DatabaseRepository")
+    check guide.contains("external ORM integration")
+    check guide.contains("Framework-owned contract")
+    check guide.contains("nimble test")
+    check implementationPlan.contains(
+      "- [x] Redis/Valkey/file/memory store")
+    check implementationPlan.contains("docs/storage-and-orm-integration.md")
+
   test "foundation checklist records the implemented core boundaries":
     ## These are repository-owned contracts, so their status must follow the
     ## public modules and repeatable tests rather than remain a stale roadmap
