@@ -769,7 +769,7 @@ flowchart TB
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [x] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. Application 소유 registry와 중복 등록 검증, plugin contract test를 포함한다. |
 | [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·migration command/history·DDL rollback, in-process SSE/WebSocket test client, 실제 loopback `NetworkTestFixture`/`NetworkTestClient` smoke contract를 추가했다. CI verify job에 PostgreSQL 16과 Redis 7.2 service health check 및 live gates를 연결했으며, 실제 GitHub runner 증거와 추가 backend matrix는 남아 있다. |
-| [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
+| [x] | REQ-TEST-002 | P0 | `checkApplication`이 config/route/model/migration/security/execution을 부팅 전 검사하고, embedding `runCli`와 standalone CLI가 동일한 `CheckReport` 계약을 사용한다. config·route·model·migration·security 회귀 테스트로 실패 경로와 runtime policy 정합성을 검증한다. 추가 OS runner matrix 증거는 REQ-TEST-001 범위다. |
 | [-] | REQ-DOC-001 | P0 | Definition of Done, 지원 버전 정책, 변경 로그 규칙을 문서화하고 필수 섹션·체크박스·검증 명령을 `validateDefinitionOfDone`/`nimble docsCheck`로 자동 검증한다. 기능별 Nim 예제·API reference·migration/security guide와 릴리스 gate 증거 누적은 남아 있다. |
 
 ## 6. SHOULD/MAY 우선순위
