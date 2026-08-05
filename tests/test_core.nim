@@ -1317,6 +1317,15 @@ suite "Mahanaim core contracts":
     check validResponse.status == Http200
     check validResponse.body == "submitted"
 
+    var browserFormRequest = newRequest("POST", "/csrf-submit",
+      "name=Ada&csrf=" & encodeUrl(token))
+    browserFormRequest.cookies[policy.csrfCookieName] = token
+    browserFormRequest.headers["content-type"] =
+      "application/x-www-form-urlencoded"
+    let browserFormResponse = waitFor app.dispatch(browserFormRequest)
+    check browserFormResponse.status == Http200
+    check browserFormResponse.body == "submitted"
+
     var forgedRequest = newRequest("POST", "/csrf-submit")
     let forgedToken = token[0 .. ^2] & (if token[^1] == '0': "1" else: "0")
     forgedRequest.cookies[policy.csrfCookieName] = forgedToken

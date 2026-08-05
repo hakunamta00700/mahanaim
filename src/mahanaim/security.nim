@@ -7,6 +7,7 @@
 
 import std/[asyncdispatch, httpcore, locks, monotimes, options, strutils, sysrand, tables, times]
 import nimcrypto
+import ./body_parser
 import ./core
 
 const
@@ -623,6 +624,24 @@ proc csrfProtectedMethod(httpMethod: string): bool =
   ## Safe methods may obtain a token; state-changing methods must prove it.
   httpMethod.toUpperAscii() notin ["GET", "HEAD", "OPTIONS", "TRACE"]
 
+proc submittedCsrfToken(request: Request,
+                        policy: SecurityPolicy): Option[string] =
+  ## API clients echo the token in a header, while ordinary HTML forms cannot
+  ## set custom headers. Accept the framework field name and the conventional
+  ## `csrf` alias from parsed form bodies without weakening the signed
+  ## double-submit cookie comparison below.
+  let headerToken = request.header(policy.csrfHeaderName)
+  if headerToken.isSome:
+    return headerToken
+  let parsed = request.parseRequestBody()
+  if not parsed.valid or parsed.encoding notin
+      {beFormUrlEncoded, beMultipart}:
+    return none(string)
+  for fieldName in [policy.csrfHeaderName, "csrf"]:
+    if parsed.fields.hasKey(fieldName):
+      return some(parsed.fields[fieldName])
+  none(string)
+
 proc addCsrfCookie(response: var Response, policy: SecurityPolicy,
                    token: string) =
   ## HttpOnly is intentionally false: browser code must echo this token in the
@@ -735,10 +754,10 @@ proc securityMiddleware*(policy: SecurityPolicy): Middleware =
         return rejected
       if csrfProtectedMethod(requestWithProxy.httpMethod):
         let cookieToken = requestWithProxy.cookies.getOrDefault(policy.csrfCookieName)
-        let headerToken = requestWithProxy.header(policy.csrfHeaderName)
-        if cookieToken.len == 0 or headerToken.isNone or
+        let submittedToken = requestWithProxy.submittedCsrfToken(policy)
+        if cookieToken.len == 0 or submittedToken.isNone or
            not verifyCsrfToken(policy, cookieToken) or
-           not constantTimeEquals(cookieToken, headerToken.get()):
+           not constantTimeEquals(cookieToken, submittedToken.get()):
           var rejected = textResponse("CSRF Validation Failed", Http403)
           addSecurityHeaders(rejected, policy)
           return rejected
