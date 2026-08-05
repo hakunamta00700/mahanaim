@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- P2 syndication contract에 XML escaping·absolute URL·필수 identity 검증을 포함한 framework-neutral Atom 1.0 feed/entry renderer와 회귀 테스트를 추가했다. email backend는 application-owned transport 범위로 남긴다.
 - `ExternalDurableJobStore`의 close callback을 idempotent하게 만들고 close 이후 enqueue/claim/complete/release/recover callback 재사용을 `ValueError`로 차단하는 lifecycle contract와 회귀 테스트를 추가했다.
 - SQLite durable job store의 `complete`·`release`·`recoverProcessing`가 close 이후 db connector assertion을 노출하지 않고 명시적 `ValueError`를 반환하도록 보강하고 shutdown race 회귀 테스트를 추가했다.
 - P0 `REQ-TEST-002`를 `checkApplication`의 config/route/model/migration/security/execution 검사와 embedding/standalone CLI 공통 `CheckReport` contract 테스트에 맞춰 완료로 갱신했다.

@@ -28,6 +28,26 @@ type
     description*: string
     items*: seq[RssItem]
 
+  AtomEntry* = object
+    ## Atom requires an immutable entry identity and a last-updated value.
+    ## Link and content remain wire-ready strings so applications retain
+    ## ownership of routing, publication dates, and content serialization.
+    title*: string
+    id*: string
+    link*: string
+    updatedAt*: string
+    summary*: string
+    content*: string
+
+  AtomFeed* = object
+    ## The feed identity is separate from its navigational link: an endpoint
+    ## may move while its Atom `id` remains stable for clients and crawlers.
+    title*: string
+    link*: string
+    id*: string
+    updatedAt*: string
+    entries*: seq[AtomEntry]
+
 const xmlHeader = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 
 proc escapeXml(value: string): string =
@@ -101,3 +121,45 @@ proc renderRss*(feed: RssFeed): string =
       result.add("<pubDate>" & escapeXml(item.publishedAt) & "</pubDate>")
     result.add("</item>")
   result.add("</channel></rss>")
+
+proc requireAtomText(value, fieldName: string) =
+  ## Atom identifiers and timestamps are deliberately validated as opaque
+  ## non-empty text. Date parsing belongs to the application because forcing
+  ## one date library here would couple this framework-neutral renderer to a
+  ## publication policy it cannot safely infer.
+  if value.strip().len == 0 or value.contains({'\r', '\n', '\t'}):
+    raise newException(ValueError, fieldName & " is required")
+
+proc renderAtom*(feed: AtomFeed): string =
+  ## Render Atom 1.0 without knowing how entries were loaded or how the HTTP
+  ## response is served. Validate the complete feed before emitting entries so
+  ## a late malformed item cannot produce a partially trusted document.
+  requireAtomText(feed.title, "Atom feed title")
+  requireAtomText(feed.id, "Atom feed id")
+  requireAtomText(feed.updatedAt, "Atom feed updatedAt")
+  validateHttpUrl(feed.link, "Atom feed link")
+  result = xmlHeader & "<feed xmlns=\"http://www.w3.org/2005/Atom\">"
+  result.add("<title>" & escapeXml(feed.title) & "</title>")
+  result.add("<id>" & escapeXml(feed.id) & "</id>")
+  result.add("<updated>" & escapeXml(feed.updatedAt) & "</updated>")
+  result.add("<link href=\"" & escapeXml(feed.link) & "\"/>")
+  for entry in feed.entries:
+    requireAtomText(entry.title, "Atom entry title")
+    requireAtomText(entry.id, "Atom entry id")
+    requireAtomText(entry.updatedAt, "Atom entry updatedAt")
+    if entry.link.len == 0 and entry.summary.len == 0 and entry.content.len == 0:
+      raise newException(ValueError,
+        "Atom entry link, summary, or content is required")
+    if entry.link.len > 0:
+      validateHttpUrl(entry.link, "Atom entry link")
+    result.add("<entry><title>" & escapeXml(entry.title) & "</title>")
+    result.add("<id>" & escapeXml(entry.id) & "</id>")
+    result.add("<updated>" & escapeXml(entry.updatedAt) & "</updated>")
+    if entry.link.len > 0:
+      result.add("<link href=\"" & escapeXml(entry.link) & "\"/>")
+    if entry.summary.len > 0:
+      result.add("<summary>" & escapeXml(entry.summary) & "</summary>")
+    if entry.content.len > 0:
+      result.add("<content>" & escapeXml(entry.content) & "</content>")
+    result.add("</entry>")
+  result.add("</feed>")

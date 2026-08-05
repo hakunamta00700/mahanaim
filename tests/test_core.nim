@@ -253,6 +253,21 @@ suite "Mahanaim core contracts":
     check rss.contains("First &amp; foremost")
     check rss.contains("Body &lt;text&gt;")
     check rss.contains("<guid>post-1</guid>")
+    let atom = renderAtom(AtomFeed(title: "News & Updates",
+      link: "https://example.test", id: "https://example.test/feed.atom",
+      updatedAt: "2026-08-05T12:00:00Z",
+      entries: @[AtomEntry(title: "First & foremost",
+        id: "https://example.test/posts/1",
+        link: "https://example.test/posts/1",
+        updatedAt: "2026-08-05T12:00:00Z", summary: "Body <text>")]))
+    check atom.contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">")
+    check atom.contains("<id>https://example.test/feed.atom</id>")
+    check atom.contains("<title>News &amp; Updates</title>")
+    check atom.contains("<summary>Body &lt;text&gt;</summary>")
+    expect ValueError:
+      discard renderAtom(AtomFeed(title: "Missing identity",
+        link: "https://example.test", id: "",
+        updatedAt: "2026-08-05T12:00:00Z"))
 
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
