@@ -113,6 +113,7 @@ nimble test
     check source.contains("startProcess")
     check source.contains("--worker")
     check guide.contains("--concurrency")
+    check guide.contains("concurrent wall 1927 ms")
 
   test "detailed implementation plan records the latest Redis live evidence":
     ## Keep the detailed plan aligned with the repository checklist: local

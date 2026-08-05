@@ -75,6 +75,11 @@ production 권고값이 아니며, 실제 배포 호스트에서 concurrent memo
 프로세스별 KDF 메모리 사용량을 함께 관찰할 수 있다. 이 결과는 개발 호스트의
 측정값이며 production cost를 확정하려면 실제 배포 환경에서 다시 측정해야 한다.
 
+2026-08-05 Windows release-like baseline에서 Argon2id 기본 정책을 `samples=5`,
+`concurrency=2`로 실행한 결과는 hash/verify 평균 115/116 ms,
+concurrent wall 1927 ms였다. 이 수치는 호스트별 비교용이며 production cost
+확정값이 아니다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.

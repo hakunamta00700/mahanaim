@@ -417,6 +417,7 @@
 
 - [x] `password_hash_benchmark`에 독립 worker process 기반 `--concurrency=N` 측정을 추가하고 각 worker의 hash/verify 검증을 유지했다.
 - [x] benchmark 실행 경계와 운영 사용법을 `tests/test_docs_contract.nim`, `docs/operations-guide.md`에 연결했다. 저비용 Windows smoke(`bcrypt`, `work-factor=4`, `samples=1`, `concurrency=2`)가 통과했다.
+- [x] 같은 Windows release-like 기본 Argon2id 정책(`memory_kib=65536`, `iterations=3`, `threads=1`, `derived_bytes=32`, `samples=5`)에서 `concurrency=2`를 실행해 hash/verify 평균 115/116 ms와 concurrent wall 1927 ms를 기록했다.
 - [-] 실제 production benchmark, concurrent memory/login load, cost 확정과 rollout evidence는 배포 환경에서 후속 검증한다.
 
 ### 2026-08-05 command/admin lifecycle boundary
