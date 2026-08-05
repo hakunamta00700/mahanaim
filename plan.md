@@ -51,6 +51,7 @@
 - [x] **P0-05 live-server smoke fixture** — 실제 loopback NetworkServer를 ephemeral port로 시작·readiness polling하고, `NetworkTestClient`가 wire HTTP 응답을 core `Response`로 정규화하도록 추가했다. fixture의 idempotent shutdown과 실제 TCP status·header·body를 contract test로 검증했으며, backend별 고급 live fixture는 별도 gate로 유지한다.
 
 - [x] **P0-06 dependency lock integrity** — `nimble.lock`의 JSON version, package metadata, required direct dependency, SHA-1 checksum shape를 재사용 가능한 `validateDependencyLock` contract로 검증하고 `nimble lockCheck`를 `verify` gate에 연결했다. 실제 clean OS runner dependency 설치 결과는 matrix gate에서 별도로 축적한다.
+- [x] **P0-07 CI live fixture wiring** — PostgreSQL 16 service에 이어 verify job에 Redis 7.2 service와 health check, `MAHANAIM_REDIS_*` 설정, `redisLiveCheck`/`redisLive` 실행을 연결했다. bounded eviction 설정은 disposable CI container에서만 `MAHANAIM_REDIS_CONFIGURE=true`로 허용하고 ambient/external Redis는 변경하지 않는다.
 
 ### P1 — 핵심 제품 기능의 남은 범위
 

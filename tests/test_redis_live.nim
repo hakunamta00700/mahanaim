@@ -22,6 +22,17 @@ proc runLiveContract() =
   let ping = client.executeCommand(encodeRedisCommand(["PING"]))
   if not ping.startsWith("+PONG"):
     raise newException(ValueError, "Redis/Valkey live PING contract failed")
+  if getEnv("MAHANAIM_REDIS_CONFIGURE") == "true":
+    ## CI owns an isolated service container, so it may establish the bounded
+    ## eviction policy required by this contract. External environments must
+    ## opt in explicitly; a framework test must never mutate an ambient Redis.
+    let maxMemory = client.executeCommand(encodeRedisCommand([
+      "CONFIG", "SET", "maxmemory", "64mb"]))
+    let eviction = client.executeCommand(encodeRedisCommand([
+      "CONFIG", "SET", "maxmemory-policy", "allkeys-lru"]))
+    if not maxMemory.startsWith("+OK") or not eviction.startsWith("+OK"):
+      raise newException(ValueError,
+        "Redis/Valkey live fixture could not configure bounded eviction")
   let report = inspectRedisCompatibility(client)
   if report.version.len == 0 or report.flavor == unknownFlavor:
     raise newException(ValueError, "Redis/Valkey live flavor or version is missing")

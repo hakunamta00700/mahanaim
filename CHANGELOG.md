@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- CI verify job에 Redis 7.2 service와 health check, `MAHANAIM_REDIS_*` 설정, `redisLiveCheck`/`redisLive` gate를 추가했다. bounded eviction 설정은 disposable CI container에서만 명시적으로 허용하고 외부 Redis 환경은 변경하지 않는다.
 - JSON/TOML 설정 provider가 `environment`, `debug`, `host`, `port`, request timeout, executor capacity의 원본 scalar 타입을 공통 schema로 검증하도록 보완했다. 확장 설정 구조는 기존처럼 typed values로 보존하며 잘못된 JSON/TOML 타입 회귀 테스트를 추가했다.
 - `nimble.lock`의 version·package metadata·필수 dependency·SHA-1 checksum shape를 검증하는 `validateDependencyLock` contract와 `nimble lockCheck` gate를 추가하고 `verify`에 연결했다. clean OS runner의 dependency 재설치 증거는 별도 CI matrix 범위로 남겼다.
 - 생성 프로젝트가 동일한 migration 정의를 초기 SQLite 준비와 Application migration registry에 연결하고, 인증 account store/hasher 기반 admin provisioning callback을 standalone CLI에 제공하도록 보완했다. 저장소 영속화와 credential 정책은 프로젝트 소유 범위로 유지했다.

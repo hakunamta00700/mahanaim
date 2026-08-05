@@ -515,7 +515,7 @@
 - [x] 실제 dispatcher 계약을 통해 route·middleware·security 동작을 네트워크 없이 검증할 수 있다.
 - [x] query·header·cookie persistence와 GET/POST contract test를 추가했다.
 - [x] 실제 loopback `NetworkTestFixture`와 `NetworkTestClient`로 ephemeral port readiness, TCP status·header·body, idempotent shutdown을 검증했다.
-- [ ] test database transaction isolation, WebSocket/SSE, CI fixture wiring은 남아 있다.
+- [-] test database transaction isolation, WebSocket/SSE contract와 PostgreSQL·Redis CI service fixture wiring을 추가했다. 실제 GitHub runner 실행 증거와 추가 backend matrix는 남아 있다.
 
 ### 2026-08-05 — P1 PostgreSQL row-lock live contract
 
@@ -767,7 +767,7 @@ flowchart TB
 | [-] | REQ-OPS-004 | P2 | email·flash·RSS/Atom·sitemap을 서버 렌더링용 독립 패키지로 제공한다. session key별 bounded FIFO·consume-once `FlashStore`, XML-escaped sitemap renderer, RSS 2.0 channel/item renderer를 추가했으며 email/Atom은 남아 있다. |
 | [-] | REQ-OPS-005 | P2 | `Request.locale`/`Request.timezoneOffsetMinutes` 협상과 명시적 timezone offset 및 `timezones` 기반 IANA/DST 날짜·시간·숫자 formatter를 공통 경계로 제공했다. template/form/API formatter 자동 주입과 고급 formatting은 남아 있다. |
 | [x] | REQ-EXT-001 | P2 | plugin manifest과 registration phase를 정의하고 route·DI·middleware·command·metadata·admin·serializer·storage·auth extension point를 제공한다. Application 소유 registry와 중복 등록 검증, plugin contract test를 포함한다. |
-| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·migration command/history·DDL rollback, in-process SSE/WebSocket test client, 실제 loopback `NetworkTestFixture`/`NetworkTestClient` smoke contract를 추가했다. CI fixture wiring은 남아 있다. |
+| [-] | REQ-TEST-001 | P0 | test client/test app과 backend-neutral DB fixture, SQLite rollback isolation, 환경 기반 PostgreSQL fixture factory, PostgreSQL live isolation·repository·custom codec·migration command/history·DDL rollback, in-process SSE/WebSocket test client, 실제 loopback `NetworkTestFixture`/`NetworkTestClient` smoke contract를 추가했다. CI verify job에 PostgreSQL 16과 Redis 7.2 service health check 및 live gates를 연결했으며, 실제 GitHub runner 증거와 추가 backend matrix는 남아 있다. |
 | [-] | REQ-TEST-002 | P0 | config/route/model/migration/security check를 부팅 전 실행하고 CI와 배포 CLI에서 동일하게 사용한다. |
 | [-] | REQ-DOC-001 | P0 | Definition of Done, 지원 버전 정책, 변경 로그 규칙을 문서화했다. 기능별 Nim 예제·API reference·migration/security guide와 릴리스 gate 증거 누적은 남아 있다. |
 

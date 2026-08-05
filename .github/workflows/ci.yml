@@ -23,6 +23,13 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7.2
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       ## The service hostname is stable inside a container job. These values
       ## are test-only credentials and are never reused by release deploys.
@@ -31,6 +38,11 @@ jobs:
       MAHANAIM_POSTGRES_USER: mahanaim
       MAHANAIM_POSTGRES_PASSWORD: mahanaim-ci-password
       MAHANAIM_POSTGRES_DATABASE: mahanaim
+      ## The Redis service is isolated to this job; the live contract opts in
+      ## to configuring bounded eviction on that disposable container.
+      MAHANAIM_REDIS_HOST: redis
+      MAHANAIM_REDIS_PORT: 6379
+      MAHANAIM_REDIS_CONFIGURE: "true"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -67,6 +79,12 @@ jobs:
 
       - name: Run optional PostgreSQL live contract
         run: nimble postgresLive
+
+      - name: Compile Redis/Valkey live contract
+        run: nimble redisLiveCheck
+
+      - name: Run Redis/Valkey live contract
+        run: nimble redisLive
 
   cross-platform:
     name: ${{ matrix.os }} / Nim ${{ matrix.nim }}
