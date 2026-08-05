@@ -909,3 +909,8 @@ flowchart TB
 
 - [x] connection별 bounded pending queue와 `close`/`drop newest`/`drop oldest` overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트를 통과시켰다.
 - [ ] 실제 Redis/Valkey service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring은 후속 범위다.
+
+### 2026-08-05 — Redis service multi-connection fan-out evidence
+
+- [x] `redisLive`가 실제 Redis 7.2.15 서비스에서 독립 subscription socket 2개와 publisher를 사용해 subscriber count 2, 양쪽 payload delivery, bounded timeout을 검증한다.
+- [ ] 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence는 후속 범위다.

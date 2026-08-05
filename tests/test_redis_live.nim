@@ -4,8 +4,47 @@
 ## variables so CI can provide a service container without embedding secrets or
 ## making the framework test suite depend on a particular local daemon.
 
-import std/[net, os, strutils]
+import std/[asyncdispatch, net, os, strutils, times]
+import mahanaim/redis_channels
 import mahanaim/redis_resp
+
+proc runLiveFanoutContract(host: string, port: Port): Future[void] {.async.} =
+  ## Use two independent long-lived subscription sockets. This is the live
+  ## broker boundary: Redis must fan one publish out to both consumers, while
+  ## each local client retains its own acknowledgement and delivery lifecycle.
+  let channel = "mahanaim:live:fanout:" & $epochTime()
+  let first = newRedisPubSubClient(host, port, maxPendingMessages = 16)
+  let second = newRedisPubSubClient(host, port, maxPendingMessages = 16)
+  let publisher = newRedisValkeyRespClient(host, port, timeoutMs = 2000)
+  var deliveries = 0
+  let completed = newFuture[void]("redisLiveFanout")
+  defer:
+    first.close()
+    second.close()
+    publisher.close()
+
+  let firstSubscription = await first.subscribe(channel,
+    proc(receivedChannel, payload: string): Future[void] {.async, gcsafe.} =
+      if receivedChannel != channel or payload != "fanout-payload":
+        raise newException(ValueError, "Redis live fan-out payload contract failed")
+      inc deliveries
+      if deliveries == 2 and not completed.finished:
+        completed.complete())
+  let secondSubscription = await second.subscribe(channel,
+    proc(receivedChannel, payload: string): Future[void] {.async, gcsafe.} =
+      if receivedChannel != channel or payload != "fanout-payload":
+        raise newException(ValueError, "Redis live fan-out payload contract failed")
+      inc deliveries
+      if deliveries == 2 and not completed.finished:
+        completed.complete())
+  let subscribers = publisher.publishRedisChannel(channel, "fanout-payload")
+  if subscribers != 2:
+    raise newException(ValueError,
+      "Redis live fan-out expected two subscribers, got " & $subscribers)
+  if not await completed.withTimeout(2000):
+    raise newException(ValueError, "Redis live fan-out delivery timed out")
+  await first.unsubscribe(firstSubscription)
+  await second.unsubscribe(secondSubscription)
 
 proc runLiveContract() =
   ## Keep missing-service behavior explicit: compile gates prove the source
@@ -48,6 +87,7 @@ proc runLiveContract() =
   let counter = client.incrementFixedWindow("mahanaim:live:compatibility", 30)
   if counter.count < 1 or counter.ttlSeconds < 0 or counter.ttlSeconds > 30:
     raise newException(ValueError, "Redis/Valkey live TTL contract failed")
+  waitFor runLiveFanoutContract(host, port)
   echo "Redis/Valkey live contract passed: " & $report.flavor & " " &
     report.version
 

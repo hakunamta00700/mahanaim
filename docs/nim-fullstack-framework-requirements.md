@@ -264,3 +264,8 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 
 - [x] SHOULD baseline: subscription ordering과 connection별 bounded queue/overflow policy(`close`, `drop newest`, `drop oldest`)를 loopback contract로 검증한다.
 - [ ] SHOULD remaining: 실제 Redis service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring.
+
+## Redis service fan-out evidence (2026-08-05)
+
+- [x] SHOULD baseline: 실제 Redis 서비스에서 독립 subscription socket 2개와 publisher의 multi-connection fan-out, subscriber count, delivery timeout을 `redisLive`로 검증한다.
+- [ ] SHOULD remaining: 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence.

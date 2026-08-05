@@ -319,3 +319,4 @@
 - [x] **P3-14 Redis ordered delivery** — subscription reader가 한 connection의 message callback을 순차적으로 await해 coalesced frame과 느린 subscriber에서도 message ordering을 보존한다는 loopback 회귀 테스트를 추가했다.
 - [x] **P3-16 Redis bounded backpressure** — connection별 bounded pending queue와 `rbpCloseConnection`·`rbpDropNewest`·`rbpDropOldest` overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다.
 - [-] **P3-17 Redis production fan-out** — 실제 Redis service 기반 cross-process `ChannelLayer` fan-out과 production live evidence는 후속 운영 범위다.
+- [x] **P3-18 Redis service fan-out baseline** — 실제 Redis 7.2.15 서비스에서 독립 subscription socket 2개와 publisher를 연결해 동일 payload fan-out, subscriber count, delivery timeout을 `redisLive` contract로 검증했다. 별도 프로세스 `ChannelLayer` wiring은 P3-17에 남긴다.

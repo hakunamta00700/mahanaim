@@ -135,3 +135,4 @@
 - Redis subscription reconnect에 bounded exponential backoff와 max attempt/delay validation을 추가하고, 실패 후 재시도 성공 attempt를 loopback fixture로 검증했다. ordering·backpressure와 production cross-process fan-out은 후속 범위다.
 - Redis async subscription reader의 per-connection ordered delivery를 slow subscriber와 coalesced frames loopback 테스트로 검증했다. bounded queue/overflow backpressure와 production cross-process fan-out은 후속 범위다.
 - Redis async subscription client에 connection별 bounded pending queue와 close/drop-newest/drop-oldest overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다. 실제 Redis service 기반 cross-process fan-out은 후속 범위다.
+- `redisLive` 계약에 실제 Redis 서비스의 독립 subscription 연결 2개와 publisher를 사용하는 multi-connection fan-out 검증을 추가했다. Redis 7.2.15 disposable container에서 subscriber count 2와 양쪽 payload delivery를 통과시켰으며, 별도 프로세스 `ChannelLayer` wiring은 후속 범위다.
