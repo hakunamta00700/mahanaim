@@ -1386,6 +1386,33 @@ suite "Mahanaim core contracts":
     check not secureReport.passed
     check secureReport.issues[0].code == "security.csrf-cookie.insecure"
 
+  test "untrusted forwarded host cannot bypass host allow list":
+    ## Forwarded host is deployment metadata, not user input. A request from
+    ## an untrusted peer must be checked against its direct Host value even if
+    ## it supplies a convincing public hostname in X-Forwarded-Host.
+    var policy = defaultSecurityPolicy()
+    policy.allowedHosts = @["public.example"]
+    policy.trustedProxies = @["10.0.0.2"]
+    let app = newApplication(defaultConfig(), policy)
+    proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("should not run")
+    app.get("/untrusted-forwarded-host", "untrusted-forwarded-host", health)
+
+    var forwarded = newRequest("GET", "/untrusted-forwarded-host")
+    forwarded.remoteAddress = "198.51.100.8"
+    forwarded.headers["host"] = "internal.example"
+    forwarded.headers["x-forwarded-host"] = "public.example"
+    let forwardedResponse = waitFor app.dispatch(forwarded)
+    check forwardedResponse.status == Http400
+    check forwardedResponse.body == "Invalid Host"
+
+    var missingHost = newRequest("GET", "/untrusted-forwarded-host")
+    missingHost.remoteAddress = "198.51.100.8"
+    let missingHostResponse = waitFor app.dispatch(missingHost)
+    check missingHostResponse.status == Http400
+    check missingHostResponse.body == "Invalid Host"
+
   test "HTTPS pre-flight warns when public hosts are not pinned":
     var policy = defaultSecurityPolicy()
     policy.requireHttps = true

@@ -154,6 +154,13 @@ nimble test
     check postgresSuite.contains("runCommonDatabaseContract")
     check implementationPlan.contains("tests/database_contracts.nim")
 
+  test "security negative-path evidence is recorded in the implementation plan":
+    let coreSuite = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check coreSuite.contains("untrusted forwarded host cannot bypass host allow list")
+    check implementationPlan.contains("untrusted forwarded host")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

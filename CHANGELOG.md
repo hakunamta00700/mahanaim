@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 보안 회귀 테스트에 untrusted `X-Forwarded-Host`와 missing `Host`가 allowed-host 정책을 우회하지 못하는 실패 경로를 추가했다.
 - SQLite와 PostgreSQL fixture가 공유하는 database adapter contract helper를 추가해 parameter binding, CRUD, affectedRows 의미를 같은 테스트로 검증한다.
 
 - public package entry point의 representative API compile contract와 `nimble publicApiCheck` gate를 추가하고 verify에 연결했다.
