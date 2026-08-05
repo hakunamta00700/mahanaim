@@ -2168,8 +2168,20 @@ suite "Mahanaim core contracts":
     var events: seq[string] = @[]
     app.onStartup(proc() = events.add("start"))
     app.onShutdown(proc() = events.add("stop"))
+    proc lateHook() = discard
+    var rejectedDuringStartup = false
+    app.onStartup(proc() =
+      try:
+        app.onStartup(lateHook)
+      except ValueError:
+        rejectedDuringStartup = true)
     app.startup()
     app.startup()
+    check rejectedDuringStartup
+    expect ValueError:
+      app.onStartup(lateHook)
+    expect ValueError:
+      app.onShutdown(lateHook)
     app.shutdown()
     app.shutdown()
     check events == @["start", "stop"]

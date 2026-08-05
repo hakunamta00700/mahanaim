@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] `onStartup`과 `onShutdown`도 startup 전 등록만 허용하고, hook 내부 또는 실행 후 lifecycle 순서를 변경하는 late registration을 거부한다. ordered/idempotent lifecycle 테스트로 경계를 검증했다.
+
 - [x] `use(plugin)`과 manifest plugin 등록도 startup 전용 lifecycle boundary를 공유하고, startup transition 및 실행 이후 등록을 거부한다. route·middleware·service surface의 late mutation을 회귀 테스트로 검증했다.
 
 - [-] 실제 application entrypoint build, certificate/secret injection과 staging rollout evidence는 application-owned 배포 환경에서 계속한다.

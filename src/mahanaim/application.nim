@@ -420,9 +420,19 @@ proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
     hekSync, handler)
 
 proc onStartup*(app: Application, hook: LifecycleHook) =
+  ## Startup hooks are configuration. Rejecting late additions prevents a
+  ## hook registered from inside another hook from changing this run's order.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Startup hooks must be registered before application startup")
   app.startupHooks.add(hook)
 
 proc onShutdown*(app: Application, hook: LifecycleHook) =
+  ## Shutdown ownership is fixed before startup so cleanup remains symmetric
+  ## and can be reasoned about even when startup fails halfway through.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      "Shutdown hooks must be registered before application startup")
   app.shutdownHooks.add(hook)
 
 proc onError*(app: Application, handler: ErrorHandler) =
