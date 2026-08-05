@@ -5,7 +5,7 @@
 ## making the framework test suite depend on a particular local daemon.
 
 import std/[asyncdispatch, net, os, strutils, times]
-import mahanaim/redis_channels
+import mahanaim/[core, redis_channel_layer]
 import mahanaim/redis_resp
 
 proc runLiveFanoutContract(host: string, port: Port): Future[void] {.async.} =
@@ -13,38 +13,39 @@ proc runLiveFanoutContract(host: string, port: Port): Future[void] {.async.} =
   ## broker boundary: Redis must fan one publish out to both consumers, while
   ## each local client retains its own acknowledgement and delivery lifecycle.
   let channel = "mahanaim:live:fanout:" & $epochTime()
-  let first = newRedisPubSubClient(host, port, maxPendingMessages = 16)
-  let second = newRedisPubSubClient(host, port, maxPendingMessages = 16)
-  let publisher = newRedisValkeyRespClient(host, port, timeoutMs = 2000)
+  let first = newRedisChannelLayer(host, port, maxPendingMessages = 16)
+  let second = newRedisChannelLayer(host, port, maxPendingMessages = 16)
   var deliveries = 0
   let completed = newFuture[void]("redisLiveFanout")
   defer:
-    first.close()
-    second.close()
-    publisher.close()
+    first.stop()
+    second.stop()
 
-  let firstSubscription = await first.subscribe(channel,
-    proc(receivedChannel, payload: string): Future[void] {.async, gcsafe.} =
-      if receivedChannel != channel or payload != "fanout-payload":
+  await first.start()
+  await second.start()
+  let firstSubscription = await first.subscribeAsync(channel,
+    proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+      if message.kind != wsmText or message.payload != "fanout-payload":
         raise newException(ValueError, "Redis live fan-out payload contract failed")
       inc deliveries
       if deliveries == 2 and not completed.finished:
         completed.complete())
-  let secondSubscription = await second.subscribe(channel,
-    proc(receivedChannel, payload: string): Future[void] {.async, gcsafe.} =
-      if receivedChannel != channel or payload != "fanout-payload":
+  let secondSubscription = await second.subscribeAsync(channel,
+    proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+      if message.kind != wsmText or message.payload != "fanout-payload":
         raise newException(ValueError, "Redis live fan-out payload contract failed")
       inc deliveries
       if deliveries == 2 and not completed.finished:
         completed.complete())
-  let subscribers = publisher.publishRedisChannel(channel, "fanout-payload")
+  let subscribers = await first.publish(channel,
+    textWebSocketMessage("fanout-payload"))
   if subscribers != 2:
     raise newException(ValueError,
       "Redis live fan-out expected two subscribers, got " & $subscribers)
   if not await completed.withTimeout(2000):
     raise newException(ValueError, "Redis live fan-out delivery timed out")
-  await first.unsubscribe(firstSubscription)
-  await second.unsubscribe(secondSubscription)
+  await first.unsubscribeAsync(firstSubscription)
+  await second.unsubscribeAsync(secondSubscription)
 
 proc runLiveContract() =
   ## Keep missing-service behavior explicit: compile gates prove the source

@@ -269,3 +269,8 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 
 - [x] SHOULD baseline: 실제 Redis 서비스에서 독립 subscription socket 2개와 publisher의 multi-connection fan-out, subscriber count, delivery timeout을 `redisLive`로 검증한다.
 - [ ] SHOULD remaining: 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence.
+
+## Redis ChannelLayer adapter baseline (2026-08-05)
+
+- [x] SHOULD baseline: `RedisChannelLayer`가 async subscribe/unsubscribe acknowledgement, bounded pub/sub delivery, non-blocking publish socket과 length-delimited `WebSocketMessage` envelope를 공통 `ChannelLayer`에 연결한다.
+- [ ] SHOULD remaining: 별도 OS 프로세스의 rolling shutdown/reconnect 운영 evidence와 deployment runbook.

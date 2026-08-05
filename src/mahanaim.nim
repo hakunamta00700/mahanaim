@@ -19,6 +19,7 @@ import mahanaim/channels
 import mahanaim/openapi_client
 import mahanaim/httpx_adapter
 import mahanaim/redis_channels
+import mahanaim/redis_channel_layer
 
 
 export core, router, application, config, http_adapter, generator, security,
@@ -37,3 +38,4 @@ export channels
 export openapi_client
 export httpx_adapter
 export redis_channels
+export redis_channel_layer

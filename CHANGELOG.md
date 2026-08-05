@@ -136,3 +136,4 @@
 - Redis async subscription reader의 per-connection ordered delivery를 slow subscriber와 coalesced frames loopback 테스트로 검증했다. bounded queue/overflow backpressure와 production cross-process fan-out은 후속 범위다.
 - Redis async subscription client에 connection별 bounded pending queue와 close/drop-newest/drop-oldest overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다. 실제 Redis service 기반 cross-process fan-out은 후속 범위다.
 - `redisLive` 계약에 실제 Redis 서비스의 독립 subscription 연결 2개와 publisher를 사용하는 multi-connection fan-out 검증을 추가했다. Redis 7.2.15 disposable container에서 subscriber count 2와 양쪽 payload delivery를 통과시켰으며, 별도 프로세스 `ChannelLayer` wiring은 후속 범위다.
+- `RedisChannelLayer` adapter를 추가해 async subscription acknowledgement, bounded Redis pub/sub delivery, non-blocking publish socket과 WebSocket message envelope를 framework-neutral `ChannelLayer`에 연결했다. Redis 7.2.15 live contract에서 두 adapter instance의 fan-out을 검증했으며 별도 OS 프로세스 운영 증거는 후속 범위다.

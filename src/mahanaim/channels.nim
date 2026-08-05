@@ -60,6 +60,42 @@ method publish*(layer: ChannelLayer, group: string,
                 message: WebSocketMessage): Future[int] {.base, gcsafe.} =
   raise newException(ValueError, "channel layer does not support publish")
 
+method subscribeAsync*(layer: ChannelLayer, group: string,
+                       subscriber: ChannelSubscriber): Future[ChannelSubscription] {.base, gcsafe.} =
+  ## Synchronous backends can complete this extension point immediately;
+  ## broker-backed layers override it when subscription acknowledgement is an
+  ## asynchronous wire event. Keeping the original subscribe method intact
+  ## avoids forcing existing local adapters and WebSocket binding code to
+  ## become async solely because one backend uses a remote broker.
+  let completed = newFuture[ChannelSubscription]("channelSubscribe")
+  try:
+    completed.complete(layer.subscribe(group, subscriber))
+  except CatchableError as error:
+    completed.fail(error)
+  completed
+
+method unsubscribeAsync*(layer: ChannelLayer,
+                         subscription: ChannelSubscription): Future[void] {.base, gcsafe.} =
+  ## The default adapter has no remote acknowledgement to await. Distributed
+  ## implementations override this method to make cleanup observable to
+  ## callers that need a graceful shutdown boundary.
+  let completed = newFuture[void]("channelUnsubscribe")
+  try:
+    layer.unsubscribe(subscription)
+    completed.complete()
+  except CatchableError as error:
+    completed.fail(error)
+  completed
+
+proc deliverChannelSubscription*(subscription: ChannelSubscription,
+                                 message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+  ## Subscriber ownership remains private to the channel layer. Concrete
+  ## distributed adapters use this narrow delivery seam instead of reaching
+  ## into callback fields or exposing broker-specific state publicly.
+  if subscription.isNil or not subscription.active:
+    return
+  await subscription.subscriber(message)
+
 method subscribe*(layer: CallbackChannelLayer, group: string,
                   subscriber: ChannelSubscriber): ChannelSubscription {.gcsafe.} =
   if layer.isNil or layer.subscribeProc.isNil:
@@ -86,6 +122,15 @@ proc validateSubscriber(subscriber: ChannelSubscriber) =
   if subscriber.isNil:
     raise newException(ValueError, "channel subscriber must not be nil")
 
+proc newChannelSubscription*(id: int, group: string,
+                             subscriber: ChannelSubscriber): ChannelSubscription =
+  ## Concrete backends share this constructor so subscriber ownership remains
+  ## private while every backend applies the same validation and normalization.
+  validateGroup(group)
+  validateSubscriber(subscriber)
+  ChannelSubscription(id: id, group: group.strip(), active: true,
+                     subscriber: subscriber)
+
 proc newCallbackChannelLayer*(subscribeProc: ChannelSubscribeProc,
                               unsubscribeProc: ChannelUnsubscribeProc,
                               publishProc: ChannelPublishProc): ChannelLayer =
@@ -103,8 +148,7 @@ method subscribe*(layer: InMemoryChannelLayer, group: string,
   validateGroup(group)
   validateSubscriber(subscriber)
   inc layer.nextId
-  result = ChannelSubscription(id: layer.nextId, group: group.strip(),
-                               active: true, subscriber: subscriber)
+  result = newChannelSubscription(layer.nextId, group, subscriber)
   var entries = layer.subscriptions.getOrDefault(result.group, @[])
   entries.add(result)
   layer.subscriptions[result.group] = entries

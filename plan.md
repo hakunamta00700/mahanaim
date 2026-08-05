@@ -320,3 +320,4 @@
 - [x] **P3-16 Redis bounded backpressure** — connection별 bounded pending queue와 `rbpCloseConnection`·`rbpDropNewest`·`rbpDropOldest` overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다.
 - [-] **P3-17 Redis production fan-out** — 실제 Redis service 기반 cross-process `ChannelLayer` fan-out과 production live evidence는 후속 운영 범위다.
 - [x] **P3-18 Redis service fan-out baseline** — 실제 Redis 7.2.15 서비스에서 독립 subscription socket 2개와 publisher를 연결해 동일 payload fan-out, subscriber count, delivery timeout을 `redisLive` contract로 검증했다. 별도 프로세스 `ChannelLayer` wiring은 P3-17에 남긴다.
+- [x] **P3-19 Redis ChannelLayer adapter** — `RedisChannelLayer`가 `ChannelLayer`의 async subscribe/unsubscribe 확장점과 non-blocking publish socket을 소유하고, length-delimited WebSocket message envelope를 통해 실제 Redis service fan-out을 연결한다. 별도 OS 프로세스 운영 증거와 reconnect/rolling shutdown runbook은 P3-17에 남긴다.

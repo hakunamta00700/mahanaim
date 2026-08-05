@@ -5105,6 +5105,20 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard parseRedisPubSubEvent("+PONG\r\n")
 
+  test "Redis channel message codec preserves WebSocket message semantics":
+    let original = binaryWebSocketMessage("binary\0payload")
+    let encoded = encodeRedisChannelMessage(original)
+    let decoded = decodeRedisChannelMessage(encoded)
+    check decoded.kind == wsmBinary
+    check decoded.payload == "binary\0payload"
+    check decoded.closeCode == 0
+    let empty = decodeRedisChannelMessage(
+      encodeRedisChannelMessage(textWebSocketMessage("")))
+    check empty.kind == wsmText
+    check empty.payload == ""
+    expect ValueError:
+      discard decodeRedisChannelMessage("not-a-channel-message")
+
   test "async Redis pubsub client receives messages and acknowledges unsubscribe":
     var state: RedisPubSubFixtureState
     state.port.store(0)

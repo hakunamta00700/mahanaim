@@ -914,3 +914,8 @@ flowchart TB
 
 - [x] `redisLive`가 실제 Redis 7.2.15 서비스에서 독립 subscription socket 2개와 publisher를 사용해 subscriber count 2, 양쪽 payload delivery, bounded timeout을 검증한다.
 - [ ] 별도 프로세스 `ChannelLayer` distributed backend wiring과 production deployment evidence는 후속 범위다.
+
+### 2026-08-05 — Redis ChannelLayer adapter baseline
+
+- [x] `RedisChannelLayer`를 별도 adapter module로 추가하고 `subscribeAsync`/`unsubscribeAsync` 확장점, bounded Redis subscription client, non-blocking short-lived publish socket, length-delimited WebSocket message envelope를 연결했다. Redis 7.2.15 live contract에서 두 adapter instance의 fan-out을 통과시켰다.
+- [ ] 별도 OS 프로세스 rolling shutdown/reconnect 운영 evidence와 deployment runbook은 후속 범위다.
