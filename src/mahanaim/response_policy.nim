@@ -5,6 +5,7 @@
 ## parsing out of business logic and making 406 behavior consistent.
 
 import std/[algorithm, httpcore, options, strutils, tables]
+import nimcrypto
 import ./core
 
 type AcceptedMedia = object
@@ -71,6 +72,53 @@ proc withAcceptVary(response: Response): Response =
         break
     if not hasAccept:
       result.headers["vary"] = existing & ", Accept"
+
+proc bufferedResponseEtag*(response: Response): string =
+  ## Derive a strong entity tag only for buffered representations. Streaming,
+  ## SSE, and WebSocket responses have transport-level framing or lifecycle
+  ## state, so hashing their current buffer would create a misleading cache
+  ## contract. An explicitly supplied ETag remains application-owned.
+  if response.representation in {rrStream, rrServerSentEvents, rrWebSocket}:
+    return ""
+  let existing = response.header("etag")
+  if existing.isSome:
+    return existing.get()
+  "\"" & ($sha256.digest(response.body)).toLowerAscii() & "\""
+
+proc weakComparableEtag(value: string): string =
+  ## If-None-Match uses weak comparison: W/"x" and "x" identify the same
+  ## representation for cache validation. Keep parsing local to this policy so
+  ## adapters do not implement subtly different header semantics.
+  result = value.strip()
+  if result.toUpperAscii().startsWith("W/"):
+    result = result[2 .. ^1].strip()
+
+proc matchesIfNoneMatch(header, etag: string): bool =
+  for candidate in header.split(','):
+    let normalized = candidate.strip()
+    if normalized == "*" or
+       weakComparableEtag(normalized) == weakComparableEtag(etag):
+      return true
+
+proc conditionalResponse*(request: Request, response: Response): Response =
+  ## Attach an ETag and convert a matching GET/HEAD request into 304. The
+  ## policy runs after content negotiation so a representation's bytes are
+  ## hashed once and the same result is observed by in-process and wire tests.
+  result = response
+  let etag = bufferedResponseEtag(result)
+  if etag.len == 0:
+    return
+  result.headers["etag"] = etag
+  let candidate = request.header("if-none-match")
+  if candidate.isNone or not matchesIfNoneMatch(candidate.get(), etag):
+    return
+  result.status = if request.httpMethod.toUpperAscii() in ["GET", "HEAD"]:
+    Http304
+  else:
+    Http412
+  result.body = ""
+  result.filePath = ""
+  result.variants = @[]
 
 proc negotiateResponse*(request: Request,
                         variants: openArray[Response]): Response =

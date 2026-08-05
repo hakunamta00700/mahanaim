@@ -2783,6 +2783,41 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "image/png"
     check negotiateResponse(request, candidates).status == Http406
 
+  test "buffered responses expose ETag and honor If-None-Match":
+    var request = newRequest("GET", "/etag")
+    let first = conditionalResponse(request, jsonResponse("{\"ok\":true}"))
+    let etag = first.header("ETag").get()
+    check etag.len > 2
+    check first.status == Http200
+    check first.body == "{\"ok\":true}"
+
+    request.headers["if-none-match"] = etag
+    let notModified = conditionalResponse(request,
+      jsonResponse("{\"ok\":true}"))
+    check notModified.status == Http304
+    check notModified.body == ""
+    check notModified.header("ETag").get() == etag
+
+    request.headers["if-none-match"] = "W/" & etag
+    check conditionalResponse(request, jsonResponse("{\"ok\":true}"))
+      .status == Http304
+    request.headers["if-none-match"] = "\"different\""
+    check conditionalResponse(request, jsonResponse("{\"ok\":true}"))
+      .status == Http200
+    check conditionalResponse(request, streamResponse("chunk"))
+      .header("ETag").isNone
+
+    let app = newApplication()
+    app.get("/dispatch-etag", "dispatch-etag",
+      proc(_: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        return textResponse("cached"))
+    let dispatched = waitFor app.dispatch(newRequest("GET", "/dispatch-etag"))
+    var cachedRequest = newRequest("GET", "/dispatch-etag")
+    cachedRequest.headers["if-none-match"] = dispatched.header("ETag").get()
+    let dispatchedNotModified = waitFor app.dispatch(cachedRequest)
+    check dispatchedNotModified.status == Http304
+    check dispatchedNotModified.body == ""
+
   test "response policy negotiates streaming representations with cache variance":
     var request = newRequest("GET", "/streaming")
     request.headers["accept"] = "text/event-stream"

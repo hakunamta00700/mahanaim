@@ -883,3 +883,8 @@ flowchart TB
 
 - [x] OpenAPI registry를 소비하는 별도 generator가 operation별 request/response interface와 dependency-free `fetch` client class를 deterministic하게 생성하도록 추가했다.
 - [x] path/query parameter encoding, response typing, `openapi-ts [PATH]` CLI 파일 출력과 반복 생성 동일성 회귀 테스트를 추가했다. handler closure는 읽지 않고 명시적 registry/schema만 사용한다.
+
+### 2026-08-05 — P2 conditional response validator
+
+- [x] buffered response에 SHA-256 기반 strong `ETag`를 생성하고, application dispatch 이후 공통 정책에서 `If-None-Match` weak comparison을 처리하도록 추가했다.
+- [x] 일치하는 `GET`/`HEAD`는 body 없는 304로 반환하고 stream/SSE/WebSocket은 제외하는 unit·dispatch 회귀 테스트를 추가했다.
