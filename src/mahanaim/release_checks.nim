@@ -235,3 +235,24 @@ proc validateDefinitionOfDone*(path: string): seq[string] =
     if command notin document:
       result.add("definition of done verification command is missing: " &
         command)
+
+proc validatePlanChecklist*(path: string): seq[string] =
+  ## Keep the implementation plan machine-readable without pretending that a
+  ## validator can prove a feature is complete. The maintainer still chooses
+  ## `[x]`, `[-]`, or `[ ]`; this contract only prevents malformed markers,
+  ## empty entries, and a plan that lost its priority/completion sections.
+  if path.strip().len == 0 or not fileExists(path):
+    return @["implementation plan does not exist: " & path]
+  let document = readFile(path)
+  for section in ["## 현재 실행 큐", "## 완료 판정"]:
+    if section notin document:
+      result.add("implementation plan section is missing: " & section)
+  for line in document.splitLines:
+    let marker = line.strip()
+    if not marker.startsWith("- ["):
+      continue
+    if marker.len < 5 or marker[4] != ']' or
+        marker[3] notin {' ', '-', 'x'}:
+      result.add("implementation plan checkbox marker is invalid: " & marker)
+    elif marker.len == 5 or marker[5 .. ^1].strip().len == 0:
+      result.add("implementation plan checklist item is empty: " & marker)

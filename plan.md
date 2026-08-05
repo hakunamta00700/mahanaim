@@ -344,3 +344,7 @@
 
 - [x] GitHub Actions에 Nim 2.2.4 `macos-latest` runner, Homebrew `libpq` 설치와 macOS 전용 `shasum` release checksum 경계를 추가하고 workflow 문서 계약 테스트를 연결했다.
 - [ ] 실제 GitHub macOS runner의 test·verify·check·build와 artifact upload 성공 로그는 외부 CI 실행 후 최종 체크한다.
+
+### 2026-08-05 plan checklist validation
+
+- [x] `validatePlanChecklist`가 `plan.md`의 우선순위·완료 판정 section, `[x]`/`[-]`/`[ ]` marker와 빈 항목을 `nimble docsCheck`에서 검증하도록 추가했다.

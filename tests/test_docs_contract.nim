@@ -12,6 +12,7 @@ suite "definition of done contracts":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
     check issues.len == 0
+    check validatePlanChecklist(getCurrentDir() / "plan.md").len == 0
 
   test "malformed checklist reports every missing contract":
     let path = getTempDir() / "mahanaim-definition-of-done-invalid.md"
@@ -29,6 +30,21 @@ nimble test
     check issues.len >= 2
     check issues.anyIt(it.contains("verification command is missing"))
     check issues.anyIt(it.contains("checkbox marker is invalid"))
+
+  test "malformed implementation plan reports invalid status and empty item":
+    let path = getTempDir() / "mahanaim-plan-invalid.md"
+    writeFile(path, """
+## 현재 실행 큐
+- [X] invalid marker
+- [ ]
+## 완료 판정
+""")
+    defer:
+      if fileExists(path):
+        removeFile(path)
+    let issues = validatePlanChecklist(path)
+    check issues.anyIt(it.contains("checkbox marker is invalid"))
+    check issues.anyIt(it.contains("checklist item is empty"))
 
   test "router benchmark is wired as a repeatable Nimble gate":
     let benchmark = getCurrentDir() / "benchmarks" / "router_benchmark.nim"

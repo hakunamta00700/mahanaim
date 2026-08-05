@@ -988,3 +988,8 @@ flowchart TB
 - [x] 계약 우선, 단일 메타데이터 원천, 명시적 실행 경계와 Prologue 비종속 코어 원칙을 현재 public module·contract test 증거에 맞춰 체크했다.
 - [x] Phase 0의 Application/config/request-response 계약, Prologue 변환 adapter, router·middleware·lifecycle·error 경계를 구현·테스트된 baseline으로 정합화했다.
 - [ ] 기능별 Definition of Done, OS/Nim matrix, staging TLS와 production live evidence는 외부 검증 범위로 계속 추적한다.
+
+### 2026-08-05 — Plan checklist validation
+
+- [x] `validatePlanChecklist`가 `plan.md`의 priority/completion sections, supported checkbox markers와 empty checklist items를 `docsCheck` contract로 검증한다.
+- [ ] 이 validator는 구현 증거 자체를 대신하지 않으므로 staging/live evidence와 기능별 Definition of Done 확인은 계속 별도 수행한다.
