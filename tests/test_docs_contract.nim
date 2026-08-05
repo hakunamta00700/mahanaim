@@ -120,6 +120,15 @@ nimble test
     check supportMatrix.contains("Nim")
     check supportMatrix.contains("macOS")
 
+  test "minimal documentation example has a compile and run gate":
+    ## The smallest public example must exercise the same Application route
+    ## and dispatch contract that users see in the documentation.
+    let example = getCurrentDir() / "examples" / "minimal_app.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(example)
+    check manifest.contains("task docsExamples")
+    check manifest.contains("examples/minimal_app.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

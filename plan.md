@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 `examples/minimal_app.nim`을 추가해 public package import, HTML/JSON route, startup/shutdown과 in-process dispatch를 실행하고 `nimble docsExamples` gate에서 `minimal-app-ok` 및 response invariant를 검증했다.
 - [x] 2026-08-05 `docs/api-stability-policy.md`를 추가해 package manifest·lockfile·support matrix와 semantic versioning, `experimental`/`stable`/`deprecated` maturity, migration guide 및 security release 규칙을 연결하고 `docsCheck` 계약 테스트로 drift를 검증했다. clean OS runner와 실제 release artifact 증거는 외부 범위다.
 - [x] 2026-08-05 `httpDispatchBenchmark`를 추가해 Application dispatch의 route·security middleware·handler·response 경계를 10,000회 반복하고 HTTP 200/body invariant를 검증했다. socket/production network latency와 버전별 결과 기록은 별도 live/release 범위다.
 - [x] 2026-08-05 template AST/render benchmark를 `nimble templateBenchmark` gate로 연결하고 10,000회 workload에서 auto-escaping과 loop metadata output invariant를 검증했다. HTTP benchmark 분리와 버전별 결과 기록은 후속 범위다.

@@ -69,6 +69,12 @@ task httpDispatchBenchmark, "Run the deterministic HTTP dispatch benchmark":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r benchmarks/http_dispatch_benchmark.nim"
 
+task docsExamples, "Compile and run executable documentation examples":
+  ## Documentation drift is a release defect. Compile and execute the minimal
+  ## example through the public package entry point on every local/CI gate.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r examples/minimal_app.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 
@@ -76,6 +82,7 @@ task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
   exec "nimble lockCheck"
   exec "nimble docsCheck"
+  exec "nimble docsExamples"
 
 task docsCheck, "Validate the Definition of Done document contract":
   ## Keep checklist structure in the same verification path as source and

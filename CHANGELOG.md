@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 실행 가능한 `examples/minimal_app.nim`과 `nimble docsExamples` gate를 추가해 public package API의 HTML/JSON route 예제를 compile/run으로 검증한다.
+
 - API stability/release policy 문서를 추가해 manifest·lockfile·support matrix와 semantic versioning, API maturity, deprecation migration 및 security release 규칙을 고정했다.
 
 - deterministic `Application.dispatch` HTTP benchmark와 `nimble httpDispatchBenchmark` gate를 추가해 routing·security middleware·handler·response 경계를 반복 검증한다. socket/production network latency는 live gate 범위로 분리한다.

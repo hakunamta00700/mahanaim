@@ -807,7 +807,7 @@ flowchart TB
 - [ ] migration은 빈 DB, 기존 데이터, rollback, 동시 요청 조건에서 검증한다.
 - [ ] adapter는 공통 contract test suite를 공유한다. SQLite와 PostgreSQL 테스트가 같은 의미를 가져야 한다.
 - [-] benchmark를 HTTP, router, serialization, ORM query, template rendering 경계로 분리한다. router·password hash·`databaseQueryBenchmark` ORM query compiler·`serializationBenchmark` metadata serializer·`templateBenchmark` AST/render·`httpDispatchBenchmark` Application dispatch gate를 추가했고, 버전별 release artifact 기록은 후속 범위다.
-- [ ] 문서 예제는 CI에서 컴파일·실행해 문서와 코드의 drift를 방지한다.
+- [x] `examples/minimal_app.nim`이 public `mahanaim` entry point로 HTML·JSON route를 구성하고 `nimble docsExamples`에서 compile/run 및 response invariant를 검증해 문서와 코드의 drift를 방지한다. 추가 예제는 같은 gate에 누적한다.
 
 ### 7.3 릴리스와 호환성 정책
 
