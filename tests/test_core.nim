@@ -2228,16 +2228,18 @@ suite "Mahanaim core contracts":
     let app = newTestApplication()
     app.get("/fixture", "fixture",
       proc(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
-        return textResponse("fixture-ready"))
+        var response = textResponse("fixture-ready")
+        response.headers["x-fixture"] = "ready"
+        return response)
     let fixture = newNetworkTestFixture(app)
     asyncCheck fixture.start()
-    let port = waitFor fixture.waitUntilReady()
-    let client = hc.newAsyncHttpClient()
+    discard waitFor fixture.waitUntilReady()
+    let client = newNetworkTestClient(fixture)
     try:
-      let response = waitFor client.get(
-        "http://127.0.0.1:" & $port.uint16 & "/fixture")
-      check response.code == Http200
-      check (waitFor response.body()) == "fixture-ready"
+      let response = waitFor client.get("/fixture")
+      check response.status == Http200
+      check response.body == "fixture-ready"
+      check response.header("x-fixture").get("") == "ready"
     finally:
       client.close()
       fixture.close()

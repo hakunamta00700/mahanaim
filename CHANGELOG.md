@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 서버 렌더링용 XML sitemap 및 RSS 2.0 renderer를 추가했다. absolute URL 검증, XML escaping, sitemap metadata, RSS channel/item 필수값 검증을 공통 contract로 제공한다.
+- 실제 loopback live-server smoke test를 재사용할 수 있도록 ephemeral-port readiness와 wire 응답 정규화를 제공하는 `NetworkTestFixture`/`NetworkTestClient`를 추가했다. status·header·body와 idempotent shutdown 회귀 테스트를 포함한다.
 - 서버 렌더링 흐름을 위한 bounded FIFO `FlashStore`와 기본 in-memory adapter를 추가했다. session별 격리와 consume-once semantics를 Application 기본 contract로 제공한다.
 - plugin이 Application 소유 serialization codec registry, named object storage registry, ordered auth backend를 명시적으로 등록할 수 있는 확장 API를 추가했다. 중복 등록과 실제 plugin 연결 회귀 테스트를 포함했다.
 - admin detail HTML 화면과 metadata 기반 edit form, URL-encoded create/update, 명시적 POST delete/redirect 흐름을 추가해 별도 SPA 없이 CRUD 화면을 사용할 수 있게 했다. JSON API와 기존 권한·감사 경계는 유지한다.

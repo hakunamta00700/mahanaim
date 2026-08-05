@@ -48,6 +48,7 @@
 - [x] **P0-01 PostgreSQL live typed contract** — PostgreSQL 16 컨테이너에서 custom field codec, JSONB OID typed result, serializable transaction, repository CRUD/aggregate/relation, migration up/idempotency/rollback을 실행했다. `tests/test_postgres_live.nim`과 운영 문서에 실행 조건·결과를 기록했다.
 - [-] **P0-02 HTTPS deployment boundary** — `Request`의 adapter scheme/peer와 명시적 `trustedProxies`를 통해 forwarded scheme/host를 제한하고, `requireHttps`·secure cookie/header·allowed host 계약과 회귀 테스트·운영 문서를 연결했다. `checkApplication`은 HTTPS 강제 정책에서 공개 `allowedHosts`가 비어 있으면 warning을 출력하고, Linux CI는 `httpsLiveCheck` compile gate와 URL 미설정 명시적 skip을 실행한다. 재현 가능한 Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 `httpsLive` staging client를 추가하고 cold cache readiness window를 보완해 HTTP→HTTPS redirect, handshake·proxy hop·cookie를 통과시켰으며, 운영 staging endpoint의 trusted certificate/renewal 증거는 남아 있다.
 - [x] **P0-03 첫 수직 슬라이스 통합 계약** — SQLite metadata migration이 타입과 자동 증가 PK를 보존하도록 고정하고, `mahanaim new` 생성 앱과 하나의 Application lifecycle에서 JSON/admin CRUD, validation·CSRF·session·admin 권한, OpenAPI route collection, test client, health·request ID·startup/shutdown을 검증했다. `tests/test_core.nim`의 통합 fixture, 생성 프로젝트 fixture와 상세 실행 계획·변경 로그를 함께 갱신했다.
+- [x] **P0-05 live-server smoke fixture** — 실제 loopback NetworkServer를 ephemeral port로 시작·readiness polling하고, `NetworkTestClient`가 wire HTTP 응답을 core `Response`로 정규화하도록 추가했다. fixture의 idempotent shutdown과 실제 TCP status·header·body를 contract test로 검증했으며, backend별 고급 live fixture는 별도 gate로 유지한다.
 
 ### P1 — 핵심 제품 기능의 남은 범위
 

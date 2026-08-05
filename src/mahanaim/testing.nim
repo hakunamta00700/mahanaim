@@ -5,6 +5,7 @@
 ## and error behavior that a network adapter invokes, without socket timing.
 
 import std/[asyncdispatch, httpcore, options, strutils, tables, uri]
+import std/httpclient as hc
 import ./application
 import ./config
 import ./core
@@ -24,7 +25,7 @@ type
     app*: Application
     cookies*: Table[string, string]
     hasLastResponse*: bool
-    lastResponse*: Response
+    lastResponse*: core.Response
 
   TestWebSocketClient* = ref object
     ## In-process WebSocket peer used by contract tests. It models the same
@@ -47,6 +48,15 @@ type
     ## retaining the same adapter that production embedding uses.
     network*: NetworkServer
     started*: bool
+
+  NetworkTestClient* = ref object
+    ## A small wire client paired with NetworkTestFixture. Keeping the
+    ## httpclient conversion here means smoke tests assert the framework's
+    ## core Response contract instead of repeating transport-specific body
+    ## and header plumbing in every test.
+    fixture*: NetworkTestFixture
+    client: hc.AsyncHttpClient
+    baseUrl: string
 
   DatabaseTestFactory* = proc(): DatabaseAdapter {.gcsafe.}
   DatabaseTestCloser* = proc(adapter: DatabaseAdapter) {.gcsafe.}
@@ -108,6 +118,73 @@ proc waitUntilReady*(fixture: NetworkTestFixture, attempts = 50,
       await sleepAsync(intervalMs)
   raise newException(IOError, "Network test fixture did not become ready")
 
+proc newNetworkTestClient*(fixture: NetworkTestFixture): NetworkTestClient =
+  ## Create a client only after the fixture has bound an ephemeral port. This
+  ## fail-fast rule prevents a misleading connection-refused error when a
+  ## test forgot to await `waitUntilReady`.
+  if fixture.isNil or fixture.network.isNil or not fixture.started:
+    raise newException(ValueError, "Network test fixture must be started")
+  let port = fixture.network.boundPort()
+  if port.uint16 == 0:
+    raise newException(ValueError, "Network test fixture is not ready")
+  new(result)
+  result.fixture = fixture
+  result.client = hc.newAsyncHttpClient()
+  var host = fixture.network.host
+  ## Wildcard bind addresses are valid server configuration but are not a
+  ## routable destination for a client; loopback is the deterministic smoke
+  ## test endpoint in that case.
+  if host == "0.0.0.0" or host == "::":
+    host = "127.0.0.1"
+  result.baseUrl = "http://" & host & ":" & $port.uint16
+
+proc requestInternal(client: NetworkTestClient, httpMethod: HttpMethod,
+                      path, body: string,
+                      headers: seq[(string, string)]):
+                      Future[core.Response] {.async.} =
+  ## Execute one real HTTP request and normalize the wire response into the
+  ## same value object returned by Application.dispatch. The adapter remains
+  ## responsible for HTTP I/O; the test API exposes no AsyncResponse detail.
+  if client.isNil or client.client.isNil or client.fixture.isNil:
+    raise newException(ValueError, "Network test client is required")
+  if path.len == 0 or path[0] != '/':
+    raise newException(ValueError, "Network test client paths must be absolute")
+  var wireHeaders = newHttpHeaders()
+  for header in headers:
+    wireHeaders[header[0]] = header[1]
+  let wireResponse = await client.client.request(
+    client.baseUrl & path, httpMethod, body = body, headers = wireHeaders)
+  let wireBody = await wireResponse.body()
+  result = newResponse(wireResponse.code, wireBody)
+  for key, value in wireResponse.headers:
+    result.headers[key.toLowerAscii()] = value
+
+proc request*(client: NetworkTestClient, httpMethod: HttpMethod, path: string,
+              body = "", headers: openArray[(string, string)] = []):
+              Future[core.Response] =
+  ## Copy borrowed header input before entering the async network operation.
+  var headerCopy: seq[(string, string)] = @[]
+  for header in headers:
+    headerCopy.add(header)
+  client.requestInternal(httpMethod, path, body, headerCopy)
+
+proc get*(client: NetworkTestClient, path: string,
+          headers: openArray[(string, string)] = []): Future[core.Response] =
+  ## The common GET path stays concise while retaining the generic request API.
+  client.request(HttpGet, path, headers = headers)
+
+proc post*(client: NetworkTestClient, path: string, body = "",
+           headers: openArray[(string, string)] = []): Future[core.Response] =
+  ## POST is provided for smoke tests that need to cross the request-body
+  ## boundary without exposing AsyncHttpClient to the test author.
+  client.request(HttpPost, path, body, headers)
+
+proc close*(client: NetworkTestClient) =
+  ## Client close is idempotent so fixture cleanup can use a single defer path.
+  if not client.isNil and not client.client.isNil:
+    client.client.close()
+    client.client = nil
+
 proc close*(fixture: NetworkTestFixture) =
   ## Closing is idempotent because cleanup must remain safe after assertions or
   ## an adapter startup error have already initiated shutdown.
@@ -150,7 +227,7 @@ proc cookieHeader(client: TestClient): string =
     pairs.add(name & "=" & value)
   pairs.join("; ")
 
-proc updateCookies(client: TestClient, response: Response) =
+proc updateCookies(client: TestClient, response: core.Response) =
   ## Track the simple Set-Cookie form emitted by the core cookie helper.
   let header = response.header("set-cookie")
   if header.isNone:
@@ -195,7 +272,7 @@ proc buildFrameworkRequest(client: TestClient, httpMethod, path,
     result.applyCookieHeader(cookies)
 
 proc requestInternal(client: TestClient, httpMethod, path, body: string,
-                      headers: seq[(string, string)]): Future[Response] {.async.} =
+                      headers: seq[(string, string)]): Future[core.Response] {.async.} =
   ## Build the same framework Request shape as a real HTTP adapter.
   let frameworkRequest = client.buildFrameworkRequest(httpMethod, path, body,
     headers)
@@ -205,7 +282,7 @@ proc requestInternal(client: TestClient, httpMethod, path, body: string,
   client.hasLastResponse = true
 
 proc request*(client: TestClient, httpMethod, path: string, body = "",
-              headers: openArray[(string, string)] = []): Future[Response] =
+              headers: openArray[(string, string)] = []): Future[core.Response] =
   ## Copy borrowed header input before entering the async dispatch pipeline.
   var headerCopy: seq[(string, string)] = @[]
   for header in headers:
@@ -213,12 +290,12 @@ proc request*(client: TestClient, httpMethod, path: string, body = "",
   client.requestInternal(httpMethod, path, body, headerCopy)
 
 proc get*(client: TestClient, path: string,
-          headers: openArray[(string, string)] = []): Future[Response] =
+          headers: openArray[(string, string)] = []): Future[core.Response] =
   ## Convenience method matching the most common test request.
   client.request("GET", path, headers = headers)
 
 proc post*(client: TestClient, path: string; body = "",
-           headers: openArray[(string, string)] = []): Future[Response] =
+           headers: openArray[(string, string)] = []): Future[core.Response] =
   ## POST keeps body and header construction visible in contract tests.
   client.request("POST", path, body, headers)
 
