@@ -4,7 +4,7 @@
 ## separate integrity gate. This module keeps both checks as pure, reusable
 ## contracts so CI, a release script, and an embedding CLI can share them.
 
-import std/[os, strutils]
+import std/[json, os, strutils]
 import nimcrypto
 
 type
@@ -83,3 +83,62 @@ proc validateReleaseArtifacts*(artifacts: openArray[ReleaseArtifact]): seq[strin
       result.add("artifact path is empty")
     elif not verifyArtifactChecksum(artifact):
       result.add("artifact checksum mismatch: " & artifact.path)
+
+proc validHex(value: string, expectedLength: int): bool =
+  ## Lockfile digests are metadata, not secrets; validate their shape before
+  ## a package manager consumes the file so malformed locks fail closed.
+  if value.len != expectedLength:
+    return false
+  for character in value:
+    if character notin {'0'..'9', 'a'..'f', 'A'..'F'}:
+      return false
+  true
+
+proc validateDependencyLock*(path: string,
+                             requiredPackages: openArray[string]): seq[string] =
+  ## Validate the stable Nimble lockfile contract without shelling out or
+  ## resolving network dependencies. The package manager remains responsible
+  ## for installation; this reusable check catches drift before compilation.
+  if path.strip().len == 0 or not fileExists(path):
+    return @["dependency lockfile does not exist: " & path]
+  var root: JsonNode
+  try:
+    root = parseFile(path)
+  except CatchableError as error:
+    return @["dependency lockfile is not valid JSON: " & error.msg]
+  if root.kind != JObject:
+    result.add("dependency lockfile root must be an object")
+    return
+  if not root.hasKey("version") or root["version"].kind != JInt or
+     root["version"].getInt() != 2:
+    result.add("dependency lockfile version must be 2")
+  if not root.hasKey("packages") or root["packages"].kind != JObject:
+    result.add("dependency lockfile packages must be an object")
+    return
+  let packages = root["packages"]
+  for packageName, packageValue in packages.pairs:
+    if packageValue.kind != JObject:
+      result.add("dependency package must be an object: " & packageName)
+      continue
+    if not packageValue.hasKey("version") or
+       packageValue["version"].kind != JString or
+       packageValue["version"].getStr().strip().len == 0:
+      result.add("dependency package version is missing: " & packageName)
+    if not packageValue.hasKey("url") or packageValue["url"].kind != JString or
+       packageValue["url"].getStr().strip().len == 0:
+      result.add("dependency package url is missing: " & packageName)
+    if not packageValue.hasKey("downloadMethod") or
+       packageValue["downloadMethod"].kind != JString or
+       packageValue["downloadMethod"].getStr().strip().len == 0:
+      result.add("dependency package download method is missing: " & packageName)
+    if not packageValue.hasKey("checksums") or
+       packageValue["checksums"].kind != JObject or
+       not packageValue["checksums"].hasKey("sha1") or
+       packageValue["checksums"]["sha1"].kind != JString or
+       not validHex(packageValue["checksums"]["sha1"].getStr(), 40):
+      result.add("dependency package sha1 checksum is invalid: " & packageName)
+  for packageName in requiredPackages:
+    if packageName.strip().len == 0:
+      result.add("required dependency package name is empty")
+    elif not packages.hasKey(packageName):
+      result.add("required dependency package is missing: " & packageName)

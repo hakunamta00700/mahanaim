@@ -41,6 +41,13 @@ task check, "Compile the framework CLI":
 
 task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
+  exec "nimble lockCheck"
+
+task lockCheck, "Validate the checked-in dependency lockfile":
+  ## Keep lock validation independent from package installation so a malformed
+  ## lock is reported before the compiler starts a long dependency build.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r tests/test_lock_contract.nim"
 
 task postgresCheck, "Compile the optional PostgreSQL adapter contract":
   ## Compile-only avoids requiring libpq.dll or a running PostgreSQL server.

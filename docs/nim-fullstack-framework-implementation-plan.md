@@ -702,7 +702,7 @@ flowchart TB
 | [-] | NFR-APP-002 | P0 | `.env`와 JSON/TOML provider를 통합하고 secret 타입·structured log redaction으로 로그·오류·빌드 노출을 차단한다. Application config secret은 observability sink 직전에 JSON tree 전체에서 치환하며, 외부 logger/build pipeline 통합은 남아 있다. |
 | [-] | NFR-APP-003 | P0 | lifecycle registry, 명시적 error handler, middleware chain, plugin registration API를 코어 계약으로 정의한다. |
 | [-] | NFR-APP-004 | P1 | `openapi [PATH]`, Application 소유 `admin create-user <identifier> [subject]`, `static collect <source...> --output <path>`, `jobs run [max]|recover`를 추가했다. OpenAPI는 stdout/파일로 생성하고 admin 비밀번호는 `MAHANAIM_ADMIN_PASSWORD`에서 읽으며 static 수집은 deterministic·안전한 local filesystem contract를 사용한다. `dev`, `db migrate`/`up`, `test`, `check`와 standalone `admin`/`jobs` 진입점을 공통 parser에 연결했고, 생성 앱 모듈은 `createApp()`·migration registry·admin creator를 명시적으로 구성한다. persistence와 credential 정책은 프로젝트 소유 범위다. |
-| [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고 CI에서 재현 설치를 검증한다. |
+| [-] | NFR-APP-005 | P0 | Nim/프레임워크 버전과 checksum을 manifest/lockfile에 기록하고, `validateDependencyLock`·`nimble lockCheck`로 lock JSON version·package metadata·필수 dependency·SHA-1 checksum shape를 CI/verify에서 검증한다. clean OS runner의 실제 dependency 재설치 증거와 추가 지원 버전 matrix는 남아 있다. |
 
 ### HTTP·라우팅·응답
 

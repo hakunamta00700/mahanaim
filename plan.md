@@ -50,6 +50,8 @@
 - [x] **P0-03 첫 수직 슬라이스 통합 계약** — SQLite metadata migration이 타입과 자동 증가 PK를 보존하도록 고정하고, `mahanaim new` 생성 앱과 하나의 Application lifecycle에서 JSON/admin CRUD, validation·CSRF·session·admin 권한, OpenAPI route collection, test client, health·request ID·startup/shutdown을 검증했다. `tests/test_core.nim`의 통합 fixture, 생성 프로젝트 fixture와 상세 실행 계획·변경 로그를 함께 갱신했다.
 - [x] **P0-05 live-server smoke fixture** — 실제 loopback NetworkServer를 ephemeral port로 시작·readiness polling하고, `NetworkTestClient`가 wire HTTP 응답을 core `Response`로 정규화하도록 추가했다. fixture의 idempotent shutdown과 실제 TCP status·header·body를 contract test로 검증했으며, backend별 고급 live fixture는 별도 gate로 유지한다.
 
+- [x] **P0-06 dependency lock integrity** — `nimble.lock`의 JSON version, package metadata, required direct dependency, SHA-1 checksum shape를 재사용 가능한 `validateDependencyLock` contract로 검증하고 `nimble lockCheck`를 `verify` gate에 연결했다. 실제 clean OS runner dependency 설치 결과는 matrix gate에서 별도로 축적한다.
+
 ### P1 — 핵심 제품 기능의 남은 범위
 
 - [x] **P1-01 구조형 template AST** — `TemplateNode` 구조형 AST parser/render를 추가하고 block/include/helper 인자를 typed node로 검증했다. nested collection projection, quoted literal, named argument, 교차 종료 태그의 parser/render regression test와 사용자 문서를 함께 반영했다.

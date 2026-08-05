@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `nimble.lock`의 version·package metadata·필수 dependency·SHA-1 checksum shape를 검증하는 `validateDependencyLock` contract와 `nimble lockCheck` gate를 추가하고 `verify`에 연결했다. clean OS runner의 dependency 재설치 증거는 별도 CI matrix 범위로 남겼다.
 - 생성 프로젝트가 동일한 migration 정의를 초기 SQLite 준비와 Application migration registry에 연결하고, 인증 account store/hasher 기반 admin provisioning callback을 standalone CLI에 제공하도록 보완했다. 저장소 영속화와 credential 정책은 프로젝트 소유 범위로 유지했다.
 - `mahanaim new`가 생성하는 애플리케이션 모듈을 `createApp()`과 `commandLineParams()`를 공통 `runCli`에 연결하는 명시적 standalone CLI 진입점으로 만들었다. 프레임워크가 임의 프로젝트 모듈을 자동 import하지 않도록 경계를 유지하면서 migration registry/account callback wiring과 startup/shutdown lifecycle을 생성 앱에 연결했다.
 

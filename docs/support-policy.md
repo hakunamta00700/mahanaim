@@ -18,7 +18,7 @@
 ## 릴리스 체크리스트
 
 - [ ] 지원 Nim/OS 조합에서 `test`, `check`, `verify`, `build`가 통과했다.
-- [ ] `nimble.lock` 변경을 검토하고 재현 가능한 dependency 설치를 확인했다.
+- [x] `nimble.lock` 변경을 검토하고 `validateDependencyLock`·`nimble lockCheck`로 metadata와 checksum shape를 확인한다. clean runner의 실제 dependency 재설치 증거는 CI matrix에서 별도로 확인한다.
 - [ ] secure cookie, host/CORS, body limit, timeout, CSRF와 rate-limit 기본값을
   보안 검토했다.
 - [ ] PostgreSQL/Redis/Valkey/Beast/HTTPS가 릴리스 대상이면 각 live gate의

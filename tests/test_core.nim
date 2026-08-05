@@ -1895,6 +1895,23 @@ suite "Mahanaim core contracts":
       minimumNim: NimVersionSpec(major: 999, minor: 0, patch: 0),
       operatingSystems: @[currentOperatingSystem()])).len > 0
 
+  test "dependency lock contract validates package metadata and checksums":
+    let lockPath = getTempDir() / "mahanaim-lock-contract.json"
+    defer:
+      if fileExists(lockPath): removeFile(lockPath)
+    writeFile(lockPath, "{\"version\":2,\"packages\":{" &
+      "\"mahanaim\":{\"version\":\"0.1.0\",\"url\":\"https://example.test/mahanaim\"," &
+      "\"downloadMethod\":\"git\",\"checksums\":{\"sha1\":\"" &
+      "0123456789012345678901234567890123456789\"}}," &
+      "\"nimcrypto\":{\"version\":\"0.7.3\",\"url\":\"https://example.test/nimcrypto\"," &
+      "\"downloadMethod\":\"git\",\"checksums\":{\"sha1\":\"" &
+      "abcdefabcdefabcdefabcdefabcdefabcdefabcd\"}}}}")
+    check validateDependencyLock(lockPath, ["mahanaim", "nimcrypto"]).len == 0
+    writeFile(lockPath, "{\"version\":2,\"packages\":{" &
+      "\"mahanaim\":{\"version\":\"0.1.0\",\"url\":\"https://example.test/mahanaim\"," &
+      "\"downloadMethod\":\"git\",\"checksums\":{\"sha1\":\"bad\"}}}}")
+    check validateDependencyLock(lockPath, ["mahanaim"]).len > 0
+
   test "network adapter serves an application over HTTP":
     let app = newApplication()
     proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

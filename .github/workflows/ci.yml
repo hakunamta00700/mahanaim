@@ -47,6 +47,9 @@ jobs:
       - name: Compile verification targets
         run: nimble verify
 
+      - name: Validate dependency lock contract
+        run: nimble lockCheck
+
       - name: Validate package and dependency contracts
         run: nimble check
 
@@ -127,6 +130,9 @@ jobs:
 
       - name: Compile verification targets
         run: nimble verify
+
+      - name: Validate dependency lock contract
+        run: nimble lockCheck
 
       - name: Validate package and dependency contracts
         run: nimble check
