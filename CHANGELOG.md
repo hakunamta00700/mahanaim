@@ -3,6 +3,7 @@
 ## Unreleased
 
 - executor의 `maxQueuedJobs`를 `AppConfig` 및 `MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS` 환경 변수로 설정할 수 있도록 연결하고 음수 설정을 pre-flight에서 거부한다.
+- `MAHANAIM_VALUE_<KEY>=<JSON>` 환경변수로 배열·객체 structured config를 주입하고 file provider보다 높은 precedence 및 malformed JSON/type validation 경계를 추가했다.
 - executor에 active worker와 waiting queue를 분리한 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
 
 - `TemplateRenderContext`에 request-owned locale formatter snapshot과 자동 `format_decimal`/`format_datetime` helper를 추가하고 unconfigured/invalid input/reserved name 경계를 회귀 테스트했다.

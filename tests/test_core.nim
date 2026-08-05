@@ -2917,6 +2917,7 @@ suite "Mahanaim core contracts":
     putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
     putEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS", "3")
     putEnv("MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS", "7")
+    putEnv("MAHANAIM_VALUE_FEATURES", "{\"beta\":false,\"rollout\":25}")
     let config = loadConfig(dotenvPath, jsonPath, tomlPath)
     check config.host == "dotenv-host"
     check config.environment == "staging"
@@ -2927,10 +2928,11 @@ suite "Mahanaim core contracts":
     check config.secrets["token"] == "toml-secret"
     check config.values["ports"].kind == JArray
     check config.values["ports"][0].getInt() == 8000
-    check config.values["features"]["beta"].getBool()
+    check not config.values["features"]["beta"].getBool()
     check config.values["release_date"].getStr() == "2026-08-04"
     check config.values["database"]["pool_size"].getInt() == 4
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
+    check config.values["features"]["rollout"].getInt() == 25
 
   test "application wires configured executor queue capacity":
     var config = defaultConfig()
@@ -2939,6 +2941,12 @@ suite "Mahanaim core contracts":
     let app = newApplication(config)
     check app.executor.maxConcurrentJobs == 2
     check app.executor.maxQueuedJobs == 4
+
+  test "structured environment values reject malformed JSON":
+    putEnv("MAHANAIM_VALUE_BROKEN", "{not-json")
+    expect ValueError:
+      discard loadConfig(dotEnvPath = "", jsonPath = "", tomlPath = "")
+    delEnv("MAHANAIM_VALUE_BROKEN")
 
   test "TOML schema rejects unsupported and unknown values":
     let root = getTempDir() / "mahanaim_toml_schema_test"

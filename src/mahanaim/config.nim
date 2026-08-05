@@ -324,6 +324,30 @@ proc loadTomlConfig*(path: string): Table[string, string] =
   for key, value in root.tableVal[]:
     flattenTomlValue(result, value, key, path)
 
+proc loadStructuredEnvironmentValues(): Table[string, JsonNode] =
+  ## Environment variables are strings, but extension configuration often
+  ## needs arrays or nested objects. Keep that conversion explicit behind a
+  ## namespaced prefix instead of guessing the type of every process variable.
+  ## `MAHANAIM_VALUE_FEATURES={"beta":true}` becomes the typed `features` root
+  ## value and is applied after file providers, preserving environment
+  ## precedence while reusing the same secret/type validation boundary.
+  const prefix = "MAHANAIM_VALUE_"
+  result = initTable[string, JsonNode]()
+  for key, rawValue in envPairs():
+    if not key.startsWith(prefix):
+      continue
+    let valueKey = key[prefix.len .. ^1].strip().toLowerAscii()
+    if valueKey.len == 0:
+      raise newException(ValueError,
+        "structured environment key must not be empty")
+    try:
+      result[valueKey] = parseJson(rawValue)
+    except CatchableError:
+      ## Do not include the raw value: configuration errors must not disclose
+      ## process environment contents, which may contain sensitive data.
+      raise newException(ValueError,
+        "invalid JSON for structured environment key: " & valueKey)
+
 proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
   ## Merge files first, then process environment variables as highest priority.
   result = defaultConfig()
@@ -344,6 +368,8 @@ proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
     if key.toLowerAscii().startsWith("secret_"):
       environmentValues[key] = value
   result.applyValues(environmentValues, "process environment")
+  result.applyStructuredValues(loadStructuredEnvironmentValues(),
+    "process environment")
 
 proc redactSecrets*(text: string, config: AppConfig): string =
   ## Replace configured secret values before text reaches logs or error pages.
