@@ -21,11 +21,19 @@ type
     port*: Port
     closed*: bool
 
-proc copyHeaders(headers: HttpHeaders): Table[string, string] =
-  ## Normalize header names once at the adapter boundary.
+proc copyHeaders*(headers: HttpHeaders): Table[string, string] =
+  ## Normalize header names once at the adapter boundary. Nim's HttpHeaders
+  ## iterator yields comma-separated field values as repeated entries, so
+  ## append them instead of retaining only the final value. In particular,
+  ## browser Accept headers commonly end with application/signed-exchange;
+  ## dropping the earlier text/html value would incorrectly produce HTTP 406.
   result = initTable[string, string]()
   for key, value in headers:
-    result[key.toLowerAscii()] = value
+    let normalized = key.toLowerAscii()
+    if result.hasKey(normalized):
+      result[normalized].add(", " & value)
+    else:
+      result[normalized] = value
 
 proc parseCookies(headerValue: string): Table[string, string] =
   ## Parse the simple Cookie grammar needed by the core request object.
