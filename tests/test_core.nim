@@ -15,6 +15,7 @@ import prologue/core/httpcore/httplogue
 import prologue/core/request except Request
 import prologue/mocking/mocking
 import mahanaim
+import database_contracts
 
 type MacroUser = object
   id: int
@@ -4842,6 +4843,17 @@ suite "Mahanaim core contracts":
         "SELECT \"value\" FROM \"fixture_rows\"", parameters: @[]))
       check rows.len == 0
     fixture.withTestDatabase(secondFixtureOperation)
+
+  test "SQLite satisfies the shared database adapter contract":
+    ## The same helper is invoked by the optional PostgreSQL live suite so
+    ## backend-neutral parameter and affected-row semantics cannot drift.
+    let fixture = newDatabaseTestFixture(
+      proc(): DatabaseAdapter {.gcsafe.} = newSqliteDatabaseAdapter(),
+      proc(adapter: DatabaseAdapter) {.gcsafe.} =
+        cast[SqliteDatabaseAdapter](adapter).close())
+    defer: fixture.close()
+    fixture.withTestDatabase(proc(adapter: DatabaseAdapter) =
+      runCommonDatabaseContract(adapter, "shared_contract_sqlite"))
 
   test "database connection pool bounds and safely returns adapters":
     var closed = 0

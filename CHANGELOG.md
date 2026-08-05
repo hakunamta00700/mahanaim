@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- SQLite와 PostgreSQL fixture가 공유하는 database adapter contract helper를 추가해 parameter binding, CRUD, affectedRows 의미를 같은 테스트로 검증한다.
+
 - public package entry point의 representative API compile contract와 `nimble publicApiCheck` gate를 추가하고 verify에 연결했다.
 
 - 실행 가능한 `examples/minimal_app.nim`과 `nimble docsExamples` gate를 추가해 public package API의 HTML/JSON route 예제를 compile/run으로 검증한다.

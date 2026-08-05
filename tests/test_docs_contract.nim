@@ -140,6 +140,20 @@ nimble test
     check manifest.contains("test_public_api_compile.nim")
     check manifest.contains("exec \"nimble publicApiCheck\"")
 
+  test "database adapter contract is shared by SQLite and PostgreSQL fixtures":
+    ## Keep backend-neutral semantics in one helper while each fixture owns
+    ## its connection lifecycle and optional live credentials.
+    let contract = getCurrentDir() / "tests" / "database_contracts.nim"
+    let sqliteSuite = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    let postgresSuite = readFile(getCurrentDir() / "tests" /
+      "test_postgres_live.nim")
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check fileExists(contract)
+    check sqliteSuite.contains("runCommonDatabaseContract")
+    check postgresSuite.contains("runCommonDatabaseContract")
+    check implementationPlan.contains("tests/database_contracts.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

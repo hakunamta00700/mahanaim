@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 `tests/database_contracts.nim`의 공통 adapter contract를 SQLite unit fixture와 PostgreSQL live fixture에서 재사용해 parameter binding, CRUD 결과와 affectedRows 의미를 같은 코드로 검증했다. backend별 capability와 전체 matrix 증거는 별도 gate 범위다.
 - [x] 2026-08-05 `tests/test_public_api_compile.nim`과 `nimble publicApiCheck`를 추가해 public package entry point의 core·route·metadata·serializer·database·storage·template·security·testing 대표 API compile contract를 verify에 연결했다. 전체 exported symbol별 독립 test matrix는 후속 범위다.
 - [x] 2026-08-05 `examples/minimal_app.nim`을 추가해 public package import, HTML/JSON route, startup/shutdown과 in-process dispatch를 실행하고 `nimble docsExamples` gate에서 `minimal-app-ok` 및 response invariant를 검증했다.
 - [x] 2026-08-05 `docs/api-stability-policy.md`를 추가해 package manifest·lockfile·support matrix와 semantic versioning, `experimental`/`stable`/`deprecated` maturity, migration guide 및 security release 규칙을 연결하고 `docsCheck` 계약 테스트로 drift를 검증했다. clean OS runner와 실제 release artifact 증거는 외부 범위다.

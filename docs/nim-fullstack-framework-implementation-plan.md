@@ -805,7 +805,7 @@ flowchart TB
 - [-] public `mahanaim` entry point의 core·routing·metadata·serialization·database·storage·template·security·testing representative compile contract를 `tests/test_public_api_compile.nim`과 `nimble publicApiCheck`로 고정하고, runtime semantics는 `nimble test`/adapter suites에서 검증한다. 모든 exported symbol별 독립 test matrix는 계속 누적한다.
 - [ ] 모든 보안 기본값은 성공 케이스보다 실패·우회 케이스를 먼저 테스트한다.
 - [ ] migration은 빈 DB, 기존 데이터, rollback, 동시 요청 조건에서 검증한다.
-- [ ] adapter는 공통 contract test suite를 공유한다. SQLite와 PostgreSQL 테스트가 같은 의미를 가져야 한다.
+- [-] adapter는 공통 contract test suite를 공유한다. `tests/database_contracts.nim`을 SQLite unit fixture와 PostgreSQL live fixture가 함께 호출해 parameter binding, CRUD, affectedRows 의미를 같은 코드로 검증한다. adapter별 capability와 전체 backend matrix 증거는 별도 범위다.
 - [-] benchmark를 HTTP, router, serialization, ORM query, template rendering 경계로 분리한다. router·password hash·`databaseQueryBenchmark` ORM query compiler·`serializationBenchmark` metadata serializer·`templateBenchmark` AST/render·`httpDispatchBenchmark` Application dispatch gate를 추가했고, 버전별 release artifact 기록은 후속 범위다.
 - [x] `examples/minimal_app.nim`이 public `mahanaim` entry point로 HTML·JSON route를 구성하고 `nimble docsExamples`에서 compile/run 및 response invariant를 검증해 문서와 코드의 drift를 방지한다. 추가 예제는 같은 gate에 누적한다.
 

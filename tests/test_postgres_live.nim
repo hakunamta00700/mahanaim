@@ -11,6 +11,7 @@ import mahanaim/[application, core, database, database_repository, models,
                 database_pool, database_session, migration_commands,
                 postgres_adapter, postgres_testing,
                 http_adapter, resources, serialization, testing]
+import database_contracts
 
 proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
   ## The live contract uses an application-owned codec rather than teaching
@@ -419,6 +420,8 @@ proc runLiveContract() =
   var observedValue = ""
   var routeObserved = false
   fixture.withTestDatabase(proc(adapter: DatabaseAdapter) =
+    ## Reuse the same adapter-neutral assertions executed by the SQLite suite.
+    runCommonDatabaseContract(adapter, "postgres_shared_contract")
     ## The fixture has already begun a transaction; isolation must be applied
     ## before the first statement so the adapter cannot silently defer it.
     adapter.setIsolationLevel(isolationSerializable)
