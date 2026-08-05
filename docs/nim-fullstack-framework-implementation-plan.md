@@ -853,3 +853,7 @@ flowchart TB
 이 기준을 충족한 뒤 SHOULD와 MAY 기능을 확장한다. 구현 중 외부 프레임워크의 현재 지원 기능이 바뀌면 요구사항 문서의 조사 기준일·버전·추적성 메모를 함께 갱신한다.
 - [x] Relation loading: 기존 JOIN 기반 `listRelation`은 base row 계약으로 유지하고, `listRelationWithRelated`가 one-to-many 배열과 many-to-one 중첩 객체를 eager loading한다. one-to-many와 explicit through metadata 기반 many-to-many parent page를 batched query로 eager loading하고 lazy relation loader도 제공한다.
 - [ ] OS/Nim matrix와 cross-platform release artifact checksum pipeline을 실제 GitHub runner에서 검증한다.
+
+### 2026-08-05 — P0 executor bounded waiting queue
+
+- [x] `maxQueuedJobs`로 waiting admission cardinality를 bounded하고 queue-full을 `executor_queue_full`/503으로 반환한다. active worker와 waiting queue counter를 event-loop-owned state로 분리했다.

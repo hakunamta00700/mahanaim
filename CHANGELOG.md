@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- executor에 active worker와 waiting queue를 분리한 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
+
 - `TemplateRenderContext`에 request-owned locale formatter snapshot과 자동 `format_decimal`/`format_datetime` helper를 추가하고 unconfigured/invalid input/reserved name 경계를 회귀 테스트했다.
 - `EmailTransport`에 validated RFC 5322 wire를 application-owned SMTP/API/outbox로 넘기는 callback adapter와 회귀 테스트를 추가했다.
 - P2 운영 도구에 mailbox/header injection/recipient/content-type 경계를 검증하는 RFC 5322 simple-part email serializer와 framework-neutral `EmailTransport`/in-memory adapter를 추가했다. SMTP socket·credential·retry는 application-owned adapter 범위다.

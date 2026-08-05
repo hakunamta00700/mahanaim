@@ -78,7 +78,12 @@ type
     ## Zero preserves an unlimited queue; positive values reject new work once
     ## the configured number of worker jobs is in flight.
     maxConcurrentJobs*: int
+    ## Waiting jobs are tracked separately from active workers. This prevents
+    ## a finite worker pool from becoming an unbounded memory queue while a
+    ## long-running job holds the last execution slot.
+    maxQueuedJobs*: int
     activeJobs: int
+    queuedJobs: int
     pool: Taskpool
     blockingDetectionMs*: int
     forceCancellationAfterMs*: int
@@ -171,7 +176,8 @@ proc newThreadPoolExecutor*(pollIntervalMs = 1,
                             forceCancellationAfterMs = 0,
                             queueWaitMs = 0,
                             onBlockingDetected: BlockingDetectedHook = nil,
-                            backendCancellation: BackendCancellationHook = nil): ThreadPoolExecutor =
+                            backendCancellation: BackendCancellationHook = nil,
+                            maxQueuedJobs = 0): ThreadPoolExecutor =
   ## Polling keeps the event loop responsive while a FlowVar is pending.
   ## Zero is useful for low-latency tests; positive values avoid busy waiting.
   if maxConcurrentJobs < 0:
@@ -182,9 +188,12 @@ proc newThreadPoolExecutor*(pollIntervalMs = 1,
     raise newException(ValueError, "forceCancellationAfterMs must not be negative")
   if queueWaitMs < 0:
     raise newException(ValueError, "queueWaitMs must not be negative")
+  if maxQueuedJobs < 0:
+    raise newException(ValueError, "maxQueuedJobs must not be negative")
   new(result)
   result.pollIntervalMs = max(0, pollIntervalMs)
   result.maxConcurrentJobs = maxConcurrentJobs
+  result.maxQueuedJobs = maxQueuedJobs
   result.blockingDetectionMs = blockingDetectionMs
   result.forceCancellationAfterMs = forceCancellationAfterMs
   result.queueWaitMs = queueWaitMs
@@ -192,6 +201,7 @@ proc newThreadPoolExecutor*(pollIntervalMs = 1,
   result.hooks.onBlockingDetected = onBlockingDetected
   result.hooks.backendCancellation = backendCancellation
   result.activeJobs = 0
+  result.queuedJobs = 0
   ## Do not initialize native worker threads while an Application is merely
   ## being configured. The event-loop execute path initializes the backend
   ## once, which keeps construction side-effect free and simplifies GC/close
@@ -282,20 +292,35 @@ proc execute*(executor: ThreadPoolExecutor, job: SyncJob,
     executor.pool = processPool()
   if executor.maxConcurrentJobs > 0:
     let admissionStarted = getMonoTime()
-    while executor.activeJobs >= executor.maxConcurrentJobs:
-      let waitedMs = (getMonoTime() - admissionStarted).inMilliseconds
-      if executor.queueWaitMs <= 0 or waitedMs >= executor.queueWaitMs:
+    var waitingForCapacity = false
+    if executor.activeJobs >= executor.maxConcurrentJobs:
+      if executor.maxQueuedJobs > 0 and
+          executor.queuedJobs >= executor.maxQueuedJobs:
         let overload = newException(FrameworkError,
-          if executor.queueWaitMs > 0:
-            "Synchronous executor queue wait exhausted"
-          else:
-            "Synchronous executor capacity exhausted")
+          "Synchronous executor waiting queue is full")
         overload.status = Http503
-        overload.code = if executor.queueWaitMs > 0:
-          "executor_queue_timeout" else: "executor_overloaded"
+        overload.code = "executor_queue_full"
         raise overload
-      await sleepAsync(min(executor.pollIntervalMs,
-        max(1, executor.queueWaitMs - waitedMs).int))
+      inc executor.queuedJobs
+      waitingForCapacity = true
+    try:
+      while executor.activeJobs >= executor.maxConcurrentJobs:
+        let waitedMs = (getMonoTime() - admissionStarted).inMilliseconds
+        if executor.queueWaitMs <= 0 or waitedMs >= executor.queueWaitMs:
+          let overload = newException(FrameworkError,
+            if executor.queueWaitMs > 0:
+              "Synchronous executor queue wait exhausted"
+            else:
+              "Synchronous executor capacity exhausted")
+          overload.status = Http503
+          overload.code = if executor.queueWaitMs > 0:
+            "executor_queue_timeout" else: "executor_overloaded"
+          raise overload
+        await sleepAsync(min(executor.pollIntervalMs,
+          max(1, executor.queueWaitMs - waitedMs).int))
+    finally:
+      if waitingForCapacity:
+        dec executor.queuedJobs
   ## execute is entered on the event-loop thread, so this counter is an
   ## event-loop-owned admission gate rather than a second worker lock.
   inc executor.activeJobs

@@ -487,6 +487,23 @@ suite "Mahanaim core contracts":
     check (waitFor first).body == "first"
     check (waitFor second).body == "second"
 
+  test "executor rejects work beyond its bounded waiting queue":
+    let executor = newThreadPoolExecutor(
+      pollIntervalMs = 1, maxConcurrentJobs = 1, maxQueuedJobs = 1,
+      queueWaitMs = 100)
+    proc slowJob(): mahanaim.Response {.gcsafe.} =
+      sleep(80)
+      textResponse("first")
+    let first = executor.execute(slowJob)
+    waitFor sleepAsync(2)
+    let second = executor.execute(proc(): mahanaim.Response {.gcsafe.} =
+      textResponse("second"))
+    expect FrameworkError:
+      discard waitFor executor.execute(proc(): mahanaim.Response {.gcsafe.} =
+        textResponse("third"))
+    check (waitFor first).body == "first"
+    check (waitFor second).body == "second"
+
   test "request timeout returns 504 and marks cooperative cancellation":
     var config = defaultConfig()
     config.requestTimeoutMs = 5

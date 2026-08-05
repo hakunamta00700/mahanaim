@@ -281,3 +281,8 @@
 
 - [x] `mahanaim new`가 생성하는 애플리케이션 모듈을 실제 실행 진입점으로 사용하도록 연결한다. 생성 모듈의 `when isMainModule`이 `createApp()`과 `commandLineParams()`를 공통 `runCli` 계약에 전달해, standalone 실행이 빈 `newApplication()`을 우회하고 프로젝트 소유 wiring을 사용하게 한다.
 - [x] standalone에서 app-owned migration provider와 admin account provisioning callback을 자동 구성한다. 생성 앱은 동일한 migration 정의를 초기 SQLite 준비와 `Application` registry에 공유하고, 인증 account store/hasher 기반 provisioning callback을 명시적으로 등록한다. 저장소/credential 정책은 프로젝트 소유 설정으로 남긴다.
+
+## 2026-08-05 구현 완료 체크
+
+- [x] executor의 active worker capacity와 waiting queue를 분리하고 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
+- [x] queue-full 회귀 테스트를 먼저 추가해 named parameter 컴파일 실패를 확인한 뒤 구현하고 `nimble test` green을 확인했다.
