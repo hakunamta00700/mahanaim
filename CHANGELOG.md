@@ -139,3 +139,4 @@
 - `RedisChannelLayer` adapter를 추가해 async subscription acknowledgement, bounded Redis pub/sub delivery, non-blocking publish socket과 WebSocket message envelope를 framework-neutral `ChannelLayer`에 연결했다. Redis 7.2.15 live contract에서 두 adapter instance의 fan-out을 검증했으며 별도 OS 프로세스 운영 증거는 후속 범위다.
 - `RedisChannelLayer`에 active group 재구독을 수행하는 bounded `reconnectWithRetry`와 UNSUBSCRIBE acknowledgement를 drain하는 graceful `shutdown`을 추가하고 loopback/live lifecycle contract를 검증했다. 별도 OS 프로세스 rolling deployment evidence는 후속 범위다.
 - `redisLive`가 별도 OS worker 2개를 실행해 Redis 7.2.15 cross-process `ChannelLayer` fan-out, readiness, payload delivery와 graceful shutdown exit를 검증하도록 확장했다. 실제 rolling deployment runbook은 후속 범위다.
+- Redis ChannelLayer rolling deployment runbook을 추가해 drain 순서, bounded reconnect budget, readiness/liveness gate, rollback 절차와 repeatable evidence 명령을 고정했다. 실제 staging rollout 증거는 외부 환경 범위로 남겼다.

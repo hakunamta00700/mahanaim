@@ -925,3 +925,8 @@ flowchart TB
 - [x] `RedisChannelLayer.reconnectWithRetry`가 active group을 재구독하고 `shutdown`이 UNSUBSCRIBE acknowledgement를 drain한 뒤 socket을 닫도록 구현했다. loopback reconnect/shutdown test와 Redis 7.2.15 live contract를 통과시켰다.
 - [x] `redisLive`가 별도 OS worker 2개와 parent publisher를 실행해 Redis 7.2.15 cross-process fan-out, readiness, payload와 graceful shutdown exit를 검증한다.
 - [ ] 실제 rolling deployment 중 reconnect budget, readiness/liveness probe와 rollback evidence를 production runbook에 연결하는 작업은 남아 있다.
+
+### 2026-08-05 — Redis rolling deployment runbook baseline
+
+- [x] `docs/operations-guide.md`에 worker drain, bounded reconnect budget, readiness/liveness gate, canary delivery, graceful shutdown acknowledgement, rollback sequence와 `redisLive`/`test`/`verify`/`check` evidence 명령을 추가했다.
+- [ ] 실제 staging rollout의 readiness transition, process exit, reconnect attempt와 rollback evidence는 배포 환경에서 수집해야 한다.

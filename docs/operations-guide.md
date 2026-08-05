@@ -173,6 +173,61 @@ nginx 1.27.5, Nim/Linux 2.2.4 upstream에서 HTTP→HTTPS redirect와
 공인 인증서 체인, HTTP→HTTPS redirect, 갱신 자동화와 외부 DNS는 여전히
 배포 환경에서 별도로 확인해야 한다.
 
+## Redis ChannelLayer rolling deployment runbook
+
+This runbook separates automated broker evidence from deployment-specific
+staging evidence. The `redisLive` contract already exercises two OS worker
+processes, readiness, cross-process payload delivery, subscriber count, and
+graceful shutdown. A production rollout must still record the deployment URL,
+instance identifiers, timestamps, and rollback result without placing those
+credentials in the repository.
+
+### Preconditions
+
+- Configure a disposable or staging Redis/Valkey service through
+  `MAHANAIM_REDIS_HOST` and `MAHANAIM_REDIS_PORT`; never set
+  `MAHANAIM_REDIS_CONFIGURE=true` against an ambient production service.
+- Confirm `/health` is liveness-only and `/ready` (or the application readiness
+  contract) is traffic-gating. Remove an instance from the load balancer before
+  draining its WebSocket and channel sessions.
+- Set a bounded reconnect budget: `maxAttempts` must be positive,
+  `initialDelayMs` must be non-negative, and `maxDelayMs` must not be below the
+  initial delay. The application-owned `RedisChannelLayer.reconnectWithRetry`
+  API applies that budget to active group resubscription.
+
+### Rollout sequence
+
+1. Deploy the new artifact beside the old revision and wait for liveness,
+   readiness, and dependency probes to pass.
+2. Stop routing new traffic to the old instance. Keep its event loop alive for
+   the drain window so `RedisChannelLayer.shutdown()` can await every
+   `UNSUBSCRIBE` acknowledgement.
+3. Verify that the new instance receives a canary message from a different
+   process. If the broker socket drops, use the bounded reconnect policy and
+   record the successful attempt number and dropped-message counter.
+4. After the drain window, close the old instance and verify its process exit,
+   connection count, and absence from the readiness pool.
+5. If readiness, delivery, reconnect, or shutdown evidence fails, stop the
+   rollout, restore traffic to the last healthy revision, and record the
+   rollback reason and timestamp.
+
+### Repeatable evidence commands
+
+```powershell
+nimble redisLiveCheck
+$env:MAHANAIM_REDIS_HOST = 'redis-staging.example'
+$env:MAHANAIM_REDIS_PORT = '6379'
+nimble redisLive
+nimble test
+nimble verify
+nimble check
+```
+
+The repository gate proves the disposable cross-process contract. A release
+record must additionally attach staging readiness transitions, canary payload
+delivery, reconnect attempt, shutdown acknowledgement, process exit, and
+rollback evidence. Do not mark P3-21 complete from a local loopback run alone.
+
 ## Background jobs
 
 - job은 event loop에서 직접 실행하지 않고 `BackgroundJobQueue`를 통해 executor로

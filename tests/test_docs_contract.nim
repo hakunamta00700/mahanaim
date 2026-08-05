@@ -46,3 +46,12 @@ nimble test
     check fileExists(contract)
     check manifest.contains("task httpxCheck")
     check manifest.contains("test_httpx_adapter_compile.nim")
+
+  test "Redis ChannelLayer rolling runbook names drain and rollback evidence":
+    let guide = readFile(getCurrentDir() / "docs" / "operations-guide.md")
+    check guide.contains("Redis ChannelLayer rolling deployment runbook")
+    check guide.contains("reconnectWithRetry")
+    check guide.contains("shutdown")
+    check guide.contains("readiness")
+    check guide.contains("rollback")
+    check guide.contains("nimble redisLive")
