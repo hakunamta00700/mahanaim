@@ -2475,6 +2475,37 @@ suite "Mahanaim core contracts":
     check (waitFor layer.publish("room:42", textWebSocketMessage("hello"))) == 0
     waitFor binding.unbind()
 
+  test "callback channel layer delegates to an external backend contract":
+    var subscribeCalls: Atomic[int]
+    var unsubscribeCalls: Atomic[int]
+    var publishCalls: Atomic[int]
+    subscribeCalls.store(0)
+    unsubscribeCalls.store(0)
+    publishCalls.store(0)
+    let external = newCallbackChannelLayer(
+      subscribeProc = proc(group: string,
+                           subscriber: ChannelSubscriber): ChannelSubscription {.gcsafe.} =
+        discard subscribeCalls.fetchAdd(1)
+        doAssert not subscriber.isNil
+        ChannelSubscription(id: 1, group: group, active: true),
+      unsubscribeProc = proc(subscription: ChannelSubscription) {.gcsafe.} =
+        doAssert not subscription.isNil
+        discard unsubscribeCalls.fetchAdd(1),
+      publishProc = proc(group: string,
+                         message: WebSocketMessage): Future[int] {.async, gcsafe.} =
+        discard publishCalls.fetchAdd(1)
+        doAssert group == "room:42"
+        doAssert message.payload == "hello"
+        3)
+    let subscription = external.subscribe("room:42",
+      proc(message: WebSocketMessage): Future[void] {.async, gcsafe.} =
+        discard)
+    check subscribeCalls.load() == 1
+    check (waitFor external.publish("room:42", textWebSocketMessage("hello"))) == 3
+    check publishCalls.load() == 1
+    external.unsubscribe(subscription)
+    check unsubscribeCalls.load() == 1
+
   test "test client parses SSE events and drives in-process WebSocket sessions":
     let app = newTestApplication()
     app.get("/events", "test-events",

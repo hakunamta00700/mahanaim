@@ -305,5 +305,6 @@
 ## 2026-08-05 channel layer foundation
 
 - [x] **P3-02 channel layer foundation** — framework-neutral `ChannelLayer`/`ChannelSubscription` contract과 deterministic in-memory group subscribe/publish/unsubscribe backend를 추가했다. callback failure isolation, idempotent unsubscribe, invalid input validation을 회귀 테스트로 검증했다.
-- [-] **P3-03 distributed channel integration** — Redis/Valkey cross-process fan-out, WebSocket session lifecycle 자동 구독/해제, backpressure·ordering·reconnect 운영 정책은 외부 adapter와 live 환경 검증이 필요하다.
+- [-] **P3-03 distributed channel integration** — Redis/Valkey cross-process fan-out과 backpressure·ordering·reconnect 운영 정책은 외부 adapter와 live 환경 검증이 필요하다. WebSocket session lifecycle 자동 구독/해제는 P3-04에서 완료했다.
 - [x] **P3-04 WebSocket channel lifecycle binding** — `bindWebSocketSession`이 channel message를 adapter-owned `WebSocketSession.send`로 전달하고, 원래 close callback을 보존·복원하며 session close 시 subscription을 idempotent하게 해제한다. send/close/cleanup contract를 회귀 테스트로 검증했다.
+- [x] **P3-05 external channel adapter bridge** — `CallbackChannelLayer`가 broker-owned subscribe/unsubscribe/publish callback을 `ChannelLayer` virtual contract로 연결한다. Redis/Valkey protocol과 운영 lifecycle은 adapter 소유로 유지하면서 fake backend 위임 contract를 회귀 테스트로 검증했다.

@@ -888,8 +888,9 @@ flowchart TB
 
 - [x] `ChannelLayer`와 `ChannelSubscription`을 WebSocket wire adapter와 분리된 framework-neutral contract로 정의했다.
 - [x] 인메모리 backend가 group별 subscribe/publish/unsubscribe, idempotent cleanup, callback failure isolation을 제공하고 회귀 테스트로 검증한다.
-- [ ] Redis/Valkey cross-process fan-out, reconnect·ordering·backpressure 정책과 WebSocket session lifecycle 자동 구독/해제는 외부 adapter/live 환경 범위로 남긴다.
+- [ ] Redis/Valkey cross-process fan-out과 reconnect·ordering·backpressure 정책은 외부 adapter/live 환경 범위로 남긴다. WebSocket session lifecycle 자동 구독/해제는 `bindWebSocketSession`으로 완료했다.
 
 - [x] buffered response에 SHA-256 기반 strong `ETag`를 생성하고, application dispatch 이후 공통 정책에서 `If-None-Match` weak comparison을 처리하도록 추가했다.
 - [x] 일치하는 `GET`/`HEAD`는 body 없는 304로 반환하고 stream/SSE/WebSocket은 제외하는 unit·dispatch 회귀 테스트를 추가했다.
 - [x] WebSocket session lifecycle binding이 channel subscription을 adapter-owned `send` callback에 연결하고, 원래 close callback을 복원하면서 idempotent cleanup한다.
+- [x] `CallbackChannelLayer`가 외부 broker adapter의 subscribe/unsubscribe/publish callback을 공통 `ChannelLayer` contract에 연결한다. 실제 Redis/Valkey pub/sub socket과 cross-process 운영 검증은 외부 adapter 범위다.

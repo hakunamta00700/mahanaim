@@ -22,6 +22,19 @@ type
     ## Backends implement this small contract without exposing storage or
     ## broker-specific types to application code.
 
+  ChannelSubscribeProc* = proc(group: string,
+                                subscriber: ChannelSubscriber): ChannelSubscription {.gcsafe.}
+  ChannelUnsubscribeProc* = proc(subscription: ChannelSubscription) {.gcsafe.}
+  ChannelPublishProc* = proc(group: string, message: WebSocketMessage): Future[int] {.gcsafe.}
+
+  CallbackChannelLayer* = ref object of ChannelLayer
+    ## Adapter bridge for a broker-owned implementation. The callbacks may
+    ## use Redis/Valkey pub/sub, a queue, or a process-local test double while
+    ## the application continues to depend only on ChannelLayer.
+    subscribeProc*: ChannelSubscribeProc
+    unsubscribeProc*: ChannelUnsubscribeProc
+    publishProc*: ChannelPublishProc
+
   InMemoryChannelLayer* = ref object of ChannelLayer
     nextId: int
     subscriptions: Table[string, seq[ChannelSubscription]]
@@ -47,6 +60,24 @@ method publish*(layer: ChannelLayer, group: string,
                 message: WebSocketMessage): Future[int] {.base, gcsafe.} =
   raise newException(ValueError, "channel layer does not support publish")
 
+method subscribe*(layer: CallbackChannelLayer, group: string,
+                  subscriber: ChannelSubscriber): ChannelSubscription {.gcsafe.} =
+  if layer.isNil or layer.subscribeProc.isNil:
+    raise newException(ValueError, "channel adapter has no subscribe callback")
+  layer.subscribeProc(group, subscriber)
+
+method unsubscribe*(layer: CallbackChannelLayer,
+                    subscription: ChannelSubscription) {.gcsafe.} =
+  if layer.isNil or layer.unsubscribeProc.isNil:
+    raise newException(ValueError, "channel adapter has no unsubscribe callback")
+  layer.unsubscribeProc(subscription)
+
+method publish*(layer: CallbackChannelLayer, group: string,
+                message: WebSocketMessage): Future[int] {.gcsafe.} =
+  if layer.isNil or layer.publishProc.isNil:
+    raise newException(ValueError, "channel adapter has no publish callback")
+  layer.publishProc(group, message)
+
 proc validateGroup(group: string) =
   if group.strip().len == 0:
     raise newException(ValueError, "channel group must not be empty")
@@ -54,6 +85,18 @@ proc validateGroup(group: string) =
 proc validateSubscriber(subscriber: ChannelSubscriber) =
   if subscriber.isNil:
     raise newException(ValueError, "channel subscriber must not be nil")
+
+proc newCallbackChannelLayer*(subscribeProc: ChannelSubscribeProc,
+                              unsubscribeProc: ChannelUnsubscribeProc,
+                              publishProc: ChannelPublishProc): ChannelLayer =
+  ## Require all three operations up front. A partially configured adapter
+  ## would otherwise fail only after a live connection has joined a group.
+  if subscribeProc.isNil or unsubscribeProc.isNil or publishProc.isNil:
+    raise newException(ValueError, "channel adapter callbacks are required")
+  new(result)
+  result = CallbackChannelLayer(subscribeProc: subscribeProc,
+                                unsubscribeProc: unsubscribeProc,
+                                publishProc: publishProc)
 
 method subscribe*(layer: InMemoryChannelLayer, group: string,
                   subscriber: ChannelSubscriber): ChannelSubscription {.gcsafe.} =
