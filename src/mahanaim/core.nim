@@ -4,7 +4,7 @@
 ## Keeping the value objects and handler contracts small lets adapters (such as
 ## Prologue) evolve without leaking their types into application code.
 
-import std/[asyncdispatch, httpcore, json, options, os, strutils, tables]
+import std/[asyncdispatch, httpcore, json, options, os, strutils, tables, unicode]
 import std/concurrency/atomics
 import ./database
 import ./di
@@ -252,11 +252,12 @@ proc closeWebSocketMessage*(code = 1000,
   if not isValidWebSocketCloseCode(code):
     raise newException(ValueError, "Invalid WebSocket close code: " & $code)
   ## The two-byte status code and UTF-8 reason share the 125-byte control
-  ## frame limit; the reason therefore has at most 123 bytes. UTF-8 validity
-  ## remains an adapter-owned byte decoder concern until a shared Unicode
-  ## validation contract is introduced.
+  ## frame limit; the reason therefore has at most 123 bytes. Validate UTF-8
+  ## here as well so a core-created close message is legal on every adapter.
   if reason.len > 123:
     raise newException(ValueError, "WebSocket close reason exceeds 123 bytes")
+  if reason.validateUtf8() >= 0:
+    raise newException(ValueError, "WebSocket close reason must be valid UTF-8")
   WebSocketMessage(kind: wsmClose, payload: reason, closeCode: code)
 
 proc send*(session: WebSocketSession,

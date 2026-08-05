@@ -3227,6 +3227,9 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard closeWebSocketMessage(1000, repeat("x", 124))
     expect ValueError:
+      discard closeWebSocketMessage(1000, "\xC3\x28")
+    check closeWebSocketMessage(1000, "닫힘").payload == "닫힘"
+    expect ValueError:
       discard newWebSocketSession().send(textFrame)
 
   test "WebSocket routes use a separate registry and preserve path precedence":

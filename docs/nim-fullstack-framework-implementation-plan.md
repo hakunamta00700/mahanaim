@@ -951,3 +951,8 @@ flowchart TB
 
 - [x] core close message가 RFC 6455 protocol/application close code와 reserved code gap을 공통 predicate로 검증한다.
 - [x] close reason을 123 bytes 이하로 제한해 status code와 함께 125-byte control frame 한계를 넘지 않도록 하고 invalid code·oversized reason test를 추가했다.
+
+### 2026-08-05 — WebSocket close reason UTF-8 baseline
+
+- [x] `closeWebSocketMessage`가 Nim 표준 `validateUtf8`로 reason byte sequence를 검증한다.
+- [x] malformed UTF-8 rejection과 정상 Unicode close reason을 core contract test로 고정했다.

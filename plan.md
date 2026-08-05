@@ -327,3 +327,4 @@
 - [x] **P3-23 OpenAPI UI script boundary** — Swagger UI bootstrap의 caller-controlled `specUrl`을 JSON 직렬화 후 HTML-significant code point(`<> & U+2028/U+2029`)를 JavaScript Unicode escape로 변환하고, script 종료 시퀀스 삽입 회귀 테스트를 추가했다. ReDoc attribute escaping과 UI route 계약은 기존 경계를 유지한다.
 - [x] **P3-24 SSE field injection boundary** — SSE `event`/`id` metadata를 single-line field로 검증해 CR/LF field injection을 fail-fast하고, multiline `data` framing은 유지하는 회귀 테스트를 추가했다.
 - [x] **P3-25 WebSocket close frame boundary** — RFC 6455 허용 close code와 125-byte control frame limit에 맞춘 123-byte reason 검증을 core 생성자에 추가하고 reserved/invalid code·oversized reason 회귀 테스트를 고정했다.
+- [x] **P3-26 WebSocket close reason UTF-8 boundary** — close reason을 표준 `validateUtf8`로 검증해 malformed UTF-8을 거부하고, 정상 Unicode reason과 invalid byte 회귀 테스트를 추가했다.

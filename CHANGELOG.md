@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- WebSocket close reason의 malformed UTF-8을 공통 core에서 거부하고 정상 Unicode reason을 허용하는 계약 테스트를 추가했다.
 - WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.
 - Swagger UI bootstrap의 외부 schema URL을 HTML-significant code point까지 JavaScript Unicode escape 처리하고 `</script>` 삽입 회귀 테스트를 추가했다.
