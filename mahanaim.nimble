@@ -45,6 +45,12 @@ task routerBenchmark, "Run the deterministic router benchmark":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r benchmarks/router_benchmark.nim"
 
+task databaseQueryBenchmark, "Run the deterministic ORM query benchmark":
+  ## Keep query compiler measurements separate from database-server latency;
+  ## the executable validates SQL parameter binding for both supported dialects.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r benchmarks/database_query_benchmark.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 

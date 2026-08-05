@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 ORM query compiler benchmark를 `nimble databaseQueryBenchmark` gate로 연결하고 SQLite/PostgreSQL parameter binding과 no-interpolation invariant를 10,000회 workload로 검증했다. serialization/template/HTTP benchmark 분리와 버전별 결과 기록은 후속 범위다.
 - [x] 2026-08-05 저장소·ORM 연동 패턴을 framework-neutral 계약, adapter 소유권, 외부 provider/ORM session lifecycle과 공통 contract test matrix로 문서화하고 `docsCheck` 계약 테스트를 추가했다. 실제 provider credential·production 운영 증거는 별도 live 환경 범위로 유지한다.
 - [ ] P0의 미완료 항목이 없고, 전체 테스트·verify·check가 통과한다.
 - [x] P1에서 SQLite/PostgreSQL CRUD와 migration 회귀 테스트가 통과한다. SQLite core contract와 PostgreSQL 16 live migration/relation evidence를 유지한다.

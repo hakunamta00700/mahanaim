@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- deterministic ORM query compiler benchmark와 `nimble databaseQueryBenchmark` gate를 추가해 SQLite/PostgreSQL parameter binding 및 no-interpolation invariant를 반복 검증한다.
+
 - 저장소·ORM 연동 패턴 문서를 추가해 `ObjectStorage`·`CacheStore`·`DatabaseRepository` 계약과 adapter/provider 소유권, transaction·lifecycle 및 contract test 경계를 정리했다.
 
 - 상세 구현계획서의 stale 상태를 실제 구현/외부 증거 범위와 일치시키고 native worker 강제 종료 미지원 경계를 명시했다.

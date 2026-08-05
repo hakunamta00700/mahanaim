@@ -53,6 +53,18 @@ nimble test
     check manifest.contains("task routerBenchmark")
     check manifest.contains("benchmarks/router_benchmark.nim")
 
+  test "ORM query benchmark is wired as a repeatable Nimble gate":
+    ## Query compilation is a framework-owned performance boundary. Keep its
+    ## executable and gate discoverable so SQL/compiler regressions can be
+    ## compared without turning machine-specific latency into a correctness
+    ## threshold.
+    let benchmark = getCurrentDir() / "benchmarks" /
+      "database_query_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(benchmark)
+    check manifest.contains("task databaseQueryBenchmark")
+    check manifest.contains("benchmarks/database_query_benchmark.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /
