@@ -957,6 +957,12 @@ flowchart TB
 - [x] `closeWebSocketMessage`가 Nim 표준 `validateUtf8`로 reason byte sequence를 검증한다.
 - [x] malformed UTF-8 rejection과 정상 Unicode close reason을 core contract test로 고정했다.
 
+### 2026-08-05 — Template adapter baseline
+
+- [x] framework-neutral `TemplateAdapter.renderTemplate` protocol과 내장 `TemplateEngineAdapter` wrapper를 제공한다.
+- [x] 외부 (alternate template engine)은 `CallbackTemplateAdapter`로 연결할 수 있으며, callback/source ownership은 application이 소유한다.
+- [x] `TemplateAdapter`의 내장·외부 callback 경계와 nil configuration 실패를 contract test로 고정했다.
+
 ### 2026-08-05 — P0 release artifact manifest
 
 - [x] `ReleaseArtifact` metadata를 path 순서로 정렬해 deterministic line manifest로 렌더링하는 `renderArtifactManifest`와 파일 출력용 `writeArtifactManifest`를 추가했다.

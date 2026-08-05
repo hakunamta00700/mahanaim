@@ -67,3 +67,12 @@ nimble test
     check plan.contains("[x] HTML·JSON·upload·WebSocket route를 같은 앱에서 실행한다.")
     check not plan.contains("OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 설계 항목이다.")
     check plan.contains("S3 signing/retry와 별도 cache eviction 부하 운영 정책은 남아 있다.")
+
+  test "template adapter baseline is documented as an extension boundary":
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    let requirements = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-requirements.md")
+    check implementationPlan.contains("TemplateAdapter")
+    check implementationPlan.contains("alternate template engine")
+    check requirements.contains("TemplateAdapter")

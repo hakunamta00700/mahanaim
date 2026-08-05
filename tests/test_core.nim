@@ -4229,6 +4229,23 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard engine.render("cycle-a", context)
 
+  test "template adapter isolates alternate renderer ownership":
+    let engine = newTemplateEngine()
+    engine.registerTemplate("greeting", "Hello {{ name }}")
+    let native = newTemplateEngineAdapter(engine)
+    var context = newTemplateRenderContext()
+    context.values["name"] = "Ada"
+    check native.renderTemplate("greeting", context) == "Hello Ada"
+
+    let external = newCallbackTemplateAdapter(proc(
+        name: string, values: TemplateRenderContext): string =
+      "external:" & name & ":" & values.values.getOrDefault("name"))
+    check external.renderTemplate("greeting", context) == "external:greeting:Ada"
+    expect ValueError:
+      discard newCallbackTemplateAdapter(nil)
+    expect ValueError:
+      discard newTemplateEngineAdapter(nil)
+
   test "template render context expands nested collections with conditions":
     let engine = newTemplateEngine()
     engine.registerTemplate("items", "<ul>{% for item in items %}" &

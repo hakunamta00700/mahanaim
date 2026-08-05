@@ -291,6 +291,11 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] WebSocket close reason은 malformed byte sequence를 거부하고 유효한 Unicode UTF-8 reason을 허용한다.
 - [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 별도 범위로 남긴다.
 
+## Template adapter baseline (2026-08-05)
+
+- [x] `TemplateAdapter.renderTemplate` protocol으로 기본 template engine과 외부 template engine을 교체 가능하게 연결한다.
+- [x] 내장 engine wrapper와 callback adapter는 source loading·escaping ownership을 adapter/application 경계에 남긴다.
+
 ## Controller boundary baseline (2026-08-05)
 
 - [x] `Controller.handle(action, request)` virtual contract와 `addControllerRoute` bridge로 class-based controller와 function handler를 함께 지원한다.
