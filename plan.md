@@ -292,5 +292,6 @@
 ## 2026-08-05 요구사항 감사 완료 체크
 
 - [x] macro schema·response content negotiation, route validation, model metadata, observability, WebSocket/Beast live contract가 현재 구현·테스트·gate에 존재함을 상세 계획에 반영했다.
-- [-] compressed radix 최적화, 추가 OS runner matrix, generic handler 자동 DTO 추론은 별도 범위로 명시했다.
+- [-] 추가 OS runner matrix와 generic handler 자동 DTO 추론은 별도 범위로 명시했다.
 - [x] `benchmarks/router_benchmark.nim`을 `nimble routerBenchmark` gate로 연결하고 2,000 route·20,000 iteration workload의 route-hit invariant를 실행했다.
+- [x] compressed static radix edge와 first-segment lookup으로 route candidate traversal을 최적화하고 precedence 회귀 테스트를 추가했다.

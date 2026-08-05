@@ -1769,6 +1769,15 @@ suite "Mahanaim core contracts":
     check staticResponse.body == "static"
     check dynamicResponse.body == "dynamic:other"
 
+  test "router compresses static edge runs without changing precedence":
+    var router = initRouter()
+    router.addRoute("GET", "/api/v1/users/:id", "user", nil)
+    router.addRoute("GET", "/api/v1/users/me", "me", nil)
+    let stats = router.routeIndexStats()
+    check stats.longestStaticEdgeSegments >= 3
+    check router.findPath("/api/v1/users/me").get().name == "me"
+    check router.findPath("/api/v1/users/42").get().name == "user"
+
   test "router tree narrows nested static and parameter candidates":
     let app = newApplication()
     proc selected(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

@@ -174,7 +174,7 @@
 - [x] typed parameter(`int`, `uint`, `float`, `bool`)와 trailing wildcard를 추가했다.
 - [x] route group prefix·middleware와 named URL builder를 추가했다.
 - [x] 정적 경로 우선순위와 동일 path의 HTTP method dispatch 회귀를 고정했다.
-- [-] radix/tree 기반 매칭, wildcard 인코딩, Prologue adapter 연동은 구현했다. compressed radix node 최적화와 추가 benchmark 자동화는 남아 있다.
+- [x] radix/tree 기반 매칭, compressed static edge 최적화, wildcard 인코딩, Prologue adapter 연동과 `nimble routerBenchmark` gate를 구현했다. 추가 OS runner matrix는 외부 범위다.
 
 ### 2026-08-04 — P0 pre-flight check 1차
 
@@ -479,7 +479,7 @@
 - [x] 후보 index를 registration order로 merge해 score와 method precedence를 보존했다.
 - [x] static/dynamic route precedence 회귀 테스트를 추가했다.
 - [x] deterministic router benchmark suite를 추가하고 latency threshold 없이 route hit invariant를 검증한다.
-- [-] compressed radix node 최적화는 남아 있지만 `nimble routerBenchmark` gate로 deterministic workload 실행과 route-hit invariant 기록을 자동화했다.
+- [x] compressed static edge와 first-segment lookup을 적용하고 `nimble routerBenchmark` gate로 deterministic workload와 route-hit invariant를 자동화했다.
 
 ### 2026-08-04 — P0 route tree matching
 
@@ -487,14 +487,14 @@
 - [x] 후보 index를 registration order로 정렬해 기존 score와 tie-break를 보존했다.
 - [x] nested static/parameter route precedence 회귀 테스트를 추가했다.
 - [x] deterministic router benchmark suite를 추가했다.
-- [-] compressed radix node 최적화는 남아 있지만 `nimble routerBenchmark` gate로 deterministic workload 실행과 route-hit invariant 기록을 자동화했다.
+- [x] compressed static edge와 first-segment lookup을 적용하고 `nimble routerBenchmark` gate로 deterministic workload와 route-hit invariant를 자동화했다.
 
 ### 2026-08-04 — P0 wildcard URL encoding
 
 - [x] 일반 path parameter는 단일 URL segment로 percent-encode한다.
 - [x] wildcard parameter는 `/` 구분자를 보존하면서 각 segment를 encode한다.
 - [x] 빈 wildcard segment와 연속 `/`를 거부하는 URL builder 회귀 테스트를 추가했다.
-- [-] `routerBenchmark` suite와 gate는 추가했지만 compressed radix node 최적화는 남아 있다.
+- [x] `routerBenchmark` suite와 gate 및 compressed static radix edge 최적화를 추가했다.
 
 ### 2026-08-04 — P0 HTTP body parsing 1차
 

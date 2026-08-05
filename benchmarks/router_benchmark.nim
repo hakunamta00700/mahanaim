@@ -18,6 +18,8 @@ proc main() =
   router.addRoute("GET", "/api/v1999/users/me", "", nil)
 
   var matched = 0
+  let indexStats = router.routeIndexStats()
+  doAssert indexStats.longestStaticEdgeSegments >= 2
   let started = getMonoTime()
   for index in 0 ..< IterationCount:
     let path = "/api/v" & $(index mod RouteCount) & "/users/42"
@@ -31,6 +33,8 @@ proc main() =
   echo "routes=" & $RouteCount &
     " iterations=" & $IterationCount &
     " matched=" & $matched &
+    " static_edges=" & $indexStats.staticEdgeCount &
+    " longest_static_edge_segments=" & $indexStats.longestStaticEdgeSegments &
     " elapsed_ms=" & $elapsed.inMilliseconds
 
 when isMainModule:

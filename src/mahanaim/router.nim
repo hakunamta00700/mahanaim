@@ -13,28 +13,38 @@ type
     prefix*: string
     middleware*: seq[Middleware]
 
-  RouteTreeNode = object
-    ## The tree is an internal candidate index.  Route metadata remains in the
-    ## public registration-order sequence so matching semantics stay stable.
-    staticChildren: Table[string, int]
+  CompressedStaticEdge = object
+    ## A radix edge stores a run of adjacent static segments as one label.
+    ## Dynamic segments still use dedicated parameter/wildcard branches.
+    label: seq[string]
+    child: int
+
+  CompressedRouteTreeNode = object
+    staticChildren: seq[CompressedStaticEdge]
+    staticLookup: Table[string, int]
     parameterChild: int
     terminalRoutes: seq[int]
     wildcardRoutes: seq[int]
 
+  RouteIndexStats* = object
+    ## Diagnostic counters make the optimization observable without exposing
+    ## mutable tree internals to applications.
+    staticEdgeCount*: int
+    longestStaticEdgeSegments*: int
+
   Router* = object
     ## Routes remain in registration order for deterministic tie breaking.
-    ## `routeNames` and `routeTree` are separate indexes so URL generation and
-    ## matching do not scan every route blindly.
+    ## `routeNames` and the compressed route index are separate indexes so URL
+    ## generation and matching do not scan every route blindly.
     routes*: seq[Route]
     webSocketRoutes*: seq[WebSocketRoute]
     routeNames: Table[string, int]
     webSocketNames: Table[string, bool]
-    routeTree: seq[RouteTreeNode]
+    compressedRouteTree: seq[CompressedRouteTreeNode]
 
-proc newRouteTreeNode(): RouteTreeNode =
-  ## Every node owns its child table and route lists, avoiding shared mutable
-  ## state between applications and making Router values independently safe.
-  result.staticChildren = initTable[string, int]()
+proc newCompressedRouteTreeNode(): CompressedRouteTreeNode =
+  result.staticChildren = @[]
+  result.staticLookup = initTable[string, int]()
   result.parameterChild = -1
   result.terminalRoutes = @[]
   result.wildcardRoutes = @[]
@@ -44,7 +54,7 @@ proc initRouter*(): Router =
   result.webSocketRoutes = @[]
   result.routeNames = initTable[string, int]()
   result.webSocketNames = initTable[string, bool]()
-  result.routeTree = @[newRouteTreeNode()]
+  result.compressedRouteTree = @[newCompressedRouteTreeNode()]
 
 proc newRouteGroup*(prefix: string, middleware: seq[Middleware] = @[]): RouteGroup =
   ## Groups are values, making it safe to define reusable route conventions.
@@ -74,29 +84,77 @@ proc splitPath(value: string): seq[string] =
     if segment.len > 0:
       result.add(segment)
 
-proc indexRoute(router: var Router, pattern: string, routeIndex: int) =
-  ## Insert route shape into a compact trie.  Parameter routes share one edge
-  ## because their type/name validation belongs to matchPattern; the tree only
-  ## narrows the candidate path shape before that semantic validation.
-  var nodeIndex = 0
+proc staticRunEnd(segments: seq[string], start: int): int =
+  ## Return the first dynamic/wildcard boundary for radix insertion.
+  result = start
+  while result < segments.len and
+      segments[result].len > 0 and segments[result][0] notin {':', '*'}:
+    inc result
+
+proc commonStaticPrefix(label, segments: seq[string], start, stop: int): int =
+  ## Compare an existing compressed edge with the next static route run.
+  result = 0
+  while result < label.len and start + result < stop and
+      label[result] == segments[start + result]:
+    inc result
+
+proc indexCompressedRoute(router: var Router, pattern: string,
+                          routeIndex: int) =
+  ## Insert a route into a compressed static radix tree. Splitting an edge is
+  ## the only mutation beyond ordinary trie insertion; it preserves separate
+  ## parameter and wildcard branches at the split node.
   let segments = splitPath(pattern)
-  for segmentIndex, segment in segments:
+  var nodeIndex = 0
+  var segmentIndex = 0
+  while segmentIndex < segments.len:
+    let segment = segments[segmentIndex]
     if segment.len > 0 and segment[0] == '*':
-      router.routeTree[nodeIndex].wildcardRoutes.add(routeIndex)
+      router.compressedRouteTree[nodeIndex].wildcardRoutes.add(routeIndex)
       return
     if segment.len > 0 and segment[0] == ':':
-      if router.routeTree[nodeIndex].parameterChild < 0:
-        let childIndex = router.routeTree.len
-        router.routeTree.add(newRouteTreeNode())
-        router.routeTree[nodeIndex].parameterChild = childIndex
-      nodeIndex = router.routeTree[nodeIndex].parameterChild
+      if router.compressedRouteTree[nodeIndex].parameterChild < 0:
+        let childIndex = router.compressedRouteTree.len
+        router.compressedRouteTree.add(newCompressedRouteTreeNode())
+        router.compressedRouteTree[nodeIndex].parameterChild = childIndex
+      nodeIndex = router.compressedRouteTree[nodeIndex].parameterChild
+      inc segmentIndex
+      continue
+
+    let runEnd = staticRunEnd(segments, segmentIndex)
+    var edgeIndex = -1
+    if router.compressedRouteTree[nodeIndex].staticLookup.hasKey(segment):
+      edgeIndex = router.compressedRouteTree[nodeIndex].staticLookup[segment]
+    if edgeIndex < 0:
+      let childIndex = router.compressedRouteTree.len
+      router.compressedRouteTree.add(newCompressedRouteTreeNode())
+      edgeIndex = router.compressedRouteTree[nodeIndex].staticChildren.len
+      router.compressedRouteTree[nodeIndex].staticChildren.add(
+        CompressedStaticEdge(label: segments[segmentIndex ..< runEnd],
+          child: childIndex))
+      router.compressedRouteTree[nodeIndex].staticLookup[segment] = edgeIndex
+      nodeIndex = childIndex
+      segmentIndex = runEnd
+      continue
+
+    let edge = router.compressedRouteTree[nodeIndex].staticChildren[edgeIndex]
+    let common = commonStaticPrefix(edge.label, segments,
+      segmentIndex, runEnd)
+    if common < edge.label.len:
+      let splitIndex = router.compressedRouteTree.len
+      router.compressedRouteTree.add(newCompressedRouteTreeNode())
+      router.compressedRouteTree[splitIndex].staticChildren.add(
+        CompressedStaticEdge(label: edge.label[common .. ^1],
+          child: edge.child))
+      router.compressedRouteTree[splitIndex].staticLookup[
+        edge.label[common]] = 0
+      router.compressedRouteTree[nodeIndex].staticChildren[edgeIndex] =
+        CompressedStaticEdge(label: edge.label[0 ..< common],
+          child: splitIndex)
+      nodeIndex = splitIndex
     else:
-      if not router.routeTree[nodeIndex].staticChildren.hasKey(segment):
-        let childIndex = router.routeTree.len
-        router.routeTree.add(newRouteTreeNode())
-        router.routeTree[nodeIndex].staticChildren[segment] = childIndex
-      nodeIndex = router.routeTree[nodeIndex].staticChildren[segment]
-  router.routeTree[nodeIndex].terminalRoutes.add(routeIndex)
+      nodeIndex = edge.child
+    segmentIndex += common
+  router.compressedRouteTree[nodeIndex].terminalRoutes.add(routeIndex)
 
 proc addRoute*(router: var Router, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[],
@@ -115,7 +173,7 @@ proc addRoute*(router: var Router, httpMethod, pattern, name: string,
     executionKind: executionKind))
   if normalizedName.len > 0:
     router.routeNames[normalizedName] = index
-  router.indexRoute(normalizePattern(pattern), index)
+  router.indexCompressedRoute(normalizePattern(pattern), index)
 
 proc addWebSocketRoute*(router: var Router, pattern, name: string,
                         handler: WebSocketHandler) =
@@ -223,26 +281,44 @@ proc routeScore(route: Route): int =
       result += 30
 
 proc candidateIndexes(router: Router, path: string): seq[int] =
-  ## Walk only static, parameter, and trailing-wildcard branches that can
-  ## consume this path.  Traversal order is not registration order, so the
+  ## Walk compressed static edges plus parameter and wildcard branches that
+  ## can consume this path. Traversal order is not registration order, so the
   ## final numeric sort explicitly preserves the existing tie-break contract.
   let segments = splitPath(path)
   type TreeState = tuple[nodeIndex: int, pathIndex: int]
   var pending: seq[TreeState] = @[(nodeIndex: 0, pathIndex: 0)]
   while pending.len > 0:
     let state = pending.pop()
-    let node = router.routeTree[state.nodeIndex]
+    let node = router.compressedRouteTree[state.nodeIndex]
     if state.pathIndex == segments.len:
       result.add(node.terminalRoutes)
       continue
     for routeIndex in node.wildcardRoutes:
       result.add(routeIndex)
-    if node.staticChildren.hasKey(segments[state.pathIndex]):
-      pending.add((node.staticChildren[segments[state.pathIndex]],
-        state.pathIndex + 1))
+    let nextSegment = segments[state.pathIndex]
+    if node.staticLookup.hasKey(nextSegment):
+      let edge = node.staticChildren[node.staticLookup[nextSegment]]
+      if state.pathIndex + edge.label.len <= segments.len:
+        var matches = true
+        for offset, labelSegment in edge.label:
+          if labelSegment != segments[state.pathIndex + offset]:
+            matches = false
+            break
+        if matches:
+          pending.add((edge.child, state.pathIndex + edge.label.len))
     if node.parameterChild >= 0:
       pending.add((node.parameterChild, state.pathIndex + 1))
   result.sort(system.cmp[int])
+
+proc routeIndexStats*(router: Router): RouteIndexStats =
+  ## Report compression without exposing mutable node storage. This is useful
+  ## for benchmark assertions and gives maintainers a stable optimization
+  ## signal independent of machine-specific latency.
+  for node in router.compressedRouteTree:
+    for edge in node.staticChildren:
+      inc result.staticEdgeCount
+      result.longestStaticEdgeSegments = max(
+        result.longestStaticEdgeSegments, edge.label.len)
 
 proc matchingRoute(router: Router, path: string,
                    requestedMethod: Option[string]): Option[Route] =
