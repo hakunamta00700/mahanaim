@@ -31,6 +31,19 @@ type
     maxReconnectDelayMs*: int
     preserveOrdering*: bool
 
+  RedisChannelDeliverySnapshot* = object
+    ## A copyable, transport-neutral view of the local delivery loop.  The
+    ## snapshot deliberately contains counters rather than socket internals,
+    ## so observability code can consume it without taking ownership of the
+    ## Redis connection lifecycle.
+    receivedMessages*: int
+    deliveredMessages*: int
+    droppedMessages*: int
+    deliveryFailures*: int
+    reconnectAttempts*: int
+    reconnectSuccesses*: int
+    connectionFailures*: int
+
   RedisPubSubSubscription* = ref object
     ## A subscription is local state; Redis only knows the channel membership.
     id*: int
@@ -45,6 +58,12 @@ type
     maxPendingMessages*: int
     backpressurePolicy*: RedisBackpressurePolicy
     droppedMessages*: int
+    receivedMessages*: int
+    deliveredMessages*: int
+    deliveryFailures*: int
+    reconnectAttempts*: int
+    reconnectSuccesses*: int
+    connectionFailures*: int
     socket: AsyncSocket
     receiveBuffer: string
     reader: Future[void]
@@ -103,6 +122,12 @@ proc newRedisPubSubClient*(host = "127.0.0.1", port = Port(6379),
   result.maxPendingMessages = maxPendingMessages
   result.backpressurePolicy = backpressurePolicy
   result.droppedMessages = 0
+  result.receivedMessages = 0
+  result.deliveredMessages = 0
+  result.deliveryFailures = 0
+  result.reconnectAttempts = 0
+  result.reconnectSuccesses = 0
+  result.connectionFailures = 0
   result.receiveBuffer = ""
   result.nextId = 0
   result.subscriptions = initTable[string, seq[RedisPubSubSubscription]]()
@@ -118,6 +143,20 @@ proc newRedisPubSubClient*(deliveryPolicy: RedisChannelDeliveryPolicy,
   validateRedisChannelDeliveryPolicy(deliveryPolicy)
   result = newRedisPubSubClient(host, port, maxFrameBytes,
     deliveryPolicy.maxPendingMessages, deliveryPolicy.backpressurePolicy)
+
+proc deliverySnapshot*(client: RedisPubSubClient): RedisChannelDeliverySnapshot =
+  ## Return a value snapshot at one event-loop boundary.  Callers use it for
+  ## metrics and health reports; mutating it cannot mutate the live adapter.
+  if client.isNil:
+    raise newException(ValueError, "Redis pub/sub client is required")
+  RedisChannelDeliverySnapshot(
+    receivedMessages: client.receivedMessages,
+    deliveredMessages: client.deliveredMessages,
+    droppedMessages: client.droppedMessages,
+    deliveryFailures: client.deliveryFailures,
+    reconnectAttempts: client.reconnectAttempts,
+    reconnectSuccesses: client.reconnectSuccesses,
+    connectionFailures: client.connectionFailures)
 
 proc nextRespFrame(client: RedisPubSubClient): Future[string] {.async.} =
   ## Preserve coalesced RESP frames and wait for partial frames without
@@ -156,9 +195,10 @@ proc deliverMessage(client: RedisPubSubClient,
     if entry.active:
       try:
         await entry.subscriber(event.channel, event.payload)
+        inc client.deliveredMessages
       except CatchableError:
         ## One local consumer must not poison delivery to the other sessions.
-        discard
+        inc client.deliveryFailures
 
 proc deliveryLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
   while not client.closed:
@@ -199,6 +239,7 @@ proc dispatchLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
           client.acknowledgement = nil
           waiter.complete(event)
       elif event.kind == rpekMessage:
+        inc client.receivedMessages
         client.enqueueMessage(event)
   except CatchableError as error:
     if not client.acknowledgement.isNil and
@@ -226,6 +267,7 @@ proc connect*(client: RedisPubSubClient): Future[void] {.async.} =
   try:
     await client.socket.connect(client.host, client.port)
   except CatchableError:
+    inc client.connectionFailures
     client.socket.close()
     client.socket = nil
     raise
@@ -248,6 +290,7 @@ proc reconnect*(client: RedisPubSubClient): Future[void] {.async.} =
     raise newException(ValueError, "Redis pub/sub client is required")
   if client.closed:
     raise newException(CatchableError, "Redis pub/sub client is closed")
+  inc client.reconnectAttempts
   if not client.reader.isNil and not client.reader.finished:
     ## Do not close a socket while asyncnet.recv is pending: Nim's asyncnet
     ## asserts on that race. Reconnect is therefore safe after the peer has
@@ -271,6 +314,7 @@ proc reconnect*(client: RedisPubSubClient): Future[void] {.async.} =
   for channel in channels:
     await client.awaitAcknowledgement(encodeRedisSubscribeCommand(channel),
       rpekSubscribe, channel)
+  inc client.reconnectSuccesses
 
 proc reconnectWithRetry*(client: RedisPubSubClient, maxAttempts = 3,
                          initialDelayMs = 25,

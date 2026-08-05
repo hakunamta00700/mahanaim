@@ -5376,10 +5376,40 @@ suite "Mahanaim core contracts":
     check delivered.load() == 1
     waitFor client.reconnect()
     check delivered.load() == 2
+    let snapshot = client.deliverySnapshot()
+    check snapshot.reconnectAttempts == 1
+    check snapshot.reconnectSuccesses == 1
+    check snapshot.receivedMessages == 2
+    check snapshot.deliveredMessages == 2
     waitFor client.unsubscribe(subscription)
     client.close()
     joinThread(worker)
     check state.subscribeCount.load() == 2
+
+  test "async Redis pubsub snapshot isolates subscriber callback failures":
+    var state: RedisPubSubFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.receivedSubscribe.store(false)
+    state.receivedUnsubscribe.store(false)
+    var worker: Thread[ptr RedisPubSubFixtureState]
+    createThread(worker, runRedisPubSubFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    let client = newRedisPubSubClient(port = Port(state.port.load()))
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        doAssert payload == "hello"
+        raise newException(ValueError, "subscriber callback failed"))
+    waitFor sleepAsync(10)
+    let snapshot = client.deliverySnapshot()
+    check snapshot.receivedMessages == 1
+    check snapshot.deliveredMessages == 0
+    check snapshot.deliveryFailures == 1
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
 
   test "async Redis pubsub client applies bounded reconnect backoff":
     var state: RedisPubSubRetryFixtureState
@@ -5404,6 +5434,11 @@ suite "Mahanaim core contracts":
       initialDelayMs = 1, maxDelayMs = 2)) == 2
     waitFor sleepAsync(10)
     check delivered.load() == 2
+    let snapshot = client.deliverySnapshot()
+    check snapshot.reconnectAttempts == 2
+    check snapshot.reconnectSuccesses == 1
+    check snapshot.receivedMessages == 2
+    check snapshot.deliveredMessages == 2
     waitFor client.unsubscribe(subscription)
     client.close()
     joinThread(worker)
@@ -5505,6 +5540,11 @@ suite "Mahanaim core contracts":
     waitFor sleepAsync(80)
     check delivered.load() == 1
     check client.droppedMessages == 2
+    let snapshot = client.deliverySnapshot()
+    check snapshot.receivedMessages == 3
+    check snapshot.deliveredMessages == 1
+    check snapshot.droppedMessages == 2
+    check snapshot.deliveryFailures == 0
     waitFor client.unsubscribe(subscription)
     client.close()
     joinThread(worker)

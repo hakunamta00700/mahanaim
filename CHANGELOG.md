@@ -15,6 +15,7 @@
 - `HttpsDeploymentEvidence`와 fail-closed validator를 추가해 staging HTTPS 인증서·proxy·redirect·secure-cookie evidence의 공통 형식을 고정했다.
 - 검증된 HTTPS deployment evidence를 deterministic JSON artifact로 저장하는 render/write API를 추가했다.
 - Redis channel delivery 정책을 bounded queue·overflow·reconnect budget·ordered delivery를 묶는 공통 value contract로 정리했다.
+- Redis subscription의 수신·전달·drop·실패·reconnect 상태를 읽기 전용 `RedisChannelDeliverySnapshot`으로 관측할 수 있게 했다.
 - WebSocket close reason의 malformed UTF-8을 공통 core에서 거부하고 정상 Unicode reason을 허용하는 계약 테스트를 추가했다.
 - WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.
