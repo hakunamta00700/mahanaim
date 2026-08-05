@@ -34,3 +34,8 @@ sha256=<64 hexadecimal characters>
 - [ ] `nimble.lock` 변경은 dependency review와 함께 수행한다.
 - [ ] 지원 matrix 밖의 OS/Nim 조합은 experimental로 표시하고 stable release에 포함하지 않는다.
 - [x] Beast/httpx live fixture와 `beastLiveCheck`/`beastLive` gate를 Linux CI에 연결해 httpx/asyncdispatch ownership handoff와 WebSocket wire를 검증한다. macOS release runner 연결은 별도 matrix 확장 범위다.
+
+CI나 release script는 `renderArtifactManifest`로 artifact path와 SHA-256을
+path 순서의 deterministic manifest로 만들고, `writeArtifactManifest`로 파일에
+저장할 수 있다. manifest 생성은 metadata 형식과 경로 주입을 검증하지만, 실제
+파일 bytes 검증은 배포 전에 `validateReleaseArtifacts`로 별도 수행한다.

@@ -957,6 +957,11 @@ flowchart TB
 - [x] `closeWebSocketMessage`가 Nim 표준 `validateUtf8`로 reason byte sequence를 검증한다.
 - [x] malformed UTF-8 rejection과 정상 Unicode close reason을 core contract test로 고정했다.
 
+### 2026-08-05 — P0 release artifact manifest
+
+- [x] `ReleaseArtifact` metadata를 path 순서로 정렬해 deterministic line manifest로 렌더링하는 `renderArtifactManifest`와 파일 출력용 `writeArtifactManifest`를 추가했다.
+- [x] manifest path의 newline/NUL injection과 malformed SHA-256 metadata를 거부하는 contract test를 추가했다. 실제 target artifact 생성·checksum publish는 release runner가 소유한다.
+
 ### 2026-08-05 — Class-based controller baseline
 
 - [x] `Controller` base type의 virtual `handle(action, request)`와 `addControllerRoute`를 별도 module로 제공한다.

@@ -2247,9 +2247,11 @@ suite "Mahanaim core contracts":
 
   test "release checks validate runtime matrix and artifact checksums":
     let artifactPath = getTempDir() / "mahanaim-release-check.txt"
+    let manifestPath = getTempDir() / "mahanaim-release-check.manifest"
     writeFile(artifactPath, "artifact bytes")
     defer:
       if fileExists(artifactPath): removeFile(artifactPath)
+      if fileExists(manifestPath): removeFile(manifestPath)
     let checksum = sha256File(artifactPath)
     check checksum.len == 64
     check verifyArtifactChecksum(ReleaseArtifact(path: artifactPath,
@@ -2260,6 +2262,19 @@ suite "Mahanaim core contracts":
       ReleaseArtifact(path: artifactPath, sha256: checksum)]).len == 0
     check validateReleaseArtifacts(@[
       ReleaseArtifact(path: artifactPath, sha256: "invalid")]).len == 1
+    let manifest = renderArtifactManifest(@[
+      ReleaseArtifact(path: "dist/mahanaim-linux.tar.gz", sha256: checksum),
+      ReleaseArtifact(path: "dist/mahanaim-windows.zip", sha256: checksum)])
+    check manifest ==
+      "path=dist/mahanaim-linux.tar.gz\nsha256=" & checksum.toLowerAscii() &
+      "\npath=dist/mahanaim-windows.zip\nsha256=" & checksum.toLowerAscii() & "\n"
+    writeArtifactManifest(manifestPath, @[
+      ReleaseArtifact(path: "dist/mahanaim-linux.tar.gz", sha256: checksum),
+      ReleaseArtifact(path: "dist/mahanaim-windows.zip", sha256: checksum)])
+    check readFile(manifestPath) == manifest
+    expect ValueError:
+      discard renderArtifactManifest(@[
+        ReleaseArtifact(path: "dist/bad.tar.gz", sha256: "invalid")])
     let matrix = RuntimeSupportMatrix(minimumNim: currentNimVersion(),
       operatingSystems: @[currentOperatingSystem()])
     check validateRuntimeSupport(matrix).len == 0

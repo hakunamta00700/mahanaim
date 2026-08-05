@@ -4,6 +4,7 @@
 
 - class-based `Controller.handle` virtual contract와 `addControllerRoute` bridge를 추가해 controller action dispatch와 Application route/middleware lifecycle을 분리했다.
 - 구현계획의 local adapter baseline과 외부 운영 증거를 재분류하고, 문서 계약 테스트로 object storage·WebSocket·OpenAPI UI 상태를 고정했다.
+- `ReleaseArtifact` 목록에서 deterministic SHA-256 manifest를 생성·저장하는 `renderArtifactManifest`와 `writeArtifactManifest` 경계를 추가했다.
 - WebSocket close reason의 malformed UTF-8을 공통 core에서 거부하고 정상 Unicode reason을 허용하는 계약 테스트를 추가했다.
 - WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.

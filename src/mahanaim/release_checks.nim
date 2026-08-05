@@ -4,7 +4,7 @@
 ## separate integrity gate. This module keeps both checks as pure, reusable
 ## contracts so CI, a release script, and an embedding CLI can share them.
 
-import std/[json, os, strutils]
+import std/[algorithm, json, os, strutils]
 import nimcrypto
 
 type
@@ -83,6 +83,35 @@ proc validateReleaseArtifacts*(artifacts: openArray[ReleaseArtifact]): seq[strin
       result.add("artifact path is empty")
     elif not verifyArtifactChecksum(artifact):
       result.add("artifact checksum mismatch: " & artifact.path)
+
+proc renderArtifactManifest*(artifacts: openArray[ReleaseArtifact]): string =
+  ## Render a stable, line-oriented manifest that shell tooling and release
+  ## jobs can consume without parsing JSON or recomputing a glob order. The
+  ## manifest records supplied checksums only; callers should run
+  ## `validateReleaseArtifacts` first when the artifact files are available.
+  ## Keeping rendering separate from verification lets CI generate a manifest
+  ## before publishing while deployment gates can verify it independently.
+  var ordered: seq[ReleaseArtifact] = @[]
+  for artifact in artifacts:
+    if artifact.path.strip().len == 0 or artifact.path.contains({'\r', '\n', '\0'}):
+      raise newException(ValueError, "Release artifact path is invalid")
+    if not validSha256(artifact.sha256):
+      raise newException(ValueError,
+        "Release artifact SHA-256 is invalid: " & artifact.path)
+    ordered.add(artifact)
+  ordered.sort(proc(left, right: ReleaseArtifact): int =
+    cmp(left.path, right.path))
+  for artifact in ordered:
+    result.add("path=" & artifact.path & "\n")
+    result.add("sha256=" & artifact.sha256.toLowerAscii() & "\n")
+
+proc writeArtifactManifest*(path: string,
+                           artifacts: openArray[ReleaseArtifact]) =
+  ## File I/O remains a thin shell around the pure renderer so tests and
+  ## embedding applications can use the same validation and byte format.
+  if path.strip().len == 0 or path.contains({'\r', '\n', '\0'}):
+    raise newException(ValueError, "Release manifest path is invalid")
+  writeFile(path, renderArtifactManifest(artifacts))
 
 proc validHex(value: string, expectedLength: int): bool =
   ## Lockfile digests are metadata, not secrets; validate their shape before
