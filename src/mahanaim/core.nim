@@ -310,6 +310,14 @@ proc fileResponse*(path: string, contentType = "application/octet-stream",
   result.representation = rrFile
   result.headers["content-type"] = contentType
 
+proc validateSseSingleLineField(fieldName, value: string) =
+  ## `data` is deliberately multiline, but event metadata is one logical SSE
+  ## field per line. Rejecting CR/LF here prevents a caller from injecting a
+  ## forged `id`, `event`, or `retry` field into the serialized stream.
+  if value.contains('\r') or value.contains('\n'):
+    raise newException(ValueError,
+      "SSE " & fieldName & " field cannot contain a line break")
+
 proc sseResponse*(events: openArray[SseEvent], status = Http200): Response =
   ## Serialize SSE fields according to the line-oriented event protocol.
   result = newResponse(status)
@@ -318,6 +326,8 @@ proc sseResponse*(events: openArray[SseEvent], status = Http200): Response =
   result.headers["cache-control"] = "no-cache"
   result.headers["connection"] = "keep-alive"
   for event in events:
+    validateSseSingleLineField("event", event.event)
+    validateSseSingleLineField("id", event.id)
     if event.event.len > 0:
       result.body.add("event: " & event.event & "\n")
     if event.id.len > 0:

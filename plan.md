@@ -325,3 +325,4 @@
 - [-] **P3-21 Redis rolling deployment runbook** — worker drain 순서, bounded reconnect budget, readiness/liveness probe, rollback 절차와 repeatable evidence 명령을 `docs/operations-guide.md`에 문서화했다. 실제 staging rollout의 readiness transition·process exit·rollback evidence 수집은 외부 환경에서 남아 있다.
 - [x] **P3-22 template loop metadata** — 반복문 렌더링에 request-local `loop.index`/`index0`/`first`/`last`/`length`를 주입하고, nested loop shadowing 및 접근성 목록 렌더링 계약 테스트를 추가했다. parser와 renderer의 책임은 유지하며 metadata는 현재 loop context에만 존재한다.
 - [x] **P3-23 OpenAPI UI script boundary** — Swagger UI bootstrap의 caller-controlled `specUrl`을 JSON 직렬화 후 HTML-significant code point(`<> & U+2028/U+2029`)를 JavaScript Unicode escape로 변환하고, script 종료 시퀀스 삽입 회귀 테스트를 추가했다. ReDoc attribute escaping과 UI route 계약은 기존 경계를 유지한다.
+- [x] **P3-24 SSE field injection boundary** — SSE `event`/`id` metadata를 single-line field로 검증해 CR/LF field injection을 fail-fast하고, multiline `data` framing은 유지하는 회귀 테스트를 추가했다.

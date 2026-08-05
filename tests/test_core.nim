@@ -2346,6 +2346,20 @@ suite "Mahanaim core contracts":
     client.close()
     network.close()
 
+  test "SSE event and id fields reject line injection":
+    expect ValueError:
+      discard sseResponse([SseEvent(event: "message\nid: forged",
+        data: "safe")])
+    expect ValueError:
+      discard sseResponse([SseEvent(id: "event-1\r\nretry: 0",
+        data: "safe")])
+    ## Newlines remain valid in data because SSE intentionally serializes each
+    ## data line separately; only field names that can create a new field are
+    ## rejected.
+    check sseResponse([SseEvent(event: "message", id: "event-1", retryMs: -1,
+      data: "line one\nline two")]).body ==
+      "event: message\nid: event-1\ndata: line one\ndata: line two\n\n"
+
   test "network adapter writes stream responses with chunked transfer framing":
     var app = newApplication()
     let expectedBody = "chunk-".repeat(2000)

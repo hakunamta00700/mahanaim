@@ -941,3 +941,8 @@ flowchart TB
 
 - [x] Swagger UI `specUrl`을 JSON 문자열로 만든 뒤 `<`, `>`, `&`, U+2028, U+2029를 JavaScript Unicode escape로 변환한다.
 - [x] hostile URL의 `</script><script>` 삽입 위치를 계약 테스트로 검증하고, 정상 UI bootstrap·ReDoc attribute 경계를 보존한다.
+
+### 2026-08-05 — SSE field injection boundary baseline
+
+- [x] `sseResponse`가 single-line SSE `event`/`id` field의 CR/LF를 fail-fast validation한다.
+- [x] multiline `data`는 line-oriented SSE framing으로 유지하고, event/id injection 및 정상 framing을 regression test로 고정한다.
