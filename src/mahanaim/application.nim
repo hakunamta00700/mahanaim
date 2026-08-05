@@ -575,14 +575,21 @@ proc dispatchInternal(app: Application, request: Request): Future[Response] {.as
   return await app.invoke(requestWithParams, compose(layers, endpoint))
 
 proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
-  ## Network adapters delegate here. A borrowed connection is released on every
-  ## route, 404, 405, timeout, and exception path through the finally block.
-  ## Response negotiation is centralized here so in-process clients and every
-  ## transport adapter observe the same selected representation.
+  ## Network adapters delegate here. One request service scope is created before
+  ## any route or middleware runs and disposed after the future completes, while
+  ## a borrowed database connection is released on every route, 404, 405,
+  ## timeout, and exception path through the nested finally block. Response
+  ## negotiation is centralized here so in-process clients and every transport
+  ## adapter observe the same selected representation.
+  let serviceScope = app.services.newChildScope()
+  var requestWithServices = request
+  requestWithServices.services = serviceScope
+  defer: serviceScope.dispose()
   if app.databasePool.isNil:
-    return negotiateResponse(request, await app.dispatchInternal(request))
+    return negotiateResponse(requestWithServices,
+      await app.dispatchInternal(requestWithServices))
   let database = app.databasePool.acquire()
-  var requestWithDatabase = request
+  var requestWithDatabase = requestWithServices
   requestWithDatabase.database = database
   try:
     return negotiateResponse(requestWithDatabase,
@@ -611,4 +618,7 @@ proc shutdown*(app: Application) =
   if app.durableJobStore != nil:
     app.durableJobStore.close()
   app.services.dispose()
+  ## Keep explicit registrations available for post-shutdown health dispatches
+  ## and future restart; all created service instances were already released.
+  app.services.reopen()
   app.started = false

@@ -661,6 +661,20 @@ suite "Mahanaim core contracts":
     lifecycleApp.shutdown()
     check cast[DisposableDependencyService](owned).disposed
 
+  test "dispatch owns a request service scope for handlers":
+    ## Transport adapters should not create ad-hoc service lifetimes; the core
+    ## dispatch boundary owns one child scope for the complete request.
+    let app = newApplication()
+    app.provide("request-service", dependencyRequest, newFakeDependencyService)
+    proc readRequestService(request: Request): Future[mahanaim.Response]
+        {.async, gcsafe.} =
+      let service = request.services.resolve("request-service")
+      return textResponse(if service.isNil: "missing" else: "resolved")
+    app.get("/request-service", "request-service", readRequestService)
+    let response = waitFor app.dispatch(newRequest("GET", "/request-service"))
+    check response.status == Http200
+    check response.body == "resolved"
+
   test "background jobs use executor and bounded asynchronous retries":
     let app = newApplication()
     let queue = newBackgroundJobQueue(app.executor,

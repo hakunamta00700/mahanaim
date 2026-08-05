@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `Application.dispatch`가 request-scoped service child container를 자동 생성·정리하도록 연결했다. shutdown 시 instance는 release하지만 명시적 registration은 reopen해 post-shutdown health dispatch와 lifecycle restart 계약을 보존한다.
 - 구현계획의 기존 회귀 테스트 증거를 재감사해 관계 query·migration up/down, admin query/action/layout, 권한 거부, MessagePack·storage·plugin·system check 항목의 체크 상태와 잔여 production 범위를 정리했다.
 - DI service container에 명시적 child scope, dependency factory graph/cycle 검증, disposer와 Application shutdown disposal을 추가했다. application singleton과 request/task 소유권을 분리하는 contract test를 포함한다.
 - Application 소유 `MigrationDatabaseProvider`를 추가해 migration CLI가 명시적 backend connection lifecycle과 command runner를 사용하도록 연결했다. 기본 SQLite와 provider-backed `db seed`를 유지하고 DSN·credential 자동 추측을 금지한다.

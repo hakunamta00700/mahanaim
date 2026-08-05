@@ -307,7 +307,7 @@
 - [x] application scope singleton cache와 request/task factory semantics를 구현했다.
 - [x] Application wrapper와 plugin에서 사용할 수 있는 explicit provide/resolve API를 연결했다.
 - [x] singleton identity, factory recreation, unknown/duplicate dependency 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [x] child scope가 request/task instance를 소유하고 application instance는 root에 위임하며, dependency factory graph의 cycle rejection과 reverse-order disposer를 제공한다. Application shutdown도 root service disposal을 실행한다.
+- [x] child scope가 request/task instance를 소유하고 application instance는 root에 위임하며, dependency factory graph의 cycle rejection과 reverse-order disposer를 제공한다. `Application.dispatch`가 request scope를 자동 생성·정리하고, Application shutdown은 root instance를 해제한 뒤 명시적 registration을 유지한다.
 - [ ] command/admin extension의 추가 lifecycle integration은 남아 있다.
 
 ### 2026-08-04 — P2 background job 1차

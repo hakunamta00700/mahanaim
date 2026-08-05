@@ -7,6 +7,7 @@
 import std/[asyncdispatch, httpcore, json, options, os, strutils, tables]
 import std/concurrency/atomics
 import ./database
+import ./di
 import ./tracing
 
 type
@@ -40,6 +41,9 @@ type
     ## Optional request-scoped database connection. Application dispatch owns
     ## borrow/release; handlers only consume the adapter contract.
     database*: DatabaseAdapter
+    ## Request-scoped services are created by Application.dispatch and disposed
+    ## after the handler future completes. Adapters never own this lifetime.
+    services*: ServiceContainer
     ## Authentication is adapter-neutral: security middleware binds a verified
     ## session subject here, while handlers never inspect cookie syntax.
     auth*: AuthContext

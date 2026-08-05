@@ -176,6 +176,13 @@ proc dispose*(container: ServiceContainer) =
   container.ownedInstanceOrder.setLen(0)
   container.disposed = true
 
+proc reopen*(container: ServiceContainer) =
+  ## Shutdown releases instances but keeps explicit registrations available for
+  ## applications that intentionally dispatch a health/request after shutdown
+  ## or restart the lifecycle. The next resolve creates a fresh instance.
+  if not container.isNil:
+    container.disposed = false
+
 proc hasDependency*(container: ServiceContainer, name: string): bool =
   not container.isNil and not container.disposed and
     container.registrations.hasKey(name)
