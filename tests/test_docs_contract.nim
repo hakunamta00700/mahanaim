@@ -117,6 +117,16 @@ nimble test
       "- [x] command/admin extension의 lifecycle integration")
     check implementationPlan.contains("startup 전용 registration window")
 
+  test "implementation plan separates local job contracts from provider evidence":
+    ## The repository owns bounded background-job and external-store protocols;
+    ## queue provider visibility/ack behavior belongs to an application-owned
+    ## deployment. Keep that distinction explicit in the roadmap.
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check implementationPlan.contains(
+      "- [-] request lifecycle과 분리된 `BackgroundJobQueue`")
+    check implementationPlan.contains("외부 queue provider protocol")
+
   test "release matrix declares the supported macOS runner boundary":
     ## The matrix is a source-level release contract. It must describe the
     ## runner before external GitHub evidence is collected, otherwise a green

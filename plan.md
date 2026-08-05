@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] `BackgroundJobQueue`와 `ExternalDurableJobStore`의 repository-owned contract를 상세 계획에서 구현 상태로 분리하고, 외부 queue provider protocol·visibility timeout·ack 운영 검증은 application-owned 범위로 명시했다.
+
 - [x] database pool/template/migration/seed/durable-job/admin provisioning 설정도 startup transition을 포함한 pre-startup configuration window로 통합하고 regression test를 추가했다.
 
 - [x] model metadata, DI providers, serialization codec, storage adapter와 auth backend 등록도 동일한 pre-startup registration window로 통합하고 late mutation 회귀 테스트를 추가했다.

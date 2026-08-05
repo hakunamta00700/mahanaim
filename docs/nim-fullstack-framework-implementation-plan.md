@@ -671,7 +671,7 @@ flowchart TB
 ### Phase 4 — 운영·확장·검증 (P2)
 
 - [-] static/upload와 local/S3 호환 storage, memory/Redis cache store adapter를 제공하고 key traversal·TTL·eviction·RESP contract를 검증했다. production S3 signing/retry 운영 정책은 남아 있다.
-- [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
+- [-] request lifecycle과 분리된 `BackgroundJobQueue`, bounded retry, idempotency claim/release와 `ExternalDurableJobStore` callback contract를 제공한다. 실제 외부 queue provider protocol·visibility timeout·ack 운영 검증은 application-owned 배포 환경 범위다.
 - [x] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가하고 contract test로 검증한다.
 - [x] `checkApplication` report를 embedding·standalone `check` CLI에서 공통 실행하고, config·route·model·migration·security gate를 배포 전 점검한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
