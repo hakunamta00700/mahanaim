@@ -3753,6 +3753,13 @@ suite "Mahanaim core contracts":
     context["label"] = "nim"
     let output = engine.render("page", context)
     check output == "<main><h1>&lt;Ada&gt;</h1><span>NIM</span></main>"
+    engine.registerTemplate("role", "{% if admin %}admin{% elif editor %}" &
+      "editor{% else %}viewer{% endif %}")
+    context["admin"] = ""
+    context["editor"] = "true"
+    check engine.render("role", context) == "editor"
+    context["editor"] = ""
+    check engine.render("role", context) == "viewer"
     engine.registerTranslation("en", "welcome", "Welcome")
     engine.registerTranslation("ko", "welcome", "환영합니다")
     check engine.translate("welcome", "ko") == "환영합니다"

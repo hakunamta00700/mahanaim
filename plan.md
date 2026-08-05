@@ -248,6 +248,8 @@
 
 ## P3 — 선택 확장
 
+- [x] template AST가 `if/elif/else` 조건 분기를 nested `templateIf`로 표현하고 short-circuit 렌더링하도록 확장했으며, true/false branch 회귀 테스트를 추가했다.
+
 - [x] 직접 `httpx` request/response·WebSocket handoff와 application lifecycle을 연결하는 추가 HTTP backend/deployment adapter를 제공하고, Windows 조건부 import·Linux compile contract·설정 validation test 및 `httpxCheck`/`httpxTest` gate를 추가했다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
 - [x] 표준 WebSocket adapter가 masked fragmented text message를 continuation frame으로 재조립하고, 조립 중 interleaved ping에 pong으로 응답하도록 실제 loopback wire contract를 확장했다.

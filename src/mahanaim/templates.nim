@@ -648,6 +648,7 @@ type
   TemplateParseStop = enum
     parseNoStop
     parseElse
+    parseElif
     parseEndIf
     parseEndFor
     parseEndBlock
@@ -655,6 +656,10 @@ type
     nodes: seq[TemplateNode]
     cursor: int
     stop: TemplateParseStop
+    ## An elif stop carries its condition to the recursive conditional builder.
+    ## Keeping it on the parser result avoids adding a second AST node kind;
+    ## the renderer can treat the chain as ordinary nested `templateIf` nodes.
+    condition: string
 
 proc quotedTemplateName(source: string): string =
   ## Includes and extends accept one quoted template name. Keeping this
@@ -668,6 +673,33 @@ proc quotedTemplateName(source: string): string =
 
 proc parseTemplateNodes(source: string, cursor: int,
                         mode: TemplateParseMode): TemplateParseResult
+
+proc parseConditional(source: string, cursor: int,
+                      condition: string): tuple[node: TemplateNode,
+                                                cursor: int] =
+  ## Build one if/elif/else chain recursively. An `elif` becomes the single
+  ## node in the preceding branch's elseChildren, preserving short-circuit
+  ## evaluation and the existing TemplateNode public shape.
+  let body = parseTemplateNodes(source, cursor, parseIf)
+  if body.stop notin {parseElse, parseElif, parseEndIf}:
+    raise newException(ValueError, "Template if block has no endif")
+  result.node = TemplateNode(kind: templateIf, value: condition,
+    children: body.nodes, elseChildren: @[])
+  case body.stop
+  of parseElse:
+    let alternate = parseTemplateNodes(source, body.cursor, parseIf)
+    if alternate.stop != parseEndIf:
+      raise newException(ValueError, "Template if block has no endif")
+    result.node.elseChildren = alternate.nodes
+    result.cursor = alternate.cursor
+  of parseElif:
+    let nested = parseConditional(source, body.cursor, body.condition)
+    result.node.elseChildren = @[nested.node]
+    result.cursor = nested.cursor
+  of parseEndIf:
+    result.cursor = body.cursor
+  else:
+    raise newException(ValueError, "Template if block has no endif")
 
 proc parseTemplateNodes(source: string, cursor: int,
                         mode: TemplateParseMode): TemplateParseResult =
@@ -717,6 +749,16 @@ proc parseTemplateNodes(source: string, cursor: int,
       result.cursor = after
       result.stop = parseElse
       return
+    if directive.startsWith("elif "):
+      if mode != parseIf:
+        raise newException(ValueError, "Unexpected template elif directive")
+      let condition = directive[5 .. ^1].strip()
+      if condition.len == 0:
+        raise newException(ValueError, "Template elif condition cannot be empty")
+      result.cursor = after
+      result.stop = parseElif
+      result.condition = condition
+      return
     if directive == "endif":
       if mode != parseIf:
         raise newException(ValueError, "Unexpected template endif directive")
@@ -740,20 +782,9 @@ proc parseTemplateNodes(source: string, cursor: int,
       let condition = directive[3 .. ^1].strip()
       if condition.len == 0:
         raise newException(ValueError, "Template if condition cannot be empty")
-      let body = parseTemplateNodes(source, after, parseIf)
-      if body.stop notin {parseElse, parseEndIf}:
-        raise newException(ValueError, "Template if block has no endif")
-      var node = TemplateNode(kind: templateIf, value: condition,
-        children: body.nodes, elseChildren: @[])
-      if body.stop == parseElse:
-        let alternate = parseTemplateNodes(source, body.cursor, parseIf)
-        if alternate.stop != parseEndIf:
-          raise newException(ValueError, "Template if block has no endif")
-        node.elseChildren = alternate.nodes
-        position = alternate.cursor
-      else:
-        position = body.cursor
-      result.nodes.add(node)
+      let conditional = parseConditional(source, after, condition)
+      result.nodes.add(conditional.node)
+      position = conditional.cursor
       continue
 
     if directive.startsWith("for "):

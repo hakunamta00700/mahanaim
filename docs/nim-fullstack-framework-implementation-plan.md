@@ -868,3 +868,8 @@ flowchart TB
 
 - [x] WebSocket parser가 FIN/opcode를 분리해 initial text/binary frame과 continuation frame을 최대 message limit 안에서 재조립한다.
 - [x] fragmented message 중 ping은 adapter가 pong으로 처리하고, control frame의 FIN·125-byte 제한과 unexpected/nested data frame 경계를 검증하도록 보강했다. 실제 loopback wire test에서 fragmented masked text와 interleaved ping/pong을 통과시켰다.
+
+### 2026-08-05 — P3 template conditional branching
+
+- [x] template parser가 `if/elif/else/endif` 체인을 nested `templateIf` AST로 구성해 기존 renderer 경계에서 short-circuit 평가를 유지하도록 확장했다.
+- [x] true `elif` branch와 최종 `else` fallback 회귀 테스트를 추가하고, 구현 전 실패(red)와 구현 후 전체 테스트(green)를 확인했다.
