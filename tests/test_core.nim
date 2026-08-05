@@ -820,6 +820,19 @@ suite "Mahanaim core contracts":
     check recovered.load() == 1
     check closed.load() == 1
 
+  test "closed SQLite durable job store rejects every state transition":
+    ## A shutdown race must surface as a normal contract error rather than a
+    ## nil connection defect. Callers can then decide whether to retry or
+    ## discard work without depending on db_connector internals.
+    let store = newSqliteDurableJobStore()
+    store.close()
+    expect ValueError:
+      store.complete("closed-job")
+    expect ValueError:
+      store.release("closed-job")
+    expect ValueError:
+      store.recoverProcessing()
+
   test "durable job runner dispatches named handlers through the executor":
     let app = newApplication()
     let queue = newBackgroundJobQueue(app.executor,

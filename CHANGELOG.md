@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- SQLite durable job store의 `complete`·`release`·`recoverProcessing`가 close 이후 db connector assertion을 노출하지 않고 명시적 `ValueError`를 반환하도록 보강하고 shutdown race 회귀 테스트를 추가했다.
 - P0 `REQ-TEST-002`를 `checkApplication`의 config/route/model/migration/security/execution 검사와 embedding/standalone CLI 공통 `CheckReport` contract 테스트에 맞춰 완료로 갱신했다.
 - P1 migration 요구사항 표를 SQLite/PostgreSQL migration runner·provider·CLI·metadata schema contract와 PostgreSQL live evidence에 맞춰 완료로 갱신하고, provider 선택/CI wiring은 application-owned extension으로 분리했다.
 - P1 query/API 요구사항 표에서 pagination·cursor·filter/sort/field-selection·aggregate·relation loading을 실제 contract 테스트가 증명하는 구현 완료 범위로 갱신했다.

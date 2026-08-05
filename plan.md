@@ -239,6 +239,7 @@
 - [x] command/admin extension point와 dependency graph resolution을 제공한다.
 - [x] executor 기반 background job abstraction과 bounded asynchronous retry 정책을 제공한다.
 - [x] background job에 `IdempotencyStore`/in-memory·append-only file·SQLite claim-release adapter와 `enqueueIdempotent`, SQLite durable job payload의 claim/complete/release/recoverProcessing state machine, named-kind handler registry와 bounded executor runner, application-owned `jobs run [max]|recover` bounded drain CLI를 추가했다. `ExternalDurableJobStore` callback bridge와 shutdown close 경계도 제공한다.
+- [x] 닫힌 SQLite durable store의 `complete`·`release`·`recoverProcessing`도 `ValueError`로 명시적 lifecycle 오류를 반환하도록 하고 shutdown race 회귀 테스트를 추가했다.
 - [-] 실제 외부 queue provider protocol·visibility timeout·ack 정책의 운영 검증은 application-owned 배포 환경 범위다.
 - [x] backend-neutral database test fixture와 SQLite transaction rollback isolation을 제공하고, 환경 기반 PostgreSQL fixture factory 및 `newPostgresTestFixtureFromEnv` convenience API를 추가했다. PostgreSQL live fixture에 isolation·repository route·custom codec·DDL rollback·pool/session·HTTP/SSE/WebSocket live-server contract를 연결했고 PostgreSQL 16 컨테이너에서 통과했다.
 

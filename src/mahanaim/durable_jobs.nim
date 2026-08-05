@@ -271,6 +271,12 @@ method complete*(store: SqliteDurableJobStore, id: string) {.gcsafe.} =
     raise newException(ValueError, "Durable job store and id are required")
   acquire(store.lock)
   try:
+    ## Completion is a state transition, so it must observe the same explicit
+    ## closed-store boundary as enqueue/claim. Without this guard a shutdown
+    ## race would leak a db_connector assertion instead of a recoverable
+    ## framework error.
+    if store.connection.isNil:
+      raise newException(ValueError, "Durable job store is closed")
     store.connection.exec(SqlQuery(
       "UPDATE \"" & durableJobsTable & "\" SET \"status\" = 'completed' " &
       "WHERE \"id\" = ? AND \"status\" = 'processing'"), id)
@@ -282,6 +288,11 @@ method release*(store: SqliteDurableJobStore, id: string) {.gcsafe.} =
     raise newException(ValueError, "Durable job store and id are required")
   acquire(store.lock)
   try:
+    ## Retry/requeue follows the same lifecycle rule as completion. Keeping the
+    ## check local to this adapter avoids imposing SQLite connection details on
+    ## the backend-neutral DurableJobStore contract.
+    if store.connection.isNil:
+      raise newException(ValueError, "Durable job store is closed")
     store.connection.exec(SqlQuery(
       "UPDATE \"" & durableJobsTable & "\" SET \"status\" = 'pending' " &
       "WHERE \"id\" = ? AND \"status\" = 'processing'"), id)
@@ -293,6 +304,11 @@ method recoverProcessing*(store: SqliteDurableJobStore) {.gcsafe.} =
     raise newException(ValueError, "Durable job store is required")
   acquire(store.lock)
   try:
+    ## Recovery is normally called during startup, but an idempotent shutdown
+    ## hook can race with it. Fail explicitly instead of dereferencing a
+    ## connection that close() has already released.
+    if store.connection.isNil:
+      raise newException(ValueError, "Durable job store is closed")
     store.connection.exec(SqlQuery(
       "UPDATE \"" & durableJobsTable & "\" SET \"status\" = 'pending' " &
       "WHERE \"status\" = 'processing'"))
