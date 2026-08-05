@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `EmailTransport`에 validated RFC 5322 wire를 application-owned SMTP/API/outbox로 넘기는 callback adapter와 회귀 테스트를 추가했다.
 - P2 운영 도구에 mailbox/header injection/recipient/content-type 경계를 검증하는 RFC 5322 simple-part email serializer와 framework-neutral `EmailTransport`/in-memory adapter를 추가했다. SMTP socket·credential·retry는 application-owned adapter 범위다.
 - P2 syndication contract에 XML escaping·absolute URL·필수 identity 검증을 포함한 framework-neutral Atom 1.0 feed/entry renderer와 회귀 테스트를 추가했다. email backend는 application-owned transport 범위로 남긴다.
 - `ExternalDurableJobStore`의 close callback을 idempotent하게 만들고 close 이후 enqueue/claim/complete/release/recover callback 재사용을 `ValueError`로 차단하는 lifecycle contract와 회귀 테스트를 추가했다.

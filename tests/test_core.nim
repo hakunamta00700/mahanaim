@@ -288,6 +288,21 @@ suite "Mahanaim core contracts":
         recipients: @["victim@example.test\r\nBcc: injected@example.test"],
         subject: "Unsafe", contentType: "text/plain; charset=utf-8", body: "x"))
 
+  test "callback email transport owns external wire delivery":
+    var deliveries: Atomic[int]
+    var observedWire: Atomic[int]
+    deliveries.store(0)
+    observedWire.store(0)
+    let transport = newCallbackEmailTransport(
+      proc(wire: string) {.gcsafe.} =
+        discard observedWire.fetchAdd(wire.len)
+        discard deliveries.fetchAdd(1))
+    transport.send(EmailMessage(sender: "sender@example.test",
+      recipients: @["recipient@example.test"], subject: "Callback",
+      contentType: "text/plain; charset=utf-8", body: "payload"))
+    check deliveries.load() == 1
+    check observedWire.load() > 0
+
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
     ## requiring every application to remember a security setting. Explicit

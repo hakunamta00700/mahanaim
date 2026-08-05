@@ -23,6 +23,14 @@ type
     ## A transport is intentionally small: the framework gives it a validated
     ## message, while the adapter decides how and where delivery occurs.
 
+  EmailWireCallback* = proc(wire: string) {.gcsafe.}
+
+  CallbackEmailTransport* = ref object of EmailTransport
+    ## This bridge is the explicit seam for SMTP, API mail providers, or a
+    ## durable outbox. The callback receives normalized wire data only after
+    ## the framework has completed its local validation.
+    callback*: EmailWireCallback
+
   InMemoryEmailTransport* = ref object of EmailTransport
     ## This adapter is deterministic and useful for tests and local previews;
     ## it must not be mistaken for durable or production delivery.
@@ -96,6 +104,23 @@ method send*(transport: EmailTransport, message: EmailMessage) {.base, gcsafe.} 
   discard transport
   discard message
   raise newException(ValueError, "Email transport does not implement send")
+
+proc newCallbackEmailTransport*(callback: EmailWireCallback):
+    CallbackEmailTransport =
+  ## Require the application-owned delivery function at construction time so
+  ## a configured transport cannot silently drop a message at runtime.
+  if callback.isNil:
+    raise newException(ValueError, "Email wire callback is required")
+  new(result)
+  result.callback = callback
+
+method send*(transport: CallbackEmailTransport, message: EmailMessage)
+    {.gcsafe.} =
+  ## Rendering happens before callback invocation, keeping external adapters
+  ## from receiving partially validated headers or recipient lists.
+  if transport.isNil or transport.callback.isNil:
+    raise newException(ValueError, "Email wire callback is required")
+  transport.callback(renderEmail(message))
 
 proc newInMemoryEmailTransport*(): InMemoryEmailTransport =
   ## A new adapter owns its own message list, preventing test/application
