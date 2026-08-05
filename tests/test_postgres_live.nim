@@ -6,12 +6,51 @@
 ## isolation contract through the same fixture used by application tests.
 
 import std/[asyncdispatch, asyncnet, atomics, httpcore, httpclient, json, options,
-            strutils, tables]
+            os, strutils, tables]
 import mahanaim/[application, core, database, database_repository, models,
                 database_pool, database_session, migration_commands,
                 postgres_adapter, postgres_testing,
                 http_adapter, resources, serialization, testing]
 import database_contracts
+
+type PostgresConcurrentMigrationState = object
+  ## Credentials stay in the process-local fixture state and are never
+  ## rendered. Atomics coordinate only the start and failure outcome of the
+  ## two independent libpq connections.
+  configuration: PostgresTestConfiguration
+  ready: Atomic[int]
+  failures: Atomic[int]
+
+proc concurrentPostgresMigration(): Migration =
+  ## A tiny schema keeps this test focused on migration history serialization.
+  Migration(name: "mahanaim_live_concurrent_001", up: @[
+    MigrationOperation(kind: migrationCreateTable,
+      table: "mahanaim_live_concurrent_items",
+      field: newModelField("message", modelString))], down: @[
+    MigrationOperation(kind: migrationDropTable,
+      table: "mahanaim_live_concurrent_items")])
+
+proc runConcurrentPostgresMigration(
+    state: ptr PostgresConcurrentMigrationState) {.thread, gcsafe.} =
+  discard state.ready.fetchAdd(1)
+  while state.ready.load() < 2:
+    sleep(1)
+  let configuration = state.configuration
+  let adapter = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  try:
+    ## The adapter's transaction callback is intentionally not constrained by
+    ## the public API's GC-safety marker. Crossing this test-only native thread
+    ## boundary therefore keeps the cast local to the live fixture.
+    let migrateProc = cast[proc(adapter: PostgresDatabaseAdapter,
+        migrations: openArray[Migration]): seq[string] {.nimcall, gcsafe.}](
+      postgres_adapter.migrate)
+    discard migrateProc(adapter, @[concurrentPostgresMigration()])
+  except CatchableError:
+    discard state.failures.fetchAdd(1)
+  finally:
+    adapter.close()
 
 proc encodeLiveMoney(field: ModelField, value: JsonNode): JsonNode {.gcsafe.} =
   ## The live contract uses an application-owned codec rather than teaching
@@ -77,6 +116,46 @@ proc runLiveMigrationContract(configuration: PostgresTestConfiguration) =
   ## status/up/rollback so repeated live runs do not accumulate metadata.
   discard adapter.execute(CompiledQuery(sql:
     "DROP TABLE IF EXISTS \"__mahanaim_migrations\"", parameters: @[]))
+
+proc runLiveConcurrentMigrationContract(
+    configuration: PostgresTestConfiguration) =
+  ## Startup and an operator CLI can race on PostgreSQL as well as SQLite.
+  ## Two real libpq connections must converge on one history row, not expose
+  ## the unique constraint as an application-level migration failure.
+  let setup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"mahanaim_live_concurrent_items\"",
+    parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"__mahanaim_migrations\"", parameters: @[]))
+  setup.close()
+
+  var state = PostgresConcurrentMigrationState(configuration: configuration)
+  var first: Thread[ptr PostgresConcurrentMigrationState]
+  var second: Thread[ptr PostgresConcurrentMigrationState]
+  createThread(first, runConcurrentPostgresMigration, addr state)
+  createThread(second, runConcurrentPostgresMigration, addr state)
+  joinThread(first)
+  joinThread(second)
+  if state.failures.load() != 0:
+    raise newException(ValueError,
+      "PostgreSQL concurrent migration execution failed")
+
+  let verifier = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  let history = verifier.appliedMigrations()
+  if history != @["mahanaim_live_concurrent_001"]:
+    raise newException(ValueError,
+      "PostgreSQL concurrent migration history did not converge")
+  discard verifier.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"mahanaim_live_concurrent_items\"",
+    parameters: @[]))
+  discard verifier.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"__mahanaim_migrations\"", parameters: @[]))
+  verifier.close()
 
 proc runLivePoolSessionContract(configuration: PostgresTestConfiguration) =
   ## Exercise the real libpq connection through the framework-owned pool and
@@ -410,6 +489,7 @@ proc runLiveContract() =
     quit(0)
 
   runLiveMigrationContract(configuration.get())
+  runLiveConcurrentMigrationContract(configuration.get())
   runLivePoolSessionContract(configuration.get())
   runLiveRowLockContract(configuration.get())
   runLiveRowLockContentionContract(configuration.get())

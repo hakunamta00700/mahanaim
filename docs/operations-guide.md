@@ -310,6 +310,12 @@ shutdown. It also serves real HTTP, SSE, and WebSocket requests through
 over the wire. The WebSocket client reads the server close frame before
 closing its socket, proving graceful ownership handoff.
 
+The live migration contract also starts two independent PostgreSQL connections
+at the same time and verifies that one migration history row and schema are
+committed. `nimble postgresLiveCheck` proves the fixture compiles everywhere;
+`nimble postgresLive` requires the documented credentials to produce the real
+database evidence.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and

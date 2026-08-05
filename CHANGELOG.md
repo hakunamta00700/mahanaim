@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- PostgreSQL live fixture에 독립 연결 2개의 concurrent migration과 단일 history 수렴 계약을 추가했다.
 - 독립 SQLite 연결의 동시 migration 실행이 단일 history row와 schema로 수렴하는 회귀 테스트를 추가했다.
 - API stability 정책의 semantic versioning, 지원 matrix, deprecation/migration, maturity label, security release 문서 계약을 계획의 완료 항목으로 정리했다.
 - 보안 회귀 테스트에 untrusted `X-Forwarded-Host`와 missing `Host`가 allowed-host 정책을 우회하지 못하는 실패 경로를 추가했다.

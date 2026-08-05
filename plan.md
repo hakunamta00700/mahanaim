@@ -273,6 +273,7 @@
 
 ## 완료 판정
 
+- [x] 2026-08-05 PostgreSQL live fixture에도 독립 libpq 연결 2개의 concurrent migration 계약을 추가하고 `postgresLiveCheck` compile gate 및 credential 부재 명시적 skip을 검증했다. credential이 제공되는 CI/staging의 실제 실행 로그는 외부 evidence 범위다.
 - [x] 2026-08-05 `tests/test_core.nim`에 독립 SQLite 연결 2개가 같은 migration을 동시에 실행하는 계약을 추가해 실패 없이 단일 history row/schema로 수렴하는지 검증했다. PostgreSQL concurrent migration 및 staging 운영 evidence는 별도 범위다.
 - [x] 2026-08-05 semantic versioning, 지원 버전/adapter matrix, deprecation migration guide, API maturity label, security release 규칙을 `docs/api-stability-policy.md`와 `docs/support-matrix.md`에 고정하고 문서 계약 테스트로 계획 상태와 정책 artifact의 정합성을 검증했다.
 - [x] 2026-08-05 보안 실패·우회 경로를 우선 검증하도록 `tests/test_core.nim`에 untrusted `X-Forwarded-Host`와 missing `Host`의 allowed-host bypass 회귀 테스트를 추가했다. HTTPS/CORS/body-limit/CSRF/session/rate-limit 실패 계약과 함께 로컬 gate에서 검증하고, staging TLS 증거는 별도 범위로 유지한다.

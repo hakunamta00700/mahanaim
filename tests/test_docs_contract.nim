@@ -187,6 +187,15 @@ nimble test
       "SQLite migration is idempotent across concurrent connections")
     check implementationPlan.contains("동시 요청 조건에서 검증한다")
 
+  test "PostgreSQL live migration contract includes concurrent connections":
+    let liveSuite = readFile(getCurrentDir() / "tests" /
+      "test_postgres_live.nim")
+    let guide = readFile(getCurrentDir() / "docs" /
+      "operations-guide.md")
+    check liveSuite.contains("runLiveConcurrentMigrationContract")
+    check liveSuite.contains("PostgreSQL concurrent migration history")
+    check guide.contains("two independent PostgreSQL connections")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /
