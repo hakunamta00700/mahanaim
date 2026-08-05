@@ -897,3 +897,5 @@ flowchart TB
 - [x] Redis/Valkey pub/sub RESP2 command/event codec를 공통 framing helper 위에 추가하고 malformed array, unsupported event, trailing bytes를 거부하는 회귀 테스트를 제공한다.
 - [ ] dedicated async subscription socket, reconnect·ordering·backpressure와 실제 Redis/Valkey cross-process fan-out live contract는 외부 서비스 환경 범위로 남긴다.
 - [x] 기존 `RedisValkeyRespClient`에 `PUBLISH` command 실행과 subscriber count 응답 검증을 연결했다. `SUBSCRIBE` connection state와 async receive loop는 별도 adapter 범위로 유지한다.
+- [x] dedicated async Redis/Valkey subscription client가 long-lived socket, RESP coalesced frame buffering, subscribe/unsubscribe ack, subscriber callback delivery와 close lifecycle을 실제 loopback TCP fixture로 검증한다.
+- [ ] Redis/Valkey reconnect·backpressure·cross-process production live evidence와 `ChannelLayer` distributed backend wiring은 후속 adapter 범위다.

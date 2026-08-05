@@ -90,7 +90,7 @@ proc encodeRedisCommand*(arguments: openArray[string]): string =
   for argument in arguments:
     result.add(respBulk(argument))
 
-proc validateRedisChannel(channel: string) =
+proc validateRedisChannel*(channel: string) =
   ## A blank channel cannot be routed or unsubscribed safely and usually
   ## indicates that an application forgot to bind a group name.
   if channel.strip().len == 0:
@@ -316,7 +316,7 @@ proc close*(client: RedisValkeyRespClient) =
   finally:
     release(client.lock)
 
-proc respFrameEnd(payload: string, cursor: var int): int =
+proc respFrameEnd*(payload: string, cursor: var int): int =
   ## Find one complete RESP frame without interpreting its application value.
   ## Partial network reads are reported distinctly so callers can continue,
   ## while malformed complete frames fail immediately.

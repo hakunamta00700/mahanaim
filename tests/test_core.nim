@@ -92,10 +92,42 @@ type RedisReconnectFixtureState = object
   ready: Atomic[bool]
   connections: Atomic[int]
 
+type RedisPubSubFixtureState = object
+  ## A native loopback broker fixture keeps the async subscription test
+  ## independent from an installed Redis daemon while exercising real TCP.
+  port: Atomic[int]
+  ready: Atomic[bool]
+  receivedSubscribe: Atomic[bool]
+  receivedUnsubscribe: Atomic[bool]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
   discard token
+
+proc runRedisPubSubFixture(state: ptr RedisPubSubFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  var client: owned(Socket)
+  server.accept(client)
+  var command = ""
+  while not command.contains("SUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  state.receivedSubscribe.store(command.contains("SUBSCRIBE"))
+  client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$5\r\nhello\r\n")
+  command = ""
+  while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  state.receivedUnsubscribe.store(command.contains("UNSUBSCRIBE"))
+  client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+  client.close()
+  server.close()
 
 proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
   ## Minimal loopback RESP server: enough protocol surface to test the real
@@ -4937,6 +4969,31 @@ suite "Mahanaim core contracts":
       discard parseRedisPubSubEvent("*2\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n")
     expect ValueError:
       discard parseRedisPubSubEvent("+PONG\r\n")
+
+  test "async Redis pubsub client receives messages and acknowledges unsubscribe":
+    var state: RedisPubSubFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.receivedSubscribe.store(false)
+    state.receivedUnsubscribe.store(false)
+    var worker: Thread[ptr RedisPubSubFixtureState]
+    createThread(worker, runRedisPubSubFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let client = newRedisPubSubClient(port = Port(state.port.load()))
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        doAssert payload == "hello"
+        discard delivered.fetchAdd(1))
+    check delivered.load() == 1
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
+    check state.receivedSubscribe.load()
+    check state.receivedUnsubscribe.load()
 
   test "Redis RESP client publishes channel messages through its transport":
     let client = newRedisValkeyRespClient(transport =

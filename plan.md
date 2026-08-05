@@ -311,3 +311,4 @@
 - [x] **P3-06 Redis/Valkey pub/sub RESP codec** — `PUBLISH`·`SUBSCRIBE`·`UNSUBSCRIBE` 명령 encoder와 `message`·`subscribe`·`unsubscribe` event parser를 추가하고, exact shape·channel validation·trailing bytes·malformed frame 회귀 테스트를 통과시켰다.
 - [-] **P3-07 Redis/Valkey live channel transport** — dedicated async subscription socket, reconnect·ordering·backpressure 정책과 실제 cross-process fan-out live evidence는 Redis/Valkey 서비스 환경에서 후속 구현·검증한다.
 - [x] **P3-08 Redis publish adapter** — `RedisValkeyRespClient`가 `PUBLISH` command를 실행하고 subscriber count integer response를 strict하게 검증한다. subscription socket state는 별도 async adapter가 소유한다.
+- [x] **P3-09 async Redis subscription adapter** — dedicated `AsyncSocket` subscription client가 RESP frame coalescing, subscribe/unsubscribe acknowledgement, local subscriber delivery, idempotent close를 loopback TCP fixture로 검증한다. reconnect·backpressure 정책과 Redis production live evidence는 남긴다.
