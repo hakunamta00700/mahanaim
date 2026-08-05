@@ -62,6 +62,14 @@ Argon2는 `--algorithm=argon2id --memory-kib`, `--iterations`, `--threads`,
 메모리 사용량도 별도로 확인한 뒤 정책 값을 확정한다. benchmark 기본값은 adapter
 기본 policy를 반영하지만 보안·성능 보증값은 아니다.
 
+2026-08-05 Windows amd64/Nim 2.2.4 release-like baseline (AMD Ryzen 7 3700X,
+32 GiB RAM)에서는 기본 Argon2id(`memory_kib=65536`, `iterations=3`,
+`threads=1`, `derived_bytes=32`, `samples=5`)가 hash 평균 117 ms, verify 평균
+119 ms였다. 같은 호스트의 bcrypt `work_factor=12`, `samples=5`는 hash 평균
+249 ms, verify 평균 250 ms였다. 이 값은 재현 가능한 개발 호스트 baseline일 뿐
+production 권고값이 아니며, 실제 배포 호스트에서 concurrent memory/login load를
+다시 측정한 뒤에만 production cost를 확정한다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Windows amd64/Nim 2.2.4 개발 호스트에서 Argon2id 기본 정책과 bcrypt work factor 12의 samples=5 hash/verify baseline을 측정해 운영 문서에 기록했다. 해당 값은 production 권고값이 아니며 배포 호스트 재측정이 필요하다.
 - Definition of Done 문서의 필수 섹션·체크박스 표기·검증 명령을 `validateDefinitionOfDone`로 검사하는 `nimble docsCheck` 계약과 회귀 테스트를 추가하고, `verify` 및 CI에 연결했다.
 - Docker nginx 1.27.5와 Nim/Linux 2.2.4 upstream의 HTTPS wire fixture를 재실행해 HTTP→HTTPS redirect 및 reverse-proxy live contract 통과를 확인했다. 운영 staging의 공인 인증서·갱신·외부 DNS 검증은 배포 환경 범위로 남겼다.
 - CI verify job에 Redis 7.2 service와 health check, `MAHANAIM_REDIS_*` 설정, `redisLiveCheck`/`redisLive` gate를 추가했다. bounded eviction 설정은 disposable CI container에서만 명시적으로 허용하고 외부 Redis 환경은 변경하지 않는다.
