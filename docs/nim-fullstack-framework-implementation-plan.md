@@ -723,7 +723,7 @@ flowchart TB
 | [x] | REQ-API-002 | P1 | DTO projection/serialization policy를 모델 metadata와 분리해 rename, patch, nested, sensitive exclusion을 지원한다. |
 | [x] | REQ-API-003 | P1 | serializer protocol을 정의하고 JSON부터 MessagePack·날짜·UUID·enum·파일 adapter를 구현한다. JSON-compatible decode와 JSON/MessagePack `Accept` negotiation, 명시적 field `wireType` codec registry를 포함한다. schema-level custom wire type은 후속 범위다. |
 | [-] | REQ-API-004 | P1 | route/schema registry에서 OpenAPI 3.1을 생성하고 Swagger UI·ReDoc route 및 `addDocumentedRoute` 동시 등록 경계를 붙였다. operation별 다중 request/response content type, scalar input/response object용 `inputSchema`·`responseSchema` macro, typed DTO `addTypedDocumentedRoute`, registry 기반 nested DTO component schema/cycle-safe `$ref`, router 기반 idempotent `collectRoutes`, metadata 기반 `addModelDocumentedRoute`와 `Application.dispatch` 공통 runtime negotiation을 추가했다. type-erased generic handler closure의 DTO body schema 자동 추론은 명시적 typed handler contract가 없으므로 지원하지 않는다. |
-| [-] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. |
+| [x] | REQ-API-005 | P1 | metadata 기반 재사용 가능한 pagination/filter/sort/field-selection component와 typed cursor token/bound filter, signed/expiring next cursor, opt-in total metadata, metadata-driven aggregate expression parser, 공통 validation 오류 형식을 제공했다. QuerySet aggregate compiler/repository mapping/route와 typed arithmetic annotate, eager one-hop·many-to-many through loading, 명시적 lazy relation loader 및 parent page 기준 bound `IN` batching을 contract test로 검증했다. |
 
 ### 데이터·ORM·마이그레이션
 
