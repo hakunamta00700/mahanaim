@@ -5,7 +5,8 @@
 ## small syntax needed by framework pages: `{{ value|filter }}`, `{% include
 ## "name" %}`, and `{% extends "base" %}` with `{% block name %}` overrides.
 
-import std/[algorithm, json, os, strutils, tables]
+import std/[algorithm, json, os, strutils, tables, times]
+import ./localization
 
 type
   TemplateContext* = Table[string, string]
@@ -61,6 +62,11 @@ type
     ## This keeps nested relation loading outside the parser while allowing a
     ## loop body to request `parent.children` for the current parent only.
     projections*: Table[string, TemplateCollectionProjection]
+    ## Formatter policy is request-owned rather than global. Built-in locale
+    ## helpers are enabled only when this flag is set, making an accidental
+    ## server-wide locale leak impossible.
+    hasLocaleFormatter*: bool
+    localeFormatter*: LocaleFormatPolicy
   TemplateFilter* = proc(value: string): string
   TemplateTag* = proc(arguments: seq[string], context: TemplateContext): string
 
@@ -113,6 +119,14 @@ proc newTemplateRenderContext*(): TemplateRenderContext =
   result.values = initTable[string, string]()
   result.collections = initTable[string, seq[TemplateContext]]()
   result.projections = initTable[string, TemplateCollectionProjection]()
+  result.hasLocaleFormatter = false
+
+proc setLocaleFormatter*(context: var TemplateRenderContext,
+                         policy: LocaleFormatPolicy) =
+  ## Attach one immutable formatter snapshot to this render. Applications can
+  ## construct it from Request.locale/timezone after middleware negotiation.
+  context.localeFormatter = policy
+  context.hasLocaleFormatter = true
 
 proc addCollection*(context: var TemplateRenderContext, name: string,
                     values: openArray[TemplateContext]) =
@@ -173,6 +187,9 @@ proc registerHelper*(engine: TemplateEngine, name: string,
   ## helpers receive named arguments with literal/context kinds already parsed.
   if engine.isNil or name.strip().len == 0 or helper.isNil:
     raise newException(ValueError, "Template helper name and callback are required")
+  if name in ["format_decimal", "format_datetime"]:
+    raise newException(ValueError,
+      "Locale template helper name is reserved: " & name)
   if engine.helpers.hasKey(name):
     raise newException(ValueError, "Duplicate template helper: " & name)
   engine.helpers[name] = helper
@@ -186,6 +203,52 @@ proc resolveTemplateHelperArgument*(argument: TemplateHelperArgument,
     argument.value
   of helperContext:
     context.getOrDefault(argument.value)
+
+proc localeHelperArgument(arguments: openArray[TemplateHelperArgument],
+                          name: string, context: TemplateContext): string =
+  ## Named arguments keep formatter helpers independent from argument order;
+  ## unnamed first arguments remain convenient for small templates.
+  for argument in arguments:
+    if argument.name == name:
+      return resolveTemplateHelperArgument(argument, context)
+  if name == "value" and arguments.len > 0:
+    return resolveTemplateHelperArgument(arguments[0], context)
+  ""
+
+proc renderLocaleHelper(name: string,
+                        arguments: openArray[TemplateHelperArgument],
+                        context: TemplateContext,
+                        policy: LocaleFormatPolicy): string =
+  ## These helpers are built into the render context rather than registered on
+  ## the shared engine, so concurrent requests can use different locales.
+  case name
+  of "format_decimal":
+    let rawValue = localeHelperArgument(arguments, "value", context)
+    if rawValue.strip().len == 0:
+      raise newException(ValueError, "format_decimal requires value")
+    var fractionDigits = 2
+    let rawDigits = localeHelperArgument(arguments, "digits", context)
+    if rawDigits.len > 0:
+      try:
+        fractionDigits = parseInt(rawDigits)
+      except ValueError:
+        raise newException(ValueError, "format_decimal digits must be an integer")
+    try:
+      return policy.formatDecimal(parseFloat(rawValue), fractionDigits)
+    except ValueError as error:
+      raise newException(ValueError, "format_decimal value is invalid: " & error.msg)
+  of "format_datetime":
+    let rawValue = localeHelperArgument(arguments, "value", context)
+    if rawValue.strip().len == 0:
+      raise newException(ValueError, "format_datetime requires value")
+    try:
+      let parsed = parse(rawValue, "yyyy-MM-dd'T'HH:mm:ss'Z'", utc())
+      return policy.formatDateTime(parsed)
+    except ValueError as error:
+      raise newException(ValueError,
+        "format_datetime value must be an ISO UTC instant: " & error.msg)
+  else:
+    raise newException(ValueError, "Unknown locale template helper: " & name)
 
 proc registerTranslation*(engine: TemplateEngine, locale, key, value: string) =
   ## Translation keys are explicit and duplicate registration is rejected so
@@ -792,7 +855,9 @@ proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
                  projections: Table[string, TemplateCollectionProjection],
-                 inherited: AstBlockMap): string
+                 inherited: AstBlockMap,
+                 hasLocaleFormatter: bool,
+                 localeFormatter: LocaleFormatPolicy): string
 
 proc renderTemplateVariable(engine: TemplateEngine, expression: string,
                             context: TemplateContext): string =
@@ -812,7 +877,9 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
                     context: TemplateContext,
                     collections: Table[string, seq[TemplateContext]],
                     projections: Table[string, TemplateCollectionProjection],
-                    depth: int): string =
+                    depth: int,
+                    hasLocaleFormatter: bool,
+                    localeFormatter: LocaleFormatPolicy): string =
   ## Render typed nodes recursively. This is the single structural rendering
   ## path; no closing marker is searched in rendered text, so user content can
   ## never change the control-flow tree.
@@ -832,7 +899,7 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
       else:
         node.elseChildren
       result.add(engine.renderAstNodes(selected, context, collections,
-        projections, depth + 1))
+        projections, depth + 1, hasLocaleFormatter, localeFormatter))
     of templateFor:
       if not collections.hasKey(node.collectionName) and
           not projections.hasKey(node.collectionName):
@@ -847,14 +914,23 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
         for key, value in item:
           itemContext[node.variableName & "." & key] = value
         result.add(engine.renderAstNodes(node.children, itemContext,
-          collections, projections, depth + 1))
+          collections, projections, depth + 1, hasLocaleFormatter,
+          localeFormatter))
     of templateInclude:
       result.add(engine.renderNamed(node.name, context, collections,
-        depth + 1, projections, initTable[string, seq[TemplateNode]]()))
+        depth + 1, projections, initTable[string, seq[TemplateNode]](),
+        hasLocaleFormatter, localeFormatter))
     of templateHelper:
-      if not engine.helpers.hasKey(node.name):
+      if node.name in ["format_decimal", "format_datetime"]:
+        if not hasLocaleFormatter:
+          raise newException(ValueError,
+            "Locale template helper requires a formatter context")
+        result.add(escapeHtml(renderLocaleHelper(node.name, node.arguments,
+          context, localeFormatter)))
+      elif not engine.helpers.hasKey(node.name):
         raise newException(ValueError, "Template helper not found: " & node.name)
-      result.add(escapeHtml(engine.helpers[node.name](node.arguments, context)))
+      else:
+        result.add(escapeHtml(engine.helpers[node.name](node.arguments, context)))
     of templateTag:
       if not engine.tags.hasKey(node.name):
         raise newException(ValueError, "Template tag not found: " & node.name)
@@ -864,7 +940,7 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
       result.add(escapeHtml(engine.tags[node.name](arguments, context)))
     of templateBlock:
       result.add(engine.renderAstNodes(node.children, context, collections,
-        projections, depth + 1))
+        projections, depth + 1, hasLocaleFormatter, localeFormatter))
     of templateExtends:
       ## Extends is consumed by renderNamed before the materialized root is
       ## rendered. Keeping the node renderable makes parseTemplate useful for
@@ -929,13 +1005,15 @@ proc renderFragment(engine: TemplateEngine, source: string,
     raise newException(ValueError, "Template recursion depth exceeded")
   let ast = parseTemplate(source)
   result = engine.renderAstNodes(ast.nodes, context, collections,
-    projections, depth)
+    projections, depth, false, LocaleFormatPolicy())
 
 proc renderNamed(engine: TemplateEngine, name: string,
                  context: TemplateContext,
                  collections: Table[string, seq[TemplateContext]], depth: int,
                  projections: Table[string, TemplateCollectionProjection],
-                 inherited: AstBlockMap): string =
+                 inherited: AstBlockMap,
+                 hasLocaleFormatter: bool,
+                 localeFormatter: LocaleFormatPolicy): string =
   if depth > engine.maxInheritanceDepth:
     raise newException(ValueError, "Template inheritance depth exceeded")
   let source = engine.templateSource(name)
@@ -950,10 +1028,12 @@ proc renderNamed(engine: TemplateEngine, name: string,
   let localBlocks = collectAstBlocks(ast.nodes)
   if parent.len > 0:
     return renderNamed(engine, parent, context, collections, depth + 1,
-      projections, mergeAstBlocks(localBlocks, inherited))
+      projections, mergeAstBlocks(localBlocks, inherited),
+      hasLocaleFormatter, localeFormatter)
   let materialized = materializeAstNodes(ast.nodes,
     mergeAstBlocks(localBlocks, inherited))
-  engine.renderAstNodes(materialized, context, collections, projections, depth)
+  engine.renderAstNodes(materialized, context, collections, projections, depth,
+    hasLocaleFormatter, localeFormatter)
 
 proc render*(engine: TemplateEngine, name: string,
              context: TemplateContext = initTable[string, string]()): string =
@@ -963,7 +1043,7 @@ proc render*(engine: TemplateEngine, name: string,
   renderNamed(engine, name, context,
     initTable[string, seq[TemplateContext]](), 0,
     initTable[string, TemplateCollectionProjection](),
-    initTable[string, seq[TemplateNode]]())
+    initTable[string, seq[TemplateNode]](), false, LocaleFormatPolicy())
 
 proc render*(engine: TemplateEngine, name: string,
              context: TemplateRenderContext): string =
@@ -972,4 +1052,5 @@ proc render*(engine: TemplateEngine, name: string,
   if engine.isNil:
     raise newException(ValueError, "Template engine is required")
   renderNamed(engine, name, context.values, context.collections, 0,
-    context.projections, initTable[string, seq[TemplateNode]]())
+    context.projections, initTable[string, seq[TemplateNode]](),
+    context.hasLocaleFormatter, context.localeFormatter)

@@ -1834,6 +1834,26 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard newIanaLocaleFormatPolicy("en", "Mars/Phobos")
 
+  test "template render context injects locale format helpers":
+    let engine = newTemplateEngine()
+    engine.registerTemplate("formatted",
+      "{% helper format_decimal value=amount digits=\"2\" %} | " &
+      "{% helper format_datetime value=instant %}")
+    var context = newTemplateRenderContext()
+    context.values["amount"] = "1234567.5"
+    context.values["instant"] = "2026-08-05T15:30:00Z"
+    context.setLocaleFormatter(newLocaleFormatPolicy("de-DE", 540))
+    check engine.render("formatted", context) ==
+      "1.234.567,50 | 2026-08-06 00:30"
+    expect ValueError:
+      engine.registerHelper("format_decimal", proc(
+          arguments: seq[TemplateHelperArgument],
+          values: TemplateContext): string = "shadowed")
+    var unconfigured = newTemplateRenderContext()
+    unconfigured.values["amount"] = "12.5"
+    expect ValueError:
+      discard engine.render("formatted", unconfigured)
+
   test "lifecycle hooks are ordered and idempotent":
     let app = newApplication()
     var events: seq[string] = @[]
