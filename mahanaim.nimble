@@ -57,6 +57,12 @@ task serializationBenchmark, "Run the deterministic serialization benchmark":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r benchmarks/serialization_benchmark.nim"
 
+task templateBenchmark, "Run the deterministic template benchmark":
+  ## Keep template AST/render measurements independent from HTTP and database
+  ## work; the executable validates escaping and loop metadata on each render.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r benchmarks/template_benchmark.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 

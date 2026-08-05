@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- deterministic template AST/render benchmark와 `nimble templateBenchmark` gate를 추가해 auto-escaping 및 loop metadata invariant를 반복 검증한다.
+
 - deterministic metadata serialization benchmark와 `nimble serializationBenchmark` gate를 추가해 JSON projection 및 sensitive-field exclusion invariant를 반복 검증한다.
 
 - deterministic ORM query compiler benchmark와 `nimble databaseQueryBenchmark` gate를 추가해 SQLite/PostgreSQL parameter binding 및 no-interpolation invariant를 반복 검증한다.

@@ -76,6 +76,16 @@ nimble test
     check manifest.contains("task serializationBenchmark")
     check manifest.contains("benchmarks/serialization_benchmark.nim")
 
+  test "template benchmark is wired as a repeatable Nimble gate":
+    ## Template rendering has its own AST, escaping, and loop-context costs.
+    ## Keep the workload separate from serializer and transport benchmarks.
+    let benchmark = getCurrentDir() / "benchmarks" /
+      "template_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(benchmark)
+    check manifest.contains("task templateBenchmark")
+    check manifest.contains("benchmarks/template_benchmark.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /
