@@ -159,8 +159,9 @@ nimble httpsLiveCheck
 nimble httpsLive
 ```
 
-2026-08-05 로컬 wire 결과: Docker nginx 1.27.5, Nim/Linux 2.2.4
-upstream에서 `HTTPS reverse-proxy live contract passed`. 운영 staging의
+2026-08-05 로컬 wire 결과를 `tests/run_https_wire.ps1`로 재실행했다: Docker
+nginx 1.27.5, Nim/Linux 2.2.4 upstream에서 HTTP→HTTPS redirect와
+`HTTPS reverse-proxy live contract passed`를 확인했다. 운영 staging의
 공인 인증서 체인, HTTP→HTTPS redirect, 갱신 자동화와 외부 DNS는 여전히
 배포 환경에서 별도로 확인해야 한다.
 
