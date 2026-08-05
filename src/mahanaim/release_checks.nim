@@ -21,6 +21,20 @@ type
     path*: string
     sha256*: string
 
+  HttpsDeploymentEvidence* = object
+    ## A deployment report is evidence, not a network client. Keeping this
+    ## value object framework-neutral lets CI, an operator script, or a
+    ## release dashboard validate the same approval prerequisites without
+    ## moving TLS credentials into the application core.
+    endpoint*: string
+    certificateFingerprint*: string
+    certificateExpiryUnix*: int64
+    trustedCertificate*: bool
+    renewalVerified*: bool
+    redirectVerified*: bool
+    proxyHopVerified*: bool
+    secureCookieVerified*: bool
+
 proc currentOperatingSystem*(): string =
   ## Normalize compiler target names so the matrix is stable across CI tools.
   when defined(windows): "windows"
@@ -59,6 +73,30 @@ proc validSha256(value: string): bool =
     if character notin {'0'..'9', 'a'..'f', 'A'..'F'}:
       return false
   true
+
+proc validateHttpsDeploymentEvidence*(evidence: HttpsDeploymentEvidence,
+                                     nowUnix: int64): seq[string] =
+  ## Fail closed when a staging report is incomplete. The caller must obtain
+  ## these booleans and certificate fields from a real HTTPS wire probe; this
+  ## validator only makes accidental approval of partial evidence impossible.
+  if evidence.endpoint.strip().len == 0 or
+      not evidence.endpoint.toLowerAscii().startsWith("https://") or
+      evidence.endpoint.contains({'\r', '\n', ' ', '\t'}):
+    result.add("HTTPS evidence endpoint must be a valid HTTPS URL")
+  if not validSha256(evidence.certificateFingerprint):
+    result.add("HTTPS evidence certificate fingerprint must be SHA-256")
+  if evidence.certificateExpiryUnix <= nowUnix:
+    result.add("HTTPS evidence certificate must not be expired")
+  if not evidence.trustedCertificate:
+    result.add("HTTPS evidence certificate trust was not verified")
+  if not evidence.renewalVerified:
+    result.add("HTTPS evidence certificate renewal was not verified")
+  if not evidence.redirectVerified:
+    result.add("HTTPS evidence HTTP-to-HTTPS redirect was not verified")
+  if not evidence.proxyHopVerified:
+    result.add("HTTPS evidence trusted proxy hop was not verified")
+  if not evidence.secureCookieVerified:
+    result.add("HTTPS evidence secure cookie attributes were not verified")
 
 proc sha256File*(path: string): string =
   ## Read bytes unchanged; text normalization would invalidate release hashes

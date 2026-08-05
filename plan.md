@@ -348,3 +348,8 @@
 ### 2026-08-05 plan checklist validation
 
 - [x] `validatePlanChecklist`가 `plan.md`의 우선순위·완료 판정 section, `[x]`/`[-]`/`[ ]` marker와 빈 항목을 `nimble docsCheck`에서 검증하도록 추가했다.
+
+### 2026-08-05 HTTPS deployment evidence baseline
+
+- [x] `HttpsDeploymentEvidence`와 `validateHttpsDeploymentEvidence`로 HTTPS endpoint·certificate fingerprint/expiry·renewal·redirect·trusted proxy·secure cookie 증거를 공통 fail-closed contract로 검증한다.
+- [ ] 실제 staging 인증서 체인과 renewal 자동화 성공 로그는 외부 배포 환경에서 수집한다.

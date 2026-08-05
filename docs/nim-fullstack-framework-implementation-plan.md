@@ -993,3 +993,8 @@ flowchart TB
 
 - [x] `validatePlanChecklist`가 `plan.md`의 priority/completion sections, supported checkbox markers와 empty checklist items를 `docsCheck` contract로 검증한다.
 - [ ] 이 validator는 구현 증거 자체를 대신하지 않으므로 staging/live evidence와 기능별 Definition of Done 확인은 계속 별도 수행한다.
+
+### 2026-08-05 — HTTPS deployment evidence contract
+
+- [x] `HttpsDeploymentEvidence`와 `validateHttpsDeploymentEvidence`가 HTTPS endpoint, SHA-256 certificate fingerprint, expiry, trusted certificate, renewal, redirect, proxy hop과 secure-cookie 증거를 fail-closed로 검증한다.
+- [ ] 실제 staging endpoint의 TLS handshake·인증서 체인·갱신 자동화 결과는 이 value contract에 기록할 외부 배포 evidence로 남긴다.

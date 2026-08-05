@@ -2305,6 +2305,26 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard collectReleaseArtifacts(@[getTempDir() / "missing-release.bin"])
 
+  test "HTTPS deployment evidence fails closed before staging approval":
+    let valid = HttpsDeploymentEvidence(
+      endpoint: "https://staging.example.test/wire",
+      certificateFingerprint: repeat("a", 64),
+      certificateExpiryUnix: 2_000_000_000,
+      trustedCertificate: true,
+      renewalVerified: true,
+      redirectVerified: true,
+      proxyHopVerified: true,
+      secureCookieVerified: true)
+    check validateHttpsDeploymentEvidence(valid, 1_900_000_000).len == 0
+    var invalid = valid
+    invalid.endpoint = "http://staging.example.test/wire"
+    invalid.trustedCertificate = false
+    invalid.certificateFingerprint = "invalid"
+    invalid.certificateExpiryUnix = 1_800_000_000
+    invalid.renewalVerified = false
+    invalid.proxyHopVerified = false
+    check validateHttpsDeploymentEvidence(invalid, 1_900_000_000).len >= 5
+
   test "dependency lock contract validates package metadata and checksums":
     let lockPath = getTempDir() / "mahanaim-lock-contract.json"
     defer:
