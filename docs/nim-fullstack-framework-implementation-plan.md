@@ -453,6 +453,7 @@
 ### 2026-08-04 — P0 executor capacity configuration
 
 - [x] executorMaxConcurrentJobs를 AppConfig와 process environment provider에 연결했다.
+- [x] executorMaxQueuedJobs를 AppConfig와 process environment provider에 연결하고 Application executor 생성에 wiring했다. 음수 queue capacity는 `checkConfig`에서 fail fast한다.
 - [x] 음수 capacity pre-flight validation과 설정 precedence 회귀 테스트를 추가했다.
 - [x] blocking 자동 감지와 backend cancellation hook 정책을 추가했다.
 - [ ] backend별 실제 worker cancellation은 남아 있다.

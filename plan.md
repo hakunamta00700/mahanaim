@@ -286,3 +286,4 @@
 
 - [x] executor의 active worker capacity와 waiting queue를 분리하고 `maxQueuedJobs` bounded admission 및 `executor_queue_full` 503 contract를 추가했다.
 - [x] queue-full 회귀 테스트를 먼저 추가해 named parameter 컴파일 실패를 확인한 뒤 구현하고 `nimble test` green을 확인했다.
+- [x] `executorMaxQueuedJobs`를 AppConfig·JSON/TOML·`MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS` provider와 Application executor wiring에 연결하고 음수 설정 pre-flight 회귀 테스트를 추가했다.

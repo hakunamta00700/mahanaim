@@ -18,6 +18,9 @@ type
     port*: int
     requestTimeoutMs*: int
     executorMaxConcurrentJobs*: int
+    ## Bounds jobs waiting for a saturated synchronous executor. Zero keeps
+    ## the existing unbounded admission compatibility mode.
+    executorMaxQueuedJobs*: int
     secrets*: Table[string, string]
     ## Non-scalar settings remain typed JSON so arrays, dates, and nested
     ## deployment settings are not flattened into lossy strings.
@@ -29,7 +32,7 @@ proc newConfig(environment, host: string, debug: bool, port: int): AppConfig =
   ## deliberate long-running request contract.
   result = AppConfig(environment: environment, debug: debug, host: host,
     port: port, requestTimeoutMs: defaultRequestTimeoutMs,
-    executorMaxConcurrentJobs: 0)
+    executorMaxConcurrentJobs: 0, executorMaxQueuedJobs: 0)
   result.secrets = initTable[string, string]()
   result.values = initTable[string, JsonNode]()
 
@@ -88,6 +91,11 @@ proc applyValue(config: var AppConfig, key, value, source: string) =
       config.executorMaxConcurrentJobs = parseInt(stripQuotes(value))
     except ValueError:
       raise newException(ValueError, "invalid executor capacity in " & source)
+  of "executor_max_queued_jobs", "mahanaim_executor_max_queued_jobs":
+    try:
+      config.executorMaxQueuedJobs = parseInt(stripQuotes(value))
+    except ValueError:
+      raise newException(ValueError, "invalid executor queue capacity in " & source)
   else:
     let secretKey = if normalized.startsWith("secret."): normalized[7 .. ^1]
                     elif normalized.startsWith("secrets."): normalized[8 .. ^1]
@@ -122,7 +130,8 @@ proc validateJsonConfigType(key: string, value: JsonNode, source: string) =
         key & " must be a boolean in " & source)
   of "port", "mahanaim_port", "request_timeout_ms",
      "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
-     "mahanaim_executor_max_concurrent_jobs":
+     "mahanaim_executor_max_concurrent_jobs", "executor_max_queued_jobs",
+     "mahanaim_executor_max_queued_jobs":
     if value.kind != JInt:
       raise newException(ValueError,
         key & " must be an integer in " & source)
@@ -136,7 +145,8 @@ proc validateTomlConfigType(key: string, value: TomlValueRef, source: string) =
     of "debug", "mahanaim_debug": "boolean"
     of "port", "mahanaim_port", "request_timeout_ms",
        "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
-       "mahanaim_executor_max_concurrent_jobs": "integer"
+       "mahanaim_executor_max_concurrent_jobs", "executor_max_queued_jobs",
+       "mahanaim_executor_max_queued_jobs": "integer"
     else: ""
   if expected.len == 0:
     return
@@ -274,7 +284,8 @@ proc isSupportedTomlKey(key: string): bool =
     "environment", "mahanaim_env", "debug", "mahanaim_debug", "host",
     "mahanaim_host", "port", "mahanaim_port", "request_timeout_ms",
     "mahanaim_request_timeout_ms", "executor_max_concurrent_jobs",
-    "mahanaim_executor_max_concurrent_jobs"
+    "mahanaim_executor_max_concurrent_jobs", "executor_max_queued_jobs",
+    "mahanaim_executor_max_queued_jobs"
   ] or normalized.startsWith("secret.") or
     normalized.startsWith("secrets.") or normalized.startsWith("secret_")
 
@@ -325,7 +336,8 @@ proc loadConfig*(dotEnvPath = ".env", jsonPath = "", tomlPath = ""): AppConfig =
     result.applyStructuredValues(loadTomlStructuredConfig(tomlPath), tomlPath)
   var environmentValues = initTable[string, string]()
   for key in ["MAHANAIM_ENV", "MAHANAIM_DEBUG", "MAHANAIM_HOST", "MAHANAIM_PORT",
-              "MAHANAIM_REQUEST_TIMEOUT_MS", "MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS"]:
+              "MAHANAIM_REQUEST_TIMEOUT_MS", "MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS",
+              "MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS"]:
     if existsEnv(key):
       environmentValues[key] = getEnv(key)
   for key, value in envPairs():

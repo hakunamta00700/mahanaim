@@ -137,6 +137,7 @@ proc newApplication*(config = defaultConfig(),
   result.executionPolicy = executionPolicy
   result.executor = newThreadPoolExecutor(
     maxConcurrentJobs = config.executorMaxConcurrentJobs,
+    maxQueuedJobs = config.executorMaxQueuedJobs,
     blockingDetectionMs = executionPolicy.blockingDetectionMs,
     forceCancellationAfterMs = executionPolicy.forceCancellationAfterMs,
     queueWaitMs = executionPolicy.queueWaitMs)

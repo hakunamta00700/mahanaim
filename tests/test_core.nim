@@ -543,6 +543,13 @@ suite "Mahanaim core contracts":
     check not report.passed
     check report.issues[0].code == "config.executor-capacity.negative"
 
+  test "negative executor queue capacity is rejected by pre-flight checks":
+    var config = defaultConfig()
+    config.executorMaxQueuedJobs = -1
+    let report = checkConfig(config)
+    check not report.passed
+    check report.issues[0].code == "config.executor-queue-capacity.negative"
+
   test "invalid executor cancellation policy is rejected by pre-flight checks":
     var policy = defaultExecutionPolicy()
     policy.blockingDetectionMs = -1
@@ -2909,12 +2916,14 @@ suite "Mahanaim core contracts":
     putEnv("MAHANAIM_PORT", "9100")
     putEnv("MAHANAIM_REQUEST_TIMEOUT_MS", "35")
     putEnv("MAHANAIM_EXECUTOR_MAX_CONCURRENT_JOBS", "3")
+    putEnv("MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS", "7")
     let config = loadConfig(dotenvPath, jsonPath, tomlPath)
     check config.host == "dotenv-host"
     check config.environment == "staging"
     check config.port == 9100
     check config.requestTimeoutMs == 35
     check config.executorMaxConcurrentJobs == 3
+    check config.executorMaxQueuedJobs == 7
     check config.secrets["token"] == "toml-secret"
     check config.values["ports"].kind == JArray
     check config.values["ports"][0].getInt() == 8000
@@ -2922,6 +2931,14 @@ suite "Mahanaim core contracts":
     check config.values["release_date"].getStr() == "2026-08-04"
     check config.values["database"]["pool_size"].getInt() == 4
     check redactSecrets("token=toml-secret", config) == "token=[REDACTED]"
+
+  test "application wires configured executor queue capacity":
+    var config = defaultConfig()
+    config.executorMaxConcurrentJobs = 2
+    config.executorMaxQueuedJobs = 4
+    let app = newApplication(config)
+    check app.executor.maxConcurrentJobs == 2
+    check app.executor.maxQueuedJobs == 4
 
   test "TOML schema rejects unsupported and unknown values":
     let root = getTempDir() / "mahanaim_toml_schema_test"

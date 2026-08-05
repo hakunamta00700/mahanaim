@@ -68,6 +68,9 @@ proc checkConfig*(config: AppConfig): CheckReport =
   if config.executorMaxConcurrentJobs < 0:
     result.addError("config.executor-capacity.negative",
       "executorMaxConcurrentJobs must be zero or greater")
+  if config.executorMaxQueuedJobs < 0:
+    result.addError("config.executor-queue-capacity.negative",
+      "executorMaxQueuedJobs must be zero or greater")
   for key, value in config.secrets:
     if key.strip().len == 0:
       result.addError("config.secret.empty-key", "secret keys must not be empty")
