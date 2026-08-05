@@ -70,7 +70,7 @@
 - [x] 문자열·정수 coercion, 기본값, 길이·범위 제약, 다중 오류 수집을 구현했다.
 - [x] `application/problem+json` 응답과 field-level 오류 envelope을 추가했다.
 - [x] API 검증·오류 응답 테스트 3개를 추가했고 전체 테스트가 통과했다.
-- [ ] macro 기반 schema 생성과 일반 응답 타입별 content negotiation은 남아 있다.
+- [x] macro 기반 schema 생성과 일반 응답 타입별 content negotiation을 추가했다. type-erased generic handler의 자동 DTO body 추론은 별도 typed handler contract가 정의될 때까지 보류한다.
 
 ### 2026-08-04 — P0 API 검증 2차
 
@@ -174,7 +174,7 @@
 - [x] typed parameter(`int`, `uint`, `float`, `bool`)와 trailing wildcard를 추가했다.
 - [x] route group prefix·middleware와 named URL builder를 추가했다.
 - [x] 정적 경로 우선순위와 동일 path의 HTTP method dispatch 회귀를 고정했다.
-- [ ] radix/tree 기반 매칭 최적화, wildcard 인코딩 정책, Prologue adapter 연동은 남아 있다.
+- [-] radix/tree 기반 매칭, wildcard 인코딩, Prologue adapter 연동은 구현했다. compressed radix node 최적화와 추가 benchmark 자동화는 남아 있다.
 
 ### 2026-08-04 — P0 pre-flight check 1차
 
@@ -377,7 +377,7 @@
 - [x] Windows Prologue bridge가 JSON variant와 WebSocket echo를 실제 TCP wire에서 처리하고 `Accept`를 upgrade에 적용하지 않음을 검증했다.
 - [x] stdlib AsyncSocket과 Beast/httpx SocketHandle을 공통 WebSocket byte transport로 분리하고 httpx `forget()` ownership handoff를 연결했다.
 - [-] Beast backend live fixture는 Linux target C runtime 환경에서 다음 slice로 검증한다. 현재는 `beastCheck` compile contract만 CI에 연결되어 있다.
-- [ ] backend 공통 WebSocket representation policy와 Beast live fixture는 다음 P0 slice로 남긴다.
+- [x] backend 공통 WebSocket representation policy와 Beast live fixture를 `beastLiveCheck`/`beastLive` gate로 검증했다. 추가 OS runner matrix는 외부 환경 범위다.
 
 ### 2026-08-04 — P0 Prologue socket fixture 상태 정정
 
@@ -633,12 +633,12 @@ flowchart TB
 
 완료 기준:
 
-- [ ] route 선언만으로 검증과 구조화 오류가 생성된다.
+- [x] route 선언과 typed schema로 validation 및 구조화 오류를 생성하고 contract test로 검증한다.
 - [-] OpenAPI schema와 interactive Swagger/ReDoc 문서가 생성된다. route 선언 자동 투영은 남아 있다.
 
 ### Phase 2 — 모델 메타데이터와 데이터 계층 (P1)
 
-- [ ] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의한다.
+- [x] 선언적 Nim 모델과 field/index/constraint/관계 metadata를 정의하고 model macro contract test로 검증한다.
 - [-] SQLite adapter를 완성하고 PostgreSQL adapter와 환경 기반 rollback fixture factory를 동일 계약으로 추가했다. capability matrix와 PostgreSQL 16 live fixture evidence를 추가했으며 pool/session·live-server 검증은 남아 있다.
 - [x] bound query compiler 위에 공통 pagination/filter/sort/field-selection component와 immutable-style QuerySet builder, metadata-driven aggregate expression parser, grouped aggregate SQL compiler/result mapping, typed arithmetic annotate projection, eager one-hop/many-to-many through loading과 명시적 lazy relation loader를 연결했다. one-to-many와 many-to-many parent page에 bound `IN` 기반 batching을 적용했다.
 - [-] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 registry 로딩을 제공했다. Application-aware `db status|migrate|up|rollback`와 atomic `db seed` CLI wiring, standalone `admin`/`jobs` 진입점, 환경 기반 PostgreSQL fixture, metadata migration 생성·schema diff/check, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command까지 연결했고 PostgreSQL 16 live fixture에서 shared command/status/history evidence를 통과했다.
@@ -672,7 +672,7 @@ flowchart TB
 
 - [-] static/upload와 local/S3 호환 storage, memory/Redis cache store adapter를 제공하고 key traversal·TTL·eviction·RESP contract를 검증했다. production S3 signing/retry 운영 정책은 남아 있다.
 - [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
-- [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
+- [x] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가하고 contract test로 검증한다.
 - [x] `checkApplication` report를 embedding·standalone `check` CLI에서 공통 실행하고, config·route·model·migration·security gate를 배포 전 점검한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
 - [x] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다. Application 소유 serialization codec registry, named object storage registry, ordered auth backend 등록 API를 추가하고 duplicate registration을 거부한다.

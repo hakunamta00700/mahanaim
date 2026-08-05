@@ -288,3 +288,8 @@
 - [x] queue-full 회귀 테스트를 먼저 추가해 named parameter 컴파일 실패를 확인한 뒤 구현하고 `nimble test` green을 확인했다.
 - [x] `executorMaxQueuedJobs`를 AppConfig·JSON/TOML·`MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS` provider와 Application executor wiring에 연결하고 음수 설정 pre-flight 회귀 테스트를 추가했다.
 - [x] `MAHANAIM_VALUE_<KEY>=<JSON>` 환경변수 structured config 주입과 file provider precedence, malformed JSON 회귀 테스트를 추가했다.
+
+## 2026-08-05 요구사항 감사 완료 체크
+
+- [x] macro schema·response content negotiation, route validation, model metadata, observability, WebSocket/Beast live contract가 현재 구현·테스트·gate에 존재함을 상세 계획에 반영했다.
+- [-] compressed radix 최적화, 추가 OS runner matrix, generic handler 자동 DTO 추론은 별도 범위로 명시했다.
