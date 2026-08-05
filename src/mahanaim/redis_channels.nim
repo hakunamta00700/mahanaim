@@ -159,6 +159,32 @@ proc reconnect*(client: RedisPubSubClient): Future[void] {.async.} =
     await client.awaitAcknowledgement(encodeRedisSubscribeCommand(channel),
       rpekSubscribe, channel)
 
+proc reconnectWithRetry*(client: RedisPubSubClient, maxAttempts = 3,
+                         initialDelayMs = 25,
+                         maxDelayMs = 1000): Future[int] {.async.} =
+  ## Orchestrate bounded exponential backoff without hiding policy inside
+  ## reconnect(). The return value is the successful attempt number, making
+  ## retry behavior observable to metrics and deterministic in tests.
+  if maxAttempts < 1:
+    raise newException(ValueError, "Redis reconnect maxAttempts must be positive")
+  if initialDelayMs < 0 or maxDelayMs < initialDelayMs:
+    raise newException(ValueError,
+      "Redis reconnect delay bounds are invalid")
+  var delayMs = initialDelayMs
+  for attempt in 1 .. maxAttempts:
+    try:
+      await client.reconnect()
+      return attempt
+    except CatchableError:
+      if attempt == maxAttempts:
+        raise
+      if delayMs > 0:
+        await sleepAsync(delayMs)
+      if delayMs == 0:
+        continue
+      delayMs = min(maxDelayMs, delayMs * 2)
+  raise newException(CatchableError, "Redis reconnect attempts exhausted")
+
 proc awaitAcknowledgement(client: RedisPubSubClient, command: string,
                           expected: RedisPubSubEventKind,
                           channel: string): Future[void] {.async.} =

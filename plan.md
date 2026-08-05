@@ -314,3 +314,5 @@
 - [x] **P3-09 async Redis subscription adapter** — dedicated `AsyncSocket` subscription client가 RESP frame coalescing, subscribe/unsubscribe acknowledgement, local subscriber delivery, idempotent close를 loopback TCP fixture로 검증한다. reconnect·backpressure 정책과 Redis production live evidence는 남긴다.
 - [x] **P3-10 Redis subscription reconnect** — 원격 socket 단절 뒤 reader 종료를 기다리고 새 AsyncSocket에 연결해 active channel을 재구독하는 명시적 one-attempt `reconnect` API를 추가했다. 두 연결 loopback fixture로 재구독과 두 번째 message delivery를 검증했다.
 - [-] **P3-11 Redis channel delivery policy** — exponential retry orchestration, ordering·backpressure, Redis service 기반 cross-process fan-out과 production live evidence는 후속 운영 범위다.
+- [x] **P3-12 Redis reconnect retry/backoff** — one-attempt reconnect 위에 maxAttempts·initialDelay·maxDelay를 검증하는 bounded exponential backoff orchestration을 추가하고, 성공 attempt 번호와 invalid policy를 loopback fixture로 검증했다.
+- [-] **P3-13 Redis channel delivery policy** — ordering·backpressure, Redis service 기반 cross-process fan-out과 production live evidence는 후속 운영 범위다.

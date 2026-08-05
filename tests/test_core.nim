@@ -107,6 +107,13 @@ type RedisPubSubReconnectFixtureState = object
   ready: Atomic[bool]
   subscribeCount: Atomic[int]
 
+type RedisPubSubRetryFixtureState = object
+  ## The first connection succeeds, the first reconnect attempt drops before
+  ## its acknowledgement, and the final attempt succeeds.
+  port: Atomic[int]
+  ready: Atomic[bool]
+  connections: Atomic[int]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -157,6 +164,38 @@ proc runRedisPubSubReconnectFixture(
       "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$" & $payload.len & "\r\n" &
       payload & "\r\n")
     if connectionIndex == 2:
+      command = ""
+      while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+        command.add(client.recv(1, 5000))
+      client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+    client.close()
+  server.close()
+
+proc runRedisPubSubRetryFixture(
+    state: ptr RedisPubSubRetryFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  for connectionIndex in 1 .. 3:
+    var client: owned(Socket)
+    server.accept(client)
+    var command = ""
+    while not command.contains("SUBSCRIBE") and command.len < 4096:
+      command.add(client.recv(1, 5000))
+    state.connections.store(connectionIndex)
+    if connectionIndex == 2:
+      ## Force the retry loop to observe a broker-side failure.
+      client.close()
+      continue
+    let payload = if connectionIndex == 1: "one" else: "three"
+    client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+      "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$" & $payload.len & "\r\n" &
+      payload & "\r\n")
+    if connectionIndex == 3:
       command = ""
       while not command.contains("UNSUBSCRIBE") and command.len < 4096:
         command.add(client.recv(1, 5000))
@@ -5056,6 +5095,36 @@ suite "Mahanaim core contracts":
     client.close()
     joinThread(worker)
     check state.subscribeCount.load() == 2
+
+  test "async Redis pubsub client applies bounded reconnect backoff":
+    var state: RedisPubSubRetryFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.connections.store(0)
+    var worker: Thread[ptr RedisPubSubRetryFixtureState]
+    createThread(worker, runRedisPubSubRetryFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let client = newRedisPubSubClient(port = Port(state.port.load()))
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        doAssert payload in ["one", "three"]
+        discard delivered.fetchAdd(1))
+    waitFor sleepAsync(10)
+    check delivered.load() == 1
+    check (waitFor client.reconnectWithRetry(maxAttempts = 3,
+      initialDelayMs = 1, maxDelayMs = 2)) == 2
+    waitFor sleepAsync(10)
+    check delivered.load() == 2
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
+    check state.connections.load() == 3
+    expect ValueError:
+      discard waitFor client.reconnectWithRetry(maxAttempts = 0)
 
   test "Redis RESP client publishes channel messages through its transport":
     let client = newRedisValkeyRespClient(transport =

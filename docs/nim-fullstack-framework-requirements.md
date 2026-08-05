@@ -256,3 +256,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [ ] SHOULD remaining: reconnect·backpressure·cross-process production fan-out 및 distributed `ChannelLayer` wiring.
 - [x] SHOULD reconnect baseline: 원격 단절 후 reader 종료·새 socket 연결·active channel 재구독을 수행하는 explicit reconnect contract를 loopback으로 검증한다.
 - [ ] SHOULD remaining: retry/backoff orchestration, ordering·backpressure, production cross-process fan-out.
+- [x] SHOULD retry baseline: reconnect max attempts와 exponential delay bound를 검증하고 bounded async retry로 재구독 성공 attempt를 반환한다.
+- [ ] SHOULD remaining: message ordering·backpressure 및 production cross-process fan-out.

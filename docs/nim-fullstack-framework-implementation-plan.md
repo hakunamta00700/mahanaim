@@ -901,3 +901,5 @@ flowchart TB
 - [ ] Redis/Valkey reconnect·backpressure·cross-process production live evidence와 `ChannelLayer` distributed backend wiring은 후속 adapter 범위다.
 - [x] async subscription client에 explicit one-attempt reconnect를 추가해 원격 reader 종료를 기다린 후 active channel을 재구독하고, 두 연결 loopback fixture로 두 번째 message delivery를 검증한다.
 - [ ] reconnect orchestration/backoff, ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.
+- [x] reconnect orchestration에 bounded exponential backoff와 max attempt/delay validation을 추가하고, 한 번 실패 후 다음 attempt 성공 및 invalid policy를 loopback contract로 검증한다.
+- [ ] Redis subscription message ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.
