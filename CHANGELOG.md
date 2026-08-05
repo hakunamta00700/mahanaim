@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `ExternalDurableJobStore`의 close callback을 idempotent하게 만들고 close 이후 enqueue/claim/complete/release/recover callback 재사용을 `ValueError`로 차단하는 lifecycle contract와 회귀 테스트를 추가했다.
 - SQLite durable job store의 `complete`·`release`·`recoverProcessing`가 close 이후 db connector assertion을 노출하지 않고 명시적 `ValueError`를 반환하도록 보강하고 shutdown race 회귀 테스트를 추가했다.
 - P0 `REQ-TEST-002`를 `checkApplication`의 config/route/model/migration/security/execution 검사와 embedding/standalone CLI 공통 `CheckReport` contract 테스트에 맞춰 완료로 갱신했다.
 - P1 migration 요구사항 표를 SQLite/PostgreSQL migration runner·provider·CLI·metadata schema contract와 PostgreSQL live evidence에 맞춰 완료로 갱신하고, provider 선택/CI wiring은 application-owned extension으로 분리했다.

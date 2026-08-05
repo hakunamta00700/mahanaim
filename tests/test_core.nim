@@ -820,6 +820,31 @@ suite "Mahanaim core contracts":
     check recovered.load() == 1
     check closed.load() == 1
 
+  test "external durable job store is closed exactly once and rejects reuse":
+    var closeCalls: Atomic[int]
+    closeCalls.store(0)
+    let store = newExternalDurableJobStore(
+      proc(id, kind, payload: string) {.gcsafe.} = discard,
+      proc(): Option[DurableJobRecord] {.gcsafe.} =
+        none(DurableJobRecord),
+      proc(id: string) {.gcsafe.} = discard,
+      proc(id: string) {.gcsafe.} = discard,
+      proc() {.gcsafe.} = discard,
+      proc() {.gcsafe.} = discard closeCalls.fetchAdd(1))
+    store.close()
+    store.close()
+    check closeCalls.load() == 1
+    expect ValueError:
+      store.enqueue("closed", "email", "payload")
+    expect ValueError:
+      discard store.claimNext()
+    expect ValueError:
+      store.complete("closed")
+    expect ValueError:
+      store.release("closed")
+    expect ValueError:
+      store.recoverProcessing()
+
   test "closed SQLite durable job store rejects every state transition":
     ## A shutdown race must surface as a normal contract error rather than a
     ## nil connection defect. Callers can then decide whether to retry or

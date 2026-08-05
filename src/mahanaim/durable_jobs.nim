@@ -42,6 +42,7 @@ type
     releaseCallback: DurableJobTransition
     recoverCallback: DurableJobRecover
     closeCallback: DurableJobClose
+    closed: bool
 
   DurableJobRegistry* = ref object
     ## Kind-to-handler registration remains application-owned. The durable
@@ -127,37 +128,46 @@ proc newExternalDurableJobStore*(enqueue: DurableJobEnqueue,
   result.recoverCallback = recoverProcessing
   result.closeCallback = close
 
-method enqueue*(store: ExternalDurableJobStore, id, kind, payload: string)
-    {.gcsafe.} =
+proc ensureExternalStoreOpen(store: ExternalDurableJobStore) =
+  ## Keep lifecycle validation in one place so every provider callback has the
+  ## same post-shutdown behavior. The provider remains application-owned; the
+  ## framework owns only this safe state-transition boundary.
   if store.isNil:
     raise newException(ValueError, "External durable job store is required")
+  if store.closed:
+    raise newException(ValueError, "External durable job store is closed")
+
+method enqueue*(store: ExternalDurableJobStore, id, kind, payload: string)
+    {.gcsafe.} =
+  store.ensureExternalStoreOpen()
   store.enqueueCallback(id, kind, payload)
 
 method claimNext*(store: ExternalDurableJobStore): Option[DurableJobRecord]
     {.gcsafe.} =
-  if store.isNil:
-    raise newException(ValueError, "External durable job store is required")
+  store.ensureExternalStoreOpen()
   store.claimNextCallback()
 
 method complete*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
-  if store.isNil:
-    raise newException(ValueError, "External durable job store is required")
+  store.ensureExternalStoreOpen()
   store.completeCallback(id)
 
 method release*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
-  if store.isNil:
-    raise newException(ValueError, "External durable job store is required")
+  store.ensureExternalStoreOpen()
   store.releaseCallback(id)
 
 method recoverProcessing*(store: ExternalDurableJobStore) {.gcsafe.} =
-  if store.isNil:
-    raise newException(ValueError, "External durable job store is required")
+  store.ensureExternalStoreOpen()
   store.recoverCallback()
 
 method close*(store: ExternalDurableJobStore) {.gcsafe.} =
   ## Provider cleanup is optional because some queue clients are process-wide;
-  ## when supplied, application shutdown invokes it exactly through this hook.
-  if not store.isNil and not store.closeCallback.isNil:
+  ## when supplied, application shutdown invokes it exactly once through this
+  ## hook. Mark closed before calling application code to make re-entrant or
+  ## repeated shutdown paths safe even if the provider callback raises.
+  if store.isNil or store.closed:
+    return
+  store.closed = true
+  if not store.closeCallback.isNil:
     store.closeCallback()
 
 proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
