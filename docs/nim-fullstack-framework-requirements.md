@@ -254,3 +254,5 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] SHOULD protocol extension: 기존 Redis/Valkey RESP client가 `PUBLISH`를 실행하고 subscriber count를 strict integer response로 검증한다.
 - [x] SHOULD async baseline: dedicated Redis/Valkey subscription socket이 coalesced RESP frames, subscribe/unsubscribe acknowledgement와 local callback delivery를 loopback contract로 제공한다.
 - [ ] SHOULD remaining: reconnect·backpressure·cross-process production fan-out 및 distributed `ChannelLayer` wiring.
+- [x] SHOULD reconnect baseline: 원격 단절 후 reader 종료·새 socket 연결·active channel 재구독을 수행하는 explicit reconnect contract를 loopback으로 검증한다.
+- [ ] SHOULD remaining: retry/backoff orchestration, ordering·backpressure, production cross-process fan-out.

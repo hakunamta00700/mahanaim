@@ -100,6 +100,13 @@ type RedisPubSubFixtureState = object
   receivedSubscribe: Atomic[bool]
   receivedUnsubscribe: Atomic[bool]
 
+type RedisPubSubReconnectFixtureState = object
+  ## Two accepted sockets prove that reconnect restores broker membership
+  ## instead of merely reopening a TCP descriptor.
+  port: Atomic[int]
+  ready: Atomic[bool]
+  subscribeCount: Atomic[int]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -127,6 +134,34 @@ proc runRedisPubSubFixture(state: ptr RedisPubSubFixtureState) {.thread, gcsafe.
   state.receivedUnsubscribe.store(command.contains("UNSUBSCRIBE"))
   client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
   client.close()
+  server.close()
+
+proc runRedisPubSubReconnectFixture(
+    state: ptr RedisPubSubReconnectFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  for connectionIndex in 1 .. 2:
+    var client: owned(Socket)
+    server.accept(client)
+    var command = ""
+    while not command.contains("SUBSCRIBE") and command.len < 4096:
+      command.add(client.recv(1, 5000))
+    state.subscribeCount.store(connectionIndex)
+    let payload = if connectionIndex == 1: "one" else: "two"
+    client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+      "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$" & $payload.len & "\r\n" &
+      payload & "\r\n")
+    if connectionIndex == 2:
+      command = ""
+      while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+        command.add(client.recv(1, 5000))
+      client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+    client.close()
   server.close()
 
 proc runRespFixture(state: ptr RespFixtureState) {.thread, gcsafe.} =
@@ -4988,12 +5023,39 @@ suite "Mahanaim core contracts":
         doAssert channel == "room:42"
         doAssert payload == "hello"
         discard delivered.fetchAdd(1))
+    waitFor sleepAsync(10)
     check delivered.load() == 1
     waitFor client.unsubscribe(subscription)
     client.close()
     joinThread(worker)
     check state.receivedSubscribe.load()
     check state.receivedUnsubscribe.load()
+
+  test "async Redis pubsub client reconnects and restores subscriptions":
+    var state: RedisPubSubReconnectFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    state.subscribeCount.store(0)
+    var worker: Thread[ptr RedisPubSubReconnectFixtureState]
+    createThread(worker, runRedisPubSubReconnectFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let client = newRedisPubSubClient(port = Port(state.port.load()))
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        doAssert payload in ["one", "two"]
+        discard delivered.fetchAdd(1))
+    waitFor sleepAsync(10)
+    check delivered.load() == 1
+    waitFor client.reconnect()
+    check delivered.load() == 2
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
+    check state.subscribeCount.load() == 2
 
   test "Redis RESP client publishes channel messages through its transport":
     let client = newRedisValkeyRespClient(transport =

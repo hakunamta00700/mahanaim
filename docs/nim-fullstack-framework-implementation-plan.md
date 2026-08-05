@@ -895,7 +895,9 @@ flowchart TB
 - [x] WebSocket session lifecycle binding이 channel subscription을 adapter-owned `send` callback에 연결하고, 원래 close callback을 복원하면서 idempotent cleanup한다.
 - [x] `CallbackChannelLayer`가 외부 broker adapter의 subscribe/unsubscribe/publish callback을 공통 `ChannelLayer` contract에 연결한다. 실제 Redis/Valkey pub/sub socket과 cross-process 운영 검증은 외부 adapter 범위다.
 - [x] Redis/Valkey pub/sub RESP2 command/event codec를 공통 framing helper 위에 추가하고 malformed array, unsupported event, trailing bytes를 거부하는 회귀 테스트를 제공한다.
-- [ ] dedicated async subscription socket, reconnect·ordering·backpressure와 실제 Redis/Valkey cross-process fan-out live contract는 외부 서비스 환경 범위로 남긴다.
+- [ ] reconnect·ordering·backpressure와 실제 Redis/Valkey cross-process fan-out live contract는 외부 서비스 환경 범위로 남긴다. Dedicated async subscription socket은 아래 contract로 완료했다.
 - [x] 기존 `RedisValkeyRespClient`에 `PUBLISH` command 실행과 subscriber count 응답 검증을 연결했다. `SUBSCRIBE` connection state와 async receive loop는 별도 adapter 범위로 유지한다.
 - [x] dedicated async Redis/Valkey subscription client가 long-lived socket, RESP coalesced frame buffering, subscribe/unsubscribe ack, subscriber callback delivery와 close lifecycle을 실제 loopback TCP fixture로 검증한다.
 - [ ] Redis/Valkey reconnect·backpressure·cross-process production live evidence와 `ChannelLayer` distributed backend wiring은 후속 adapter 범위다.
+- [x] async subscription client에 explicit one-attempt reconnect를 추가해 원격 reader 종료를 기다린 후 active channel을 재구독하고, 두 연결 loopback fixture로 두 번째 message delivery를 검증한다.
+- [ ] reconnect orchestration/backoff, ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.

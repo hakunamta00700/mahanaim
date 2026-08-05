@@ -97,7 +97,13 @@ proc dispatchLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
       client.acknowledgement = nil
       waiter.fail(error)
     if not client.closed:
-      client.closed = true
+      ## A transport failure is recoverable. Leave intentional close as the
+      ## only terminal state; reconnect() can replace this failed socket and
+      ## restore every still-active channel membership.
+      let brokenSocket = client.socket
+      client.socket = nil
+      if not brokenSocket.isNil:
+        brokenSocket.close()
 
 proc connect*(client: RedisPubSubClient): Future[void] {.async.} =
   if client.isNil:
@@ -107,9 +113,51 @@ proc connect*(client: RedisPubSubClient): Future[void] {.async.} =
   if not client.socket.isNil:
     return
   client.socket = newAsyncSocket(buffered = false)
-  await client.socket.connect(client.host, client.port)
+  try:
+    await client.socket.connect(client.host, client.port)
+  except CatchableError:
+    client.socket.close()
+    client.socket = nil
+    raise
   client.reader = dispatchLoop(client)
   asyncCheck client.reader
+
+proc awaitAcknowledgement(client: RedisPubSubClient, command: string,
+                          expected: RedisPubSubEventKind,
+                          channel: string): Future[void]
+
+proc reconnect*(client: RedisPubSubClient): Future[void] {.async.} =
+  ## Reconnect is explicit and bounded by the caller's retry policy. This
+  ## operation performs one attempt, then re-subscribes all active channels;
+  ## a deployment can wrap it with its own exponential backoff and circuit
+  ## breaker without embedding policy in the wire adapter.
+  if client.isNil:
+    raise newException(ValueError, "Redis pub/sub client is required")
+  if client.closed:
+    raise newException(CatchableError, "Redis pub/sub client is closed")
+  if not client.reader.isNil and not client.reader.finished:
+    ## Do not close a socket while asyncnet.recv is pending: Nim's asyncnet
+    ## asserts on that race. Reconnect is therefore safe after the peer has
+    ## closed the failed connection; callers can use close() for intentional
+    ## shutdown instead.
+    var waitedMs = 0
+    while not client.reader.finished and waitedMs < 5000:
+      await sleepAsync(1)
+      inc waitedMs
+    if not client.reader.finished:
+      raise newException(CatchableError,
+        "Redis pub/sub reader did not finish before reconnect")
+  if not client.socket.isNil:
+    client.socket.close()
+    client.socket = nil
+  client.receiveBuffer = ""
+  await client.connect()
+  var channels: seq[string] = @[]
+  for channel in client.subscriptions.keys:
+    channels.add(channel)
+  for channel in channels:
+    await client.awaitAcknowledgement(encodeRedisSubscribeCommand(channel),
+      rpekSubscribe, channel)
 
 proc awaitAcknowledgement(client: RedisPubSubClient, command: string,
                           expected: RedisPubSubEventKind,
