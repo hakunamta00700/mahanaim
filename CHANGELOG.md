@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 상세 구현계획서의 command/admin lifecycle integration 상태를 구현 결과와 일치시키고 문서 계약 테스트를 추가했다.
 - database/template/migration/seed/durable-job/admin provisioning 설정의 startup transition late mutation을 차단했다.
 - model/DI/serialization/storage/auth application extension 등록에도 pre-startup lifecycle boundary를 적용했다.
 - route, WebSocket, middleware와 error handler의 runtime late mutation을 차단하는 공통 registration window를 추가했다.

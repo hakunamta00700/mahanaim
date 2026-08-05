@@ -107,6 +107,16 @@ nimble test
     check implementationPlan.contains("- [x] Prologue adapter를 격리하고")
     check implementationPlan.contains("- [x] router, route name/URL building")
 
+  test "implementation plan records lifecycle extension integration":
+    ## Lifecycle registration is a framework-owned invariant. The detailed
+    ## plan must reflect the shipped guard rather than leave a stale open item
+    ## that suggests plugins may mutate a running application.
+    let implementationPlan = readFile(getCurrentDir() / "docs" /
+      "nim-fullstack-framework-implementation-plan.md")
+    check implementationPlan.contains(
+      "- [x] command/admin extension의 lifecycle integration")
+    check implementationPlan.contains("startup 전용 registration window")
+
   test "release matrix declares the supported macOS runner boundary":
     ## The matrix is a source-level release contract. It must describe the
     ## runner before external GitHub evidence is collected, otherwise a green
