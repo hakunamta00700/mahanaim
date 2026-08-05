@@ -142,3 +142,41 @@ proc validateDependencyLock*(path: string,
       result.add("required dependency package name is empty")
     elif not packages.hasKey(packageName):
       result.add("required dependency package is missing: " & packageName)
+
+proc validateDefinitionOfDone*(path: string): seq[string] =
+  ## Validate the release checklist as a small, repository-owned document
+  ## contract. The validator intentionally checks structure and evidence
+  ## vocabulary only; it never marks an implementation complete on behalf of
+  ## a maintainer. This keeps prose review and engineering evidence separate.
+  if path.strip().len == 0 or not fileExists(path):
+    return @[
+      "definition of done document does not exist: " & path
+    ]
+  let document = readFile(path)
+  let requiredSections = [
+    "## 기능 단위 체크리스트",
+    "## 검증 게이트",
+    "## 상태 표기 규칙"
+  ]
+  for section in requiredSections:
+    if section notin document:
+      result.add("definition of done section is missing: " & section)
+
+  ## A checklist marker is deliberately narrow. A typo such as `[X]` would
+  ## otherwise look complete in rendered Markdown while escaping the status
+  ## convention used by plan.md.
+  for line in document.splitLines:
+    let marker = line.strip()
+    if marker.startsWith("- ["):
+      if marker.len < 5 or marker[4] != ']' or
+          marker[3] notin {' ', '-', 'x'}:
+        result.add("definition of done checkbox marker is invalid: " & marker)
+
+  let requiredCommands = [
+    "nimble test", "nimble check", "nimble verify", "nimble docsCheck",
+    "git diff --check"
+  ]
+  for command in requiredCommands:
+    if command notin document:
+      result.add("definition of done verification command is missing: " &
+        command)

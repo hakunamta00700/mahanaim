@@ -42,6 +42,14 @@ task check, "Compile the framework CLI":
 task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
   exec "nimble lockCheck"
+  exec "nimble docsCheck"
+
+task docsCheck, "Validate the Definition of Done document contract":
+  ## Keep checklist structure in the same verification path as source and
+  ## dependency contracts; prose may still describe an incomplete item, but
+  ## its evidence boundary must remain machine-readable.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r tests/test_docs_contract.nim"
 
 task lockCheck, "Validate the checked-in dependency lockfile":
   ## Keep lock validation independent from package installation so a malformed

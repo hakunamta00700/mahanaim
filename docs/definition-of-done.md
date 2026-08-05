@@ -26,6 +26,7 @@
 nimble test
 nimble check
 nimble verify
+nimble docsCheck
 git diff --check
 ```
 

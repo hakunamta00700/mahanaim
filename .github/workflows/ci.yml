@@ -62,6 +62,9 @@ jobs:
       - name: Validate dependency lock contract
         run: nimble lockCheck
 
+      - name: Validate Definition of Done document contract
+        run: nimble docsCheck
+
       - name: Validate package and dependency contracts
         run: nimble check
 
@@ -151,6 +154,9 @@ jobs:
 
       - name: Validate dependency lock contract
         run: nimble lockCheck
+
+      - name: Validate Definition of Done document contract
+        run: nimble docsCheck
 
       - name: Validate package and dependency contracts
         run: nimble check
