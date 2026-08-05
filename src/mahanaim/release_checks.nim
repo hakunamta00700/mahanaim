@@ -98,6 +98,37 @@ proc validateHttpsDeploymentEvidence*(evidence: HttpsDeploymentEvidence,
   if not evidence.secureCookieVerified:
     result.add("HTTPS evidence secure cookie attributes were not verified")
 
+proc renderHttpsDeploymentEvidence*(evidence: HttpsDeploymentEvidence): string =
+  ## JSON is intentionally limited to evidence fields; no cookies, tokens, or
+  ## private keys are accepted by this value object. `toUgly` keeps the file
+  ## stable and easy for CI artifact consumers to parse.
+  let document = %*{
+    "endpoint": evidence.endpoint,
+    "certificateFingerprint": evidence.certificateFingerprint.toLowerAscii(),
+    "certificateExpiryUnix": evidence.certificateExpiryUnix,
+    "trustedCertificate": evidence.trustedCertificate,
+    "renewalVerified": evidence.renewalVerified,
+    "redirectVerified": evidence.redirectVerified,
+    "proxyHopVerified": evidence.proxyHopVerified,
+    "secureCookieVerified": evidence.secureCookieVerified
+  }
+  result = ""
+  toUgly(result, document)
+
+proc writeHttpsDeploymentEvidence*(path: string,
+                                   evidence: HttpsDeploymentEvidence,
+                                   nowUnix: int64) =
+  ## Persist only validated reports. A caller that wants to inspect partial
+  ## probe output can keep it outside the approval artifact and fix the failed
+  ## fields before retrying the deployment gate.
+  let issues = validateHttpsDeploymentEvidence(evidence, nowUnix)
+  if issues.len > 0:
+    raise newException(ValueError,
+      "HTTPS deployment evidence is incomplete: " & issues.join("; "))
+  if path.strip().len == 0 or path.contains({'\r', '\n', '\0'}):
+    raise newException(ValueError, "HTTPS evidence path is invalid")
+  writeFile(path, renderHttpsDeploymentEvidence(evidence))
+
 proc sha256File*(path: string): string =
   ## Read bytes unchanged; text normalization would invalidate release hashes
   ## on Windows and make the same artifact produce different checksums.

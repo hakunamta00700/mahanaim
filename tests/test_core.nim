@@ -2325,6 +2325,32 @@ suite "Mahanaim core contracts":
     invalid.proxyHopVerified = false
     check validateHttpsDeploymentEvidence(invalid, 1_900_000_000).len >= 5
 
+  test "HTTPS deployment evidence can be persisted as a validated artifact":
+    let evidencePath = getTempDir() / "mahanaim-https-evidence.json"
+    let evidence = HttpsDeploymentEvidence(
+      endpoint: "https://staging.example.test/wire",
+      certificateFingerprint: repeat("b", 64),
+      certificateExpiryUnix: 2_000_000_000,
+      trustedCertificate: true,
+      renewalVerified: true,
+      redirectVerified: true,
+      proxyHopVerified: true,
+      secureCookieVerified: true)
+    defer:
+      if fileExists(evidencePath):
+        removeFile(evidencePath)
+    writeHttpsDeploymentEvidence(evidencePath, evidence, 1_900_000_000)
+    let document = parseJson(readFile(evidencePath))
+    check document["endpoint"].getStr() == evidence.endpoint
+    check document["certificateFingerprint"].getStr() ==
+      evidence.certificateFingerprint
+    check document["renewalVerified"].getBool()
+    expect ValueError:
+      writeHttpsDeploymentEvidence(evidencePath,
+        HttpsDeploymentEvidence(endpoint: "https://expired.example",
+          certificateFingerprint: repeat("c", 64),
+          certificateExpiryUnix: 1_899_999_999), 1_900_000_000)
+
   test "dependency lock contract validates package metadata and checksums":
     let lockPath = getTempDir() / "mahanaim-lock-contract.json"
     defer:

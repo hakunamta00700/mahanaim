@@ -352,4 +352,5 @@
 ### 2026-08-05 HTTPS deployment evidence baseline
 
 - [x] `HttpsDeploymentEvidence`와 `validateHttpsDeploymentEvidence`로 HTTPS endpoint·certificate fingerprint/expiry·renewal·redirect·trusted proxy·secure cookie 증거를 공통 fail-closed contract로 검증한다.
+- [x] 검증된 HTTPS evidence를 deterministic JSON artifact로 저장하는 `renderHttpsDeploymentEvidence`/`writeHttpsDeploymentEvidence` 경계를 추가했다.
 - [ ] 실제 staging 인증서 체인과 renewal 자동화 성공 로그는 외부 배포 환경에서 수집한다.
