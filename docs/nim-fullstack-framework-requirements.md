@@ -295,6 +295,7 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 
 - [x] `TemplateAdapter.renderTemplate` protocol으로 기본 template engine과 외부 template engine을 교체 가능하게 연결한다.
 - [x] 내장 engine wrapper와 callback adapter는 source loading·escaping ownership을 adapter/application 경계에 남긴다.
+- [x] Application은 `configureTemplateAdapter`와 `renderTemplateResponse`로 선택된 renderer를 route response 경계에 연결한다.
 
 ## Controller boundary baseline (2026-08-05)
 

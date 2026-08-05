@@ -4246,6 +4246,20 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard newTemplateEngineAdapter(nil)
 
+  test "application composes template adapter responses without owning engine internals":
+    let app = newApplication()
+    let engine = newTemplateEngine()
+    engine.registerTemplate("welcome", "<h1>{{ name }}</h1>")
+    app.configureTemplateAdapter(newTemplateEngineAdapter(engine))
+    var context = newTemplateRenderContext()
+    context.values["name"] = "Ada"
+    let response = app.renderTemplateResponse("welcome", context)
+    check response.status == Http200
+    check response.body == "<h1>Ada</h1>"
+    check response.headers["content-type"].startsWith("text/html")
+    expect ValueError:
+      app.configureTemplateAdapter(nil)
+
   test "template render context expands nested collections with conditions":
     let engine = newTemplateEngine()
     engine.registerTemplate("items", "<ul>{% for item in items %}" &

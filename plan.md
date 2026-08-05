@@ -334,4 +334,4 @@
 ### 2026-08-05 release artifact manifest
 
 - [x] **P0-08 release artifact manifest boundary** — `ReleaseArtifact` 목록을 path 순서로 정렬해 deterministic `path=...`/`sha256=...` manifest로 렌더링·파일 출력하는 순수 contract를 추가하고, 잘못된 path·SHA-256 metadata를 fail fast하는 회귀 테스트를 연결했다. 실제 Linux/Windows/macOS artifact 생성과 runner evidence는 외부 release pipeline 범위로 남긴다.
-- [x] **P2-08 template adapter boundary** — framework-neutral `TemplateAdapter.renderTemplate` protocol과 내장 `TemplateEngineAdapter` wrapper, 외부 engine callback adapter를 추가해 template source/loading ownership을 application과 adapter에 분리했다. 내장·외부 callback render와 nil configuration failure를 contract test로 검증했다.
+- [x] **P2-08 template adapter boundary** — framework-neutral `TemplateAdapter.renderTemplate` protocol과 내장 `TemplateEngineAdapter` wrapper, 외부 engine callback adapter를 추가하고 `Application.configureTemplateAdapter`/`renderTemplateResponse`로 공통 HTML response 경계에 연결했다. 내장·외부 callback render와 nil configuration failure를 contract test로 검증했다.

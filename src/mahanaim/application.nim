@@ -18,6 +18,8 @@ import ./response_policy
 import ./serialization
 import ./storage
 import ./flash
+import ./template_adapters
+import ./templates
 
 type
   LifecycleHook* = proc ()
@@ -106,6 +108,10 @@ type
     serializationRegistry*: SerializationAdapterRegistry
     storageAdapters*: Table[string, ObjectStorage]
     flashStore*: FlashStore
+    ## The application stores only the adapter contract. Template source,
+    ## parser caches, and provider-specific lifecycle remain outside this
+    ## dispatcher so an alternate engine does not alter routing or security.
+    templateAdapter*: TemplateAdapter
     started*: bool
 
   ErrorHandler* = proc (request: Request,
@@ -184,6 +190,28 @@ proc configureDatabasePool*(app: Application,
     raise newException(ValueError,
       "Database pool must be configured before application startup")
   app.databasePool = pool
+
+proc configureTemplateAdapter*(app: Application,
+                               adapter: TemplateAdapter) =
+  ## Configure rendering before startup. Keeping this as an application-owned
+  ## composition step makes template replacement explicit and prevents a
+  ## request from observing a renderer being swapped mid-lifecycle.
+  if app.isNil or adapter.isNil:
+    raise newException(ValueError, "Application and template adapter are required")
+  if app.started:
+    raise newException(ValueError,
+      "Template adapter must be configured before application startup")
+  app.templateAdapter = adapter
+
+proc renderTemplateResponse*(app: Application, name: string,
+                             context: TemplateRenderContext,
+                             status = Http200): Response =
+  ## Application owns the HTTP representation while the adapter owns the
+  ## rendering implementation. This single bridge gives all engines the same
+  ## response content type and lifecycle boundary.
+  if app.isNil or app.templateAdapter.isNil:
+    raise newException(ValueError, "Application template adapter is required")
+  htmlResponse(app.templateAdapter.renderTemplate(name, context), status)
 
 proc configureMigrations*(app: Application, registry: MigrationRegistry,
                           sqlitePath = ".mahanaim.sqlite") =

@@ -962,6 +962,7 @@ flowchart TB
 - [x] framework-neutral `TemplateAdapter.renderTemplate` protocol과 내장 `TemplateEngineAdapter` wrapper를 제공한다.
 - [x] 외부 (alternate template engine)은 `CallbackTemplateAdapter`로 연결할 수 있으며, callback/source ownership은 application이 소유한다.
 - [x] `TemplateAdapter`의 내장·외부 callback 경계와 nil configuration 실패를 contract test로 고정했다.
+- [x] `Application.configureTemplateAdapter`와 `renderTemplateResponse`가 adapter 선택과 공통 HTML response representation을 소유하고, engine internals는 adapter 밖으로 노출하지 않는다.
 
 ### 2026-08-05 — P0 release artifact manifest
 
