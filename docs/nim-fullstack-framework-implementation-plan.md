@@ -858,3 +858,8 @@ flowchart TB
 ### 2026-08-05 — P0 executor bounded waiting queue
 
 - [x] `maxQueuedJobs`로 waiting admission cardinality를 bounded하고 queue-full을 `executor_queue_full`/503으로 반환한다. active worker와 waiting queue counter를 event-loop-owned state로 분리했다.
+
+### 2026-08-05 — P3 direct httpx deployment adapter
+
+- [x] Prologue와 분리된 direct `httpx` adapter가 framework-neutral request/response를 변환하고, 기존 WebSocket byte transport handoff와 Application startup/shutdown lifecycle을 재사용하도록 추가했다.
+- [x] Windows 조건부 import와 Linux `--os:linux` compile contract, binding-free settings validation test, `httpxCheck`/`httpxTest` gate를 연결했다. httpx listener 종료는 backend가 제공하는 process/supervisor lifecycle 범위로 명시했다.

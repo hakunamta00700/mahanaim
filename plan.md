@@ -248,7 +248,7 @@
 
 ## P3 — 선택 확장
 
-- [ ] 추가 HTTP backend와 deployment adapter를 제공한다.
+- [x] 직접 `httpx` request/response·WebSocket handoff와 application lifecycle을 연결하는 추가 HTTP backend/deployment adapter를 제공하고, Windows 조건부 import·Linux compile contract·설정 validation test 및 `httpxCheck`/`httpxTest` gate를 추가했다.
 - [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
 - [x] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|migrate|up|rollback` CLI, standalone `admin`/`jobs` 진입점, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture에서 shared migration command와 schema history live evidence를 통과했고, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command도 연결했다.
 

@@ -21,6 +21,7 @@ requires "db_connector >= 0.1.0"
 requires "argon2 >= 1.1.0"
 requires "checksums >= 0.2.2"
 requires "timezones >= 0.5.4"
+requires "httpx >= 0.3.8"
 
 proc dependencyPathArgs(): string =
   ## Tasks are run by Nimble but invoke Nim directly, so pass every locked
@@ -108,6 +109,19 @@ task beastCheck, "Compile the non-Windows Beast/httpx adapter contract":
   ## overload drift and ownership API changes before that fixture is added.
   exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
     " tests/test_beast_adapter_compile.nim"
+
+task httpxCheck, "Compile the direct httpx deployment adapter contract":
+  ## Keep the direct backend surface type-checked independently from the
+  ## Prologue bridge; Windows imports the conditional module and Linux checks
+  ## the actual httpx request/server types.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_httpx_adapter_compile.nim"
+
+task httpxTest, "Run the direct httpx deployment adapter contract":
+  ## Runtime validation is small and binding-free; Linux live socket ownership
+  ## remains the responsibility of the dedicated backend/deployment fixture.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r tests/test_httpx_adapter_compile.nim"
 
 task bcryptCheck, "Compile the optional bcrypt password hasher contract":
   ## Keep the algorithm-specific acceptance contract behind its own gate so

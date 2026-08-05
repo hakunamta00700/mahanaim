@@ -9,7 +9,7 @@ import mahanaim
 
 const requiredPackages = [
   "nimcrypto", "parsetoml", "prologue", "taskpools", "db_connector",
-  "argon2", "checksums", "timezones"
+  "argon2", "checksums", "timezones", "httpx"
 ]
 
 suite "dependency lock contracts":

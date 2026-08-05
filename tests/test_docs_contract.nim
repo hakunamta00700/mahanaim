@@ -36,3 +36,13 @@ nimble test
     check fileExists(benchmark)
     check manifest.contains("task routerBenchmark")
     check manifest.contains("benchmarks/router_benchmark.nim")
+
+  test "direct httpx deployment adapter has an explicit compile gate":
+    let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
+    let contract = getCurrentDir() / "tests" /
+      "test_httpx_adapter_compile.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(adapter)
+    check fileExists(contract)
+    check manifest.contains("task httpxCheck")
+    check manifest.contains("test_httpx_adapter_compile.nim")
