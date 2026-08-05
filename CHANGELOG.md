@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- GitHub Actions cross-platform matrix에서 Linux/macOS Nim bootstrap archive를 runner별로 분리하고 계약 테스트를 추가했다.
+
 - class-based `Controller.handle` virtual contract와 `addControllerRoute` bridge를 추가해 controller action dispatch와 Application route/middleware lifecycle을 분리했다.
 - 구현계획의 local adapter baseline과 외부 운영 증거를 재분류하고, 문서 계약 테스트로 object storage·WebSocket·OpenAPI UI 상태를 고정했다.
 - `ReleaseArtifact` 목록에서 deterministic SHA-256 manifest를 생성·저장하는 `renderArtifactManifest`와 `writeArtifactManifest` 경계를 추가했다.

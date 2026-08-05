@@ -387,6 +387,11 @@
 
 ### 2026-08-05 deployment recipes
 
+### 2026-08-05 macOS CI bootstrap correction
+
+- [x] `.github/workflows/ci.yml`의 cross-platform matrix가 Linux용 Nim archive를 macOS에 재사용하지 않고, runner OS별 `linux_x64`/`macosx_x64` archive를 설치하도록 분리했다. `nimble docsCheck`의 workflow 계약 테스트로 이 경계를 고정했다.
+- [ ] 실제 GitHub macOS runner의 test·verify·check·build와 artifact upload 성공 로그는 외부 CI 실행 후 최종 체크한다.
+
 - [x] `deploy/Dockerfile`이 Nim 2.2.4 multi-stage build, compiler 없는 non-root runtime, SIGTERM 경계를 제공한다.
 - [x] `deploy/docker-compose.yml`, `deploy/nginx.conf`, `deploy/mahanaim.service`와 `docs/deployment-recipes.md`가 health/readiness, TLS reverse proxy, WebSocket forwarding, graceful shutdown 운영 절차를 고정한다.
 - [-] 실제 application entrypoint build, certificate/secret injection과 staging rollout evidence는 application-owned 배포 환경에서 계속한다.

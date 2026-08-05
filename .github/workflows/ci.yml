@@ -101,12 +101,25 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Install Nim (Unix)
-        if: runner.os != 'Windows'
+      - name: Install Nim (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           curl --fail --location --silent --show-error \
             "https://nim-lang.org/download/nim-${{ matrix.nim }}-linux_x64.tar.xz" \
+            --output nim.tar.xz
+          tar -xJf nim.tar.xz
+          echo "$PWD/nim-${{ matrix.nim }}/bin" >> "$GITHUB_PATH"
+
+      - name: Install Nim (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Nim 2.2.4 publishes a separate macOS x86_64 archive. Keep this
+          # bootstrap step platform-specific instead of reusing the Linux
+          # archive merely because both runners are Unix-like.
+          curl --fail --location --silent --show-error \
+            "https://nim-lang.org/download/nim-${{ matrix.nim }}-macosx_x64.tar.xz" \
             --output nim.tar.xz
           tar -xJf nim.tar.xz
           echo "$PWD/nim-${{ matrix.nim }}/bin" >> "$GITHUB_PATH"
