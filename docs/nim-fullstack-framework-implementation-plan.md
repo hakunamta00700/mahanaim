@@ -894,3 +894,5 @@ flowchart TB
 - [x] 일치하는 `GET`/`HEAD`는 body 없는 304로 반환하고 stream/SSE/WebSocket은 제외하는 unit·dispatch 회귀 테스트를 추가했다.
 - [x] WebSocket session lifecycle binding이 channel subscription을 adapter-owned `send` callback에 연결하고, 원래 close callback을 복원하면서 idempotent cleanup한다.
 - [x] `CallbackChannelLayer`가 외부 broker adapter의 subscribe/unsubscribe/publish callback을 공통 `ChannelLayer` contract에 연결한다. 실제 Redis/Valkey pub/sub socket과 cross-process 운영 검증은 외부 adapter 범위다.
+- [x] Redis/Valkey pub/sub RESP2 command/event codec를 공통 framing helper 위에 추가하고 malformed array, unsupported event, trailing bytes를 거부하는 회귀 테스트를 제공한다.
+- [ ] dedicated async subscription socket, reconnect·ordering·backpressure와 실제 Redis/Valkey cross-process fan-out live contract는 외부 서비스 환경 범위로 남긴다.

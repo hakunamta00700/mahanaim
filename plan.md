@@ -308,3 +308,5 @@
 - [-] **P3-03 distributed channel integration** — Redis/Valkey cross-process fan-out과 backpressure·ordering·reconnect 운영 정책은 외부 adapter와 live 환경 검증이 필요하다. WebSocket session lifecycle 자동 구독/해제는 P3-04에서 완료했다.
 - [x] **P3-04 WebSocket channel lifecycle binding** — `bindWebSocketSession`이 channel message를 adapter-owned `WebSocketSession.send`로 전달하고, 원래 close callback을 보존·복원하며 session close 시 subscription을 idempotent하게 해제한다. send/close/cleanup contract를 회귀 테스트로 검증했다.
 - [x] **P3-05 external channel adapter bridge** — `CallbackChannelLayer`가 broker-owned subscribe/unsubscribe/publish callback을 `ChannelLayer` virtual contract로 연결한다. Redis/Valkey protocol과 운영 lifecycle은 adapter 소유로 유지하면서 fake backend 위임 contract를 회귀 테스트로 검증했다.
+- [x] **P3-06 Redis/Valkey pub/sub RESP codec** — `PUBLISH`·`SUBSCRIBE`·`UNSUBSCRIBE` 명령 encoder와 `message`·`subscribe`·`unsubscribe` event parser를 추가하고, exact shape·channel validation·trailing bytes·malformed frame 회귀 테스트를 통과시켰다.
+- [-] **P3-07 Redis/Valkey live channel transport** — dedicated async subscription socket, reconnect·ordering·backpressure 정책과 실제 cross-process fan-out live evidence는 Redis/Valkey 서비스 환경에서 후속 구현·검증한다.

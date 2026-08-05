@@ -4915,6 +4915,29 @@ suite "Mahanaim core contracts":
     pool.release(commitCheck)
     pool.close()
 
+  test "Redis pubsub RESP codec preserves channel events and rejects malformed frames":
+    check encodeRedisPublishCommand("room:42", "hello") ==
+      "*3\r\n$7\r\nPUBLISH\r\n$7\r\nroom:42\r\n$5\r\nhello\r\n"
+    check encodeRedisSubscribeCommand("room:42") ==
+      "*2\r\n$9\r\nSUBSCRIBE\r\n$7\r\nroom:42\r\n"
+    check encodeRedisUnsubscribeCommand("room:42") ==
+      "*2\r\n$11\r\nUNSUBSCRIBE\r\n$7\r\nroom:42\r\n"
+    let message = parseRedisPubSubEvent(
+      "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$5\r\nhello\r\n")
+    check message.kind == rpekMessage
+    check message.channel == "room:42"
+    check message.payload == "hello"
+    let subscribed = parseRedisPubSubEvent(
+      "*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n")
+    check subscribed.kind == rpekSubscribe
+    check subscribed.subscriptionCount == 1
+    expect ValueError:
+      discard encodeRedisPublishCommand("", "hello")
+    expect ValueError:
+      discard parseRedisPubSubEvent("*2\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n")
+    expect ValueError:
+      discard parseRedisPubSubEvent("+PONG\r\n")
+
   test "Redis RESP client encodes atomic counter and parses server TTL":
     let command = encodeFixedWindowCommand("rate:user", 60)
     check command.startsWith("*5\r\n$4\r\nEVAL\r\n")

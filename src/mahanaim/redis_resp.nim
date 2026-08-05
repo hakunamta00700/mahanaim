@@ -41,6 +41,20 @@ type
     connections*: int
     reconnects*: int
 
+  RedisPubSubEventKind* = enum
+    ## RESP2 pub/sub acknowledgements and messages are deliberately modeled
+    ## separately from rate-limit responses so malformed broker frames cannot
+    ## be mistaken for a quota result.
+    rpekMessage
+    rpekSubscribe
+    rpekUnsubscribe
+
+  RedisPubSubEvent* = object
+    kind*: RedisPubSubEventKind
+    channel*: string
+    payload*: string
+    subscriptionCount*: int
+
   RedisValkeyRespClient* = ref object of RateLimitCounterClient
     host*: string
     port*: Port
@@ -75,6 +89,26 @@ proc encodeRedisCommand*(arguments: openArray[string]): string =
   result = "*" & $arguments.len & "\r\n"
   for argument in arguments:
     result.add(respBulk(argument))
+
+proc validateRedisChannel(channel: string) =
+  ## A blank channel cannot be routed or unsubscribed safely and usually
+  ## indicates that an application forgot to bind a group name.
+  if channel.strip().len == 0:
+    raise newException(ValueError, "Redis channel must not be empty")
+
+proc encodeRedisPublishCommand*(channel, payload: string): string =
+  ## PUBLISH is kept as a pure command encoder so a future async broker
+  ## adapter can own socket lifetime and retry policy independently.
+  validateRedisChannel(channel)
+  encodeRedisCommand(["PUBLISH", channel, payload])
+
+proc encodeRedisSubscribeCommand*(channel: string): string =
+  validateRedisChannel(channel)
+  encodeRedisCommand(["SUBSCRIBE", channel])
+
+proc encodeRedisUnsubscribeCommand*(channel: string): string =
+  validateRedisChannel(channel)
+  encodeRedisCommand(["UNSUBSCRIBE", channel])
 
 proc encodeFixedWindowCommand*(key: string, windowSeconds: int): string =
   ## EVAL executes INCR, first-write EXPIRE, and server-side TTL atomically.
@@ -153,6 +187,42 @@ proc readRespLine(payload: string, cursor: var int): string =
     raise newException(ValueError, "incomplete RESP line")
   result = payload[cursor ..< ending]
   cursor = ending + 2
+
+proc parseRedisPubSubEvent*(payload: string): RedisPubSubEvent =
+  ## Parse only the RESP2 three-element pub/sub shapes documented by Redis
+  ## and Valkey. Exact element counts and trailing-byte rejection make this
+  ## safe to place in front of a long-lived subscription socket.
+  if payload.len == 0 or payload[0] != '*':
+    raise newException(ValueError, "Redis pub/sub event must be an array")
+  var cursor = 1
+  let countText = readRespLine(payload, cursor)
+  if parseInt(countText) != 3:
+    raise newException(ValueError, "Redis pub/sub event must contain three values")
+  let eventName = parseRespBulkString(payload, cursor)
+  result.channel = parseRespBulkString(payload, cursor)
+  validateRedisChannel(result.channel)
+  case eventName
+  of "message":
+    result.kind = rpekMessage
+    result.payload = parseRespBulkString(payload, cursor)
+  of "subscribe":
+    result.kind = rpekSubscribe
+    if cursor >= payload.len or payload[cursor] != ':':
+      raise newException(ValueError, "Redis subscribe count must be an integer")
+    inc cursor
+    result.subscriptionCount = parseInt(readRespLine(payload, cursor))
+  of "unsubscribe":
+    result.kind = rpekUnsubscribe
+    if cursor >= payload.len or payload[cursor] != ':':
+      raise newException(ValueError, "Redis unsubscribe count must be an integer")
+    inc cursor
+    result.subscriptionCount = parseInt(readRespLine(payload, cursor))
+  else:
+    raise newException(ValueError, "unsupported Redis pub/sub event: " & eventName)
+  if result.subscriptionCount < 0:
+    raise newException(ValueError, "Redis subscription count must not be negative")
+  if cursor != payload.len:
+    raise newException(ValueError, "Redis pub/sub event contains trailing bytes")
 
 proc parseCounterResponse*(payload: string): RateLimitCounterResult =
   ## Parse only the response shape emitted by fixedWindowScript. Rejecting all
