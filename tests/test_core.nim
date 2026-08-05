@@ -2220,6 +2220,20 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard redisChannelPrometheusMetrics(invalid)
 
+  test "Redis ChannelLayer wires delivery metrics into application observability":
+    ## Composition code owns the optional adapter. The framework should expose
+    ## one metrics endpoint without making Redis a mandatory dependency of the
+    ## core observability module.
+    let observability = newObservability()
+    let layer = newRedisChannelLayer(port = Port(1))
+    layer.registerRedisChannelMetrics(observability)
+    let metrics = prometheusMetrics(observability)
+    check metrics.contains("mahanaim_redis_channel_received_messages_total 0")
+    check metrics.contains("mahanaim_redis_channel_reconnect_attempts_total 0")
+    expect ValueError:
+      layer.registerRedisChannelMetrics(observability, "bad metric name")
+    layer.stop()
+
   test "observability propagates traceparent and emits structured logs":
     var logCount: Atomic[int]
     logCount.store(0)

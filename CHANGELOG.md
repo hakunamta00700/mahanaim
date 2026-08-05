@@ -18,6 +18,7 @@
 - Redis subscription의 수신·전달·drop·실패·reconnect 상태를 읽기 전용 `RedisChannelDeliverySnapshot`으로 관측할 수 있게 했다.
 - Redis channel delivery snapshot을 deterministic Prometheus exposition text로 렌더링하는 vendor-neutral API를 추가했다.
 - `Observability`에 application-owned `MetricsProvider` 등록 경계를 추가해 adapter metric을 공통 Prometheus endpoint에 조합할 수 있게 했다.
+- `RedisChannelLayer.registerRedisChannelMetrics`로 Redis delivery snapshot을 애플리케이션 observability endpoint에 연결했다.
 - WebSocket close reason의 malformed UTF-8을 공통 core에서 거부하고 정상 Unicode reason을 허용하는 계약 테스트를 추가했다.
 - WebSocket close message의 RFC 6455 code 범위와 123-byte reason 한계를 core에서 검증하고 reserved code·oversized reason 회귀 테스트를 추가했다.
 - SSE `event`/`id` metadata의 CR/LF field injection을 거부하고 multiline `data` framing을 보존하는 계약 테스트를 추가했다.

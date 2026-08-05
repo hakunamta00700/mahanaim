@@ -378,3 +378,9 @@
 - [x] `Observability`가 `MetricsProvider` 등록 경계를 소유하고, nil provider를 구성 단계에서 거부한다.
 - [x] `prometheusMetrics`와 `metricsResponse`가 application-owned provider output을 newline-safe하게 조합해 Redis channel 등 선택적 adapter metric을 같은 endpoint에서 노출한다.
 - [-] 실제 deployment의 scrape 설정·alert rule·production metrics evidence는 application 운영 환경에서 계속한다.
+
+### 2026-08-05 Redis metrics composition boundary
+
+- [x] `RedisChannelLayer.deliverySnapshot`과 `registerRedisChannelMetrics`가 adapter snapshot을 application-owned `Observability` provider로 연결한다.
+- [x] 네트워크 연결 없이 layer wiring과 공통 Prometheus endpoint 노출을 검증하는 회귀 테스트를 추가했다.
+- [-] 실제 Redis metrics scrape/alert rule과 production endpoint 운영 증거는 배포 환경에서 계속한다.

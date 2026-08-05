@@ -11,6 +11,7 @@ import ./core
 import ./channels
 import ./redis_channels
 import ./redis_resp
+import ./observability
 
 const redisChannelWirePrefix = "MAHANAIM-CHANNEL-1:"
 
@@ -125,6 +126,30 @@ proc newRedisChannelLayer*(deliveryPolicy: RedisChannelDeliveryPolicy,
   result.client = newRedisPubSubClient(deliveryPolicy, host, port)
   result.localSubscriptions = initTable[int, ChannelSubscription]()
   result.remoteSubscriptions = initTable[int, RedisPubSubSubscription]()
+
+proc deliverySnapshot*(layer: RedisChannelLayer): RedisChannelDeliverySnapshot =
+  ## Expose the client snapshot without leaking the subscription socket. The
+  ## layer remains the owner of composition and lifecycle while the client
+  ## remains the owner of delivery counters.
+  if layer.isNil:
+    raise newException(ValueError, "Redis channel layer is required")
+  layer.client.deliverySnapshot()
+
+proc registerRedisChannelMetrics*(layer: RedisChannelLayer,
+                                  observability: Observability,
+                                  namespace = "mahanaim_redis_channel") =
+  ## Wire this optional adapter into the application's common metrics endpoint
+  ## without making Observability import Redis. Validation happens at setup so
+  ## an invalid metric namespace cannot remain latent until the first scrape.
+  if layer.isNil:
+    raise newException(ValueError, "Redis channel layer is required")
+  if observability.isNil:
+    raise newException(ValueError, "Observability instance is required")
+  discard redisChannelPrometheusMetrics(layer.deliverySnapshot(), namespace)
+  let metricNamespace = namespace
+  observability.registerMetricsProvider(
+    proc(): string {.gcsafe.} =
+      redisChannelPrometheusMetrics(layer.deliverySnapshot(), metricNamespace))
 
 proc start*(layer: RedisChannelLayer): Future[void] {.async.} =
   validateRedisChannelLayer(layer)
