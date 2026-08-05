@@ -200,7 +200,7 @@
 - [x] 민감 필드 제외·null 처리·잘못된 타입 회귀 테스트를 추가했다.
 - [x] 공통 serializer 경계에서 patch와 명시적 response projection을 추가했다.
 - [x] registry 기반 `nestedModel` metadata와 재귀 DTO serialization을 추가했다.
-- [ ] MessagePack adapter는 남아 있다.
+- [x] dependency-free MessagePack adapter와 JSON/MessagePack negotiation, buffered·stream response를 제공한다.
 
 ### 2026-08-04 — P1 serializer adapter 1차
 
@@ -209,7 +209,7 @@
 - [x] file metadata의 필수 키·타입·음수 크기를 검증하고 nested DTO 경계에도 adapter를 전달한다.
 - [x] field metadata의 명시적 `wireType`을 codec registry로 연결하고 누락·중복 codec을 거부하는 custom serializer contract를 추가했다.
 - [x] DateTime·UUID·file metadata 성공/실패 회귀 테스트와 전체 `nimble test`를 통과했다.
-- [ ] MessagePack wire adapter와 외부 파일 저장소/서명 URL 정책은 남아 있다.
+- [-] MessagePack wire adapter는 제공한다. 외부 파일 저장소의 production signing URL 정책은 남아 있다.
 
 ### 2026-08-04 — P1 database contract 1차
 
@@ -645,7 +645,7 @@ flowchart TB
 완료 기준:
 
 - [-] SQLite repository CRUD와 metadata-driven CRUD route가 동작하고 PostgreSQL adapter repository API와 capability matrix가 준비됐다. PostgreSQL live CRUD/isolation fixture와 admin route는 남아 있다.
-- [ ] 관계 query와 migration up/down 테스트가 통과한다.
+- [x] 관계 query와 migration up/down 테스트가 통과한다. SQLite core contract와 PostgreSQL 16 live migration/relation evidence를 함께 유지한다.
 - [-] 환경 기반 PostgreSQL fixture factory와 compile contract를 추가하고 CI task를 연결했다. PostgreSQL 16 컨테이너에서 SCRAM credentials 기반 live transaction isolation과 migration/repository contract를 통과했으며 CI matrix wiring은 남아 있다.
 
 ### Phase 3 — 서버 렌더링, 폼, 인증, 관리자 (P1)
@@ -663,23 +663,23 @@ flowchart TB
 완료 기준:
 
 - [x] 별도 SPA 없이 CRUD 화면을 생성·검증할 수 있다.
-- [ ] 권한 없는 admin/API 접근이 일관되게 거부된다.
+- [x] 권한 없는 admin/API 접근이 일관되게 거부된다. protected route의 401과 admin resource의 403, wrong-role·anonymous 회귀를 검증한다.
 
 ### Phase 4 — 운영·확장·검증 (P2)
 
-- [ ] static/upload와 local/S3 호환 storage, memory/Redis cache store를 adapter로 제공한다.
+- [-] static/upload와 local/S3 호환 storage, memory/Redis cache store adapter를 제공하고 key traversal·TTL·eviction·RESP contract를 검증했다. production S3 signing/retry 운영 정책은 남아 있다.
 - [ ] request lifecycle과 분리된 background task 및 외부 queue contract를 제공한다.
 - [ ] 구조화 logging, request ID, health/readiness, metrics, OpenTelemetry hook을 추가한다.
-- [ ] system check와 운영 배포 점검을 CLI에 통합한다.
+- [x] `checkApplication` report를 embedding·standalone `check` CLI에서 공통 실행하고, config·route·model·migration·security gate를 배포 전 점검한다.
 - [-] backend-neutral test database fixture와 SQLite transaction rollback isolation, 실제 SQLite live-server의 request-scoped pool borrow/release/shutdown close, 환경 기반 PostgreSQL fixture factory를 추가했다. PostgreSQL live isolation과 PostgreSQL 전용 live-server는 남아 있으며, WebSocket/SSE test client 계약은 추가했다.
 - [x] plugin protocol로 route, DI, middleware, command, metadata, admin view, serializer, storage, auth backend를 확장한다. Application 소유 serialization codec registry, named object storage registry, ordered auth backend 등록 API를 추가하고 duplicate registration을 거부한다.
 - [-] 보안 회귀 테스트와 HTTPS deployment checklist를 공개하고, trusted proxy scheme/host와 `requireHttps` contract를 추가했다. `checkApplication`은 HTTPS 강제 정책의 공개 host 미고정 상태를 warning으로 보고한다. Docker nginx TLS 1.2/1.3 → Nim 2.2.4 upstream wire fixture와 외부 endpoint용 `httpsLive` client로 HTTP→HTTPS redirect, handshake·proxy hop·secure cookie를 검증했고, cold Docker cache의 의존성 설치·컴파일을 고려한 bounded readiness window도 추가했다. 운영 staging 인증서/renewal 증거는 배포 환경 gate로 남아 있다.
 
 완료 기준:
 
-- [ ] custom plugin이 route·command·admin을 추가한다.
-- [ ] plugin 통합 테스트가 통과한다.
-- [ ] 운영 점검이 배포 전 문제를 발견한다.
+- [x] custom plugin이 명시적 route·command·admin extension point를 추가한다.
+- [x] plugin 통합 contract test가 route·DI·middleware·command·metadata·admin·serializer·storage·auth 경계를 검증한다.
+- [x] 운영 점검 CLI가 배포 전 config·route·model·migration·security 문제를 발견한다.
 
 ### Phase 5 — 생태계와 선택 기능 (P2/P3)
 
@@ -741,7 +741,7 @@ flowchart TB
 | [x] | REQ-UI-001 | P1 | auto-escaping renderer와 `TemplateNode` 구조형 AST 기반 inheritance·partial(include)·filter registry, nested conditional/collection block, legacy `registerTag`와 named/quoted/context argument를 받는 AST-aware `registerHelper`, 명시적 `TemplateRenderContext` collection loop와 현재 context 기반 `TemplateCollectionProjection`, locale catalog 기반 translation helper와 deterministic JSON catalog directory loader를 구현하고 parser/render 회귀 테스트를 통과했다. |
 | [x] | REQ-UI-002 | P1 | model metadata를 form schema와 `bindModelForm`/`bindModelFormSet`에 연결하고 CSRF·오류 표시 및 field widget registry를 제공한다. |
 | [x] | REQ-ADMIN-001 | P1 | metadata에서 authorization callback/`AuthorizationPolicy` guard·append-only audit event가 적용된 CRUD route·HTML form을 생성하는 admin registry 기초를 제공한다. resource별 query pagination/cursor, read-only field enforcement, custom list column projection, 서버 렌더링 detail/edit/create/update/delete 화면, 사전 권한 검증형 bulk delete action, 명시적 inline PATCH route와 custom layout hook을 지원하고 SQLite `DatabaseRepositoryResourceStore` 통합 회귀를 검증했다. |
-| [ ] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장한다. |
+| [x] | REQ-ADMIN-002 | P2 | admin query/filter/action/layout registry로 검색·필터·inline·customization을 확장했다. query component의 pagination/field selection, custom columns, bulk delete, inline PATCH, form layout renderer를 공통 authorization·audit 경계에서 검증한다. |
 | [x] | REQ-ADMIN-003 | P1 | admin 전용 authorization policy와 append-only audit event 저장소 계약 및 기본 in-memory adapter를 제공한다. |
 | [x] | REQ-UI-003 | P1 | `htmlJsonResponse`로 HTML 전체 문서·HTMX partial·JSON response를 같은 route contract에서 선택하고 `Vary: Accept, HX-Request` 및 HTMX 예제를 제공한다. |
 
