@@ -377,6 +377,14 @@ nimble test
     check supportMatrix.contains("macOS")
     check supportMatrix.contains("release matrix")
 
+  test "CI records the implementation plan status before platform gates":
+    ## The external runner evidence is only useful when the exact checklist
+    ## state used by that run is visible in its log.
+    let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
+      "ci.yml")
+    check workflow.contains("name: Report implementation plan status")
+    check workflow.contains("run: nimble planStatus")
+
   test "release matrix installs a platform-matching Nim archive":
     ## A Unix-only condition is not sufficient for a release matrix: Linux
     ## and macOS use different Nim archives. Keeping this invariant in the

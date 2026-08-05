@@ -369,6 +369,7 @@
 - [x] `summarizePlanChecklist`가 지원되는 `[x]`/`[-]`/`[ ]` marker를 완료·부분 완료·미착수 개수로 집계하고, malformed marker 검증과 분리된 planning/release dashboard 입력을 제공한다.
 - [x] 상태 요약 회귀 테스트를 `tests/test_docs_contract.nim`에 추가하고 `nimble docsCheck`에 연결했다.
 - [x] `nimble planStatus`가 canonical `plan.md`의 `completed`·`partial`·`pending` 개수를 출력하도록 연결했다. 현재 집계는 240/25/7이다.
+- [x] Linux verify와 cross-platform matrix job이 platform-specific gate 전에 `nimble planStatus`를 실행해 CI 로그에 계획 상태를 남긴다.
 
 ### 2026-08-05 HTTPS deployment evidence baseline
 

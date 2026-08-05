@@ -53,6 +53,9 @@ jobs:
       - name: Install locked dependencies
         run: nimble install -y --depsOnly
 
+      - name: Report implementation plan status
+        run: nimble planStatus
+
       - name: Run contract tests
         run: nimble test
 
@@ -165,6 +168,9 @@ jobs:
 
       - name: Install locked dependencies
         run: nimble install -y --depsOnly
+
+      - name: Report implementation plan status
+        run: nimble planStatus
 
       - name: Run contract tests
         run: nimble test
