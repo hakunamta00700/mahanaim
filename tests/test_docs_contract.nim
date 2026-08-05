@@ -46,6 +46,23 @@ nimble test
     check issues.anyIt(it.contains("checkbox marker is invalid"))
     check issues.anyIt(it.contains("checklist item is empty"))
 
+  test "implementation plan status summary counts each supported marker":
+    let path = getTempDir() / "mahanaim-plan-summary.md"
+    writeFile(path, """
+## ?꾩옱 ?ㅽ뻾 ??
+- [x] completed foundation
+- [-] partial live boundary
+- [ ] pending external evidence
+## ?꾨즺 ?먯젙
+""")
+    defer:
+      if fileExists(path):
+        removeFile(path)
+    let summary = summarizePlanChecklist(path)
+    check summary.completed == 1
+    check summary.partial == 1
+    check summary.pending == 1
+
   test "router benchmark is wired as a repeatable Nimble gate":
     let benchmark = getCurrentDir() / "benchmarks" / "router_benchmark.nim"
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")

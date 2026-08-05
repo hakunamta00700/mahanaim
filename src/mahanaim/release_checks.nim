@@ -305,6 +305,32 @@ proc validateDefinitionOfDone*(path: string): seq[string] =
       result.add("definition of done verification command is missing: " &
         command)
 
+type
+  PlanChecklistSummary* = object
+    ## A compact status projection for planning tools and release dashboards.
+    ## It intentionally does not decide whether a pending item is acceptable;
+    ## external evidence and intentional deferrals remain maintainer-owned.
+    completed*: int
+    partial*: int
+    pending*: int
+
+proc summarizePlanChecklist*(path: string): PlanChecklistSummary =
+  ## Count only the repository's three supported markers. Keeping this parser
+  ## separate from validation lets callers display progress even when a plan
+  ## has a malformed line that still needs a useful diagnostic.
+  if path.strip().len == 0 or not fileExists(path):
+    return
+  for line in readFile(path).splitLines:
+    let marker = line.strip()
+    if not marker.startsWith("- [") or marker.len < 5 or
+        marker[4] != ']':
+      continue
+    case marker[3]
+    of 'x': inc result.completed
+    of '-': inc result.partial
+    of ' ': inc result.pending
+    else: discard
+
 proc validatePlanChecklist*(path: string): seq[string] =
   ## Keep the implementation plan machine-readable without pretending that a
   ## validator can prove a feature is complete. The maintainer still chooses

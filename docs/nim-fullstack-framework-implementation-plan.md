@@ -6,6 +6,11 @@
 - [x] The local adapter contract now covers reconnect, ordering, bounded queue overflow, and graceful unsubscribe; the executable live fixture covers cross-process fan-out and worker shutdown.
 - [-] Production Redis/Valkey rollout evidence remains: real staging readiness transitions, reconnect budget, scrape/alert wiring, external queue drain, and rollback logs require the deployment environment.
 
+### 2026-08-06 — checklist status summary
+
+- [x] `summarizePlanChecklist` counts supported checklist markers independently from structural validation, so planning and release tooling can report completed, partial, and pending work without treating external evidence as code completion.
+- [x] A regression contract covers all three statuses through `nimble docsCheck`.
+
 ## Custom model field foundation
 
 - [x] 임의 Nim custom type은 `newModelCustomField(name, wireType)` 명시 선언으로만 JSON metadata와 serializer codec 경계에 연결한다.
