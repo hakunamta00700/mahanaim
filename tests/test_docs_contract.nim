@@ -65,6 +65,17 @@ nimble test
     check manifest.contains("task databaseQueryBenchmark")
     check manifest.contains("benchmarks/database_query_benchmark.nim")
 
+  test "serialization benchmark is wired as a repeatable Nimble gate":
+    ## Metadata serialization is a separate framework boundary from query
+    ## compilation. Keep its deterministic executable and gate explicit so
+    ## serializer regressions are measured without a database or HTTP server.
+    let benchmark = getCurrentDir() / "benchmarks" /
+      "serialization_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(benchmark)
+    check manifest.contains("task serializationBenchmark")
+    check manifest.contains("benchmarks/serialization_benchmark.nim")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

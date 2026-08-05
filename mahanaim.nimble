@@ -51,6 +51,12 @@ task databaseQueryBenchmark, "Run the deterministic ORM query benchmark":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r benchmarks/database_query_benchmark.nim"
 
+task serializationBenchmark, "Run the deterministic serialization benchmark":
+  ## Measure metadata projection separately from database and transport work;
+  ## each iteration also validates the default sensitive-field boundary.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r benchmarks/serialization_benchmark.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- deterministic metadata serialization benchmark와 `nimble serializationBenchmark` gate를 추가해 JSON projection 및 sensitive-field exclusion invariant를 반복 검증한다.
+
 - deterministic ORM query compiler benchmark와 `nimble databaseQueryBenchmark` gate를 추가해 SQLite/PostgreSQL parameter binding 및 no-interpolation invariant를 반복 검증한다.
 
 - 저장소·ORM 연동 패턴 문서를 추가해 `ObjectStorage`·`CacheStore`·`DatabaseRepository` 계약과 adapter/provider 소유권, transaction·lifecycle 및 contract test 경계를 정리했다.
