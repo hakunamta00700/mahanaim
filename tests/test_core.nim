@@ -2367,6 +2367,7 @@ suite "Mahanaim core contracts":
     check readFile(root / "src" / "sample_app.nim").contains("registerAdminRoutes")
     check readFile(root / "src" / "sample_app.nim").contains("registerAccountAuthenticationRoutes")
     check readFile(root / "src" / "sample_app.nim").contains("newOpenApiRegistry")
+    check readFile(root / "src" / "sample_app.nim").contains("runCli(createApp(), commandLineParams())")
     check readFile(root / "tests" / "test_app.nim").contains("/health")
     check readFile(root / "tests" / "test_app.nim").contains("/admin/items/new")
     check readFile(root / "tests" / "test_app.nim").contains("/items")

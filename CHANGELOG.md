@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `mahanaim new`가 생성하는 애플리케이션 모듈을 `createApp()`과 `commandLineParams()`를 공통 `runCli`에 연결하는 명시적 standalone CLI 진입점으로 만들었다. 프레임워크가 임의 프로젝트 모듈을 자동 import하지 않도록 경계를 유지했으며, migration provider/account callback 자동 구성은 후속 범위로 기록했다.
+
 - `Application.dispatch`가 request-scoped service child container를 자동 생성·정리하도록 연결했다. shutdown 시 instance는 release하지만 명시적 registration은 reopen해 post-shutdown health dispatch와 lifecycle restart 계약을 보존한다.
 - 구현계획의 기존 회귀 테스트 증거를 재감사해 관계 query·migration up/down, admin query/action/layout, 권한 거부, MessagePack·storage·plugin·system check 항목의 체크 상태와 잔여 production 범위를 정리했다.
 - DI service container에 명시적 child scope, dependency factory graph/cycle 검증, disposer와 Application shutdown disposal을 추가했다. application singleton과 request/task 소유권을 분리하는 contract test를 포함한다.

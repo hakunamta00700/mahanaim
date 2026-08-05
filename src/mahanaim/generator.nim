@@ -71,7 +71,7 @@ proc generateProject*(spec: ProjectSpec) =
 ## metadata, migration, CRUD, admin, authentication, and documentation seams.
 ## Applications can replace these declarations while keeping the boundaries.
 
-import std/[asyncdispatch]
+import std/[asyncdispatch, os]
 import mahanaim
 
 proc health(request: Request): Future[Response] {.async, gcsafe.} =
@@ -136,9 +136,9 @@ proc createApp*(config = loadConfig()): Application =
   result = app
 
 when isMainModule:
-  ## A transport adapter can own the actual socket lifecycle later.
-  discard createApp()
-  echo "Generated application is configured."
+  ## The generated module is the explicit standalone entry point: project
+  ## wiring remains in createApp while the shared CLI owns parsing/dispatch.
+  quit(runCli(createApp(), commandLineParams()))
 """)
   writeIfMissing(testDir / "test_app.nim",
     """import std/[asyncdispatch, httpcore, json, tables, unittest]
