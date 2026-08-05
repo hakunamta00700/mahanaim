@@ -995,10 +995,18 @@ proc renderAstNodes(engine: TemplateEngine, nodes: seq[TemplateNode],
         collections[node.collectionName]
       else:
         projections[node.collectionName](context)
-      for item in items:
+      for index, item in items:
         var itemContext = context
         for key, value in item:
           itemContext[node.variableName & "." & key] = value
+        ## Loop metadata is request-local context, not parser state. Keeping it
+        ## beside the current item makes nested loops naturally shadow the
+        ## parent metadata while preserving the caller's scalar context.
+        itemContext["loop.index"] = $(index + 1)
+        itemContext["loop.index0"] = $index
+        itemContext["loop.first"] = $(index == 0)
+        itemContext["loop.last"] = $(index == items.high)
+        itemContext["loop.length"] = $items.len
         result.add(engine.renderAstNodes(node.children, itemContext,
           collections, projections, depth + 1, hasLocaleFormatter,
           localeFormatter))

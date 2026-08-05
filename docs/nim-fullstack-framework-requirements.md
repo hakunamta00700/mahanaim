@@ -280,3 +280,9 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] SHOULD baseline: active group 재구독을 수행하는 bounded reconnect retry와 UNSUBSCRIBE acknowledgement를 drain하는 graceful shutdown을 loopback/live contract로 검증한다.
 - [x] SHOULD baseline: `redisLive`가 별도 OS worker 2개에서 readiness, Redis `ChannelLayer` payload fan-out, subscriber count와 graceful shutdown exit를 검증한다.
 - [ ] SHOULD remaining: 실제 rolling deployment 중 reconnect budget, probe와 rollback evidence를 production runbook에 연결한다.
+
+## Advanced template baseline (2026-08-05)
+
+- [x] 반복문이 request-local `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.length` metadata를 제공해 접근성 목록과 부분 템플릿이 위치 정보를 안전하게 표현한다.
+- [x] nested loop는 현재 반복문의 metadata가 부모 값을 shadow하도록 하며, parser/renderer 경계와 자동 escaping을 유지한다.
+- [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 별도 범위로 남긴다.

@@ -4225,6 +4225,23 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard parseTemplate("{% for item in items %}broken{% endif %}")
 
+  test "template loops expose stable metadata for accessible list rendering":
+    let engine = newTemplateEngine()
+    engine.registerTemplate("loop-metadata", "{% for item in items %}" &
+      "{{ loop.index }}:{{ loop.index0 }}:{{ loop.first }}:{{ loop.last }}:" &
+      "{{ loop.length }}={{ item.name }};{% endfor %}")
+    var context = newTemplateRenderContext()
+    context.addCollection("items", @[
+      newTemplateContext([("name", "Ada")]),
+      newTemplateContext([("name", "Grace")])])
+    check engine.render("loop-metadata", context) ==
+      "1:0:true:false:2=Ada;2:1:false:true:2=Grace;"
+    engine.registerTemplate("nested-loop-metadata", "{% for outer in items %}" &
+      "{{ loop.index }}[{% for inner in items %}{{ loop.index }}/{{ loop.length }}{% endfor %}]" &
+      "{{ loop.index }}{% endfor %}")
+    check engine.render("nested-loop-metadata", context) ==
+      "1[1/22/2]12[1/22/2]2"
+
   test "template render context resolves dynamic nested collection projections":
     ## A projection is evaluated against the current loop context so an
     ## adapter can load child rows from the parent identifier without placing

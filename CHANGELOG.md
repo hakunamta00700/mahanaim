@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- template loop에 request-local `loop.index`·`index0`·`first`·`last`·`length` metadata를 추가하고 nested-loop shadowing 및 접근성 목록 렌더링 회귀 테스트를 추가했다.
 - framework-neutral `ChannelLayer`/`ChannelSubscription`과 in-memory group broadcast backend를 추가하고, subscribe/publish/unsubscribe·idempotent cleanup·subscriber failure isolation 회귀 테스트를 추가했다. Redis/Valkey cross-process fan-out과 WebSocket session lifecycle 자동 연동은 후속 adapter 범위다.
 - executor의 `maxQueuedJobs`를 `AppConfig` 및 `MAHANAIM_EXECUTOR_MAX_QUEUED_JOBS` 환경 변수로 설정할 수 있도록 연결하고 음수 설정을 pre-flight에서 거부한다.
 - `MAHANAIM_VALUE_<KEY>=<JSON>` 환경변수로 배열·객체 structured config를 주입하고 file provider보다 높은 precedence 및 malformed JSON/type validation 경계를 추가했다.

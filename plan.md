@@ -254,7 +254,7 @@
 
 - [x] 직접 `httpx` request/response·WebSocket handoff와 application lifecycle을 연결하는 추가 HTTP backend/deployment adapter를 제공하고, Windows 조건부 import·Linux compile contract·설정 validation test 및 `httpxCheck`/`httpxTest` gate를 추가했다.
 - [x] OpenAPI registry에서 deterministic TypeScript `fetch` client artifact를 생성하는 `typescriptClient`와 `openapi-ts [PATH]` CLI를 추가하고, typed request/response interface·path/query parameter 변환·CLI 파일 출력을 회귀 테스트했다.
-- [ ] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다.
+- [-] 고급 template engine, OpenAPI UI, WebSocket/SSE 고급 기능을 확장한다. Loop metadata(`loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.length`)는 P3-22에서 완료했고, OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 범위다.
 - [x] 표준 WebSocket adapter가 masked fragmented text message를 continuation frame으로 재조립하고, 조립 중 interleaved ping에 pong으로 응답하도록 실제 loopback wire contract를 확장했다.
 - [x] migration command parser/runner의 `status/migrate/up/rollback` 계약과 SQLite 실행, PostgreSQL migration history runner, 명시적 migration provider registry, atomic `db seed`와 Application-aware `db status|migrate|up|rollback` CLI, standalone `admin`/`jobs` 진입점, metadata migration 생성과 schema diff/check을 추가했다. 환경 기반 PostgreSQL fixture에서 shared migration command와 schema history live evidence를 통과했고, 명시적 read-only `AdminRegistry` CLI inspector, application-owned durable `jobs run [max]|recover` command도 연결했다.
 
@@ -323,3 +323,4 @@
 - [x] **P3-19 Redis ChannelLayer adapter** — `RedisChannelLayer`가 `ChannelLayer`의 async subscribe/unsubscribe 확장점과 non-blocking publish socket을 소유하고, length-delimited WebSocket message envelope를 통해 실제 Redis service fan-out을 연결한다. rolling shutdown runbook은 P3-21에 남긴다.
 - [x] **P3-20 Redis ChannelLayer lifecycle** — `reconnectWithRetry`가 active group을 재구독하고 `shutdown`이 UNSUBSCRIBE acknowledgement를 drain한 뒤 socket을 닫도록 구현했으며, slow broker loopback과 Redis 7.2.15 live contract로 검증했다. rolling deployment runbook은 P3-21에 남긴다.
 - [-] **P3-21 Redis rolling deployment runbook** — worker drain 순서, bounded reconnect budget, readiness/liveness probe, rollback 절차와 repeatable evidence 명령을 `docs/operations-guide.md`에 문서화했다. 실제 staging rollout의 readiness transition·process exit·rollback evidence 수집은 외부 환경에서 남아 있다.
+- [x] **P3-22 template loop metadata** — 반복문 렌더링에 request-local `loop.index`/`index0`/`first`/`last`/`length`를 주입하고, nested loop shadowing 및 접근성 목록 렌더링 계약 테스트를 추가했다. parser와 renderer의 책임은 유지하며 metadata는 현재 loop context에만 존재한다.

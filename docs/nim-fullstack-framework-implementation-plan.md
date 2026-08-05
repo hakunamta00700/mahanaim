@@ -930,3 +930,9 @@ flowchart TB
 
 - [x] `docs/operations-guide.md`에 worker drain, bounded reconnect budget, readiness/liveness gate, canary delivery, graceful shutdown acknowledgement, rollback sequence와 `redisLive`/`test`/`verify`/`check` evidence 명령을 추가했다.
 - [ ] 실제 staging rollout의 readiness transition, process exit, reconnect attempt와 rollback evidence는 배포 환경에서 수집해야 한다.
+
+### 2026-08-05 — Template loop metadata baseline
+
+- [x] AST `for` renderer가 현재 loop에 한정된 `index`/`index0`/`first`/`last`/`length` metadata를 주입한다.
+- [x] two-item rendering contract와 nested-loop shadowing 경계를 테스트로 고정하고, 기존 explicit collection/projection API를 변경하지 않는다.
+- [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 후속 설계 항목이다.
