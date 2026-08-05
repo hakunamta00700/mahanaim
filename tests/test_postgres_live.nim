@@ -336,6 +336,72 @@ proc runLiveRowLockContract(configuration: PostgresTestConfiguration) =
     "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
   cleanup.close()
 
+proc runLiveRowLockContentionContract(configuration: PostgresTestConfiguration) =
+  ## Prove that a row lock is meaningful across two independent sessions,
+  ## rather than merely accepted by one connection. Session A holds the row;
+  ## session B uses a bounded PostgreSQL lock timeout and must fail closed.
+  let tableName = "mahanaim_live_lock_contention"
+  let setup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard setup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "CREATE TABLE \"" & tableName & "\" (\"id\" INTEGER PRIMARY KEY, " &
+    "\"value\" TEXT)", parameters: @[]))
+  discard setup.execute(CompiledQuery(sql:
+    "INSERT INTO \"" & tableName & "\" VALUES ($1, $2)",
+    parameters: @[integerValue(1), textValue("contention")]))
+  setup.close()
+
+  let pool = newDatabaseConnectionPool(
+    proc(): DatabaseAdapter {.gcsafe.} =
+      newPostgresDatabaseAdapter(configuration.host & ":" &
+        $configuration.port, configuration.user, configuration.password,
+        configuration.database),
+    maxConnections = 2,
+    closer = proc(adapter: DatabaseAdapter) {.gcsafe.} =
+      PostgresDatabaseAdapter(adapter).close())
+  var holder: DatabaseSession
+  var waiter: DatabaseSession
+  try:
+    let lockedQuery = SelectQuery(table: tableName, columns: @["id"],
+      filters: @[QueryFilter(field: "id", operator: filterEqual,
+        value: integerValue(1))], lockMode: lockForUpdate)
+    holder = newDatabaseSession(pool, transactional = true)
+    holder.setIsolationLevel(isolationSerializable)
+    discard holder.adapter.execute(compileSelect(lockedQuery, dialectPostgres))
+
+    waiter = newDatabaseSession(pool, transactional = true)
+    waiter.setIsolationLevel(isolationSerializable)
+    discard waiter.adapter.execute(CompiledQuery(sql:
+      "SET LOCAL lock_timeout = '200ms'", parameters: @[]))
+    var contentionObserved = false
+    try:
+      discard waiter.adapter.execute(compileSelect(lockedQuery, dialectPostgres))
+    except CatchableError:
+      ## PostgreSQL reports lock_timeout as a statement error; rollback below
+      ## is required because the transaction is then marked failed.
+      contentionObserved = true
+    if not contentionObserved:
+      raise newException(ValueError,
+        "PostgreSQL row-lock contention was not observed")
+  finally:
+    if not waiter.isNil:
+      waiter.rollback()
+      waiter.close()
+    if not holder.isNil:
+      holder.rollback()
+      holder.close()
+    pool.close()
+
+  let cleanup = newPostgresDatabaseAdapter(
+    configuration.host & ":" & $configuration.port,
+    configuration.user, configuration.password, configuration.database)
+  discard cleanup.execute(CompiledQuery(sql:
+    "DROP TABLE IF EXISTS \"" & tableName & "\"", parameters: @[]))
+  cleanup.close()
+
 proc runLiveContract() =
   let configuration = postgresTestConfigurationFromEnv()
   if configuration.isNone:
@@ -345,6 +411,7 @@ proc runLiveContract() =
   runLiveMigrationContract(configuration.get())
   runLivePoolSessionContract(configuration.get())
   runLiveRowLockContract(configuration.get())
+  runLiveRowLockContentionContract(configuration.get())
   runLiveServerContract(configuration.get())
 
   let fixture = newPostgresTestFixture(configuration.get())

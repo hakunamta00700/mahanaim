@@ -519,7 +519,7 @@
 ### 2026-08-05 — P1 PostgreSQL row-lock live contract
 
 - [x] `QueryLockMode`의 `FOR UPDATE`와 `FOR SHARE`를 PostgreSQL 16 serializable `DatabaseSession`에서 실제 실행했다.
-- [x] row-lock query 결과, commit lifecycle, SQLite unsupported capability와 aggregate lock 거부를 compile·live contract로 검증했다.
+- [x] row-lock query 결과, commit lifecycle, 두 session 간 bounded `lock_timeout` contention, SQLite unsupported capability와 aggregate lock 거부를 compile·live contract로 검증했다.
 - [x] 환경 기반 `postgresLive` gate에서 위 contract를 통과시키고 운영 증거를 기록했다.
 
 ### 2026-08-04 — P0 dependency and CI 1차
@@ -722,7 +722,7 @@ flowchart TB
 | [x] | REQ-DATA-001 | P0 | 모델 macro/metadata로 field, index, constraint, 관계를 선언하고 backend-neutral schema로 보관한다. macro는 필드를 source order로 읽고 추가 선언은 명시적 constructor로 받아 AST 추측을 피한다. `seq[T]`/`array[N,T]`는 JSON collection metadata로 투영한다. |
 | [x] | REQ-DATA-002 | P1 | QuerySet/query builder AST와 metadata-driven aggregate parser로 조건·정렬·pagination·grouping·aggregate SQL, typed arithmetic annotate projection, eager one-hop/many-to-many through loading, 명시적 lazy relation loader 및 repository JSON result mapping을 제공한다. one-to-many와 many-to-many parent page에 bound `IN` batching을 적용한다. |
 | [-] | REQ-DATA-003 | P1 | SQLite migration artifact와 command runner의 up/down/status, PostgreSQL migration history runner와 shared command overload, 명시적 provider registry, Application-aware `db status|up|rollback` 및 atomic `db seed` CLI, metadata migration 생성과 schema diff/check을 제공한다. PostgreSQL 16 live fixture에서 shared command status/up/idempotency/history/rollback evidence를 통과했으며 CLI/provider wiring의 남은 범위는 별도 기록한다. |
-| [-] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 PostgreSQL 16 serializable session에서 두 row-lock mode의 실제 실행을 검증했다. 다중 session contention/isolation 운영 시나리오는 남아 있다. |
+| [x] | REQ-DATA-004 | P1 | backend-neutral pool/savepoint, request context borrow/release, active `DatabaseSession`의 isolation 설정, typed `FOR UPDATE`/`FOR SHARE` row-lock query contract, unit-of-work와 isolation capability contract를 추가했고 PostgreSQL 16 serializable session에서 두 row-lock mode의 실제 실행과 두 session 간 bounded `lock_timeout` contention을 검증했다. |
 | [-] | REQ-DATA-005 | P1 | SQLite와 PostgreSQL adapter, 공통 `DatabaseResult`/column metadata/`affectedRows` contract, DML 판별 helper, SQLite 선언 타입·runtime storage class와 PostgreSQL type OID 기반 typed scalar mapping, backend capability matrix를 추가했고 PostgreSQL 16 live contract에서 JSONB custom field codec, serializable isolation, repository CRUD route, typed metadata, filtering, grouped aggregate, one-to-many relation, DDL rollback, pool/session과 live-server를 검증했다. 추가 backend 확장과 production matrix evidence가 남아 있다. |
 | [x] | REQ-DATA-006 | P0 | 모델 metadata를 validation/serializer/form/admin/OpenAPI가 읽는 공통 reflection 계약으로 만들고 각 소비자 회귀 테스트를 제공한다. |
 
