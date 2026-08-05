@@ -408,6 +408,12 @@
 - [x] `deploy/Dockerfile`이 Nim 2.2.4 multi-stage build, compiler 없는 non-root runtime, SIGTERM 경계를 제공한다.
 - [x] `deploy/docker-compose.yml`, `deploy/nginx.conf`, `deploy/mahanaim.service`와 `docs/deployment-recipes.md`가 health/readiness, TLS reverse proxy, WebSocket forwarding, graceful shutdown 운영 절차를 고정한다.
 
+### 2026-08-05 concurrent password benchmark
+
+- [x] `password_hash_benchmark`에 독립 worker process 기반 `--concurrency=N` 측정을 추가하고 각 worker의 hash/verify 검증을 유지했다.
+- [x] benchmark 실행 경계와 운영 사용법을 `tests/test_docs_contract.nim`, `docs/operations-guide.md`에 연결했다. 저비용 Windows smoke(`bcrypt`, `work-factor=4`, `samples=1`, `concurrency=2`)가 통과했다.
+- [-] 실제 production benchmark, concurrent memory/login load, cost 확정과 rollout evidence는 배포 환경에서 후속 검증한다.
+
 ### 2026-08-05 command/admin lifecycle boundary
 
 - [x] 상세 구현계획서의 CLI, Prologue/JSON/TOML, test client, template adapter 상태를 실제 구현 증거와 일치시켰고, native worker 강제 종료는 안전한 backend API 전까지 미지원으로 명시했다.

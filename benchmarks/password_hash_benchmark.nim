@@ -6,7 +6,7 @@
 ## threshold in CI. The workload still validates every generated hash so a
 ## broken benchmark cannot report plausible-looking timing numbers.
 
-import std/[os, strutils, monotimes, times]
+import std/[os, osproc, strutils, monotimes, times]
 import mahanaim/password_hashing
 
 type
@@ -18,6 +18,8 @@ type
     derivedBytes: uint32
     workFactor: int8
     samples: int
+    concurrency: int
+    worker: bool
 
 proc parseUintOption(argument, name: string, defaultValue: uint32): uint32 =
   ## Keep command-line parsing local to the benchmark; production application
@@ -41,6 +43,7 @@ proc parseOptions(): BenchmarkOptions =
   result.derivedBytes = 32
   result.workFactor = 12
   result.samples = 5
+  result.concurrency = 1
   for argument in commandLineParams():
     if argument.startsWith("--algorithm="):
       result.algorithm = argument[12 .. ^1].toLowerAscii()
@@ -67,15 +70,30 @@ proc parseOptions(): BenchmarkOptions =
         result.samples = parseInt(raw)
       except ValueError:
         raise newException(ValueError, "Invalid --samples value: " & raw)
+    elif argument.startsWith("--concurrency="):
+      let raw = argument[14 .. ^1]
+      try:
+        result.concurrency = parseInt(raw)
+      except ValueError:
+        raise newException(ValueError, "Invalid --concurrency value: " & raw)
+    elif argument == "--worker":
+      ## Workers are private child processes; callers should set concurrency
+      ## only on the parent so process startup is not counted as KDF work.
+      result.worker = true
     elif argument in ["--help", "-h"]:
       echo "Usage: password_hash_benchmark [--algorithm=argon2id|bcrypt] " &
         "[--memory-kib=N] [--iterations=N] [--threads=N] " &
-        "[--derived-bytes=N] [--work-factor=N] [--samples=N]"
+        "[--derived-bytes=N] [--work-factor=N] [--samples=N] " &
+        "[--concurrency=N]"
       quit(0)
     else:
       raise newException(ValueError, "Unknown benchmark option: " & argument)
   if result.samples < 1:
     raise newException(ValueError, "--samples must be at least 1")
+  if result.concurrency < 1:
+    raise newException(ValueError, "--concurrency must be at least 1")
+  if result.worker and result.concurrency != 1:
+    raise newException(ValueError, "benchmark workers must use concurrency=1")
 
 proc newBenchmarkHasher(options: BenchmarkOptions): PasswordHasher =
   ## Keep algorithm selection in the benchmark executable. Application code
@@ -85,8 +103,7 @@ proc newBenchmarkHasher(options: BenchmarkOptions): PasswordHasher =
   newArgon2idPasswordHasher(options.memoryKiB, options.iterations,
     options.threadCount, options.derivedBytes)
 
-proc main() =
-  let options = parseOptions()
+proc runSequential(options: BenchmarkOptions): tuple[hashMs, verifyMs: int64] =
   let hasher = newBenchmarkHasher(options)
   let password = "benchmark-only password; never persist this value"
   var hashMilliseconds = newSeq[int64](options.samples)
@@ -112,6 +129,44 @@ proc main() =
     totalHash += elapsed
   for elapsed in verifyMilliseconds:
     totalVerify += elapsed
+  result.hashMs = totalHash div options.samples.int64
+  result.verifyMs = totalVerify div options.samples.int64
+
+proc workerArgs(options: BenchmarkOptions): seq[string] =
+  result = @["--worker", "--algorithm=" & options.algorithm,
+    "--samples=" & $options.samples, "--concurrency=1"]
+  if options.algorithm == "bcrypt":
+    result.add("--work-factor=" & $options.workFactor)
+  else:
+    result.add("--memory-kib=" & $options.memoryKiB)
+    result.add("--iterations=" & $options.iterations)
+    result.add("--threads=" & $options.threadCount)
+    result.add("--derived-bytes=" & $options.derivedBytes)
+
+proc runConcurrent(options: BenchmarkOptions): int64 =
+  ## Use independent OS processes: this models separate login workers and
+  ## makes each process's KDF memory reservation visible to the host.
+  var workers: seq[Process] = @[]
+  let started = getMonoTime()
+  try:
+    for _ in 0 ..< options.concurrency:
+      workers.add(startProcess(getAppFilename(), args = workerArgs(options),
+        options = {poUsePath, poStdErrToStdOut}))
+    for worker in workers:
+      if waitForExit(worker) != 0:
+        raise newException(IOError, "password benchmark worker failed")
+  finally:
+    for worker in workers:
+      close(worker)
+  (getMonoTime() - started).inMilliseconds
+
+proc main() =
+  let options = parseOptions()
+  if options.worker:
+    discard runSequential(options)
+    return
+
+  let sequential = runSequential(options)
   var details = "algorithm=" & options.algorithm & " samples=" & $options.samples
   if options.algorithm == "bcrypt":
     details.add(" work_factor=" & $options.workFactor)
@@ -120,8 +175,11 @@ proc main() =
       " iterations=" & $options.iterations &
       " threads=" & $options.threadCount &
       " derived_bytes=" & $options.derivedBytes)
-  echo details & " hash_avg_ms=" & $(totalHash div options.samples.int64) &
-    " verify_avg_ms=" & $(totalVerify div options.samples.int64)
+  echo details & " hash_avg_ms=" & $sequential.hashMs &
+    " verify_avg_ms=" & $sequential.verifyMs
+  if options.concurrency > 1:
+    echo "concurrency=" & $options.concurrency &
+      " concurrent_wall_ms=" & $runConcurrent(options)
 
 when isMainModule:
   main()

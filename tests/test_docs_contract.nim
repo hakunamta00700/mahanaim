@@ -96,6 +96,24 @@ nimble test
     check manifest.contains("task httpDispatchBenchmark")
     check manifest.contains("benchmarks/http_dispatch_benchmark.nim")
 
+  test "password benchmark exposes an isolated concurrent-load mode":
+    ## Sequential KDF latency cannot reveal the memory pressure of concurrent
+    ## login verification. Keep the process boundary explicit so each worker
+    ## owns its hasher and the benchmark cannot accidentally share mutable
+    ## application state.
+    let benchmark = getCurrentDir() / "benchmarks" /
+      "password_hash_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let guide = readFile(getCurrentDir() / "docs" / "operations-guide.md")
+    let source = readFile(benchmark)
+    check fileExists(benchmark)
+    check manifest.contains("task passwordBenchmark")
+    check manifest.contains("benchmarks/password_hash_benchmark.nim")
+    check source.contains("--concurrency=")
+    check source.contains("startProcess")
+    check source.contains("--worker")
+    check guide.contains("--concurrency")
+
   test "API stability policy matches the package manifest":
     ## The manifest declares the installable dependency boundary while the
     ## policy explains compatibility promises. Keep both machine-checkable so

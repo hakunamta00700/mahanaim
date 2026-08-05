@@ -70,6 +70,11 @@ Argon2는 `--algorithm=argon2id --memory-kib`, `--iterations`, `--threads`,
 production 권고값이 아니며, 실제 배포 호스트에서 concurrent memory/login load를
 다시 측정한 뒤에만 production cost를 확정한다.
 
+`--concurrency=N`은 독립 worker process를 N개 실행해 concurrent wall time을
+측정한다. 각 worker는 별도 프로세스에서 hash/verify를 수행하므로 host에서
+프로세스별 KDF 메모리 사용량을 함께 관찰할 수 있다. 이 결과는 개발 호스트의
+측정값이며 production cost를 확정하려면 실제 배포 환경에서 다시 측정해야 한다.
+
 ## Rate limit
 
 - process-local `InMemoryRateLimitStore`는 단일 프로세스/테스트 용도다.
