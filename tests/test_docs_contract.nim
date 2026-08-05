@@ -29,3 +29,10 @@ nimble test
     check issues.len >= 2
     check issues.anyIt(it.contains("verification command is missing"))
     check issues.anyIt(it.contains("checkbox marker is invalid"))
+
+  test "router benchmark is wired as a repeatable Nimble gate":
+    let benchmark = getCurrentDir() / "benchmarks" / "router_benchmark.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(benchmark)
+    check manifest.contains("task routerBenchmark")
+    check manifest.contains("benchmarks/router_benchmark.nim")

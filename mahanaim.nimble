@@ -36,6 +36,14 @@ proc dependencyPathArgs(): string =
 task test, "Run the framework test suite":
   exec "nim c --path:src" & dependencyPathArgs() & " -r tests/test_core.nim"
 
+task routerBenchmark, "Run the deterministic router benchmark":
+  ## Keep performance measurements opt-in: correctness CI checks route
+  ## invariants, while this gate gives maintainers one reproducible workload
+  ## for comparing route-index changes without enforcing machine-specific
+  ## latency thresholds.
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r benchmarks/router_benchmark.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 
