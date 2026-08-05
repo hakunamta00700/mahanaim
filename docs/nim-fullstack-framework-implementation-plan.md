@@ -905,3 +905,7 @@ flowchart TB
 - [ ] Redis subscription message ordering·backpressure와 실제 Redis/Valkey cross-process production live evidence는 남긴다.
 - [x] subscription reader가 callback을 순차적으로 `await`해 같은 connection의 coalesced message ordering을 보장한다는 slow-subscriber loopback contract를 추가했다.
 - [ ] bounded queue/overflow backpressure 정책과 실제 Redis/Valkey cross-process production live evidence는 남긴다.
+### 2026-08-05 — Redis bounded subscription backpressure
+
+- [x] connection별 bounded pending queue와 `close`/`drop newest`/`drop oldest` overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트를 통과시켰다.
+- [ ] 실제 Redis/Valkey service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring은 후속 범위다.

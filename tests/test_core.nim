@@ -120,6 +120,12 @@ type RedisPubSubOrderingFixtureState = object
   port: Atomic[int]
   ready: Atomic[bool]
 
+type RedisPubSubBackpressureFixtureState = object
+  ## Three coalesced messages make queue overflow deterministic while the
+  ## first subscriber callback deliberately yields to the event loop.
+  port: Atomic[int]
+  ready: Atomic[bool]
+
 proc discardResetDelivery(subject, token: string) {.gcsafe.} =
   ## The route test focuses on token semantics; delivery is an adapter seam.
   discard subject
@@ -226,6 +232,31 @@ proc runRedisPubSubOrderingFixture(
   client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
     "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\none\r\n" &
     "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\ntwo\r\n")
+  command = ""
+  while not command.contains("UNSUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  client.send("*3\r\n$11\r\nunsubscribe\r\n$7\r\nroom:42\r\n:0\r\n")
+  client.close()
+  server.close()
+
+proc runRedisPubSubBackpressureFixture(
+    state: ptr RedisPubSubBackpressureFixtureState) {.thread, gcsafe.} =
+  let server = newSocket()
+  server.setSockOpt(OptReuseAddr, true)
+  server.bindAddr(Port(0))
+  server.listen()
+  let local = server.getLocalAddr()
+  state.port.store(local[1].int)
+  state.ready.store(true)
+  var client: owned(Socket)
+  server.accept(client)
+  var command = ""
+  while not command.contains("SUBSCRIBE") and command.len < 4096:
+    command.add(client.recv(1, 5000))
+  client.send("*3\r\n$9\r\nsubscribe\r\n$7\r\nroom:42\r\n:1\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\none\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$3\r\ntwo\r\n" &
+    "*3\r\n$7\r\nmessage\r\n$7\r\nroom:42\r\n$5\r\nthree\r\n")
   command = ""
   while not command.contains("UNSUBSCRIBE") and command.len < 4096:
     command.add(client.recv(1, 5000))
@@ -5184,6 +5215,31 @@ suite "Mahanaim core contracts":
     waitFor sleepAsync(50)
     check delivered.load() == 2
     check not outOfOrder.load()
+    waitFor client.unsubscribe(subscription)
+    client.close()
+    joinThread(worker)
+
+  test "async Redis pubsub client bounds pending messages with drop-newest policy":
+    var state: RedisPubSubBackpressureFixtureState
+    state.port.store(0)
+    state.ready.store(false)
+    var worker: Thread[ptr RedisPubSubBackpressureFixtureState]
+    createThread(worker, runRedisPubSubBackpressureFixture, addr state)
+    while not state.ready.load():
+      sleep(1)
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let client = newRedisPubSubClient(port = Port(state.port.load()),
+      maxPendingMessages = 1, backpressurePolicy = rbpDropNewest)
+    let subscription = waitFor client.subscribe("room:42",
+      proc(channel, payload: string): Future[void] {.async, gcsafe.} =
+        doAssert channel == "room:42"
+        if payload == "one":
+          await sleepAsync(30)
+        discard delivered.fetchAdd(1))
+    waitFor sleepAsync(80)
+    check delivered.load() == 1
+    check client.droppedMessages == 2
     waitFor client.unsubscribe(subscription)
     client.close()
     joinThread(worker)

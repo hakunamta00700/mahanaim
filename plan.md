@@ -317,4 +317,5 @@
 - [x] **P3-12 Redis reconnect retry/backoff** — one-attempt reconnect 위에 maxAttempts·initialDelay·maxDelay를 검증하는 bounded exponential backoff orchestration을 추가하고, 성공 attempt 번호와 invalid policy를 loopback fixture로 검증했다.
 - [-] **P3-13 Redis channel delivery policy** — ordering·backpressure, Redis service 기반 cross-process fan-out과 production live evidence는 후속 운영 범위다.
 - [x] **P3-14 Redis ordered delivery** — subscription reader가 한 connection의 message callback을 순차적으로 await해 coalesced frame과 느린 subscriber에서도 message ordering을 보존한다는 loopback 회귀 테스트를 추가했다.
-- [-] **P3-15 Redis bounded backpressure/live fan-out** — bounded queue·overflow policy와 Redis service 기반 cross-process production fan-out evidence는 후속 운영 범위다.
+- [x] **P3-16 Redis bounded backpressure** — connection별 bounded pending queue와 `rbpCloseConnection`·`rbpDropNewest`·`rbpDropOldest` overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다.
+- [-] **P3-17 Redis production fan-out** — 실제 Redis service 기반 cross-process `ChannelLayer` fan-out과 production live evidence는 후속 운영 범위다.

@@ -134,3 +134,4 @@
 - Redis async subscription client에 explicit reconnect를 추가해 원격 socket 단절 후 active channel을 재구독하고 두 번째 message를 전달하도록 했다. retry/backoff orchestration과 ordering·backpressure·production cross-process 검증은 후속 범위다.
 - Redis subscription reconnect에 bounded exponential backoff와 max attempt/delay validation을 추가하고, 실패 후 재시도 성공 attempt를 loopback fixture로 검증했다. ordering·backpressure와 production cross-process fan-out은 후속 범위다.
 - Redis async subscription reader의 per-connection ordered delivery를 slow subscriber와 coalesced frames loopback 테스트로 검증했다. bounded queue/overflow backpressure와 production cross-process fan-out은 후속 범위다.
+- Redis async subscription client에 connection별 bounded pending queue와 close/drop-newest/drop-oldest overflow policy, dropped message counter를 추가하고 느린 subscriber loopback 회귀 테스트로 검증했다. 실제 Redis service 기반 cross-process fan-out은 후속 범위다.

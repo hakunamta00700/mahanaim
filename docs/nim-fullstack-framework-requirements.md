@@ -260,3 +260,7 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [ ] SHOULD remaining: message ordering·backpressure 및 production cross-process fan-out.
 - [x] SHOULD ordering baseline: 같은 Redis subscription connection에서 slow subscriber가 있어도 coalesced message callback 순서를 보장한다.
 - [ ] SHOULD remaining: bounded queue/overflow backpressure와 production cross-process fan-out.
+## Redis subscription backpressure baseline (2026-08-05)
+
+- [x] SHOULD baseline: subscription ordering과 connection별 bounded queue/overflow policy(`close`, `drop newest`, `drop oldest`)를 loopback contract로 검증한다.
+- [ ] SHOULD remaining: 실제 Redis service 기반 production cross-process fan-out과 distributed `ChannelLayer` wiring.

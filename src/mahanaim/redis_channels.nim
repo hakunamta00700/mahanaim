@@ -12,6 +12,13 @@ import ./redis_resp
 type
   RedisPubSubSubscriber* = proc(channel, payload: string): Future[void] {.gcsafe.}
 
+  RedisBackpressurePolicy* = enum
+    ## Overflow behavior is explicit because silently dropping realtime data
+    ## is unsafe for some applications and preferable for others.
+    rbpCloseConnection
+    rbpDropNewest
+    rbpDropOldest
+
   RedisPubSubSubscription* = ref object
     ## A subscription is local state; Redis only knows the channel membership.
     id*: int
@@ -23,28 +30,42 @@ type
     host*: string
     port*: Port
     maxFrameBytes*: int
+    maxPendingMessages*: int
+    backpressurePolicy*: RedisBackpressurePolicy
+    droppedMessages*: int
     socket: AsyncSocket
     receiveBuffer: string
     reader: Future[void]
+    deliveryTask: Future[void]
+    deliveryWake: Future[void]
+    pendingMessages: seq[RedisPubSubEvent]
     acknowledgement: Future[RedisPubSubEvent]
     nextId: int
     subscriptions: Table[string, seq[RedisPubSubSubscription]]
     closed: bool
 
 proc newRedisPubSubClient*(host = "127.0.0.1", port = Port(6379),
-                           maxFrameBytes = 64 * 1024 * 1024): RedisPubSubClient =
+                           maxFrameBytes = 64 * 1024 * 1024,
+                           maxPendingMessages = 1024,
+                           backpressurePolicy = rbpCloseConnection): RedisPubSubClient =
   ## Construct lazily so configuration and compile checks do not require Redis.
   if host.strip().len == 0:
     raise newException(ValueError, "Redis pub/sub host cannot be empty")
   if maxFrameBytes < 1024:
     raise newException(ValueError, "Redis pub/sub frame limit is too small")
+  if maxPendingMessages < 1:
+    raise newException(ValueError, "Redis pending message limit must be positive")
   new(result)
   result.host = host
   result.port = port
   result.maxFrameBytes = maxFrameBytes
+  result.maxPendingMessages = maxPendingMessages
+  result.backpressurePolicy = backpressurePolicy
+  result.droppedMessages = 0
   result.receiveBuffer = ""
   result.nextId = 0
   result.subscriptions = initTable[string, seq[RedisPubSubSubscription]]()
+  result.pendingMessages = @[]
   result.closed = false
 
 proc nextRespFrame(client: RedisPubSubClient): Future[string] {.async.} =
@@ -69,6 +90,51 @@ proc nextRespFrame(client: RedisPubSubClient): Future[string] {.async.} =
     client.receiveBuffer.add(chunk)
   raise newException(ValueError, "Redis pub/sub frame exceeds configured limit")
 
+proc signalDelivery(client: RedisPubSubClient) =
+  if not client.deliveryWake.isNil and not client.deliveryWake.finished:
+    let wake = client.deliveryWake
+    client.deliveryWake = nil
+    wake.complete()
+
+proc deliverMessage(client: RedisPubSubClient,
+                   event: RedisPubSubEvent): Future[void] {.async, gcsafe.} =
+  ## Delivery stays sequential per connection, preserving the ordering
+  ## contract even while the socket reader continues filling the bounded queue.
+  let entries = client.subscriptions.getOrDefault(event.channel, @[])
+  for entry in entries:
+    if entry.active:
+      try:
+        await entry.subscriber(event.channel, event.payload)
+      except CatchableError:
+        ## One local consumer must not poison delivery to the other sessions.
+        discard
+
+proc deliveryLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
+  while not client.closed:
+    if client.pendingMessages.len == 0:
+      client.deliveryWake = newFuture[void]("redisPubSubDelivery")
+      await client.deliveryWake
+      continue
+    let event = client.pendingMessages[0]
+    client.pendingMessages.delete(0)
+    await client.deliverMessage(event)
+
+proc enqueueMessage(client: RedisPubSubClient, event: RedisPubSubEvent) =
+  if client.pendingMessages.len >= client.maxPendingMessages:
+    case client.backpressurePolicy
+    of rbpCloseConnection:
+      client.closed = true
+      raise newException(CatchableError,
+        "Redis pub/sub pending message limit exceeded")
+    of rbpDropNewest:
+      inc client.droppedMessages
+      return
+    of rbpDropOldest:
+      client.pendingMessages.delete(0)
+      inc client.droppedMessages
+  client.pendingMessages.add(event)
+  client.signalDelivery()
+
 proc dispatchLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
   ## One reader owns the socket. This avoids concurrent reads when an ack and
   ## a message arrive in the same TCP packet.
@@ -82,14 +148,7 @@ proc dispatchLoop(client: RedisPubSubClient): Future[void] {.async, gcsafe.} =
           client.acknowledgement = nil
           waiter.complete(event)
       elif event.kind == rpekMessage:
-        let entries = client.subscriptions.getOrDefault(event.channel, @[])
-        for entry in entries:
-          if entry.active:
-            try:
-              await entry.subscriber(event.channel, event.payload)
-            except CatchableError:
-              ## A disconnected local consumer must not stop the shared reader.
-              discard
+        client.enqueueMessage(event)
   except CatchableError as error:
     if not client.acknowledgement.isNil and
         not client.acknowledgement.finished:
@@ -119,6 +178,9 @@ proc connect*(client: RedisPubSubClient): Future[void] {.async.} =
     client.socket.close()
     client.socket = nil
     raise
+  if client.deliveryTask.isNil or client.deliveryTask.finished:
+    client.deliveryTask = deliveryLoop(client)
+    asyncCheck client.deliveryTask
   client.reader = dispatchLoop(client)
   asyncCheck client.reader
 
@@ -247,6 +309,11 @@ proc close*(client: RedisPubSubClient) =
   if client.isNil or client.closed:
     return
   client.closed = true
+  if not client.deliveryWake.isNil and not client.deliveryWake.finished:
+    let wake = client.deliveryWake
+    client.deliveryWake = nil
+    wake.complete()
+  client.pendingMessages.setLen(0)
   for channel, entries in client.subscriptions.mpairs:
     discard channel
     for entry in entries.mitems:
