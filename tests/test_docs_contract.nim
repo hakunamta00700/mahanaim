@@ -129,6 +129,17 @@ nimble test
     check manifest.contains("task docsExamples")
     check manifest.contains("examples/minimal_app.nim")
 
+  test "public API compile contract is wired into verify":
+    ## The root package export surface needs an explicit compile gate in
+    ## addition to the large runtime contract suite.
+    let contract = getCurrentDir() / "tests" /
+      "test_public_api_compile.nim"
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check fileExists(contract)
+    check manifest.contains("task publicApiCheck")
+    check manifest.contains("test_public_api_compile.nim")
+    check manifest.contains("exec \"nimble publicApiCheck\"")
+
   test "direct httpx deployment adapter has an explicit compile gate":
     let adapter = getCurrentDir() / "src" / "mahanaim" / "httpx_adapter.nim"
     let contract = getCurrentDir() / "tests" /

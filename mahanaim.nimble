@@ -75,6 +75,12 @@ task docsExamples, "Compile and run executable documentation examples":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r examples/minimal_app.nim"
 
+task publicApiCheck, "Compile the public package API contract":
+  ## Compile-only catches removed exports and signature drift without hiding
+  ## runtime semantics inside a static contract test.
+  exec "nim c --compileOnly --path:src" & dependencyPathArgs() &
+    " tests/test_public_api_compile.nim"
+
 task check, "Compile the framework CLI":
   exec "nimble build"
 
@@ -83,6 +89,7 @@ task verify, "Compile the CLI and validate package contracts":
   exec "nimble lockCheck"
   exec "nimble docsCheck"
   exec "nimble docsExamples"
+  exec "nimble publicApiCheck"
 
 task docsCheck, "Validate the Definition of Done document contract":
   ## Keep checklist structure in the same verification path as source and

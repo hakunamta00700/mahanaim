@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- public package entry point의 representative API compile contract와 `nimble publicApiCheck` gate를 추가하고 verify에 연결했다.
+
 - 실행 가능한 `examples/minimal_app.nim`과 `nimble docsExamples` gate를 추가해 public package API의 HTML/JSON route 예제를 compile/run으로 검증한다.
 
 - API stability/release policy 문서를 추가해 manifest·lockfile·support matrix와 semantic versioning, API maturity, deprecation migration 및 security release 규칙을 고정했다.

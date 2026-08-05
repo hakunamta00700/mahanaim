@@ -802,7 +802,7 @@ flowchart TB
 
 ### 7.2 품질 게이트
 
-- [ ] 모든 public API는 최소 하나의 compile test와 runtime test를 가진다.
+- [-] public `mahanaim` entry point의 core·routing·metadata·serialization·database·storage·template·security·testing representative compile contract를 `tests/test_public_api_compile.nim`과 `nimble publicApiCheck`로 고정하고, runtime semantics는 `nimble test`/adapter suites에서 검증한다. 모든 exported symbol별 독립 test matrix는 계속 누적한다.
 - [ ] 모든 보안 기본값은 성공 케이스보다 실패·우회 케이스를 먼저 테스트한다.
 - [ ] migration은 빈 DB, 기존 데이터, rollback, 동시 요청 조건에서 검증한다.
 - [ ] adapter는 공통 contract test suite를 공유한다. SQLite와 PostgreSQL 테스트가 같은 의미를 가져야 한다.
