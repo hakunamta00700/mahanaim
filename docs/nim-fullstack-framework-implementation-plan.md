@@ -686,7 +686,7 @@ flowchart TB
 
 ### Phase 5 — 생태계와 선택 기능 (P2/P3)
 
-- [ ] class-based controller, function handler, application/request/task DI scope를 추가한다.
+- [-] class-based controller, function handler, application/request/task DI scope를 추가한다. DI scope는 P2-05에서 완료했고, `Controller.handle`/`addControllerRoute` action bridge는 2026-08-05 baseline으로 추가했으며 controller discovery/convention 자동화는 후속 범위다.
 - [ ] 선택한 기본 template engine과 다른 엔진을 연결하는 adapter를 제공한다.
 - [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
 - [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
@@ -956,3 +956,9 @@ flowchart TB
 
 - [x] `closeWebSocketMessage`가 Nim 표준 `validateUtf8`로 reason byte sequence를 검증한다.
 - [x] malformed UTF-8 rejection과 정상 Unicode close reason을 core contract test로 고정했다.
+
+### 2026-08-05 — Class-based controller baseline
+
+- [x] `Controller` base type의 virtual `handle(action, request)`와 `addControllerRoute`를 별도 module로 제공한다.
+- [x] controller action route가 기존 Application router/middleware/request-scope/error pipeline을 그대로 통과하는 contract test를 추가한다.
+- [ ] convention-based controller discovery와 자동 action schema 생성은 명시적 route boundary 이후의 후속 범위다.

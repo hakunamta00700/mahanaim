@@ -21,6 +21,14 @@ type MacroUser = object
   email: string
   active: bool
 
+type GreetingController = ref object of Controller
+
+method handle(controller: GreetingController, action: string,
+              request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+  if action != "show":
+    raise newException(ValueError, "Unknown controller action: " & action)
+  return textResponse("controller:" & request.path)
+
 type OptionalMacroUser = object
   displayName: Option[string]
   age: Option[int]
@@ -555,6 +563,17 @@ suite "Mahanaim core contracts":
     let response = waitFor app.dispatch(newRequest("GET", "/health"))
     check response.status == Http200
     check response.body == "ok"
+
+  test "class-based controller route delegates through an action boundary":
+    let app = newApplication()
+    let controller = GreetingController()
+    app.addControllerRoute(controller, "GET", "/greetings/:id<int>",
+      "greeting-show", "show")
+    let response = waitFor app.dispatch(newRequest("GET", "/greetings/42"))
+    check response.status == Http200
+    check response.body == "controller:/greetings/42"
+    expect ValueError:
+      app.addControllerRoute(controller, "GET", "/greetings/42", "duplicate", "")
 
   test "synchronous handler uses the common async dispatch contract":
     let app = newApplication()

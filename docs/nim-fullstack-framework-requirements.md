@@ -290,3 +290,8 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] WebSocket close message는 RFC 6455 허용 code 범위와 control frame의 123-byte reason 한계를 공통 core 경계에서 검증한다.
 - [x] WebSocket close reason은 malformed byte sequence를 거부하고 유효한 Unicode UTF-8 reason을 허용한다.
 - [ ] OpenAPI UI와 WebSocket/SSE 고급 확장은 별도 범위로 남긴다.
+
+## Controller boundary baseline (2026-08-05)
+
+- [x] `Controller.handle(action, request)` virtual contract와 `addControllerRoute` bridge로 class-based controller와 function handler를 함께 지원한다.
+- [x] route matching, middleware, request scope와 error lifecycle은 Application이 소유하고 controller는 action dispatch만 소유한다.
