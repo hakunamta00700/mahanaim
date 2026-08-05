@@ -5411,6 +5411,47 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard waitFor client.reconnectWithRetry(maxAttempts = 0)
 
+  test "Redis channel delivery policy owns bounded retry and queue decisions":
+    ## The policy is intentionally tested without a broker.  Applications must
+    ## be able to validate composition-time delivery decisions before opening
+    ## a long-lived subscription socket.
+    let defaults = defaultRedisChannelDeliveryPolicy()
+    check defaults.maxPendingMessages == 1024
+    check defaults.backpressurePolicy == rbpCloseConnection
+    check defaults.maxReconnectAttempts == 3
+    check defaults.initialReconnectDelayMs == 25
+    check defaults.maxReconnectDelayMs == 1000
+    check defaults.preserveOrdering
+    validateRedisChannelDeliveryPolicy(defaults)
+
+    let client = newRedisPubSubClient(defaults, host = "127.0.0.1",
+      port = Port(1))
+    check client.maxPendingMessages == defaults.maxPendingMessages
+    check client.backpressurePolicy == defaults.backpressurePolicy
+
+    let layer = newRedisChannelLayer(defaults, host = "127.0.0.1",
+      port = Port(1))
+    check layer.maxPendingMessages == defaults.maxPendingMessages
+    check layer.backpressurePolicy == defaults.backpressurePolicy
+    layer.stop()
+
+    var invalid = defaults
+    invalid.maxPendingMessages = 0
+    expect ValueError:
+      validateRedisChannelDeliveryPolicy(invalid)
+    invalid = defaults
+    invalid.maxReconnectAttempts = 0
+    expect ValueError:
+      validateRedisChannelDeliveryPolicy(invalid)
+    invalid = defaults
+    invalid.maxReconnectDelayMs = invalid.initialReconnectDelayMs - 1
+    expect ValueError:
+      validateRedisChannelDeliveryPolicy(invalid)
+    invalid = defaults
+    invalid.preserveOrdering = false
+    expect ValueError:
+      validateRedisChannelDeliveryPolicy(invalid)
+
   test "async Redis pubsub client preserves ordered delivery under slow subscribers":
     var state: RedisPubSubOrderingFixtureState
     state.port.store(0)

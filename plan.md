@@ -354,3 +354,9 @@
 - [x] `HttpsDeploymentEvidence`와 `validateHttpsDeploymentEvidence`로 HTTPS endpoint·certificate fingerprint/expiry·renewal·redirect·trusted proxy·secure cookie 증거를 공통 fail-closed contract로 검증한다.
 - [x] 검증된 HTTPS evidence를 deterministic JSON artifact로 저장하는 `renderHttpsDeploymentEvidence`/`writeHttpsDeploymentEvidence` 경계를 추가했다.
 - [ ] 실제 staging 인증서 체인과 renewal 자동화 성공 로그는 외부 배포 환경에서 수집한다.
+
+### 2026-08-05 Redis channel delivery policy
+
+- [x] `RedisChannelDeliveryPolicy`가 pending queue, overflow policy, reconnect attempt/delay budget과 ordered delivery invariant를 하나의 검증 가능한 value contract로 소유한다.
+- [x] policy 기반 `RedisPubSubClient`/`RedisChannelLayer` 생성 경계와 `reconnectWithPolicy`를 추가하고, 기본값·client/layer wiring·잘못된 경계값을 회귀 테스트로 검증했다.
+- [-] 실제 Redis/Valkey cross-process fan-out과 production reconnect/backpressure 운영 증거는 서비스·배포 환경에서 계속 수집한다.

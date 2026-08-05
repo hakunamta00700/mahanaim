@@ -19,6 +19,18 @@ type
     rbpDropNewest
     rbpDropOldest
 
+  RedisChannelDeliveryPolicy* = object
+    ## One value object owns the delivery decisions that otherwise tend to be
+    ## duplicated across application wiring, worker configuration, and retry
+    ## call sites.  The wire adapter still owns socket mechanics; this policy
+    ## only describes bounded behavior at that boundary.
+    maxPendingMessages*: int
+    backpressurePolicy*: RedisBackpressurePolicy
+    maxReconnectAttempts*: int
+    initialReconnectDelayMs*: int
+    maxReconnectDelayMs*: int
+    preserveOrdering*: bool
+
   RedisPubSubSubscription* = ref object
     ## A subscription is local state; Redis only knows the channel membership.
     id*: int
@@ -44,6 +56,35 @@ type
     subscriptions: Table[string, seq[RedisPubSubSubscription]]
     closed: bool
 
+proc defaultRedisChannelDeliveryPolicy*(): RedisChannelDeliveryPolicy =
+  ## Safe defaults favor bounded memory, explicit failure, and ordered
+  ## delivery.  Applications may choose a drop policy, but must do so
+  ## explicitly at composition time.
+  RedisChannelDeliveryPolicy(
+    maxPendingMessages: 1024,
+    backpressurePolicy: rbpCloseConnection,
+    maxReconnectAttempts: 3,
+    initialReconnectDelayMs: 25,
+    maxReconnectDelayMs: 1000,
+    preserveOrdering: true)
+
+proc validateRedisChannelDeliveryPolicy*(policy: RedisChannelDeliveryPolicy) =
+  ## Fail before connecting so an invalid retry or queue policy cannot become
+  ## an operational surprise after the subscription socket is live.
+  if policy.maxPendingMessages < 1:
+    raise newException(ValueError,
+      "Redis channel pending message limit must be positive")
+  if policy.maxReconnectAttempts < 1:
+    raise newException(ValueError,
+      "Redis channel reconnect attempts must be positive")
+  if policy.initialReconnectDelayMs < 0 or
+      policy.maxReconnectDelayMs < policy.initialReconnectDelayMs:
+    raise newException(ValueError,
+      "Redis channel reconnect delay bounds are invalid")
+  if not policy.preserveOrdering:
+    raise newException(ValueError,
+      "Redis channel adapter requires ordered delivery")
+
 proc newRedisPubSubClient*(host = "127.0.0.1", port = Port(6379),
                            maxFrameBytes = 64 * 1024 * 1024,
                            maxPendingMessages = 1024,
@@ -67,6 +108,16 @@ proc newRedisPubSubClient*(host = "127.0.0.1", port = Port(6379),
   result.subscriptions = initTable[string, seq[RedisPubSubSubscription]]()
   result.pendingMessages = @[]
   result.closed = false
+
+proc newRedisPubSubClient*(deliveryPolicy: RedisChannelDeliveryPolicy,
+                           host = "127.0.0.1", port = Port(6379),
+                           maxFrameBytes = 64 * 1024 * 1024): RedisPubSubClient =
+  ## Policy-based construction is the preferred framework boundary.  The
+  ## legacy scalar overload remains available for source compatibility, while
+  ## this overload keeps related limits together and validates them atomically.
+  validateRedisChannelDeliveryPolicy(deliveryPolicy)
+  result = newRedisPubSubClient(host, port, maxFrameBytes,
+    deliveryPolicy.maxPendingMessages, deliveryPolicy.backpressurePolicy)
 
 proc nextRespFrame(client: RedisPubSubClient): Future[string] {.async.} =
   ## Preserve coalesced RESP frames and wait for partial frames without
@@ -246,6 +297,14 @@ proc reconnectWithRetry*(client: RedisPubSubClient, maxAttempts = 3,
         continue
       delayMs = min(maxDelayMs, delayMs * 2)
   raise newException(CatchableError, "Redis reconnect attempts exhausted")
+
+proc reconnectWithPolicy*(client: RedisPubSubClient,
+                          policy: RedisChannelDeliveryPolicy): Future[int] {.async.} =
+  ## Keep retry orchestration reusable without making callers unpack policy
+  ## fields or accidentally omit one of the bounded delay constraints.
+  validateRedisChannelDeliveryPolicy(policy)
+  await client.reconnectWithRetry(policy.maxReconnectAttempts,
+    policy.initialReconnectDelayMs, policy.maxReconnectDelayMs)
 
 proc awaitAcknowledgement(client: RedisPubSubClient, command: string,
                           expected: RedisPubSubEventKind,

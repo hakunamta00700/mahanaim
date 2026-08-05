@@ -78,6 +78,7 @@ type
     port*: Port
     maxPendingMessages*: int
     backpressurePolicy*: RedisBackpressurePolicy
+    deliveryPolicy*: RedisChannelDeliveryPolicy
     client: RedisPubSubClient
     nextId: int
     localSubscriptions: Table[int, ChannelSubscription]
@@ -99,9 +100,29 @@ proc newRedisChannelLayer*(host = "127.0.0.1", port = Port(6379),
   result.port = port
   result.maxPendingMessages = maxPendingMessages
   result.backpressurePolicy = backpressurePolicy
+  result.deliveryPolicy = defaultRedisChannelDeliveryPolicy()
+  result.deliveryPolicy.maxPendingMessages = maxPendingMessages
+  result.deliveryPolicy.backpressurePolicy = backpressurePolicy
+  validateRedisChannelDeliveryPolicy(result.deliveryPolicy)
   result.client = newRedisPubSubClient(host, port,
     maxPendingMessages = maxPendingMessages,
     backpressurePolicy = backpressurePolicy)
+  result.localSubscriptions = initTable[int, ChannelSubscription]()
+  result.remoteSubscriptions = initTable[int, RedisPubSubSubscription]()
+
+proc newRedisChannelLayer*(deliveryPolicy: RedisChannelDeliveryPolicy,
+                           host = "127.0.0.1", port = Port(6379)): RedisChannelLayer =
+  ## Prefer this overload when application configuration already has a single
+  ## delivery policy.  It prevents the layer and its subscription client from
+  ## receiving divergent queue or overflow settings.
+  validateRedisChannelDeliveryPolicy(deliveryPolicy)
+  new(result)
+  result.host = host
+  result.port = port
+  result.maxPendingMessages = deliveryPolicy.maxPendingMessages
+  result.backpressurePolicy = deliveryPolicy.backpressurePolicy
+  result.deliveryPolicy = deliveryPolicy
+  result.client = newRedisPubSubClient(deliveryPolicy, host, port)
   result.localSubscriptions = initTable[int, ChannelSubscription]()
   result.remoteSubscriptions = initTable[int, RedisPubSubSubscription]()
 
@@ -234,6 +255,13 @@ proc reconnectWithRetry*(layer: RedisChannelLayer, maxAttempts = 3,
     await layer.start()
     return 1
   await layer.client.reconnectWithRetry(maxAttempts, initialDelayMs, maxDelayMs)
+
+proc reconnectWithPolicy*(layer: RedisChannelLayer,
+                          policy: RedisChannelDeliveryPolicy): Future[int] {.async.} =
+  ## The layer delegates retry timing to the same policy contract as its
+  ## subscription client while retaining ownership of channel re-subscription.
+  validateRedisChannelDeliveryPolicy(policy)
+  await layer.client.reconnectWithPolicy(policy)
 
 proc shutdown*(layer: RedisChannelLayer): Future[void] {.async.} =
   ## Graceful shutdown drains UNSUBSCRIBE acknowledgements before closing the
