@@ -13,6 +13,7 @@ proc printUsage() =
   echo "  db status|migrate|up|rollback [PATH]  Run application migrations"
   echo "  jobs run [max]|recover  Run or recover durable jobs"
   echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
+  echo "  openapi-ts [PATH]  Generate a TypeScript client from registered routes"
   echo "  admin create-user <identifier> [subject]  Create an admin user"
   echo "  static collect <source...> --output <path>  Collect static assets"
   echo "  dev      Load configuration and validate the app"
@@ -91,6 +92,17 @@ proc main() =
         arguments.add(paramStr(index))
     try:
       quit(runCli(newApplication(), @["openapi"] & arguments))
+    except CatchableError as error:
+      stderr.writeLine(error.msg)
+      quit(1)
+  of "openapi-ts":
+    var arguments: seq[string] = @[]
+    if paramCount() >= 2:
+      for index in 2 .. paramCount():
+        arguments.add(paramStr(index))
+    try:
+      quit(runCli(newApplication(), @[
+        "openapi-ts"] & arguments))
     except CatchableError as error:
       stderr.writeLine(error.msg)
       quit(1)

@@ -11,6 +11,7 @@ import ./checks
 import ./database
 import ./migration_commands
 import ./openapi
+import ./openapi_client
 import ./sqlite_adapter
 import ./static_assets
 import ./seed_commands
@@ -143,6 +144,26 @@ proc runOpenApiCli*(app: Application, arguments: openArray[string]): int =
     echo output
   0
 
+proc runOpenApiTypeScriptCli*(app: Application,
+                              arguments: openArray[string]): int =
+  ## Emit the deterministic TypeScript projection separately from the JSON
+  ## document command so CI can publish both artifacts without shell parsing.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  if arguments.len > 1:
+    raise newException(ValueError,
+      "openapi-ts command accepts at most one output path")
+  let registry = newOpenApiRegistry("Mahanaim API", "0.1.0")
+  discard registry.collectRoutes(app.router)
+  let output = registry.typescriptClient()
+  if arguments.len == 1:
+    if arguments[0].strip().len == 0:
+      raise newException(ValueError, "TypeScript output path cannot be empty")
+    writeFile(arguments[0], output)
+  else:
+    echo output
+  0
+
 proc runAdminCli*(app: Application, arguments: openArray[string]): int =
   ## Keep administrative mutations behind an explicitly configured callback.
   ## A password is intentionally read from MAHANAIM_ADMIN_PASSWORD rather than
@@ -216,6 +237,7 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     echo "  db seed [sqlite-path]  Run application seed providers"
     echo "  jobs run [max]|recover Run or recover durable jobs"
     echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
+    echo "  openapi-ts [PATH]  Generate a TypeScript client from registered routes"
     echo "  admin create-user <identifier> [subject]  Create an admin user"
     echo "  static collect <source...> --output <path>  Collect static assets"
     echo "  check  Run application pre-flight checks"
@@ -245,6 +267,8 @@ proc runCli*(app: Application, arguments: openArray[string]): int =
     return runJobsCli(app, copied[1 .. ^1])
   of "openapi":
     return runOpenApiCli(app, copied[1 .. ^1])
+  of "openapi-ts":
+    return runOpenApiTypeScriptCli(app, copied[1 .. ^1])
   of "admin":
     if copied.len == 1:
       raise newException(ValueError,

@@ -15,6 +15,7 @@ import mahanaim/[core, router, application, config, http_adapter, generator,
                  password_hashing, seed_commands, login_throttling, release_checks,
                  account_auth, cli, idempotency, durable_jobs, static_assets,
                  storage, flash, syndication, email]
+import mahanaim/openapi_client
 import mahanaim/httpx_adapter
 
 
@@ -30,4 +31,5 @@ export core, router, application, config, http_adapter, generator, security,
        migration_commands, authorization, password_hashing, seed_commands,
        login_throttling, release_checks, account_auth, cli, idempotency,
        durable_jobs, static_assets, storage, flash, syndication, email
+export openapi_client
 export httpx_adapter

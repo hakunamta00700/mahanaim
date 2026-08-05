@@ -4930,7 +4930,8 @@ suite "Mahanaim core contracts":
     registry.registerOperation(OpenApiOperation(
       httpMethod: "GET", path: "/users/{id}", operationId: "getUser",
       summary: "Read a user",
-      requestSchema: @[integerField("id", flPath)],
+      requestSchema: @[integerField("id", flPath),
+                       stringField("filter", flQuery, required = false)],
       responseSchema: @[integerField("id", flBody), stringField("name", flBody)],
       successStatus: 200))
     registry.registerOperation(OpenApiOperation(
@@ -4962,6 +4963,14 @@ suite "Mahanaim core contracts":
         requestContentTypes: @["application/json; charset=utf-8"]))
     check swaggerUiHtml("/schema.json").contains("/schema.json")
     check redocHtml("/schema.json").contains("spec-url=\"/schema.json\"")
+    let typescriptClient = registry.typescriptClient("UsersClient")
+    check typescriptClient.contains("export class UsersClient")
+    check typescriptClient.contains("export interface GetUserRequest")
+    check typescriptClient.contains("getUser(params: GetUserRequest)")
+    check typescriptClient.contains("encodeURIComponent(String(params.id))")
+    check typescriptClient.contains("query.set(\"filter\", String(params.filter))")
+    check typescriptClient.contains("export interface GetUserResponse")
+    check typescriptClient == registry.typescriptClient("UsersClient")
 
     let app = newApplication()
     registerOpenApiRoutes(app, registry, "/schema.json", "/swagger", "/redoc-ui")
@@ -5026,16 +5035,22 @@ suite "Mahanaim core contracts":
       return textResponse("ok")
     app.get("/cli-health", "cli-health", health)
     let outputPath = getTempDir() / "mahanaim_cli_openapi.json"
+    let typescriptPath = getTempDir() / "mahanaim_cli_openapi.ts"
     try:
       check app.runCli(["openapi", outputPath]) == 0
       let document = parseJson(readFile(outputPath))
       check document["openapi"].getStr() == "3.1.0"
       check document["paths"]["/cli-health"]["get"][
         "operationId"].getStr() == "cli-health"
+      check app.runCli(["openapi-ts", typescriptPath]) == 0
+      let typescript = readFile(typescriptPath)
+      check typescript.contains("export class ApiClient")
+      check typescript.contains("async cli_health")
       expect ValueError:
         discard app.runCli(["openapi", "one", "too-many"])
     finally:
       if fileExists(outputPath): removeFile(outputPath)
+      if fileExists(typescriptPath): removeFile(typescriptPath)
 
   test "static collect CLI copies deterministic assets and rejects unsafe roots":
     let root = getTempDir() / "mahanaim_static_collect_test"

@@ -689,7 +689,7 @@ flowchart TB
 - [ ] class-based controller, function handler, application/request/task DI scope를 추가한다.
 - [ ] 선택한 기본 template engine과 다른 엔진을 연결하는 adapter를 제공한다.
 - [ ] Redis/Valkey/file/memory store 및 외부 ORM 연동 패턴을 문서화한다.
-- [ ] OpenAPI 기반 TypeScript 또는 언어 중립 client artifact를 생성한다.
+- [x] OpenAPI registry를 단일 원천으로 deterministic TypeScript `fetch` client artifact를 생성하고 `openapi-ts [PATH]` CLI로 파일 또는 stdout에 출력한다. typed request/response interface와 path/query parameter 변환을 회귀 테스트한다.
 - [ ] WebSocket channel/group broadcast, Redis-backed channel layer, compression, ETag, response cache를 추가한다.
 - [ ] Docker multi-stage, reverse proxy, systemd/컨테이너 배포와 graceful shutdown 예제를 제공한다.
 - [ ] Geo/GIS, multi-tenant, CMS, frontend adapter, distributed scheduler, search, presence, GraphQL은 별도 패키지로 검토한다.
@@ -878,3 +878,8 @@ flowchart TB
 
 - [x] template parser와 renderer가 `for/else/endfor`를 지원해 collection이 비어 있을 때 empty-state branch를 렌더링하고, 항목이 있으면 loop body만 렌더링하도록 확장했다.
 - [x] 빈 collection·비어 있지 않은 collection 회귀 테스트를 추가하고 구현 전 실패(red)와 구현 후 전체 테스트(green)를 확인했다.
+
+### 2026-08-05 — P3 OpenAPI TypeScript client artifact
+
+- [x] OpenAPI registry를 소비하는 별도 generator가 operation별 request/response interface와 dependency-free `fetch` client class를 deterministic하게 생성하도록 추가했다.
+- [x] path/query parameter encoding, response typing, `openapi-ts [PATH]` CLI 파일 출력과 반복 생성 동일성 회귀 테스트를 추가했다. handler closure는 읽지 않고 명시적 registry/schema만 사용한다.
