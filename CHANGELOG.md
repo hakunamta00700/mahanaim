@@ -129,3 +129,4 @@
 - WebSocket channel binding을 추가해 group broadcast를 adapter-owned `send` callback으로 전달하고, 원래 close callback 복원과 session 종료 시 idempotent subscription cleanup을 보장한다.
 - 외부 broker를 코어에 결합하지 않는 `CallbackChannelLayer` bridge를 추가해 subscribe/unsubscribe/publish callback을 공통 channel contract로 위임하고, fake backend contract test를 추가했다.
 - Redis/Valkey pub/sub RESP2 `PUBLISH`·`SUBSCRIBE`·`UNSUBSCRIBE` encoder와 message/subscribe/unsubscribe event parser를 추가하고 malformed frame 방어 회귀 테스트를 추가했다. 실제 async subscription socket과 cross-process live fan-out은 후속 범위다.
+- 기존 Redis/Valkey RESP client에 `PUBLISH` 실행과 subscriber count strict integer response parser를 추가했다. Redis subscription socket과 async receive loop는 별도 adapter 경계로 유지한다.

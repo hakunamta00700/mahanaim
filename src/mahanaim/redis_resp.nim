@@ -411,6 +411,27 @@ proc executeCommand*(client: RedisValkeyRespClient, command: string): string =
   finally:
     release(client.lock)
 
+proc parseRedisIntegerResponse*(payload: string): int =
+  ## PUBLISH returns the number of subscribers that received the message.
+  ## Keep this parser strict so an unexpected +OK or error frame cannot be
+  ## reported as a successful fan-out count.
+  if payload.len < 4 or payload[0] != ':':
+    raise newException(ValueError, "Redis response is not an integer")
+  var cursor = 1
+  result = parseInt(readRespLine(payload, cursor))
+  if result < 0 or cursor != payload.len:
+    raise newException(ValueError, "Redis integer response is invalid")
+
+proc publishRedisChannel*(client: RedisValkeyRespClient,
+                          channel, payload: string): int =
+  ## Execute only the command part of distributed fan-out. Subscription
+  ## sockets have different Redis connection-state rules and belong to a
+  ## separate async adapter; this method remains safe for existing clients.
+  if client.isNil:
+    raise newException(ValueError, "Redis client is required")
+  parseRedisIntegerResponse(client.executeCommand(
+    encodeRedisPublishCommand(channel, payload)))
+
 proc parseCommandInfoSupport(payload: string,
                              required: openArray[string]): seq[string] =
   ## COMMAND INFO returns one nested frame per requested command. Preserve the

@@ -251,3 +251,4 @@ Prologue 근거: [공식 저장소 기능 목록](https://github.com/planety/pro
 - [x] SHOULD adapter boundary: `CallbackChannelLayer`가 Redis/Valkey 등 외부 broker callback을 공통 channel contract에 연결한다. 실제 broker wire와 cross-process 운영 검증은 남아 있다.
 - [x] SHOULD protocol baseline: Redis/Valkey `PUBLISH`·`SUBSCRIBE`·`UNSUBSCRIBE` RESP2 codec와 pub/sub event validation을 제공한다.
 - [ ] SHOULD remaining: dedicated async broker subscription, cross-process fan-out, reconnect·ordering·backpressure live 검증.
+- [x] SHOULD protocol extension: 기존 Redis/Valkey RESP client가 `PUBLISH`를 실행하고 subscriber count를 strict integer response로 검증한다.

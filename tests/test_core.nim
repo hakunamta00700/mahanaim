@@ -4938,6 +4938,17 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard parseRedisPubSubEvent("+PONG\r\n")
 
+  test "Redis RESP client publishes channel messages through its transport":
+    let client = newRedisValkeyRespClient(transport =
+      proc(payload: string): string {.gcsafe.} =
+        doAssert payload == encodeRedisPublishCommand("room:42", "hello")
+        ":2\r\n")
+    check publishRedisChannel(client, "room:42", "hello") == 2
+    expect ValueError:
+      discard parseRedisIntegerResponse("+OK\r\n")
+    expect ValueError:
+      discard publishRedisChannel(client, "", "hello")
+
   test "Redis RESP client encodes atomic counter and parses server TTL":
     let command = encodeFixedWindowCommand("rate:user", 60)
     check command.startsWith("*5\r\n$4\r\nEVAL\r\n")
