@@ -180,8 +180,17 @@ proc defaultErrorHandler(request: Request,
     return textResponse(frameworkError.msg, frameworkError.status)
   return textResponse("Internal Server Error", Http500)
 
+proc ensureRegistrationWindow(app: Application, resource: string) =
+  ## Request-surface declarations are immutable once startup begins. Keeping
+  ## this check in one private helper prevents route and middleware wrappers
+  ## from accidentally diverging in their lifecycle behavior.
+  if app.isNil or app.started or app.starting:
+    raise newException(ValueError,
+      resource & " must be registered before application startup")
+
 proc addMiddleware*(app: Application, middleware: Middleware) =
   ## Global middleware runs in registration order around the route handler.
+  app.ensureRegistrationWindow("Middleware")
   app.middlewares.add(middleware)
 
 proc configureDatabasePool*(app: Application,
@@ -370,6 +379,7 @@ proc addRoute*(app: Application, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[]) =
   ## The generic registration API keeps less common methods available without
   ## multiplying application-specific wrappers for every HTTP verb.
+  app.ensureRegistrationWindow("Routes")
   app.router.addRoute(httpMethod, pattern, name, handler, middleware)
 
 proc get*(app: Application, pattern, name: string, handler: Handler,
@@ -381,9 +391,10 @@ proc post*(app: Application, pattern, name: string, handler: Handler,
   app.addRoute("POST", pattern, name, handler, middleware)
 
 proc websocket*(app: Application, pattern, name: string,
-                handler: WebSocketHandler) =
+                 handler: WebSocketHandler) =
   ## Register a live protocol endpoint without pretending it is an HTTP body
   ## handler. Concrete adapters perform the handshake and own the session.
+  app.ensureRegistrationWindow("WebSocket routes")
   app.router.addWebSocketRoute(pattern, name, handler)
 
 proc group*(app: Application, prefix: string,
@@ -396,6 +407,7 @@ proc addRoute*(app: Application, group: RouteGroup, httpMethod, pattern,
                name: string, handler: Handler,
                middleware: seq[Middleware] = @[]) =
   ## Grouped routes use the same generic method contract as top-level routes.
+  app.ensureRegistrationWindow("Routes")
   app.router.addRoute(group, httpMethod, pattern, name, handler, middleware)
 
 proc get*(app: Application, group: RouteGroup, pattern, name: string,
@@ -410,12 +422,14 @@ proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
               middleware: seq[Middleware] = @[]) =
   ## Register a synchronous handler explicitly so blocking work is visible in
   ## code review and is routed through the application's executor policy.
+  app.ensureRegistrationWindow("Routes")
   app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware,
     hekSync, handler)
 
 proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
                middleware: seq[Middleware] = @[]) =
   ## POST counterpart to getSync; both use the same adapter contract.
+  app.ensureRegistrationWindow("Routes")
   app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware,
     hekSync, handler)
 
@@ -437,6 +451,7 @@ proc onShutdown*(app: Application, hook: LifecycleHook) =
 
 proc onError*(app: Application, handler: ErrorHandler) =
   ## Install an explicit application-level exception policy.
+  app.ensureRegistrationWindow("Error handlers")
   app.errorHandler = handler
 
 proc use*(app: Application, plugin: Plugin) =

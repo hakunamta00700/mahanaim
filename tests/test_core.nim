@@ -2182,6 +2182,15 @@ suite "Mahanaim core contracts":
       app.onStartup(lateHook)
     expect ValueError:
       app.onShutdown(lateHook)
+    proc lateRoute(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return textResponse("late")
+    expect ValueError:
+      app.get("/late", "late", lateRoute)
+    expect ValueError:
+      app.addMiddleware(securityMiddleware(defaultSecurityPolicy()))
+    expect ValueError:
+      app.onError(nil)
     app.shutdown()
     app.shutdown()
     check events == @["start", "stop"]

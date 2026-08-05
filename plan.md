@@ -395,6 +395,8 @@
 
 ### 2026-08-05 command/admin lifecycle boundary
 
+- [x] route, grouped route, WebSocket route, global middleware와 error handler도 동일한 pre-startup registration window를 사용하도록 통합하고, 실행 후 mutation 회귀 테스트를 추가했다.
+
 - [x] `onStartup`과 `onShutdown`도 startup 전 등록만 허용하고, hook 내부 또는 실행 후 lifecycle 순서를 변경하는 late registration을 거부한다. ordered/idempotent lifecycle 테스트로 경계를 검증했다.
 
 - [x] `use(plugin)`과 manifest plugin 등록도 startup 전용 lifecycle boundary를 공유하고, startup transition 및 실행 이후 등록을 거부한다. route·middleware·service surface의 late mutation을 회귀 테스트로 검증했다.
