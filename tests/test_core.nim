@@ -659,7 +659,7 @@ suite "Mahanaim core contracts":
     check syncResponse.body == "sync:/dsl-sync"
     let syncMatch = app.router.find(newRequest("GET", "/dsl-sync")).get()
     check syncMatch.executionKind == hekSync
-    for httpMethod, path in [
+    for (httpMethod, path) in [
         ("PUT", "/dsl-put"),
         ("PATCH", "/dsl-patch"),
         ("DELETE", "/dsl-delete")]:
