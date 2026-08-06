@@ -634,6 +634,37 @@ suite "Mahanaim core contracts":
     check executionReport.passed
     check executionReport.issues[0].code == "execution.sync.handler"
 
+  test "route DSL adapts sync, async, and WebSocket callables":
+    let app = newApplication()
+    proc syncRoute(request: Request): mahanaim.Response =
+      textResponse("sync:" & request.path)
+    proc asyncRoute(request: Request): Future[mahanaim.Response]
+        {.async, gcsafe.} =
+      return textResponse("async:" & request.path)
+    proc socketRoute(request: Request,
+                     session: WebSocketSession): Future[void]
+        {.async, gcsafe.} =
+      discard request
+      await session.send(await session.receive())
+
+    routes app:
+      getSync "/dsl-sync", "dsl.sync", syncRoute
+      get "/dsl-async", "dsl.async", asyncRoute
+      websocket "/dsl-socket", "dsl.socket", socketRoute
+
+    let syncResponse = waitFor app.dispatch(newRequest("GET", "/dsl-sync"))
+    check syncResponse.body == "sync:/dsl-sync"
+    let syncMatch = app.router.find(newRequest("GET", "/dsl-sync")).get()
+    check syncMatch.executionKind == hekSync
+
+    let asyncResponse = waitFor app.dispatch(newRequest("GET", "/dsl-async"))
+    check asyncResponse.body == "async:/dsl-async"
+    let socket = newTestClient(app).connectWebSocket("/dsl-socket")
+    waitFor socket.send(textWebSocketMessage("echo"))
+    check (waitFor socket.receive()).payload == "echo"
+    waitFor socket.close()
+    waitFor socket.wait()
+
   test "cancelled sync request does not enter user handler":
     let app = newApplication()
     var invoked = false
