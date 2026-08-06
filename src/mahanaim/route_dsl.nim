@@ -50,9 +50,13 @@ macro routes*(app: typed, declarations: untyped): untyped =
     let request = genSym(nskParam, "request")
 
     case kind
-    of "getSync", "postSync":
-      let registration = if kind == "getSync": bindSym"getSync"
-                         else: bindSym"postSync"
+    of "getSync", "postSync", "putSync", "patchSync", "deleteSync":
+      let registration = case kind
+        of "getSync": bindSym"getSync"
+        of "postSync": bindSym"postSync"
+        of "putSync": bindSym"putSync"
+        of "patchSync": bindSym"patchSync"
+        else: bindSym"deleteSync"
       let adapter = quote do:
         trustedSyncHandler(
           proc(`request`: Request): Response =
@@ -75,4 +79,5 @@ macro routes*(app: typed, declarations: untyped): untyped =
       result.add newCall(bindSym"websocket", app, path, name, adapter)
     else:
       error("unsupported route kind '" & kind &
-        "'; expected get, post, getSync, postSync, or websocket", declaration[0])
+        "'; expected get, post, getSync, postSync, putSync, patchSync, " &
+        "deleteSync, or websocket", declaration[0])

@@ -418,20 +418,37 @@ proc post*(app: Application, group: RouteGroup, pattern, name: string,
            handler: Handler, middleware: seq[Middleware] = @[]) =
   app.addRoute(group, "POST", pattern, name, handler, middleware)
 
+proc addSyncRoute*(app: Application, httpMethod, pattern, name: string,
+                   handler: SyncHandler,
+                   middleware: seq[Middleware] = @[]) =
+  ## Generic synchronous registration keeps blocking work on the executor for
+  ## every HTTP method instead of forcing PUT/PATCH/DELETE handlers onto the
+  ## event loop.
+  app.ensureRegistrationWindow("Routes")
+  app.router.addRoute(httpMethod, pattern, name, asyncHandler(handler), middleware,
+    hekSync, handler)
+
 proc getSync*(app: Application, pattern, name: string, handler: SyncHandler,
               middleware: seq[Middleware] = @[]) =
   ## Register a synchronous handler explicitly so blocking work is visible in
   ## code review and is routed through the application's executor policy.
-  app.ensureRegistrationWindow("Routes")
-  app.router.addRoute("GET", pattern, name, asyncHandler(handler), middleware,
-    hekSync, handler)
+  app.addSyncRoute("GET", pattern, name, handler, middleware)
 
 proc postSync*(app: Application, pattern, name: string, handler: SyncHandler,
                middleware: seq[Middleware] = @[]) =
-  ## POST counterpart to getSync; both use the same adapter contract.
-  app.ensureRegistrationWindow("Routes")
-  app.router.addRoute("POST", pattern, name, asyncHandler(handler), middleware,
-    hekSync, handler)
+  app.addSyncRoute("POST", pattern, name, handler, middleware)
+
+proc putSync*(app: Application, pattern, name: string, handler: SyncHandler,
+              middleware: seq[Middleware] = @[]) =
+  app.addSyncRoute("PUT", pattern, name, handler, middleware)
+
+proc patchSync*(app: Application, pattern, name: string, handler: SyncHandler,
+                middleware: seq[Middleware] = @[]) =
+  app.addSyncRoute("PATCH", pattern, name, handler, middleware)
+
+proc deleteSync*(app: Application, pattern, name: string, handler: SyncHandler,
+                 middleware: seq[Middleware] = @[]) =
+  app.addSyncRoute("DELETE", pattern, name, handler, middleware)
 
 proc onStartup*(app: Application, hook: LifecycleHook) =
   ## Startup hooks are configuration. Rejecting late additions prevents a

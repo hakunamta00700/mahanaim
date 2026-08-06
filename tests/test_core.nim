@@ -649,6 +649,9 @@ suite "Mahanaim core contracts":
 
     routes app:
       getSync "/dsl-sync", "dsl.sync", syncRoute
+      putSync "/dsl-put", "dsl.put", syncRoute
+      patchSync "/dsl-patch", "dsl.patch", syncRoute
+      deleteSync "/dsl-delete", "dsl.delete", syncRoute
       get "/dsl-async", "dsl.async", asyncRoute
       websocket "/dsl-socket", "dsl.socket", socketRoute
 
@@ -656,6 +659,14 @@ suite "Mahanaim core contracts":
     check syncResponse.body == "sync:/dsl-sync"
     let syncMatch = app.router.find(newRequest("GET", "/dsl-sync")).get()
     check syncMatch.executionKind == hekSync
+    for httpMethod, path in [
+        ("PUT", "/dsl-put"),
+        ("PATCH", "/dsl-patch"),
+        ("DELETE", "/dsl-delete")]:
+      let response = waitFor app.dispatch(newRequest(httpMethod, path))
+      check response.body == "sync:" & path
+      let matched = app.router.find(newRequest(httpMethod, path)).get()
+      check matched.executionKind == hekSync
 
     let asyncResponse = waitFor app.dispatch(newRequest("GET", "/dsl-async"))
     check asyncResponse.body == "async:/dsl-async"
