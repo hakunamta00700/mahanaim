@@ -7,7 +7,6 @@
 import std/[options, strutils]
 import ./database
 import ./models
-import ./postgres_adapter
 import ./sqlite_adapter
 
 type
@@ -179,13 +178,14 @@ proc executeMigrationCommand*(adapter: SqliteDatabaseAdapter,
   of migrationCommandRollback:
     result.rolledBack = adapter.rollbackLatest(migrations)
 
-proc executeMigrationCommand*(adapter: PostgresDatabaseAdapter,
-                             migrations: openArray[Migration],
-                             command: MigrationCommand): MigrationCommandResult =
-  ## PostgreSQL uses the same parser/result contract as SQLite while its
-  ## adapter owns libpq placeholders and transactional DDL. Keeping this
-  ## overload here lets embedding CLIs choose a backend without duplicating
-  ## command semantics.
+proc executeMigrationCommand*[T](adapter: T,
+                                 migrations: openArray[Migration],
+                                 command: MigrationCommand): MigrationCommandResult =
+  ## Optional adapters use the same parser/result contract as SQLite without
+  ## forcing their native client libraries into every application importing
+  ## migration support. The adapter-specific operations are resolved when this
+  ## generic is instantiated by an application that imports that adapter.
+  mixin appliedMigrations, migrate, rollbackLatest
   if adapter.isNil:
     raise newException(ValueError, "migration adapter is required")
   result.kind = command.kind
