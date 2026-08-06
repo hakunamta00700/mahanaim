@@ -3431,6 +3431,14 @@ suite "Mahanaim core contracts":
     request.headers["accept"] = "image/png"
     check negotiateResponse(request, candidates).status == Http406
 
+    var noContentRequest = newRequest("DELETE", "/items/1")
+    noContentRequest.headers["accept"] =
+      "application/json, application/problem+json"
+    let noContent = negotiateResponse(noContentRequest, newResponse(Http204))
+    check noContent.status == Http204
+    check noContent.body.len == 0
+    check noContent.header("Vary").isNone
+
   test "buffered responses expose ETag and honor If-None-Match":
     var request = newRequest("GET", "/etag")
     let first = conditionalResponse(request, jsonResponse("{\"ok\":true}"))

@@ -147,6 +147,11 @@ proc negotiateResponse*(request: Request, response: Response): Response =
   if accepted.len == 0:
     return response
   let offered = response.mediaType()
+  ## Empty responses such as 204 and redirects carry protocol metadata rather
+  ## than a representation. An Accept header cannot reject bytes that do not
+  ## exist, and must not replace the original status with 406.
+  if offered.len == 0 and response.body.len == 0:
+    return response
   for requested in accepted:
     if requested.quality > 0 and mediaTypeMatches(requested.value, offered):
       return withAcceptVary(response)
