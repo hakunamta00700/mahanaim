@@ -349,6 +349,21 @@ explicit `AdminRegistry`; it does not create a second authorization or database
 lifecycle. Destructive or durable admin commands remain application-owned
 commands with their own authorization and transaction policy.
 
+### Durable admin audit storage
+
+`newAdminRegistry()` uses an in-memory audit store for deterministic local
+development and tests. Production applications that require a restart-safe
+trail can supply `newSqliteAdminAuditStore("/absolute/path/admin-audit.sqlite")`
+to `newAdminRegistry`. The store accepts only `appendAuditEvent` and returns
+snapshot copies through `auditEvents`; it exposes no mutation or deletion API.
+
+Call `auditStore.close()` during the application's shutdown path when the store
+was constructed from a path. A store created from an existing
+`SqliteDatabaseAdapter` does not close that shared adapter unless the caller
+passes `ownsAdapter = true`. Audit events deliberately contain only action,
+resource, identifier, and actor identity fields; do not put request bodies,
+credentials, or other secrets in an audit event.
+
 ## Durable job CLI
 
 An application can call `configureDurableJobs(store, registry)` before startup.

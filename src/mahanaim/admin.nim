@@ -3,7 +3,7 @@
 ## This first admin slice deliberately composes existing CRUD, form, and
 ## security contracts instead of introducing a second persistence or template
 ## system. It provides a secure registration boundary, JSON CRUD routes, an
-## server-rendered CRUD forms, and an in-memory audit trail; richer
+## server-rendered CRUD forms, and an append-only audit trail; richer
 ## permissions and layouts remain extension points.
 
 import std/[asyncdispatch, httpcore, json, options, strutils, tables]
@@ -18,6 +18,7 @@ import ./query_components
 import ./resources
 import ./security
 import ./serialization
+import ./sqlite_adapter
 import ./templates
 import ./validation
 
@@ -49,6 +50,12 @@ type
     ## events are only exposed through snapshots, never through the backing
     ## sequence, so callers cannot rewrite the audit history accidentally.
     events: seq[AdminAuditEvent]
+
+  SqliteAdminAuditStore* = ref object of AdminAuditStore
+    ## A small durable first-party audit adapter. It owns its connection only
+    ## when built from a path; shared adapters stay owned by the application.
+    adapter*: SqliteDatabaseAdapter
+    ownsAdapter: bool
 
   AdminResource* = ref object
     ## One registered admin resource owns route and form policy while storage
@@ -93,12 +100,69 @@ method auditEvents*(store: AdminAuditStore): seq[AdminAuditEvent] {.base, gcsafe
   discard store
   raise newException(ValueError, "Admin audit store does not implement snapshot")
 
+method close*(store: AdminAuditStore) {.base, gcsafe.} =
+  ## Stores without external resources require no shutdown work.
+  discard store
+
 method appendAuditEvent*(store: InMemoryAdminAuditStore,
                          event: AdminAuditEvent) {.gcsafe.} =
   store.events.add(event)
 
 method auditEvents*(store: InMemoryAdminAuditStore): seq[AdminAuditEvent] {.gcsafe.} =
   store.events
+
+proc initializeAuditSchema(adapter: SqliteDatabaseAdapter) =
+  ## Schema and mutations use fixed SQL plus bound values only. The store has
+  ## no public update/delete operation, preserving an append-only API contract.
+  discard adapter.executeRaw(newRawSqlQuery(
+    "CREATE TABLE IF NOT EXISTS mahanaim_admin_audit " &
+    "(sequence INTEGER PRIMARY KEY AUTOINCREMENT, " &
+    "action TEXT NOT NULL, resource TEXT NOT NULL, " &
+    "identifier TEXT NOT NULL, actor TEXT NOT NULL)"))
+
+proc newSqliteAdminAuditStore*(adapter: SqliteDatabaseAdapter,
+                               ownsAdapter = false): SqliteAdminAuditStore =
+  ## Bind durable audit history to a caller-selected SQLite connection.
+  if adapter.isNil:
+    raise newException(ValueError, "SQLite audit store requires an adapter")
+  initializeAuditSchema(adapter)
+  SqliteAdminAuditStore(adapter: adapter, ownsAdapter: ownsAdapter)
+
+proc newSqliteAdminAuditStore*(path: string): SqliteAdminAuditStore =
+  ## Open an application-owned SQLite audit database at an explicit path.
+  let adapter = newSqliteDatabaseAdapter(path)
+  try:
+    result = newSqliteAdminAuditStore(adapter, ownsAdapter = true)
+  except CatchableError:
+    adapter.close()
+    raise
+
+method appendAuditEvent*(store: SqliteAdminAuditStore,
+                         event: AdminAuditEvent) {.gcsafe.} =
+  if store.isNil or store.adapter.isNil:
+    raise newException(ValueError, "SQLite audit store is closed")
+  discard store.adapter.executeRaw(newRawSqlQuery(
+    "INSERT INTO mahanaim_admin_audit " &
+    "(action, resource, identifier, actor) VALUES (?, ?, ?, ?)",
+    [textValue(event.action), textValue(event.resource),
+     textValue(event.identifier), textValue(event.actor)]))
+
+method auditEvents*(store: SqliteAdminAuditStore): seq[AdminAuditEvent] {.gcsafe.} =
+  if store.isNil or store.adapter.isNil:
+    raise newException(ValueError, "SQLite audit store is closed")
+  let rows = store.adapter.executeRaw(newRawSqlQuery(
+    "SELECT action, resource, identifier, actor " &
+    "FROM mahanaim_admin_audit ORDER BY sequence ASC")).rows
+  for row in rows:
+    result.add(AdminAuditEvent(action: row[0].text, resource: row[1].text,
+      identifier: row[2].text, actor: row[3].text))
+
+method close*(store: SqliteAdminAuditStore) {.gcsafe.} =
+  if store.isNil:
+    return
+  if store.ownsAdapter and not store.adapter.isNil:
+    store.adapter.close()
+  store.adapter = nil
 
 proc newInMemoryAdminAuditStore*(): InMemoryAdminAuditStore =
   ## Provide a small reference adapter without coupling admin routes to a DB.

@@ -4339,6 +4339,33 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard registry.runAdminCli(["delete", "items"])
 
+  test "SQLite admin audit store keeps append-only history across restarts":
+    let auditPath = getTempDir() / "mahanaim-admin-audit.sqlite"
+    if fileExists(auditPath):
+      removeFile(auditPath)
+    defer:
+      if fileExists(auditPath):
+        removeFile(auditPath)
+
+    let first = newSqliteAdminAuditStore(auditPath)
+    first.appendAuditEvent(AdminAuditEvent(action: "create", resource: "items",
+      identifier: "42", actor: "admin-1"))
+    first.appendAuditEvent(AdminAuditEvent(action: "delete", resource: "items",
+      identifier: "43", actor: "admin-2"))
+    first.close()
+
+    let reopened = newSqliteAdminAuditStore(auditPath)
+    defer: reopened.close()
+    let history = reopened.auditEvents()
+    check history.len == 2
+    check history[0] == AdminAuditEvent(action: "create", resource: "items",
+      identifier: "42", actor: "admin-1")
+    check history[1] == AdminAuditEvent(action: "delete", resource: "items",
+      identifier: "43", actor: "admin-2")
+    var snapshot = history
+    snapshot[0].action = "tampered"
+    check reopened.auditEvents()[0].action == "create"
+
   test "query component validates bounded pagination filters sorting and fields":
     var metadata = newModelMetadata("QueryUser", "query_users")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))
