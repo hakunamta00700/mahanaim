@@ -7,7 +7,40 @@
 import std/[os, sequtils, strutils, unittest]
 import mahanaim
 
+proc localMarkdownTargets(contents: string): seq[string] =
+  ## Collect relative Markdown destinations without treating anchors or external
+  ## URLs as filesystem paths. This keeps the documentation navigation contract
+  ## runnable on every CI platform without a browser dependency.
+  var offset = 0
+  while true:
+    let start = contents.find("](", offset)
+    if start < 0:
+      break
+    let close = contents.find(')', start + 2)
+    if close < 0:
+      break
+    let raw = contents[start + 2 ..< close]
+    let target = raw.split('#', maxsplit = 1)[0].strip()
+    if target.len > 0 and not target.contains("://") and
+        not target.startsWith("mailto:") and not target.startsWith("/"):
+      result.add(target)
+    offset = close + 1
+
+proc markdownLinkIssues(root: string): seq[string] =
+  var documents = @[root / "README.md"]
+  for path in walkDirRec(root / "docs"):
+    if splitFile(path).ext.toLowerAscii() == ".md":
+      documents.add(path)
+  for document in documents:
+    let base = parentDir(document)
+    for target in localMarkdownTargets(readFile(document)):
+      if not fileExists(base / target):
+        result.add(relativePath(document, root) & " -> " & target)
+
 suite "definition of done contracts":
+  test "internal Markdown links resolve to repository documentation":
+    let issues = markdownLinkIssues(getCurrentDir())
+    check issues.len == 0
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
