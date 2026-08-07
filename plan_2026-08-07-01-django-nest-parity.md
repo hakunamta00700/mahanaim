@@ -80,9 +80,10 @@ adding public API names.
   - Done when: A first-party external queue adapter specifies serialization, acknowledgement, visibility timeout, retry/backoff, dead-letter behavior, graceful drain, and recovery; a scheduler supports one-shot and recurring jobs with timezone-aware execution; unsafe native worker termination remains explicitly unsupported.
   - Validation: Add deterministic fake-clock tests and opt-in live queue tests for duplicate delivery, crash recovery, expiry, dead-letter routing, drain timeout, and scheduler misfire behavior; run `nimble test`, `nimble verify`, and the provider live gate.
 
-- [ ] Expand HTTP transport capabilities and deployment behavior.
+- [x] Expand HTTP transport capabilities and deployment behavior.
   - Scope: `src/mahanaim/http_adapter.nim`, `httpx_adapter.nim`, `prologue_server.nim`, `response_policy.nim`, `static_assets.nim`, security/config modules, deployment recipes, and wire tests.
   - Done when: Compression negotiation (gzip/Brotli where the backend permits), conditional/static-file response policy, proxy/timeouts, and graceful shutdown are uniformly applied across supported adapters; unsupported HTTP/2/HTTP/3 capabilities are reported rather than implied.
+  - Evidence: `HttpTransportCapabilities` reports the common HTTP/1.1 contract and explicit gzip/Brotli/HTTP/2/HTTP/3 limitations for the stdlib, Prologue, and httpx adapters. Conditional ETag policy, trusted-proxy and request-timeout handling remain application-owned; single static byte ranges and HEAD semantics are finalized centrally, and the operations guide assigns compression/protocol termination to a configured reverse proxy.
   - Validation: Add wire tests for compression, `Vary`, ETag/range/HEAD semantics, slow client/shutdown, proxy forwarding, and adapter capability reports; run `nimble test`, `nimble httpxTest`, `nimble beastLive`, and `nimble httpsLive`.
 
 - [ ] Formalize cache, object-storage, and distributed rate-limit provider support.

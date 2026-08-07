@@ -9,6 +9,7 @@ when defined(windows):
   import std/asynchttpserver
 import prologue/core/application as prologueApplication
 import ./application
+import ./http_adapter
 import ./prologue_adapter
 import ./router
 import ./websocket_adapter
@@ -26,6 +27,19 @@ type
       ## lifecycle semantics without reaching into private Prologue fields.
       transport*: AsyncHttpServer
       closed*: bool
+
+proc prologueCapabilities*(): HttpTransportCapabilities =
+  ## Prologue's concrete backend differs by platform, but Mahanaim's bridge
+  ## guarantees only this common subset.  Protocol upgrades beyond HTTP/1.1
+  ## remain an explicit proxy/backend responsibility.
+  HttpTransportCapabilities(adapterName: "prologue",
+    supported: {htfHttp1, htfConditionalResponses, htfStaticFileResponses,
+      htfTrustedProxyForwarding, htfRequestTimeout, htfGracefulShutdown},
+    unsupported: {htfGzipCompression, htfBrotliCompression, htfHttp2, htfHttp3})
+
+proc capabilities*(server: PrologueServer): HttpTransportCapabilities =
+  discard server
+  prologueCapabilities()
 
 proc bridgeHandler(app: Application): prologueApplication.HandlerAsync =
   ## Adapt one Prologue Context without duplicating route registration.

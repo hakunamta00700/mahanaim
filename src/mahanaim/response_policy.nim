@@ -120,6 +120,76 @@ proc conditionalResponse*(request: Request, response: Response): Response =
   result.filePath = ""
   result.variants = @[]
 
+proc rangeNotSatisfiable(response: var Response, total: int) =
+  response.status = Http416
+  response.body = ""
+  response.filePath = ""
+  response.headers["content-range"] = "bytes */" & $total
+  response.headers["content-length"] = "0"
+
+proc byteRangeResponse*(request: Request, response: Response): Response =
+  ## Apply a single RFC 9110 byte range to an already-snapshotted file
+  ## response. Multiple ranges intentionally remain unsupported: emitting a
+  ## multipart/byteranges body would otherwise make every network adapter own
+  ## a subtly different framing implementation.
+  result = response
+  if request.httpMethod.toUpperAscii() notin ["GET", "HEAD"] or
+      result.representation != rrFile or result.status != Http200:
+    return
+  result.headers["accept-ranges"] = "bytes"
+  let requested = request.header("range")
+  if requested.isNone:
+    return
+  let value = requested.get().strip()
+  let total = result.body.len
+  if not value.startsWith("bytes=") or value.contains(','):
+    rangeNotSatisfiable(result, total)
+    return
+  let bounds = value[6 .. ^1].strip().split('-', maxsplit = 1)
+  if bounds.len != 2 or total == 0:
+    rangeNotSatisfiable(result, total)
+    return
+  var first, last: int
+  try:
+    if bounds[0].strip().len == 0:
+      let suffix = parseInt(bounds[1].strip())
+      if suffix <= 0:
+        rangeNotSatisfiable(result, total)
+        return
+      first = max(0, total - suffix)
+      last = total - 1
+    else:
+      first = parseInt(bounds[0].strip())
+      last = if bounds[1].strip().len == 0:
+        total - 1
+      else:
+        min(total - 1, parseInt(bounds[1].strip()))
+  except ValueError:
+    rangeNotSatisfiable(result, total)
+    return
+  if first < 0 or first >= total or last < first:
+    rangeNotSatisfiable(result, total)
+    return
+  result.status = Http206
+  result.body = result.body[first .. last]
+  result.headers["content-range"] = "bytes " & $first & "-" & $last & "/" & $total
+  result.headers["content-length"] = $result.body.len
+
+proc headResponse*(request: Request, response: Response): Response =
+  ## HEAD has the same selected representation and metadata as GET, but never
+  ## writes a body. Preserve the length before clearing bytes so transports
+  ## that buffer responses do not accidentally advertise zero length.
+  result = response
+  if request.httpMethod.toUpperAscii() == "HEAD":
+    result.headers["content-length"] = $result.body.len
+    result.body = ""
+
+proc finalizeResponse*(request: Request, response: Response): Response =
+  ## Keep conditionals, static ranges, and HEAD semantics in one shared order
+  ## for in-process callers and every HTTP adapter.
+  headResponse(request, byteRangeResponse(request,
+    conditionalResponse(request, response)))
+
 proc negotiateResponse*(request: Request,
                         variants: openArray[Response]): Response =
   ## Select the first server-preferred variant accepted by the client.

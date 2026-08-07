@@ -11,6 +11,7 @@ when not defined(windows):
   import pkg/httpx
   import ./application
   import ./core
+  import ./http_adapter
   import ./router
   import ./websocket_adapter
 
@@ -21,6 +22,20 @@ when not defined(windows):
       ## around the blocking server future.
       app*: Application
       settings*: httpx.Settings
+
+  proc httpxCapabilities*(): HttpTransportCapabilities =
+    ## httpx is used as an HTTP/1.1 bridge here.  Compression and HTTP/2/3
+    ## require an explicitly configured terminating proxy rather than an
+    ## implicit claim by this adapter.
+    HttpTransportCapabilities(adapterName: "httpx",
+      supported: {htfHttp1, htfConditionalResponses, htfStaticFileResponses,
+        htfTrustedProxyForwarding, htfRequestTimeout},
+      unsupported: {htfGzipCompression, htfBrotliCompression,
+        htfGracefulShutdown, htfHttp2, htfHttp3})
+
+  proc capabilities*(server: HttpxServer): HttpTransportCapabilities =
+    discard server
+    httpxCapabilities()
 
   proc copyHeaders(headers: HttpHeaders): Table[string, string] =
     ## Normalize repeated wire fields into one comma-separated value. This is

@@ -428,6 +428,27 @@ payloads. Prometheus text exposition is vendor-neutral. Logue and OpenTelemetry
 integrations should consume the existing `RequestEventSink`, `StructuredLogSink`,
 and W3C trace propagation boundaries in an application-owned adapter.
 
+## HTTP transport capability reports
+
+Call `server.capabilities()` before deployment to obtain the concrete adapter
+contract. `NetworkServer`, `PrologueServer`, and `HttpxServer` share the
+application-level conditional-response, static-file metadata, trusted-proxy,
+and request-timeout policies. Their reports explicitly mark gzip, Brotli,
+HTTP/2, and HTTP/3 as unsupported by the included adapters; terminate those
+protocols or compression at a configured reverse proxy instead of assuming
+that an adapter provides them. The standard-library and Prologue bridges also
+report graceful shutdown; the direct httpx listener is supervisor-owned and
+therefore reports graceful shutdown as unsupported.
+
+ETag and `If-None-Match` processing runs in `Application.dispatch` after
+representation negotiation, so buffered responses have identical conditional
+semantics in-process and over every adapter. Streaming, SSE, and WebSocket
+responses deliberately do not get generated ETags. `fileResponse` validates
+the source path before constructing the static response and supports one
+`Range: bytes=` interval (including suffix ranges); multiple ranges receive
+`416` rather than an adapter-specific multipart response. HEAD keeps the
+selected status and metadata while omitting the response body.
+
 ## Graceful shutdown
 
 1. readiness를 false로 전환해 새 traffic을 차단한다.

@@ -897,14 +897,14 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   requestWithServices.services = serviceScope
   defer: serviceScope.dispose()
   if app.databasePool.isNil:
-    return conditionalResponse(requestWithServices,
+    return finalizeResponse(requestWithServices,
       negotiateResponse(requestWithServices,
         await app.dispatchInternal(requestWithServices)))
   let database = app.databasePool.acquire()
   var requestWithDatabase = requestWithServices
   requestWithDatabase.database = database
   try:
-    return conditionalResponse(requestWithDatabase,
+    return finalizeResponse(requestWithDatabase,
       negotiateResponse(requestWithDatabase,
         await app.dispatchInternal(requestWithDatabase)))
   finally:

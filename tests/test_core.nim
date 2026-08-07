@@ -2830,6 +2830,13 @@ suite "Mahanaim core contracts":
           retryMs: -1)])])
     app.get("/variants", "variants", variants)
     let network = newNetworkServer(app, "127.0.0.1", 0)
+    let report = network.capabilities()
+    check report.adapterName == "stdlib-async-http"
+    check report.supports(htfHttp1)
+    check report.supports(htfConditionalResponses)
+    check not report.supports(htfGzipCompression)
+    check htfHttp2 in report.unsupported
+    check htfHttp3 in report.unsupported
     asyncCheck network.serve()
 
     # Binding happens inside the async server task. Poll briefly instead of
@@ -3662,6 +3669,31 @@ suite "Mahanaim core contracts":
       .status == Http200
     check conditionalResponse(request, streamResponse("chunk"))
       .header("ETag").isNone
+
+  test "static file response policy applies ranges and HEAD consistently":
+    let path = getTempDir() / "mahanaim-range-response.txt"
+    writeFile(path, "abcdefghij")
+    defer:
+      if fileExists(path): removeFile(path)
+    var rangeRequest = newRequest("GET", "/download")
+    rangeRequest.headers["range"] = "bytes=2-5"
+    let partial = byteRangeResponse(rangeRequest, fileResponse(path, "text/plain"))
+    check partial.status == Http206
+    check partial.body == "cdef"
+    check partial.header("content-range").get() == "bytes 2-5/10"
+    check partial.header("accept-ranges").get() == "bytes"
+    rangeRequest.headers["range"] = "bytes=-3"
+    check byteRangeResponse(rangeRequest, fileResponse(path)).body == "hij"
+    rangeRequest.headers["range"] = "bytes=22-30"
+    let rejected = byteRangeResponse(rangeRequest, fileResponse(path))
+    check rejected.status == Http416
+    check rejected.header("content-range").get() == "bytes */10"
+    var headRequest = newRequest("HEAD", "/download")
+    headRequest.headers["range"] = "bytes=0-2"
+    let head = finalizeResponse(headRequest, fileResponse(path))
+    check head.status == Http206
+    check head.body == ""
+    check head.header("content-length").get() == "3"
 
     let app = newApplication()
     app.get("/dispatch-etag", "dispatch-etag",

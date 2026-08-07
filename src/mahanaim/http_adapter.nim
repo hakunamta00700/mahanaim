@@ -13,6 +13,28 @@ import ./router
 import ./websocket_adapter
 
 type
+  HttpTransportFeature* = enum
+    ## Features exposed by a concrete wire adapter.  A capability report is
+    ## deliberately more precise than assuming that every HTTP server has the
+    ## same protocol surface.
+    htfHttp1
+    htfGzipCompression
+    htfBrotliCompression
+    htfConditionalResponses
+    htfStaticFileResponses
+    htfTrustedProxyForwarding
+    htfRequestTimeout
+    htfGracefulShutdown
+    htfHttp2
+    htfHttp3
+
+  HttpTransportCapabilities* = object
+    ## `unsupported` is first-class so deployment checks can distinguish a
+    ## deliberately unavailable protocol from a forgotten configuration.
+    adapterName*: string
+    supported*: set[HttpTransportFeature]
+    unsupported*: set[HttpTransportFeature]
+
   NetworkServer* = ref object
     ## Owns one async server and one application instance.
     app*: Application
@@ -20,6 +42,26 @@ type
     host*: string
     port*: Port
     closed*: bool
+
+proc supports*(capabilities: HttpTransportCapabilities,
+               feature: HttpTransportFeature): bool =
+  ## Query a report without treating omitted capabilities as supported.
+  feature in capabilities.supported
+
+proc standardLibraryCapabilities*(): HttpTransportCapabilities =
+  ## AsyncHttpServer provides HTTP/1.1 only.  Mahanaim applies conditional
+  ## responses, static-file response metadata, proxy policy and timeouts at
+  ## the shared application boundary; it does not silently claim compression
+  ## or HTTP/2/3 that this transport cannot serialize.
+  HttpTransportCapabilities(adapterName: "stdlib-async-http",
+    supported: {htfHttp1, htfConditionalResponses, htfStaticFileResponses,
+      htfTrustedProxyForwarding, htfRequestTimeout, htfGracefulShutdown},
+    unsupported: {htfGzipCompression, htfBrotliCompression, htfHttp2, htfHttp3})
+
+proc capabilities*(network: NetworkServer): HttpTransportCapabilities =
+  ## Report the actual listener contract without requiring a bound socket.
+  discard network
+  standardLibraryCapabilities()
 
 proc copyHeaders*(headers: HttpHeaders): Table[string, string] =
   ## Normalize header names once at the adapter boundary. Nim's HttpHeaders
