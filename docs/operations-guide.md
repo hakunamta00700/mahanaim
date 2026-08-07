@@ -447,6 +447,18 @@ operator-controlled deployment or drain workflows, and an application should
 wrap it with its own authorization and release procedure when exposed by a
 larger control plane.
 
+### Durable queue delivery policy
+
+`DurableJobStore` has explicit enqueue, claim, complete (acknowledge),
+release (retry), dead-letter, and recovery transitions. External adapters must
+provide all transitions and own payload serialization, visibility timeout,
+provider backoff, and connection draining. `runNext(..., maxAttempts)` moves a
+failed or unhandled record to dead-letter at the configured terminal attempt;
+it never retries indefinitely. `JobScheduler` accepts caller-owned UTC epoch
+times for one-shot and recurring work, skips missed recurrence intervals by
+default, and leaves timezone conversion/catch-up policy explicit to the
+application.
+
 ## Prometheus metrics
 
 Expose `metricsResponse(app.observability)` from an application-owned `GET /metrics`

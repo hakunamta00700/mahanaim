@@ -76,9 +76,10 @@ adding public API names.
   - Evidence: `SmtpEmailTransport` requires explicit STARTTLS/implicit-TLS policy and authenticated delivery through an application-owned wire callback, while `CallbackEmailTransport` is the provider/outbox handoff. The shared renderer rejects injection, RFC-2047 encodes UTF-8 subjects, renders deterministic multipart attachments, and bounded retries redact provider errors. The operations guide labels the in-memory transport test-only.
   - Validation: Add rendering and injection tests for Unicode names, multipart boundaries, attachments, SMTP/provider failures, and retry exhaustion; run unit tests plus an opt-in disposable SMTP wire fixture.
 
-- [ ] Upgrade background work from local execution to an operable queue and scheduler boundary.
+- [x] Upgrade background work from local execution to an operable queue and scheduler boundary.
   - Scope: `src/mahanaim/jobs.nim`, `durable_jobs.nim`, `execution.nim`, `idempotency.nim`, CLI, checks, operations documentation, and queue tests.
   - Done when: A first-party external queue adapter specifies serialization, acknowledgement, visibility timeout, retry/backoff, dead-letter behavior, graceful drain, and recovery; a scheduler supports one-shot and recurring jobs with timezone-aware execution; unsafe native worker termination remains explicitly unsupported.
+  - Evidence: `ExternalDurableJobStore` requires application-owned serialization, claim/acknowledge/release/recover/dead-letter transitions and shutdown ownership; `SqliteDurableJobStore` is the transactional reference implementation. `runNext` enforces a finite terminal attempt budget and dead-letters poison/unhandled jobs. `JobScheduler` provides deterministic UTC one-shot/recurring scheduling with a documented missed-run policy, while worker cancellation remains cooperative and unsafe native termination is explicitly unsupported.
   - Validation: Add deterministic fake-clock tests and opt-in live queue tests for duplicate delivery, crash recovery, expiry, dead-letter routing, drain timeout, and scheduler misfire behavior; run `nimble test`, `nimble verify`, and the provider live gate.
 
 - [x] Expand HTTP transport capabilities and deployment behavior.

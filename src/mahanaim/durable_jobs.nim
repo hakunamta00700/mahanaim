@@ -14,6 +14,7 @@ type
     djsPending
     djsProcessing
     djsCompleted
+    djsDeadLetter
 
   DurableJobRecord* = object
     id*: string
@@ -40,6 +41,7 @@ type
     claimNextCallback: DurableJobClaimNext
     completeCallback: DurableJobTransition
     releaseCallback: DurableJobTransition
+    deadLetterCallback: DurableJobTransition
     recoverCallback: DurableJobRecover
     closeCallback: DurableJobClose
     closed: bool
@@ -96,6 +98,13 @@ method release*(store: DurableJobStore, id: string) {.base, gcsafe.} =
   discard id
   raise newException(ValueError, "Durable job store does not implement release")
 
+method deadLetter*(store: DurableJobStore, id: string) {.base, gcsafe.} =
+  ## Terminal failure is distinct from release/retry so operators can inspect
+  ## poison messages without an infinite delivery loop.
+  discard store
+  discard id
+  raise newException(ValueError, "Durable job store does not implement deadLetter")
+
 method recoverProcessing*(store: DurableJobStore) {.base, gcsafe.} =
   discard store
   raise newException(ValueError,
@@ -111,12 +120,13 @@ proc newExternalDurableJobStore*(enqueue: DurableJobEnqueue,
                                  claimNext: DurableJobClaimNext,
                                  complete: DurableJobTransition,
                                  release: DurableJobTransition,
+                                 deadLetter: DurableJobTransition,
                                  recoverProcessing: DurableJobRecover,
                                  close: DurableJobClose = nil):
     ExternalDurableJobStore =
   ## Require every state transition so a partially configured provider cannot
   ## acknowledge a job without a corresponding recovery path.
-  if enqueue.isNil or claimNext.isNil or complete.isNil or release.isNil or
+  if enqueue.isNil or claimNext.isNil or complete.isNil or release.isNil or deadLetter.isNil or
       recoverProcessing.isNil:
     raise newException(ValueError,
       "External durable job store requires all state transitions")
@@ -125,6 +135,7 @@ proc newExternalDurableJobStore*(enqueue: DurableJobEnqueue,
   result.claimNextCallback = claimNext
   result.completeCallback = complete
   result.releaseCallback = release
+  result.deadLetterCallback = deadLetter
   result.recoverCallback = recoverProcessing
   result.closeCallback = close
 
@@ -155,6 +166,10 @@ method release*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
   store.ensureExternalStoreOpen()
   store.releaseCallback(id)
 
+method deadLetter*(store: ExternalDurableJobStore, id: string) {.gcsafe.} =
+  store.ensureExternalStoreOpen()
+  store.deadLetterCallback(id)
+
 method recoverProcessing*(store: ExternalDurableJobStore) {.gcsafe.} =
   store.ensureExternalStoreOpen()
   store.recoverCallback()
@@ -171,12 +186,14 @@ method close*(store: ExternalDurableJobStore) {.gcsafe.} =
     store.closeCallback()
 
 proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
-              queue: BackgroundJobQueue): Future[DurableJobRunResult] {.async.} =
+              queue: BackgroundJobQueue, maxAttempts = 3): Future[DurableJobRunResult] {.async.} =
   ## Claim one record, execute its named handler through the existing bounded
   ## executor, and advance durable state only after the handler succeeds.
   if registry.isNil or store.isNil or queue.isNil:
     raise newException(ValueError,
       "Durable job registry, store, and queue are required")
+  if maxAttempts < 1:
+    raise newException(ValueError, "Durable job maxAttempts must be positive")
   let claimed = store.claimNext()
   if claimed.isNone:
     return DurableJobRunResult(processed: false)
@@ -184,8 +201,12 @@ proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
   result.processed = true
   result.id = record.id
   result.attempts = record.attempts
+  if record.attempts > maxAttempts:
+    store.deadLetter(record.id)
+    result.error = "Durable job exceeded attempt budget"
+    return
   if not registry.handlers.hasKey(record.kind):
-    store.release(record.id)
+    store.deadLetter(record.id)
     result.error = "No durable job handler registered: " & record.kind
     return
   let handler = registry.handlers[record.kind]
@@ -195,7 +216,10 @@ proc runNext*(registry: DurableJobRegistry, store: DurableJobStore,
     store.complete(record.id)
     result.succeeded = true
   else:
-    store.release(record.id)
+    if record.attempts >= maxAttempts:
+      store.deadLetter(record.id)
+    else:
+      store.release(record.id)
     result.error = execution.error
 
 const durableJobsTable = "__mahanaim_durable_jobs"
@@ -305,6 +329,19 @@ method release*(store: SqliteDurableJobStore, id: string) {.gcsafe.} =
       raise newException(ValueError, "Durable job store is closed")
     store.connection.exec(SqlQuery(
       "UPDATE \"" & durableJobsTable & "\" SET \"status\" = 'pending' " &
+      "WHERE \"id\" = ? AND \"status\" = 'processing'"), id)
+  finally:
+    release(store.lock)
+
+method deadLetter*(store: SqliteDurableJobStore, id: string) {.gcsafe.} =
+  if store.isNil or id.strip().len == 0:
+    raise newException(ValueError, "Durable job store and id are required")
+  acquire(store.lock)
+  try:
+    if store.connection.isNil:
+      raise newException(ValueError, "Durable job store is closed")
+    store.connection.exec(SqlQuery(
+      "UPDATE \"" & durableJobsTable & "\" SET \"status\" = 'dead_letter' " &
       "WHERE \"id\" = ? AND \"status\" = 'processing'"), id)
   finally:
     release(store.lock)

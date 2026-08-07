@@ -1424,12 +1424,14 @@ suite "Mahanaim core contracts":
     var claimed: Atomic[int]
     var completed: Atomic[int]
     var released: Atomic[int]
+    var deadLettered: Atomic[int]
     var recovered: Atomic[int]
     var closed: Atomic[int]
     enqueued.store(0)
     claimed.store(0)
     completed.store(0)
     released.store(0)
+    deadLettered.store(0)
     recovered.store(0)
     closed.store(0)
     let store = newExternalDurableJobStore(
@@ -1448,18 +1450,23 @@ suite "Mahanaim core contracts":
       proc(id: string) {.gcsafe.} =
         check id == "external-1"
         discard released.fetchAdd(1),
+      proc(id: string) {.gcsafe.} =
+        check id == "external-1"
+        discard deadLettered.fetchAdd(1),
       proc() {.gcsafe.} = discard recovered.fetchAdd(1),
       proc() {.gcsafe.} = discard closed.fetchAdd(1))
     store.enqueue("external-1", "email", "payload")
     check store.claimNext().get().id == "external-1"
     store.complete("external-1")
     store.release("external-1")
+    store.deadLetter("external-1")
     store.recoverProcessing()
     store.close()
     check enqueued.load() == 1
     check claimed.load() == 1
     check completed.load() == 1
     check released.load() == 1
+    check deadLettered.load() == 1
     check recovered.load() == 1
     check closed.load() == 1
 
@@ -1470,6 +1477,7 @@ suite "Mahanaim core contracts":
       proc(id, kind, payload: string) {.gcsafe.} = discard,
       proc(): Option[DurableJobRecord] {.gcsafe.} =
         none(DurableJobRecord),
+      proc(id: string) {.gcsafe.} = discard,
       proc(id: string) {.gcsafe.} = discard,
       proc(id: string) {.gcsafe.} = discard,
       proc() {.gcsafe.} = discard,
@@ -1485,6 +1493,8 @@ suite "Mahanaim core contracts":
       store.complete("closed")
     expect ValueError:
       store.release("closed")
+    expect ValueError:
+      store.deadLetter("closed")
     expect ValueError:
       store.recoverProcessing()
 
