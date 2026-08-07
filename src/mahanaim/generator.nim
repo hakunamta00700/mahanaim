@@ -106,6 +106,9 @@ proc generateProject*(spec: ProjectSpec) =
     "*.exe\n")
   writeIfMissing(spec.root / (spec.name & ".nimble"),
     "version = \"0.1.0\"\n" &
+    "author = \"" & spec.name & " contributors\"\n" &
+    "description = \"" & spec.name & " application built with Mahanaim\"\n" &
+    "license = \"MIT\"\n" &
     "srcDir = \"src\"\n\n" &
     "bin = @[\"" & spec.name & "\"]\n\n" &
     "requires \"mahanaim >= 0.1.0\"\n" &
