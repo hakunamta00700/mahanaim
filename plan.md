@@ -612,10 +612,10 @@
 
 ## 11. 저장소, 캐시, 정적 자산 (P1)
 
-- [ ] `docs/storage.md`: upload storage, ObjectStorage, local/in-memory/S3-compatible bridge, key traversal 방지, 오류/재시도 경계를 설명한다.
-- [ ] `docs/cache.md`: CacheStore, memory/Redis/Valkey adapter, TTL, eviction, response cache/ETag의 차이를 설명한다.
-- [ ] `docs/static-assets.md`: `static collect`, source/output 안전 경계, manifest, reverse proxy/CDN 배포를 설명한다.
-- [ ] Redis/Valkey compatibility와 provider live check 조건을 운영 문서와 상호 연결한다.
+- [x] `docs/storage.md`: upload storage, ObjectStorage, local/in-memory/S3-compatible bridge, key traversal 방지, 오류/재시도 경계를 설명한다.
+- [x] `docs/cache.md`: CacheStore, memory/Redis/Valkey adapter, TTL, eviction, response cache/ETag의 차이를 설명한다.
+- [x] `docs/static-assets.md`: `static collect`, source/output 안전 경계, manifest, reverse proxy/CDN 배포를 설명한다.
+- [x] Redis/Valkey compatibility와 provider live check 조건을 운영 문서와 상호 연결한다.
 
 수용 기준:
 
