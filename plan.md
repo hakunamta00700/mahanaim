@@ -636,11 +636,11 @@
 
 ## 13. 플러그인, 확장, 외부 통합 (P1)
 
-- [ ] `docs/plugins.md`: PluginManifest, phase, dependency graph, `use`, route/DI/middleware/serializer/storage/auth/command/admin 확장 지점을 설명한다.
-- [ ] `docs/application-modules.md`: plugin과 ApplicationModule의 목적·설치 시점·의존성·export 차이를 설명한다.
-- [ ] `docs/extension-authoring.md`: 확장 패키지 구조, compatibility, 테스트, error/ownership/lifecycle 규칙, 배포 전 점검표를 작성한다.
-- [ ] `docs/external-adapters.md`: template adapter, storage/cache/database/auth/channel/durable job adapter의 공통 adapter 계약과 provider별 책임을 설명한다.
-- [ ] 현재 없는 plugin scaffold/registry/dynamic loading/version solver는 "미구현"으로 명확히 표기한다.
+- [x] `docs/plugins.md`: PluginManifest, phase, dependency graph, `use`, route/DI/middleware/serializer/storage/auth/command/admin 확장 지점을 설명한다.
+- [x] `docs/application-modules.md`: plugin과 ApplicationModule의 목적·설치 시점·의존성·export 차이를 설명한다.
+- [x] `docs/extension-authoring.md`: 확장 패키지 구조, compatibility, 테스트, error/ownership/lifecycle 규칙, 배포 전 점검표를 작성한다.
+- [x] `docs/external-adapters.md`: template adapter, storage/cache/database/auth/channel/durable job adapter의 공통 adapter 계약과 provider별 책임을 설명한다.
+- [x] 현재 없는 plugin scaffold/registry/dynamic loading/version solver는 "미구현"으로 명확히 표기한다.
 
 수용 기준:
 
