@@ -43,7 +43,9 @@ app.installModules([catalogModule()])
 
 ## 앱 모듈
 
-`mahanaim app NAME`은 `ApplicationModule` factory와 독립 테스트를 만든다.
+`mahanaim app NAME`은 `src/NAME.nim`의 `ApplicationModule` factory와
+`tests/test_NAME.nim` 독립 테스트를 만든다. 따라서 `mahanaim app catalog`의
+생성물은 `src/catalog.nim`과 `tests/test_catalog.nim`이다.
 모듈에는 provider, controller, route, startup/shutdown hook, export를 명시적으로
 추가할 수 있다. 자세한 API는 [애플리케이션과 모듈](application-and-modules.md)을
 따른다.

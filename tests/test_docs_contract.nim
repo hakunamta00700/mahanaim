@@ -91,6 +91,28 @@ suite "definition of done contracts":
         check guide.contains("`" & usage & "`")
     check guide.contains("성공은 종료 코드 `0`")
     check guide.contains("반환한다. `test`는 내부 `nimble test`의 종료 코드를")
+
+  test "application scaffold documentation matches generator output":
+    ## The app command intentionally avoids implicit discovery. Keep the
+    ## generated filenames, explicit factory, and health route in lockstep
+    ## with the onboarding guides so a copied composition snippet remains
+    ## executable after generator changes.
+    let generator = readFile(getCurrentDir() / "src" / "mahanaim" /
+      "generator.nim")
+    let gettingStarted = readFile(getCurrentDir() / "docs" /
+      "getting-started.md")
+    let projectLayout = readFile(getCurrentDir() / "docs" /
+      "project-layout.md")
+    for guide in [gettingStarted, projectLayout]:
+      check guide.contains("mahanaim app catalog")
+      check guide.contains("src/catalog.nim")
+      check guide.contains("tests/test_catalog.nim")
+      check guide.contains("catalogModule()")
+    check generator.contains("src/catalog.nim") == false
+    check generator.contains("spec.name & \".nim\"")
+    check generator.contains("test_\" & spec.name & \".nim\"")
+    check generator.contains("proc \" & spec.name & \"Module*")
+    check generator.contains("routePath = \"/\" & routeName & \"/health\"")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
