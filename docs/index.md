@@ -69,6 +69,23 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 | Litestar에서 이전 | [Litestar 전환](litestar-migration.md) |
 | 실험 기능·제한 | [지원 매트릭스](support-matrix.md), [알려진 제한](known-limitations.md) |
 
+## 레퍼런스·유지보수 문서
+
+| 목표 | 문서 |
+| --- | --- |
+| 핵심 public API | [API 레퍼런스](api-reference/README.md), [Core API](api-reference/core.md) |
+| 오류·timeout·취소 경계 | [오류와 lifecycle](errors-and-lifecycle.md) |
+| 업로드 multipart 처리 | [업로드](uploads.md) |
+| HTML·JSON·HTMX 단일 route | [HTMX 예제](htmx-example.md) |
+| storage와 외부 ORM 경계 | [Storage/ORM 통합](storage-and-orm-integration.md) |
+| 확장 패키지 manifest와 계약 | [확장 패키지 계약](extension-package-contracts.md) |
+| 개발·관측성 workflow | [개발 workflow](developer-workflow.md) |
+| 도입과 릴리스 절차 | [도입·릴리스](adoption-and-release.md), [릴리스 가이드](release-guide.md) |
+| 호환성·API 안정성 | [API 안정성 정책](api-stability-policy.md) |
+| 문서 유지 기준 | [문서 유지보수](documentation-maintenance.md), [Definition of Done](definition-of-done.md) |
+| 설계 요구사항과 구현 진행 | [요구사항](nim-fullstack-framework-requirements.md), [구현 계획](nim-fullstack-framework-implementation-plan.md), [선택 도메인 결정](optional-domain-decisions.md) |
+| 공통 용어 | [용어집](glossary.md) |
+
 ## 문서 상태
 
 이 인덱스의 링크는 사용자 문서의 정식 경로다. experimental 기능은 실제

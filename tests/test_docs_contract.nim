@@ -37,10 +37,29 @@ proc markdownLinkIssues(root: string): seq[string] =
       if not fileExists(base / target):
         result.add(relativePath(document, root) & " -> " & target)
 
+proc unindexedDocumentation(root: string): seq[string] =
+  ## `docs/index.md` is the canonical entry point for user-facing material.
+  ## Keep its links exhaustive so new guides cannot become repository-only
+  ## knowledge that users discover only by browsing source directories.
+  let indexPath = root / "docs" / "index.md"
+  var indexed: seq[string]
+  for target in localMarkdownTargets(readFile(indexPath)):
+    indexed.add(normalizedPath(target))
+  for path in walkDirRec(root / "docs"):
+    if splitFile(path).ext.toLowerAscii() != ".md" or path == indexPath:
+      continue
+    let relative = normalizedPath(relativePath(path, parentDir(indexPath)))
+    if relative notin indexed:
+      result.add(relative)
+
 suite "definition of done contracts":
   test "internal Markdown links resolve to repository documentation":
     let issues = markdownLinkIssues(getCurrentDir())
     check issues.len == 0
+
+  test "documentation index links every Markdown guide":
+    let missing = unindexedDocumentation(getCurrentDir())
+    check missing.len == 0
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
