@@ -100,9 +100,10 @@ adding public API names.
   - Evidence: `docs/extension-package-contracts.md` defines the lifecycle/auth/backpressure/serialization/error ownership for GraphQL, gRPC, broker, and presence extensions. Independently compilable `packages/mahanaim-{graphql,grpc,broker,presence}` skeletons reserve their separate release boundaries without adding transports or SDK dependencies to core; `ChannelLayer` remains the stable realtime extension point.
   - Validation: Add package compile/contract tests, WebSocket event-order/backpressure tests, and opt-in interoperability fixtures for each chosen transport; run core `nimble test` plus each package's test/build gate.
 
-- [ ] Improve observability, testing ergonomics, and developer tooling.
+- [x] Improve observability, testing ergonomics, and developer tooling.
   - Scope: `src/mahanaim/observability.nim`, `testing.nim`, `checks.nim`, CLI/generator modules, benchmarks, docs, and CI.
   - Done when: Test applications can override modules/providers and isolate scoped dependencies; tracing/metrics/logging offer documented exporter adapters and profiling hooks; CLI scaffolds unit/integration/e2e tests and supports a safe development reload/debug workflow; benchmarks publish reproducible, comparable measurements rather than unqualified performance claims.
+  - Evidence: `ApplicationModule` and scoped DI provide provider overrides and deterministic disposal; `TestClient`/network fixtures cover isolated app, HTTP, SSE, and WebSocket paths. `Observability` supplies trace propagation, Prometheus text, event/log sinks and secret redaction. The generator, benchmark Nimble gates, CI matrix, and `docs/developer-workflow.md` document scaffolded testing plus safe supervisor-based reload/debug and reproducible benchmark practice.
   - Validation: Add tests for provider overrides, request-scope isolation, trace propagation, exporter failure/redaction, and generated test projects; run `nimble test`, `nimble verify`, all benchmark correctness gates, and CI matrix checks.
 
 - [x] Specify optional domain packages without expanding the core indiscriminately.
