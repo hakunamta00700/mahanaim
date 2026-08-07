@@ -548,11 +548,11 @@
 
 ## 6. 모델, 직렬화, 데이터베이스 (P1)
 
-- [ ] `docs/models-and-metadata.md`: 모델 metadata/macro, field 종류, custom field, index, constraint, relation, serializer/form/OpenAPI와의 공유 경계를 설명한다.
-- [ ] `docs/serialization.md`: JSON/MessagePack, DTO, rename, sensitive field, enum/date/UUID/file, custom codec와 request/response 분리를 설명한다.
-- [ ] `docs/querying.md`: QuerySet, filter/sort/pagination/cursor, projection, aggregate/annotation, eager/lazy relation, lock mode의 지원 범위를 설명한다.
-- [ ] `docs/migrations.md`: migration 정의, status/up/rollback/seed, schema diff/check, SQLite/PostgreSQL 차이와 안전한 배포 순서를 설명한다.
-- [ ] `docs/database-connections.md`: adapter, pool, session, transaction, savepoint, isolation, repository, request lifecycle과 capability matrix를 설명한다.
+- [x] `docs/models-and-metadata.md`: 모델 metadata/macro, field 종류, custom field, index, constraint, relation, serializer/form/OpenAPI와의 공유 경계를 설명한다.
+- [x] `docs/serialization.md`: JSON/MessagePack, DTO, rename, sensitive field, enum/date/UUID/file, custom codec와 request/response 분리를 설명한다.
+- [x] `docs/querying.md`: QuerySet, filter/sort/pagination/cursor, projection, aggregate/annotation, eager/lazy relation, lock mode의 지원 범위를 설명한다.
+- [x] `docs/migrations.md`: migration 정의, status/up/rollback/seed, schema diff/check, SQLite/PostgreSQL 차이와 안전한 배포 순서를 설명한다.
+- [x] `docs/database-connections.md`: adapter, pool, session, transaction, savepoint, isolation, repository, request lifecycle과 capability matrix를 설명한다.
 - [ ] storage/ORM 통합 문서를 위 가이드에서 발견 가능하게 연결하고 외부 ORM ownership 예제를 보강한다.
 
 수용 기준:
