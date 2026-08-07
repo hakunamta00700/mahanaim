@@ -599,11 +599,11 @@
 
 ## 10. 비동기 작업, 실시간 통신, 메시징 (P1)
 
-- [ ] `docs/background-jobs.md`: job 등록, retry, idempotency, durable SQLite store, recovery, `jobs run/recover`, 외부 durable store adapter 경계를 설명한다.
-- [ ] `docs/websocket.md`: route, session, frame, close, channel binding, 인증/권한과 테스트 방법을 설명한다.
-- [ ] `docs/sse.md`: SSE response, event/id/data 규칙, reconnection/HTTP proxy 주의점을 설명한다.
-- [ ] `docs/channel-layers.md`: in-memory/callback/Redis channel layer, subscribe/publish, ordering, backpressure, reconnect, shutdown과 rolling deployment 경계를 설명한다.
-- [ ] `docs/email-and-notifications.md`: EmailMessage, SMTP/callback/retry transport, flash message, sitemap/RSS/Atom 생성 API를 설명한다.
+- [x] `docs/background-jobs.md`: job 등록, retry, idempotency, durable SQLite store, recovery, `jobs run/recover`, 외부 durable store adapter 경계를 설명한다.
+- [x] `docs/websocket.md`: route, session, frame, close, channel binding, 인증/권한과 테스트 방법을 설명한다.
+- [x] `docs/sse.md`: SSE response, event/id/data 규칙, reconnection/HTTP proxy 주의점을 설명한다.
+- [x] `docs/channel-layers.md`: in-memory/callback/Redis channel layer, subscribe/publish, ordering, backpressure, reconnect, shutdown과 rolling deployment 경계를 설명한다.
+- [x] `docs/email-and-notifications.md`: EmailMessage, SMTP/callback/retry transport, flash message, sitemap/RSS/Atom 생성 API를 설명한다.
 
 수용 기준:
 
