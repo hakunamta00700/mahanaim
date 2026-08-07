@@ -79,6 +79,14 @@ proc health(request: Request): Future[Response] {.async, gcsafe.} =
   discard request
   return jsonResponse("{\"status\":\"ok\"}")
 
+proc generatedApplicationModule(): ApplicationModule =
+  ## Generated projects demonstrate explicit composition: routes and lifecycle
+  ## hooks belong to a named module rather than implicit package discovery.
+  result = newApplicationModule("generated-app")
+  result.addModuleRoute(proc(app: Application) {.gcsafe.} =
+    app.get("/health", "health", health))
+  result.onModuleStartup(proc() {.gcsafe.} = discard)
+
 proc sliceMetadata(): ModelMetadata =
   ## One explicit metadata source feeds migration, validation, CRUD, and forms.
   result = createModelMetadata("Item", "items")
@@ -124,7 +132,7 @@ proc createApp*(config = loadConfig()): Application =
   let repository = newDatabaseRepository(metadata, adapter)
   let store = newDatabaseRepositoryResourceStore(repository)
   registerCrudRoutes(app, newCrudResource(metadata, store), "/items", "items")
-  app.get("/health", "health", health)
+  app.installModules([generatedApplicationModule()])
 
   let accountStore = newInMemoryAccountCredentialStore()
   let hasher = newPbkdf2PasswordHasher(iterations = 10000)

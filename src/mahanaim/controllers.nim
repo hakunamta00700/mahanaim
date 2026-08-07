@@ -40,3 +40,21 @@ proc addControllerRoute*(app: Application, controller: Controller,
   let handler: Handler = proc(request: Request): Future[Response] {.async, gcsafe.} =
     await target.handle(selectedAction, request)
   app.addRoute(httpMethod, pattern, name, handler, middleware)
+
+proc addModuleControllerRoute*(module: ApplicationModule,
+                               controller: Controller, httpMethod, pattern,
+                               name, action: string,
+                               middleware: seq[Middleware] = @[]) =
+  ## Controller declarations remain visible on the module while installation
+  ## uses the same Application route boundary as hand-written routes.
+  if module.isNil or controller.isNil:
+    raise newException(ValueError, "Module and controller are required")
+  let target = controller
+  let selectedMethod = httpMethod
+  let selectedPattern = pattern
+  let selectedName = name
+  let selectedAction = action
+  let selectedMiddleware = middleware
+  module.addModuleController(proc(app: Application) {.gcsafe.} =
+    app.addControllerRoute(target, selectedMethod, selectedPattern,
+      selectedName, selectedAction, selectedMiddleware))

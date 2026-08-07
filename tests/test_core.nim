@@ -1149,6 +1149,72 @@ suite "Mahanaim core contracts":
     lifecycleApp.shutdown()
     check cast[DisposableDependencyService](owned).disposed
 
+  test "application modules validate composition exports overrides and scopes":
+    ## Module installers are the composition boundary above the DI container:
+    ## imports provide only explicit exports, while routes/controllers/hooks are
+    ## installed only after the full graph has passed validation.
+    let base = newApplicationModule("base")
+    base.addModuleProvider("base-service", dependencyApplication,
+      newFakeDependencyService)
+    base.exportProvider("base-service")
+    let feature = newApplicationModule("feature")
+    feature.importModule(base)
+    feature.overrideModuleProvider("base-service", dependencyApplication,
+      newFakeDependencyService)
+    feature.addModuleProvider("task-service", dependencyTask,
+      newFakeDependencyService)
+    var startupCalls = 0
+    var shutdownCalls = 0
+    feature.onModuleStartup(proc() = inc startupCalls)
+    feature.onModuleShutdown(proc() = inc shutdownCalls)
+    proc moduleHealth(request: Request): Future[mahanaim.Response]
+        {.async, gcsafe.} =
+      discard request
+      return textResponse("module-ok")
+    feature.addModuleRoute(proc(app: Application) {.gcsafe.} =
+      app.get("/module-health", "module-health", moduleHealth))
+    feature.addModuleControllerRoute(GreetingController(), "GET",
+      "/module-controller", "module-controller", "show")
+    let app = newApplication()
+    app.installModules([feature])
+    check app.hasModule("base")
+    check app.hasModule("feature")
+    check not app.resolve("base-service").isNil
+    let taskScope = app.newTaskServiceScope()
+    let taskService = taskScope.resolve("task-service")
+    check not taskService.isNil
+    taskScope.dispose()
+    app.startup()
+    check startupCalls == 1
+    let routed = waitFor app.dispatch(newRequest("GET", "/module-health"))
+    check routed.body == "module-ok"
+    let controlled = waitFor app.dispatch(newRequest("GET", "/module-controller"))
+    check controlled.body == "controller:/module-controller"
+    app.shutdown()
+    check shutdownCalls == 1
+
+    let hidden = newApplicationModule("hidden")
+    hidden.addModuleProvider("not-exported", dependencyApplication,
+      newFakeDependencyService)
+    let invalid = newApplicationModule("invalid")
+    invalid.importModule(hidden)
+    invalid.addModuleFactory("needs-hidden", dependencyApplication,
+      @["not-exported"], proc(_: seq[DependencyService]): DependencyService {.gcsafe.} =
+        newFakeDependencyService())
+    expect ValueError:
+      newApplication().installModules([invalid])
+
+    let duplicateOne = newApplicationModule("duplicate")
+    let duplicateTwo = newApplicationModule("duplicate")
+    expect ValueError:
+      discard resolveApplicationModules([duplicateOne, duplicateTwo])
+    let cycleOne = newApplicationModule("cycle-one")
+    let cycleTwo = newApplicationModule("cycle-two")
+    cycleOne.importModule(cycleTwo)
+    cycleTwo.importModule(cycleOne)
+    expect ValueError:
+      discard resolveApplicationModules([cycleOne])
+
   test "dispatch owns a request service scope for handlers":
     ## Transport adapters should not create ad-hoc service lifetimes; the core
     ## dispatch boundary owns one child scope for the complete request.

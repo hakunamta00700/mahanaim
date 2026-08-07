@@ -98,6 +98,26 @@ proc provideFactory*(container: ServiceContainer, name: string,
   container.registrations[name] = DependencyRegistration(name: name,
     scope: scope, factory: factory, dependencies: edges, disposer: disposer)
 
+proc override*(container: ServiceContainer, registration: DependencyRegistration) =
+  ## Overrides are an explicit composition-time operation. Refusing to replace
+  ## an already-created instance prevents a module from silently giving one
+  ## request the old dependency and another request the new one.
+  if container.isNil or container.disposed or registration.name.strip().len == 0:
+    raise newException(ValueError,
+      "Dependency container is unavailable or override name is empty")
+  if not container.registrations.hasKey(registration.name):
+    raise newException(ValueError,
+      "Cannot override unknown dependency: " & registration.name)
+  if container.applicationInstances.hasKey(registration.name) or
+      container.ownedInstances.hasKey(registration.name):
+    raise newException(ValueError,
+      "Cannot override an already resolved dependency: " & registration.name)
+  if registration.provider.isNil and registration.factory.isNil:
+    raise newException(ValueError,
+      "Dependency override requires a provider or factory: " & registration.name)
+  validateDependencies(registration.dependencies)
+  container.registrations[registration.name] = registration
+
 proc newChildScope*(parent: ServiceContainer): ServiceContainer =
   ## A child owns request/task instances while delegating application-scoped
   ## values to the root. Registrations are copied as values so plugins cannot
@@ -109,6 +129,16 @@ proc newChildScope*(parent: ServiceContainer): ServiceContainer =
   for name, registration in parent.registrations:
     result.registrations[name] = registration
   parent.children.add(result)
+
+proc newRequestScope*(parent: ServiceContainer): ServiceContainer =
+  ## Name the ownership boundary at call sites. A request scope has the same
+  ## mechanics as a child scope, while request middleware owns its disposal.
+  parent.newChildScope()
+
+proc newTaskScope*(parent: ServiceContainer): ServiceContainer =
+  ## Background workers use a fresh child scope per task so task-scoped
+  ## services cannot leak across deliveries or graceful-drain attempts.
+  parent.newChildScope()
 
 proc resolve*(container: ServiceContainer,
               name: string): DependencyService =

@@ -40,10 +40,11 @@ adding public API names.
   - Evidence: `docs/support-matrix.md` now lists every first-party feature with a maturity label, supported targets, and its CI/live evidence; `tests/test_docs_contract.nim` validates that table and the README/manifest MIT agreement. `support-policy.md` defines promotion evidence and CI generates `release-artifacts.manifest` on Linux, Windows, and macOS.
   - Validation: Extend `tests/test_docs_contract.nim`; run `nimble docsCheck`, `nimble lockCheck`, `nimble verify`, and inspect the generated release-artifact manifest on every CI OS.
 
-- [ ] Add an application module/composition boundary above the current DI container.
+- [x] Add an application module/composition boundary above the current DI container.
   - Scope: `src/mahanaim/di.nim`, `src/mahanaim/application.nim`, `src/mahanaim/controllers.nim`, `src/mahanaim/generator.nim`, `src/mahanaim/cli.nim`, plus focused tests.
   - Done when: Modules can declare imports, providers, controllers, routes, lifecycle hooks, and explicit export visibility; startup rejects duplicate/cyclic modules; request/task/application scopes dispose deterministically; generated apps demonstrate the convention without hidden global discovery.
-  - Validation: Add unit tests for module graph resolution, provider override, scope disposal, duplicate/cycle failures, and generated-app compilation; run `nimble test`, `nimble docsExamples`, and `nimble publicApiCheck`.
+  - Evidence: `ApplicationModule` provides explicit imports, provider/factory declarations, controller and route installers, lifecycle hooks, exports, and guarded provider overrides. Composition validates the complete graph before side effects, rejects duplicate/cyclic modules and non-exported dependencies, and exposes deterministic request/task scope APIs. The generated project creates and installs a named module; its generated app and test compile in the generator contract.
+  - Validation: Added module graph, export visibility, override, scope-disposal, controller/route/lifecycle, duplicate/cycle regression coverage; run `nimble test`, `nimble docsExamples`, and `nimble publicApiCheck`.
 
 - [ ] Complete the typed API contract and add first-class API versioning.
   - Scope: `src/mahanaim/validation.nim`, `serialization.nim`, `openapi.nim`, `model_macro.nim`, `openapi_client.nim`, router/application modules, CLI, and API contract tests.

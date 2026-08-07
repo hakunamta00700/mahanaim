@@ -35,3 +35,4 @@ static:
   doAssert compiles(newThreadPoolExecutor())
   doAssert compiles(defaultSecurityPolicy())
   doAssert compiles(Controller())
+  doAssert compiles(newApplicationModule("app"))

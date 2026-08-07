@@ -45,6 +45,28 @@ type
 
   PluginInstaller* = proc (app: Application) {.gcsafe.}
 
+  ModuleInstaller* = proc (app: Application) {.gcsafe.}
+
+  ModuleProvider* = object
+    ## Modules keep provider declarations as values until their complete graph
+    ## is validated. This prevents half-installed modules after a duplicate or
+    ## cycle error and gives composition an explicit override marker.
+    registration*: DependencyRegistration
+    overrideExisting*: bool
+
+  ApplicationModule* = ref object
+    ## A module is an explicit application composition unit. It is intentionally
+    ## not discovered from imports or globals: the root application supplies
+    ## the module(s) it wants to install.
+    name*: string
+    imports*: seq[ApplicationModule]
+    providers*: seq[ModuleProvider]
+    controllers*: seq[ModuleInstaller]
+    routes*: seq[ModuleInstaller]
+    startupHooks*: seq[LifecycleHook]
+    shutdownHooks*: seq[LifecycleHook]
+    exports*: seq[string]
+
   CommandHandler* = proc (arguments: seq[string]): int {.gcsafe.}
 
   AdminUserCreator* = proc (identifier, password, subject: string): string
@@ -95,6 +117,7 @@ type
     executor*: ThreadPoolExecutor
     observability*: Observability
     services*: ServiceContainer
+    moduleNames: Table[string, bool]
     jobs*: BackgroundJobQueue
     databasePool*: DatabaseConnectionPool
     migrationRegistry*: MigrationRegistry
@@ -160,6 +183,7 @@ proc newApplication*(config = defaultConfig(),
       redactedSecrets.add(secret)
   result.observability = newObservability(redactedSecrets = redactedSecrets)
   result.services = newServiceContainer()
+  result.moduleNames = initTable[string, bool]()
   result.jobs = newBackgroundJobQueue(result.executor)
   result.migrationRegistry = newMigrationRegistry()
   result.migrationDatabasePath = ".mahanaim.sqlite"
@@ -375,6 +399,196 @@ proc resolvePluginManifests*(manifests: openArray[PluginManifest]): seq[PluginMa
   if result.len != manifests.len:
     raise newException(ValueError, "Cyclic plugin dependency graph")
 
+proc newApplicationModule*(name: string): ApplicationModule =
+  ## Start with an empty, explicit module. Declarations below are deliberately
+  ## separate calls so generated and hand-written applications remain easy to
+  ## review without macro or global discovery.
+  if name.strip().len == 0:
+    raise newException(ValueError, "Application module name is required")
+  ApplicationModule(name: name, imports: @[], providers: @[], controllers: @[],
+    routes: @[], startupHooks: @[], shutdownHooks: @[], exports: @[])
+
+proc importModule*(module, dependency: ApplicationModule) =
+  if module.isNil or dependency.isNil:
+    raise newException(ValueError, "Application module import is required")
+  if module == dependency:
+    raise newException(ValueError, "Application module cannot import itself")
+  for existing in module.imports:
+    if existing == dependency or existing.name == dependency.name:
+      raise newException(ValueError,
+        "Duplicate application module import: " & dependency.name)
+  module.imports.add(dependency)
+
+proc addModuleProvider*(module: ApplicationModule, name: string,
+                        scope: DependencyScope, provider: DependencyProvider,
+                        disposer: DependencyDisposer = nil) =
+  if module.isNil or name.strip().len == 0 or provider.isNil:
+    raise newException(ValueError, "Module provider name and provider are required")
+  for existing in module.providers:
+    if existing.registration.name == name:
+      raise newException(ValueError, "Duplicate module provider: " & name)
+  module.providers.add(ModuleProvider(registration: DependencyRegistration(
+    name: name, scope: scope, provider: provider, disposer: disposer)))
+
+proc addModuleFactory*(module: ApplicationModule, name: string,
+                       scope: DependencyScope, dependencies: openArray[string],
+                       factory: DependencyFactory,
+                       disposer: DependencyDisposer = nil) =
+  if module.isNil or name.strip().len == 0 or factory.isNil:
+    raise newException(ValueError, "Module factory name and factory are required")
+  var edges: seq[string] = @[]
+  for dependency in dependencies:
+    edges.add(dependency)
+  for existing in module.providers:
+    if existing.registration.name == name:
+      raise newException(ValueError, "Duplicate module provider: " & name)
+  module.providers.add(ModuleProvider(registration: DependencyRegistration(
+    name: name, scope: scope, factory: factory, dependencies: edges,
+    disposer: disposer)))
+
+proc overrideModuleProvider*(module: ApplicationModule, name: string,
+                             scope: DependencyScope, provider: DependencyProvider,
+                             disposer: DependencyDisposer = nil) =
+  ## An override may only target an imported, exported provider; composition
+  ## verifies that condition before any registration reaches the container.
+  if module.isNil or name.strip().len == 0 or provider.isNil:
+    raise newException(ValueError, "Module override name and provider are required")
+  for existing in module.providers:
+    if existing.registration.name == name:
+      raise newException(ValueError, "Duplicate module provider: " & name)
+  module.providers.add(ModuleProvider(registration: DependencyRegistration(
+    name: name, scope: scope, provider: provider, disposer: disposer),
+    overrideExisting: true))
+
+proc exportProvider*(module: ApplicationModule, name: string) =
+  if module.isNil or name.strip().len == 0:
+    raise newException(ValueError, "Module export name is required")
+  if name in module.exports:
+    raise newException(ValueError, "Duplicate module export: " & name)
+  module.exports.add(name)
+
+proc addModuleController*(module: ApplicationModule, installer: ModuleInstaller) =
+  if module.isNil or installer.isNil:
+    raise newException(ValueError, "Module controller installer is required")
+  module.controllers.add(installer)
+
+proc addModuleRoute*(module: ApplicationModule, installer: ModuleInstaller) =
+  if module.isNil or installer.isNil:
+    raise newException(ValueError, "Module route installer is required")
+  module.routes.add(installer)
+
+proc onModuleStartup*(module: ApplicationModule, hook: LifecycleHook) =
+  if module.isNil or hook.isNil:
+    raise newException(ValueError, "Module startup hook is required")
+  module.startupHooks.add(hook)
+
+proc onModuleShutdown*(module: ApplicationModule, hook: LifecycleHook) =
+  if module.isNil or hook.isNil:
+    raise newException(ValueError, "Module shutdown hook is required")
+  module.shutdownHooks.add(hook)
+
+proc resolveApplicationModules*(roots: openArray[ApplicationModule]): seq[ApplicationModule] =
+  ## Depth-first traversal keeps import order deterministic while diagnosing
+  ## duplicate names and cyclic references before installers have side effects.
+  var byName = initTable[string, ApplicationModule]()
+  var visiting = initTable[string, bool]()
+  var visited = initTable[string, bool]()
+  let ordered = new seq[ApplicationModule]
+  proc visit(module: ApplicationModule) =
+    if module.isNil or module.name.strip().len == 0:
+      raise newException(ValueError, "Application module is missing a name")
+    if byName.hasKey(module.name) and byName[module.name] != module:
+      raise newException(ValueError, "Duplicate application module: " & module.name)
+    byName[module.name] = module
+    if visiting.hasKey(module.name):
+      raise newException(ValueError, "Cyclic application module graph: " & module.name)
+    if visited.hasKey(module.name):
+      return
+    visiting[module.name] = true
+    for dependency in module.imports:
+      visit(dependency)
+    visiting.del(module.name)
+    visited[module.name] = true
+    ordered[].add(module)
+  for root in roots:
+    visit(root)
+  result = ordered[]
+
+proc visibleModuleExports(module: ApplicationModule): seq[string] =
+  ## Only direct imported exports enter a module's provider dependency surface.
+  ## A transitive dependency must be re-exported deliberately, avoiding the
+  ## accidental ambient visibility common in global-container designs.
+  for dependency in module.imports:
+    for exported in dependency.exports:
+      if exported notin result:
+        result.add(exported)
+
+proc onStartup*(app: Application, hook: LifecycleHook)
+proc onShutdown*(app: Application, hook: LifecycleHook)
+
+proc installModules*(app: Application, roots: openArray[ApplicationModule]) =
+  ## Validate all names, exports, overrides, and provider edges before wiring
+  ## routes or hooks. A failed composition is therefore recoverable and does
+  ## not leave a partially configured application behind.
+  app.ensureRegistrationWindow("Application modules")
+  let modules = resolveApplicationModules(roots)
+  var providedBy = initTable[string, string]()
+  for module in modules:
+    for provider in module.providers:
+      let name = provider.registration.name
+      if provider.overrideExisting:
+        if not providedBy.hasKey(name) or name notin module.visibleModuleExports():
+          raise newException(ValueError,
+            "Module override must target an imported exported provider: " & name)
+      elif providedBy.hasKey(name):
+        raise newException(ValueError, "Duplicate module provider: " & name)
+      providedBy[name] = module.name
+    for exported in module.exports:
+      var declared = false
+      for provider in module.providers:
+        if provider.registration.name == exported:
+          declared = true
+      if not declared:
+        raise newException(ValueError,
+          "Module export is not declared by the module: " & exported)
+    let visible = module.visibleModuleExports()
+    for provider in module.providers:
+      for dependency in provider.registration.dependencies:
+        var local = false
+        for candidate in module.providers:
+          if candidate.registration.name == dependency:
+            local = true
+        if not local and dependency notin visible:
+          raise newException(ValueError,
+            "Module provider depends on a non-exported dependency: " & dependency)
+  for module in modules:
+    for provider in module.providers:
+      if provider.overrideExisting:
+        app.services.override(provider.registration)
+      elif app.services.hasDependency(provider.registration.name):
+        raise newException(ValueError,
+          "Duplicate application dependency: " & provider.registration.name)
+      elif not provider.registration.factory.isNil:
+        app.services.provideFactory(provider.registration.name,
+          provider.registration.scope, provider.registration.dependencies,
+          provider.registration.factory, provider.registration.disposer)
+      else:
+        app.services.provide(provider.registration.name,
+          provider.registration.scope, provider.registration.provider,
+          provider.registration.disposer)
+    for controller in module.controllers:
+      controller(app)
+    for route in module.routes:
+      route(app)
+    for hook in module.startupHooks:
+      app.onStartup(hook)
+    for hook in module.shutdownHooks:
+      app.onShutdown(hook)
+    app.moduleNames[module.name] = true
+
+proc hasModule*(app: Application, name: string): bool =
+  not app.isNil and app.moduleNames.hasKey(name)
+
 proc addRoute*(app: Application, httpMethod, pattern, name: string,
                handler: Handler, middleware: seq[Middleware] = @[]) =
   ## The generic registration API keeps less common methods available without
@@ -530,6 +744,14 @@ proc newServiceScope*(app: Application): ServiceContainer =
     raise newException(ValueError, "Application is required")
   app.services.newChildScope()
 
+proc newTaskServiceScope*(app: Application): ServiceContainer =
+  ## Task runners own this scope and must dispose it after every delivery.
+  ## The separate API keeps task lifetime visible even though both narrow
+  ## scopes share the same deterministic container mechanics.
+  if app.isNil:
+    raise newException(ValueError, "Application is required")
+  app.services.newTaskScope()
+
 proc registerSerializationCodec*(app: Application, wireType: string,
                                  codec: SerializationCodec) =
   ## Serialization plugins register against the application-owned registry;
@@ -670,7 +892,7 @@ proc dispatch*(app: Application, request: Request): Future[Response] {.async.} =
   ## timeout, and exception path through the nested finally block. Response
   ## negotiation is centralized here so in-process clients and every transport
   ## adapter observe the same selected representation.
-  let serviceScope = app.services.newChildScope()
+  let serviceScope = app.services.newRequestScope()
   var requestWithServices = request
   requestWithServices.services = serviceScope
   defer: serviceScope.dispose()
