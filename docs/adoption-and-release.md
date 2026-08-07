@@ -1,17 +1,20 @@
-# Adoption and release guide
+# 도입과 릴리스 가이드
 
-## Start an SSR/admin application
+**대상 독자:** Mahanaim을 도입하거나 릴리스를 준비하는 기술 책임자·운영자
+**선행 조건:** [시작 가이드](getting-started.md), [지원 매트릭스](support-matrix.md)
+**안정성 기준:** provider·staging 증거가 필요한 기능은 experimental로 유지한다.
+**검증:** `nimble test`, `nimble verify`, `nimble docsCheck`
 
-Create a complete starter project with `mahanaim new shop ./shop`. Inside that
-project, `mahanaim app catalog` creates `src/catalog.nim` and
-`tests/test_catalog.nim`; it refuses to overwrite an existing module or test.
-Install the generated `catalogModule()` explicitly in the project's composition
-root, then compose templates, forms, account authentication, and `AdminRegistry`.
-Run locally with the same compiler configuration used in CI, and use the network
-fixture to exercise browser routes before deployment. For an admin deployment,
-select a durable audit store, configure CSRF/HTTPS policy, create the first
-administrator through `mahanaim admin create-user`, and verify that the audit
-database is in the backup/restore runbook.
+## SSR/Admin 애플리케이션 시작
+
+`mahanaim new shop ./shop`으로 완전한 starter project를 만든다. 이 프로젝트에서
+`mahanaim app catalog`은 `src/catalog.nim`과 `tests/test_catalog.nim`을 만들며,
+기존 module이나 test를 덮어쓰지 않는다. 생성된 `catalogModule()`은 프로젝트
+composition root에 명시적으로 설치하고, 이후 template·form·계정 인증·`AdminRegistry`를
+조합한다. 배포 전에 CI와 같은 compiler 설정으로 로컬 실행하고 network fixture로
+browser route를 검사한다. Admin 배포에서는 durable audit store를 선택하고 CSRF/HTTPS
+정책을 설정한 뒤 `mahanaim admin create-user`로 첫 관리자를 만든다. audit database가
+backup/restore runbook에 포함됐는지도 확인한다.
 
 Admin의 기본 UI는 파일 기반 템플릿으로 제공된다. `AdminRegistry`를 만든 뒤
 `registerAdminRoutes` 전에 `admin.loadAdminTemplateDirectory("templates")`를
@@ -19,28 +22,26 @@ Admin의 기본 UI는 파일 기반 템플릿으로 제공된다. `AdminRegistry
 화면 이름과 컨텍스트는 [Admin 템플릿 커스터마이징](admin-template-customization.md)을
 따른다.
 
-## Start a versioned API/service
+## 버전 API/서비스 시작
 
-Register DTO-backed routes with an explicit URL or header API version policy,
-generate the OpenAPI document/client through the CLI, and configure JWT or
-introspection authentication before exposing the listener. Put PostgreSQL,
-Redis/Valkey, SMTP, object-store, broker, and gRPC/GraphQL choices behind their
-documented application-owned adapters; their optional live gates are evidence,
-not defaults selected by importing core.
+명시적인 URL 또는 header API version 정책으로 DTO route를 등록하고, listener를
+공개하기 전에 CLI로 OpenAPI document/client를 생성하며 JWT 또는 introspection 인증을
+구성한다. PostgreSQL, Redis/Valkey, SMTP, object store, broker, gRPC/GraphQL은
+문서화된 application-owned adapter 뒤에 둔다. 선택적 live gate는 import만으로
+선택되는 기본값이 아니라 증거다.
 
-## Upgrade, security, and rollback
+## 업그레이드·보안·롤백
 
-Read `api-stability-policy.md`, apply migrations through `mahanaim db status`
-then `db up`, and record the rollback command before changing production
-traffic. Follow `security-deployment-checklist.md` for proxy/TLS, secret,
-cookie, CSRF, backup, and access-log requirements. A rollback stops new traffic,
-marks readiness false, drains requests/jobs within the configured budget,
-restores the previous binary/configuration, and then records the deployment
-result in the operations runbook.
+`api-stability-policy.md`를 읽고 `mahanaim db status` 다음 `db up`으로 migration을
+적용한다. production traffic을 바꾸기 전에 rollback 명령을 기록한다.
+`security-deployment-checklist.md`에서 proxy/TLS, secret, cookie, CSRF, backup,
+access log 요구사항을 확인한다. 롤백은 새 traffic을 중지하고 readiness를 false로
+표시하며, 정해진 예산 안에서 request/job을 drain한 뒤 이전 binary/configuration을
+복원하고 결과를 운영 runbook에 기록한다.
 
-## Release qualification
+## 릴리스 적합성
 
-Run the portable gates locally:
+다음 이식 가능한 gate를 로컬에서 실행한다.
 
 ```text
 nimble test
@@ -51,9 +52,8 @@ nimble docsExamples
 git diff --check
 ```
 
-The GitHub Actions matrix runs these gates and produces release manifests on
-Linux, Windows, and macOS. Provider evidence is intentionally scoped: run
-`postgresLive`, `redisLive`, `httpsLive`, and `beastLive` only with disposable
-or approved credentials/services, attach their results to the release record,
-and do not relabel an experimental provider feature as stable without staging
-TLS renewal, reconnect, drain, and rollback evidence.
+GitHub Actions matrix는 이 gate를 Linux·Windows·macOS에서 실행하고 release
+manifest를 만든다. provider 증거의 범위는 의도적으로 제한된다. `postgresLive`,
+`redisLive`, `httpsLive`, `beastLive`는 disposable 또는 승인된 credential/service가
+있을 때만 실행하고 결과를 release record에 첨부한다. staging TLS 갱신, reconnect,
+drain, rollback 증거 없이 experimental provider 기능을 stable로 바꾸지 않는다.
