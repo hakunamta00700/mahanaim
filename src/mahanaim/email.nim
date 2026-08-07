@@ -43,6 +43,12 @@ type
     ## it must not be mistaken for durable or production delivery.
     messages*: seq[EmailMessage]
 
+  RetryingEmailTransport* = ref object of EmailTransport
+    ## Bounded retry is transport-level so callers cannot accidentally resend
+    ## unvalidated data or hide provider outages behind an infinite loop.
+    inner*: EmailTransport
+    maxAttempts*: int
+
 proc validateHeaderValue(value, fieldName: string) =
   ## Header injection is rejected before any transport sees the message. ASCII
   ## Newlines and ASCII controls are never valid in a header. Non-ASCII values
@@ -164,3 +170,27 @@ method send*(transport: InMemoryEmailTransport, message: EmailMessage)
   ## then retain the structured message for deterministic assertions.
   discard renderEmail(message)
   transport.messages.add(message)
+
+proc newRetryingEmailTransport*(inner: EmailTransport,
+                                maxAttempts = 3): RetryingEmailTransport =
+  if inner.isNil or maxAttempts < 1:
+    raise newException(ValueError, "Retrying email transport requires inner transport and attempts")
+  RetryingEmailTransport(inner: inner, maxAttempts: maxAttempts)
+
+method send*(transport: RetryingEmailTransport, message: EmailMessage)
+    {.gcsafe.} =
+  if transport.isNil or transport.inner.isNil:
+    raise newException(ValueError, "Retrying email transport is not configured")
+  ## Validate before the first attempt, avoiding repeated provider calls for a
+  ## locally malformed message. Provider failure details are not exposed here.
+  discard renderEmail(message)
+  var lastFailure: ref CatchableError = nil
+  for _ in 0 ..< transport.maxAttempts:
+    try:
+      transport.inner.send(message)
+      return
+    except CatchableError as error:
+      lastFailure = error
+  if lastFailure.isNil:
+    raise newException(ValueError, "Email delivery failed")
+  raise newException(ValueError, "Email delivery failed after bounded retry")

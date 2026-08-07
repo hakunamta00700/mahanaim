@@ -599,6 +599,29 @@ suite "Mahanaim core contracts":
     check deliveries.load() == 1
     check observedWire.load() > 0
 
+  test "retrying email transport bounds provider retries":
+    var attempts: Atomic[int]
+    attempts.store(0)
+    let flaky = newCallbackEmailTransport(proc(wire: string) {.gcsafe.} =
+      discard wire
+      let attempt = attempts.fetchAdd(1)
+      if attempt < 2:
+        raise newException(ValueError, "temporary provider failure"))
+    let retrying = newRetryingEmailTransport(flaky, maxAttempts = 3)
+    retrying.send(EmailMessage(sender: "sender@example.test",
+      recipients: @["recipient@example.test"], subject: "Retry",
+      contentType: "text/plain", body: "payload"))
+    check attempts.load() == 3
+    attempts.store(0)
+    let exhausted = newRetryingEmailTransport(flaky, maxAttempts = 2)
+    expect ValueError:
+      exhausted.send(EmailMessage(sender: "sender@example.test",
+        recipients: @["recipient@example.test"], subject: "Retry",
+        contentType: "text/plain", body: "payload"))
+    check attempts.load() == 2
+    expect ValueError:
+      discard newRetryingEmailTransport(nil)
+
   test "default application policies activate bounded timeout and rate limit":
     ## A framework default must provide a finite failure boundary without
     ## requiring every application to remember a security setting. Explicit
