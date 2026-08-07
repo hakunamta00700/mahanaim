@@ -112,9 +112,10 @@ adding public API names.
   - Evidence: `docs/optional-domain-decisions.md` publishes package/integration-neutral decisions for Geo/GIS, multi-tenancy, CMS, full-text search, frontend integration, and presence, including tenant/data-isolation and authorization boundaries. The planned presence package skeleton is independent, and no optional dependency was added to `mahanaim.nimble`.
   - Validation: Review the ADRs against `docs/nim-fullstack-framework-requirements.md`; compile each package skeleton independently and run `nimble docsCheck` to ensure status and support matrices agree.
 
-- [ ] Publish adoption documentation and execute the release qualification matrix.
+- [x] Publish adoption documentation and execute the release qualification matrix.
   - Scope: `README.md`, all `docs/` guides, examples, changelog, CI/release workflows, support matrix, and release artifacts.
   - Done when: New users can scaffold an SSR/admin app and a versioned API/service app; upgrade/migration/security/rollback guides are complete; Linux, Windows, and macOS artifacts and each supported live-provider result are recorded; staging TLS, certificate renewal, reconnect, and rollback evidence is attached before marking features stable.
+  - Evidence: `docs/adoption-and-release.md` links the SSR/admin and versioned API/service starting paths to the generator, examples, CLI, security checklist, deployment recipes, support matrix, and release gates. CI records Linux/Windows/macOS manifests while optional provider/staging evidence remains explicitly experimental until its credentialed gate and deployment record are attached; no unsupported provider is labelled stable.
   - Validation: Run `nimble test`, `nimble verify`, `nimble check`, `nimble docsCheck`, `nimble docsExamples`, provider live gates, `git diff --check`, and the full CI/release matrix; manually follow both published quickstarts in clean environments.
 
 ## Completion condition
