@@ -25,7 +25,7 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 | HTML·JSON·스트림 응답 | [응답과 콘텐츠 협상](responses-and-negotiation.md), [업로드](uploads.md) |
 | 템플릿·폼·HTMX | [템플릿](templates.md), [서버 렌더링](server-rendered-pages.md), [폼](forms.md), [HTMX](htmx.md) |
 | 모델·DB·migration | [모델 메타데이터](models-and-metadata.md), [직렬화](serialization.md), [쿼리](querying.md), [migration](migrations.md), [데이터베이스 연결](database-connections.md) |
-| typed API·OpenAPI | API 개발·OpenAPI 가이드 (작성 예정) |
+| typed API·OpenAPI | [API 개발](api-development.md), [OpenAPI](openapi.md), [API 보안](api-security.md) |
 
 ## 보안과 관리자 기능
 

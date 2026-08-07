@@ -562,9 +562,9 @@
 
 ## 7. API와 OpenAPI (P1)
 
-- [ ] `docs/api-development.md`: documented route, input/output schema, typed DTO, versioning, pagination/filter/sort/field selection, error envelope를 설명한다.
-- [ ] `docs/openapi.md`: OpenAPI 3.1 생성, route collection, Swagger/ReDoc, `openapi`/`openapi-ts`, 생성 TypeScript client의 한계와 배포 방법을 설명한다.
-- [ ] `docs/api-security.md`: session/bearer/JWT/외부 introspection 사용 시 API 인증·권한·rate limit·CORS 설정을 API 관점에서 설명한다.
+- [x] `docs/api-development.md`: documented route, input/output schema, typed DTO, versioning, pagination/filter/sort/field selection, error envelope를 설명한다.
+- [x] `docs/openapi.md`: OpenAPI 3.1 생성, route collection, Swagger/ReDoc, `openapi`/`openapi-ts`, 생성 TypeScript client의 한계와 배포 방법을 설명한다.
+- [x] `docs/api-security.md`: session/bearer/JWT/외부 introspection 사용 시 API 인증·권한·rate limit·CORS 설정을 API 관점에서 설명한다.
 - [ ] API 예제를 OpenAPI JSON과 generated TypeScript client까지 실행/검증한다.
 
 수용 기준:
