@@ -12,6 +12,15 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - WebSocket, SSE, background task, 캐시와 관측성
 - Prologue의 단순하고 확장 가능한 HTTP 기반
 
+## 실행 예제
+
+저장소를 복제한 개발자는 아래 예제로 public API의 최소 route·dispatch·lifecycle
+흐름을 즉시 확인할 수 있다. 예제는 `nimble docsExamples`에서 컴파일·실행된다.
+
+| 예제 | 목적 | 실행 명령 | 기대 결과 |
+| --- | --- | --- | --- |
+| [`minimal_app.nim`](examples/minimal_app.nim) | `Application`에 HTML·JSON route를 등록하고 in-process request를 검증 | `nimble docsExamples` | `minimal-app-ok` 출력, 종료 코드 `0` |
+
 ## 5분 시작
 
 ```text

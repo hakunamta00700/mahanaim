@@ -319,6 +319,12 @@ nimble test
     check fileExists(example)
     check manifest.contains("task docsExamples")
     check manifest.contains("examples/minimal_app.nim")
+    let readme = readFile(getCurrentDir() / "README.md")
+    check readme.contains("## 실행 예제")
+    check readme.contains("[" & "`" & "minimal_app.nim" & "`" &
+      "](examples/minimal_app.nim)")
+    check readme.contains("`nimble docsExamples`")
+    check readme.contains("`minimal-app-ok`")
 
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
