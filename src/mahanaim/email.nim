@@ -8,6 +8,18 @@ import std/[base64, strutils]
 import nimcrypto
 
 type
+  SmtpTlsMode* = enum
+    ## Plain SMTP is never an implicit production option.
+    stmStartTls
+    stmImplicitTls
+
+  SmtpDeliveryPolicy* = object
+    host*: string
+    port*: int
+    tlsMode*: SmtpTlsMode
+    username*: string
+    password*: string
+
   EmailAttachment* = object
     filename*: string
     contentType*: string
@@ -31,12 +43,19 @@ type
     ## message, while the adapter decides how and where delivery occurs.
 
   EmailWireCallback* = proc(wire: string) {.gcsafe.}
+  SmtpWireCallback* = proc(policy: SmtpDeliveryPolicy, wire: string) {.gcsafe.}
 
   CallbackEmailTransport* = ref object of EmailTransport
     ## This bridge is the explicit seam for SMTP, API mail providers, or a
     ## durable outbox. The callback receives normalized wire data only after
     ## the framework has completed its local validation.
     callback*: EmailWireCallback
+
+  SmtpEmailTransport* = ref object of EmailTransport
+    ## The callback owns socket/CA/protocol I/O; this type makes TLS and
+    ## authentication requirements inspectable before delivery.
+    policy*: SmtpDeliveryPolicy
+    callback*: SmtpWireCallback
 
   InMemoryEmailTransport* = ref object of EmailTransport
     ## This adapter is deterministic and useful for tests and local previews;
@@ -150,6 +169,16 @@ proc newCallbackEmailTransport*(callback: EmailWireCallback):
   new(result)
   result.callback = callback
 
+proc newSmtpEmailTransport*(policy: SmtpDeliveryPolicy,
+                            callback: SmtpWireCallback): SmtpEmailTransport =
+  if policy.host.strip().len == 0 or policy.port < 1 or policy.port > 65535:
+    raise newException(ValueError, "SMTP host and port are required")
+  if policy.username.strip().len == 0 or policy.password.len == 0:
+    raise newException(ValueError, "SMTP authenticated delivery is required")
+  if callback.isNil:
+    raise newException(ValueError, "SMTP wire callback is required")
+  SmtpEmailTransport(policy: policy, callback: callback)
+
 method send*(transport: CallbackEmailTransport, message: EmailMessage)
     {.gcsafe.} =
   ## Rendering happens before callback invocation, keeping external adapters
@@ -157,6 +186,15 @@ method send*(transport: CallbackEmailTransport, message: EmailMessage)
   if transport.isNil or transport.callback.isNil:
     raise newException(ValueError, "Email wire callback is required")
   transport.callback(renderEmail(message))
+
+method send*(transport: SmtpEmailTransport, message: EmailMessage) {.gcsafe.} =
+  if transport.isNil or transport.callback.isNil:
+    raise newException(ValueError, "SMTP transport is not configured")
+  try:
+    transport.callback(transport.policy, renderEmail(message))
+  except CatchableError:
+    ## Provider failures can contain endpoint or credential diagnostics.
+    raise newException(ValueError, "SMTP delivery failed")
 
 proc newInMemoryEmailTransport*(): InMemoryEmailTransport =
   ## A new adapter owns its own message list, preventing test/application

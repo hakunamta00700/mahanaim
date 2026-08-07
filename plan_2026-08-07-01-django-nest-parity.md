@@ -70,9 +70,10 @@ adding public API names.
   - Evidence: `JwtTokenAuthBackend` issues and verifies HS256 JWTs with key IDs, issuer/audience/time claims, key retirement, and a revocation-store boundary. `IntrospectionAuthBackend` and `verifyOAuthCallback` isolate application-owned provider I/O, reject state mismatch/timeouts, and return no identity on any invalid result. `linkOAuthIdentity` only links a verified provider subject to an explicit enabled local account, never auto-provisions or matches email. Session keyrings, one-time reset consumption, and distributed throttle errors retain their existing fail-closed contracts.
   - Validation: Add tests for expired/not-yet-valid/rotated/revoked tokens, issuer/audience mismatch, provider timeout, account linking, reset replay, and distributed-throttle failure; run `nimble test`, `nimble check`, and provider-specific opt-in contract fixtures.
 
-- [ ] Deliver first-party outbound email and notification adapters.
+- [x] Deliver first-party outbound email and notification adapters.
   - Scope: `src/mahanaim/email.nim`, configuration/plugin modules, `docs/operations-guide.md`, and email tests.
   - Done when: SMTP and provider callback adapters support TLS policy, authenticated delivery, multipart messages, UTF-8/RFC-compliant headers, attachments, bounded retry/outbox handoff, and redacted failure reporting; the in-memory adapter remains test-only.
+  - Evidence: `SmtpEmailTransport` requires explicit STARTTLS/implicit-TLS policy and authenticated delivery through an application-owned wire callback, while `CallbackEmailTransport` is the provider/outbox handoff. The shared renderer rejects injection, RFC-2047 encodes UTF-8 subjects, renders deterministic multipart attachments, and bounded retries redact provider errors. The operations guide labels the in-memory transport test-only.
   - Validation: Add rendering and injection tests for Unicode names, multipart boundaries, attachments, SMTP/provider failures, and retry exhaustion; run unit tests plus an opt-in disposable SMTP wire fixture.
 
 - [ ] Upgrade background work from local execution to an operable queue and scheduler boundary.

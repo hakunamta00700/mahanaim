@@ -599,6 +599,27 @@ suite "Mahanaim core contracts":
     check deliveries.load() == 1
     check observedWire.load() > 0
 
+  test "SMTP transport requires authenticated TLS delivery policy":
+    var delivered: Atomic[int]
+    delivered.store(0)
+    let smtp = newSmtpEmailTransport(SmtpDeliveryPolicy(
+      host: "smtp.example.test", port: 587, tlsMode: stmStartTls,
+      username: "mailer", password: "secret"),
+      proc(policy: SmtpDeliveryPolicy, wire: string) {.gcsafe.} =
+        if policy.tlsMode == stmStartTls and wire.contains("Subject: SMTP"):
+          discard delivered.fetchAdd(1))
+    smtp.send(EmailMessage(sender: "sender@example.test",
+      recipients: @["recipient@example.test"], subject: "SMTP",
+      contentType: "text/plain", body: "payload"))
+    check delivered.load() == 1
+    expect ValueError:
+      discard newSmtpEmailTransport(SmtpDeliveryPolicy(
+        host: "smtp.example.test", port: 587, tlsMode: stmStartTls,
+        username: "", password: ""),
+        proc(policy: SmtpDeliveryPolicy, wire: string) {.gcsafe.} =
+          discard policy
+          discard wire)
+
   test "retrying email transport bounds provider retries":
     var attempts: Atomic[int]
     attempts.store(0)

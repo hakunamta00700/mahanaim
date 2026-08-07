@@ -358,6 +358,16 @@ two-process fan-out, reconnect, ordering, backpressure, and bounded eviction
 checks. These local results complement, but do not replace, GitHub runner and
 staging deployment evidence.
 
+## Outbound email
+
+Use `newSmtpEmailTransport` with a non-empty host, port, username, password,
+and explicit `stmStartTls` or `stmImplicitTls` policy. The application-owned
+SMTP callback performs socket, CA, and protocol I/O; failures are returned as
+the redacted `SMTP delivery failed` error. Wrap it in
+`newRetryingEmailTransport` for a finite retry budget, or use a callback
+transport to hand validated messages to an application-owned durable outbox.
+The in-memory transport is only for previews and tests.
+
 ## JWT bearer credentials
 
 Use `newJwtTokenAuthBackend` with an ordered keyring, explicit issuer and
