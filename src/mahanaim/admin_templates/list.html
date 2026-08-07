@@ -1,0 +1,10 @@
+{% extends "admin/base" %}
+{% block content %}
+<main data-resource="{{ resource_name }}">
+<h1>{{ resource_name }}</h1>
+<a href="{{ new_url }}">New</a>
+<table><thead><tr>{% for column in columns %}<th>{{ column.name }}</th>{% endfor %}</tr></thead>
+<tbody>{% for row in rows %}<tr>{% for cell in row.cells %}<td>{{ cell.value }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table>
+</main>
+{% endblock %}

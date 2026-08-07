@@ -13,6 +13,12 @@ select a durable audit store, configure CSRF/HTTPS policy, create the first
 administrator through `mahanaim admin create-user`, and verify that the audit
 database is in the backup/restore runbook.
 
+Admin의 기본 UI는 파일 기반 템플릿으로 제공된다. `AdminRegistry`를 만든 뒤
+`registerAdminRoutes` 전에 `admin.loadAdminTemplateDirectory("templates")`를
+호출하면 `templates/admin/` 아래의 전역 또는 리소스별 화면을 덮어쓸 수 있다.
+화면 이름과 컨텍스트는 [Admin 템플릿 커스터마이징](admin-template-customization.md)을
+따른다.
+
 ## Start a versioned API/service
 
 Register DTO-backed routes with an explicit URL or header API version policy,

@@ -22,6 +22,7 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - [완료 정의](docs/definition-of-done.md)
 - [실행 가능한 최소 예제](examples/minimal_app.nim)
 - [Adoption 및 release 가이드](docs/adoption-and-release.md)
+- [Admin 템플릿 커스터마이징](docs/admin-template-customization.md)
 
 ## 프로젝트와 앱 생성
 

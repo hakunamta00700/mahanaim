@@ -1,0 +1,12 @@
+{% extends "admin/base" %}
+{% block content %}
+<main data-resource="{{ resource_name }}" data-id="{{ identifier }}">
+<a href="{{ list_url }}">Back</a><h1>{{ resource_name }}</h1>
+<dl>{% for field in detail_fields %}<dt>{{ field.name }}</dt><dd>{{ field.value }}</dd>{% endfor %}</dl>
+<form action="{{ action }}" method="post">
+{% if csrf_enabled %}<input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token }}">{% endif %}
+{% for field in form_fields %}<label for="{{ field.name }}">{{ field.label }}</label><input id="{{ field.name }}" name="{{ field.name }}" type="{{ field.input_type }}" value="{{ field.value }}"{% if field.required %} required{% endif %}>{% for error in field.errors %}<div class="form-error">{{ error.message }}</div>{% endfor %}{% endfor %}
+<button type="submit">Submit</button></form>
+<form action="{{ delete_url }}" method="post"><button type="submit">Delete</button></form>
+</main>
+{% endblock %}

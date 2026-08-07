@@ -4579,6 +4579,64 @@ suite "Mahanaim core contracts":
     expect ValueError:
       discard registry.runAdminCli(["delete", "items"])
 
+  test "admin screens use file-backed global and resource template overrides":
+    let templateRoot = getTempDir() / "mahanaim_admin_template_overrides"
+    if dirExists(templateRoot):
+      removeDir(templateRoot)
+    defer:
+      if dirExists(templateRoot):
+        removeDir(templateRoot)
+    createDir(templateRoot / "admin" / "items")
+    writeFile(templateRoot / "admin" / "base.html",
+      "<html><body data-admin-shell=\"custom\">{% block content %}{% endblock %}</body></html>")
+    writeFile(templateRoot / "admin" / "form.html",
+      "<section data-admin-template=\"form\">{{ resource_name }} {{ action }}</section>")
+    writeFile(templateRoot / "admin" / "items" / "list.html",
+      "<section data-admin-template=\"resource-list\">{{ resource_name }}</section>")
+
+    var metadata = newModelMetadata("TemplateItem", "template_items")
+    metadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    metadata.addField(newModelField("title", modelString))
+    let registry = newAdminRegistry()
+    check adminTemplateNames() == @["admin/base", "admin/list",
+      "admin/form", "admin/detail"]
+    registry.loadAdminTemplateDirectory(templateRoot)
+    proc authorize(request: Request): bool {.gcsafe.} =
+      request.headers.getOrDefault("x-admin") == "yes"
+    let store = newInMemoryResourceStore(metadata)
+    registry.registerAdminResource("items", "/admin/items", metadata, store,
+      authorize)
+    let app = newApplication()
+    registerAdminRoutes(app, registry)
+
+    var htmlList = newRequest("GET", "/admin/items")
+    htmlList.headers["x-admin"] = "yes"
+    htmlList.headers["accept"] = "text/html"
+    let listResponse = waitFor app.dispatch(htmlList)
+    check listResponse.status == Http200
+    check listResponse.body.contains("data-admin-template=\"resource-list\"")
+
+    var newForm = newRequest("GET", "/admin/items/new")
+    newForm.headers["x-admin"] = "yes"
+    let formResponse = waitFor app.dispatch(newForm)
+    check formResponse.status == Http200
+    check formResponse.body.contains("data-admin-template=\"form\"")
+
+    var create = newRequest("POST", "/admin/items", "{\"title\":\"first\"}")
+    create.headers["x-admin"] = "yes"
+    let created = waitFor app.dispatch(create)
+    let identifier = $parseJson(created.body)["id"].getInt()
+    registry.registerAdminTemplate("admin/items/detail",
+      "<section data-admin-template=\"resource-detail\">{{ identifier }}</section>")
+    var detail = newRequest("GET", "/admin/items/" & identifier)
+    detail.headers["x-admin"] = "yes"
+    detail.headers["accept"] = "text/html"
+    let detailResponse = waitFor app.dispatch(detail)
+    check detailResponse.status == Http200
+    check detailResponse.body.contains("data-admin-template=\"resource-detail\"")
+    expect ValueError:
+      registry.registerAdminTemplate("outside-admin/list", "<main></main>")
+
   test "SQLite admin audit store keeps append-only history across restarts":
     let auditPath = getTempDir() / "mahanaim-admin-audit.sqlite"
     if fileExists(auditPath):

@@ -1,0 +1,10 @@
+{% extends "admin/base" %}
+{% block content %}
+<main data-resource="{{ resource_name }}">
+<h1>{{ resource_name }}</h1>
+<form action="{{ action }}" method="post">
+{% if csrf_enabled %}<input type="hidden" name="{{ csrf_field_name }}" value="{{ csrf_token }}">{% endif %}
+{% for field in fields %}<label for="{{ field.name }}">{{ field.label }}</label><input id="{{ field.name }}" name="{{ field.name }}" type="{{ field.input_type }}" value="{{ field.value }}"{% if field.required %} required{% endif %}>{% for error in field.errors %}<div class="form-error">{{ error.message }}</div>{% endfor %}{% endfor %}
+<button type="submit">Submit</button></form>
+</main>
+{% endblock %}

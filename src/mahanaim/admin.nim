@@ -6,7 +6,7 @@
 ## server-rendered CRUD forms, and an append-only audit trail; richer
 ## permissions and layouts remain extension points.
 
-import std/[asyncdispatch, httpcore, json, options, strutils, tables]
+import std/[algorithm, asyncdispatch, httpcore, json, options, os, strutils, tables]
 import ./application
 import ./authorization
 import ./core
@@ -97,6 +97,73 @@ type
     ## Kept as a compatibility projection for existing consumers. New code
     ## should use auditEvents(), which reads the configured store snapshot.
     auditLog*: seq[AdminAuditEvent]
+    ## The registry owns a small template engine for the server-rendered
+    ## admin. Default templates are compiled from files and project templates
+    ## can replace them without changing routes or persistence behavior.
+    templateEngine*: TemplateEngine
+
+const
+  adminBaseTemplate = staticRead("admin_templates/base.html")
+  adminListTemplate = staticRead("admin_templates/list.html")
+  adminFormTemplate = staticRead("admin_templates/form.html")
+  adminDetailTemplate = staticRead("admin_templates/detail.html")
+
+proc initializeAdminTemplates(registry: AdminRegistry) =
+  registry.templateEngine = newTemplateEngine()
+  registry.templateEngine.registerTemplate("admin/base", adminBaseTemplate)
+  registry.templateEngine.registerTemplate("admin/list", adminListTemplate)
+  registry.templateEngine.registerTemplate("admin/form", adminFormTemplate)
+  registry.templateEngine.registerTemplate("admin/detail", adminDetailTemplate)
+
+proc validAdminTemplateName(name: string): bool =
+  ## Global templates have the form `admin/list`; a resource may replace one
+  ## screen with `admin/<resource>/list`. Keeping this namespace closed avoids
+  ## one project template silently replacing an unrelated application view.
+  let parts = name.replace('\\', '/').split('/')
+  if parts.len notin [2, 3] or parts[0] != "admin":
+    return false
+  if parts[^1] notin ["base", "list", "form", "detail"]:
+    return false
+  for part in parts:
+    if part.strip().len == 0 or part == "." or part == "..":
+      return false
+  parts.len == 2 or parts[^1] != "base"
+
+proc registerAdminTemplate*(registry: AdminRegistry, name, source: string) =
+  ## Register a project-owned override. It may replace a built-in screen or
+  ## add a resource-specific list/form/detail screen; source is still parsed
+  ## and escaped by the normal TemplateEngine at render time.
+  if registry.isNil or not validAdminTemplateName(name):
+    raise newException(ValueError,
+      "Admin template must be admin/(base|list|form|detail) or admin/<resource>/(list|form|detail)")
+  registry.templateEngine.replaceTemplate(name.replace('\\', '/'), source)
+
+proc loadAdminTemplateDirectory*(registry: AdminRegistry, directory: string,
+                                 extension = ".html") =
+  ## Load project overrides recursively. `templates/admin/items/list.html`
+  ## becomes `admin/items/list`, so applications can keep their templates in
+  ## the same directory layout used by Django-like admin customization.
+  if registry.isNil or directory.strip().len == 0 or not dirExists(directory):
+    raise newException(ValueError, "Admin template directory does not exist: " & directory)
+  var normalizedExtension = extension.strip().toLowerAscii()
+  if normalizedExtension.len == 0:
+    normalizedExtension = ".html"
+  elif normalizedExtension[0] != '.':
+    normalizedExtension = "." & normalizedExtension
+  var paths: seq[string] = @[]
+  for path in walkDirRec(directory):
+    if fileExists(path) and splitFile(path).ext.toLowerAscii() == normalizedExtension:
+      paths.add(path)
+  paths.sort()
+  for path in paths:
+    let relative = relativePath(path, directory).replace('\\', '/')
+    let extensionLength = splitFile(relative).ext.len
+    let name = relative[0 ..< relative.len - extensionLength]
+    registry.registerAdminTemplate(name, readFile(path))
+
+proc adminTemplateNames*(): seq[string] =
+  ## Expose the stable default screen names for tooling and documentation.
+  @["admin/base", "admin/list", "admin/form", "admin/detail"]
 
 method appendAuditEvent*(store: AdminAuditStore,
                          event: AdminAuditEvent) {.base, gcsafe.} =
@@ -188,6 +255,7 @@ proc newAdminRegistry*(auditStore: AdminAuditStore = nil): AdminRegistry =
     newInMemoryAdminAuditStore()
   else:
     auditStore
+  result.initializeAdminTemplates()
 
 proc auditEvents*(registry: AdminRegistry): seq[AdminAuditEvent] =
   ## Expose a stable read snapshot while preserving the old auditLog field.
@@ -319,22 +387,93 @@ proc adminAuthorized(resource: AdminResource, request: Request,
   resource.authorizationPolicy.isNil or resource.authorizationPolicy.allows(
     request, resource.permissionResource, action, objectId)
 
-proc adminForm(resource: AdminResource, request: Request): Response =
-  ## Build a minimal create form from the same metadata-derived schema used by
-  ## API validation and OpenAPI; custom widgets can replace this helper later.
-  var form = FormState(fields: @[], errors: @[])
+proc adminInputType(inputType: InputType): string =
+  case inputType
+  of itInteger, itFloat: "number"
+  of itBoolean: "checkbox"
+  of itJson: "textarea"
+  of itString: "text"
+
+proc adminTemplateName(registry: AdminRegistry, resource: AdminResource,
+                       screen: string): string =
+  ## Resource templates take precedence while global screen defaults continue
+  ## to be the fallback. The lookup is deterministic and has no filesystem IO
+  ## on requests because `loadAdminTemplateDirectory` snapshots its sources.
+  let resourceTemplate = "admin/" & resource.name & "/" & screen
+  if registry.templateEngine.hasTemplate(resourceTemplate):
+    resourceTemplate
+  else:
+    "admin/" & screen
+
+proc renderAdminTemplate(registry: AdminRegistry, name: string,
+                         context: TemplateRenderContext): string {.gcsafe.} =
+  ## TemplateEngine intentionally permits application-defined helpers whose
+  ## GC-safety cannot be expressed in its public callback type. Rendering is
+  ## nevertheless request-local and AdminRegistry owns an immutable template
+  ## snapshot after route registration, so keep that extension boundary out
+  ## of the async route callback contract.
+  {.cast(gcsafe).}:
+    registry.templateEngine.render(name, context)
+
+proc adminDocumentRawValue(document: JsonNode, field: ModelField): string
+
+proc adminFormTemplateContext(resource: AdminResource, request: Request,
+                              action: string, form: FormState):
+    TemplateRenderContext =
+  result = newTemplateRenderContext()
+  result.values["title"] = resource.name
+  result.values["resource_name"] = resource.name
+  result.values["action"] = action
+  result.values["csrf_enabled"] = $resource.formPolicy.csrfEnabled
+  result.values["csrf_field_name"] = resource.formPolicy.csrfHeaderName
+  result.values["csrf_token"] = if request.csrfToken.len > 0:
+    request.csrfToken
+  elif resource.formPolicy.csrfEnabled:
+    csrfToken(resource.formPolicy)
+  else:
+    ""
+  var fields: seq[TemplateContext] = @[]
+  var errorsByField = initTable[string, seq[string]]()
+  for field in form.fields:
+    errorsByField[field.name] = field.errors
+    fields.add(newTemplateContext([
+      ("name", field.name), ("label", field.label),
+      ("input_type", adminInputType(field.inputType)),
+      ("required", $field.required), ("value", field.value)]))
+  result.addCollection("fields", fields)
+  result.addCollectionProjection("field.errors", proc(
+      context: TemplateContext): seq[TemplateContext] =
+    for error in errorsByField.getOrDefault(context.getOrDefault("field.name")):
+      result.add(newTemplateContext([("message", error)])))
+
+proc adminFormState(resource: AdminResource, document: JsonNode = nil): FormState =
+  ## Create and edit forms share the same metadata-derived field policy.
+  result = FormState(fields: @[], errors: @[])
   for field in modelInputSchema(resource.metadata, flBody,
                                 includePrimaryKey = false):
     if field.name in resource.readOnlyFields:
       continue
-    form.fields.add(FormFieldState(name: field.name, label: field.name,
-      inputType: field.inputType, required: field.required, value: "",
+    var value = ""
+    if not document.isNil:
+      let modelField = resource.metadata.field(field.name)
+      if modelField.isSome:
+        value = adminDocumentRawValue(document, modelField.get())
+    result.fields.add(FormFieldState(name: field.name, label: field.name,
+      inputType: field.inputType, required: field.required, value: value,
       errors: @[]))
+
+proc adminForm(registry: AdminRegistry, resource: AdminResource,
+               request: Request): Response =
+  ## The default create page is a file-backed template. `formLayout` remains a
+  ## higher-priority compatibility hook for applications that already render a
+  ## form with custom widgets or an alternate representation.
+  let form = adminFormState(resource)
   if resource.formLayout != nil:
     return resource.formLayout(AdminFormLayoutContext(
       resourceName: resource.name, action: resource.prefix, form: form))
-  htmlResponse(renderForm(form, request, action = resource.prefix,
-    csrfPolicy = resource.formPolicy))
+  htmlResponse(registry.renderAdminTemplate(
+    registry.adminTemplateName(resource, "form"),
+    adminFormTemplateContext(resource, request, resource.prefix, form)))
 
 proc adminListColumns(resource: AdminResource, query: SelectQuery): seq[string] =
   ## Resolve one visible column set for HTML headings and cell serialization.
@@ -349,48 +488,55 @@ proc adminListColumns(resource: AdminResource, query: SelectQuery): seq[string] 
     if requested.len == 0 or field.name in requested:
       result.add(field.name)
 
-proc adminDisplayValue(document: JsonNode, field: ModelField): string =
-  ## Keep HTML rendering independent from JSON node formatting while preserving
-  ## a readable representation for scalar and structured values.
-  if not document.hasKey(field.jsonName):
+proc adminRawDisplayValue(document: JsonNode, field: ModelField): string =
+  ## The template engine owns the final escaping step; do not pre-escape here
+  ## or entities from stored values would be rendered twice.
+  if not document.hasKey(field.jsonName) or document[field.jsonName].kind == JNull:
     return ""
-  let value = document[field.jsonName]
-  if value.kind == JNull:
-    return ""
-  if value.kind == JString:
-    return escapeHtml(value.getStr())
-  escapeHtml($value)
+  if document[field.jsonName].kind == JString:
+    return document[field.jsonName].getStr()
+  $document[field.jsonName]
 
-proc adminListHtml(resource: AdminResource, query: SelectQuery): Response =
+proc adminListHtml(registry: AdminRegistry, resource: AdminResource,
+                   query: SelectQuery): Response =
   ## Server-rendered list output is an optional representation of the same
   ## query result as JSON. Keeping it here avoids a second store or auth path;
   ## response negotiation selects it only for an HTML Accept header.
   let columns = resource.adminListColumns(query)
-  var body = "<!doctype html><html><head><title>" &
-    escapeHtml(resource.name) & "</title></head><body>"
-  body.add("<main data-resource=\"" & escapeHtml(resource.name) & "\">")
-  body.add("<h1>" & escapeHtml(resource.name) & "</h1>")
-  body.add("<a href=\"" & escapeHtml(resource.prefix & "/new") &
-    "\">New</a><table><thead><tr>")
+  var context = newTemplateRenderContext()
+  context.values["title"] = resource.name
+  context.values["resource_name"] = resource.name
+  context.values["new_url"] = resource.prefix & "/new"
+  var templateColumns: seq[TemplateContext] = @[]
   for column in columns:
     let field = resource.metadata.field(column)
     if field.isSome:
-      body.add("<th>" & escapeHtml(field.get().name) & "</th>")
-  body.add("</tr></thead><tbody>")
+      templateColumns.add(newTemplateContext([("name", field.get().name)]))
+  context.addCollection("columns", templateColumns)
+  var rows: seq[TemplateContext] = @[]
+  var cellsByRow = initTable[string, seq[TemplateContext]]()
+  var rowIndex = 0
   for row in resource.resource.store.list(query):
     let serialized = serializeProjection(resource.metadata, row, columns,
       resource.resource.responsePolicy)
     if not serialized.valid:
       return textResponse("Stored resource row failed serialization", Http500)
-    body.add("<tr>")
+    let rowKey = $rowIndex
+    inc rowIndex
+    var cells: seq[TemplateContext] = @[]
     for column in columns:
       let field = resource.metadata.field(column)
       if field.isSome:
-        body.add("<td>" & adminDisplayValue(serialized.document,
-          field.get()) & "</td>")
-    body.add("</tr>")
-  body.add("</tbody></table></main></body></html>")
-  htmlResponse(body)
+        cells.add(newTemplateContext([("value", adminRawDisplayValue(
+          serialized.document, field.get()))]))
+    cellsByRow[rowKey] = cells
+    rows.add(newTemplateContext([("key", rowKey)]))
+  context.addCollection("rows", rows)
+  context.addCollectionProjection("row.cells", proc(
+      values: TemplateContext): seq[TemplateContext] =
+    cellsByRow.getOrDefault(values.getOrDefault("row.key")))
+  htmlResponse(registry.renderAdminTemplate(
+    registry.adminTemplateName(resource, "list"), context))
 
 proc adminDocumentRawValue(document: JsonNode, field: ModelField): string =
   ## Convert a serialized field into a raw scalar value for a form control.
@@ -415,19 +561,7 @@ proc adminEditForm(resource: AdminResource, request: Request, identifier: string
   ## The edit form is derived from the same input schema as the create form.
   ## Primary keys, read-only fields, and sensitive response-only values never
   ## become writable controls by accident.
-  var form = FormState(fields: @[], errors: @[])
-  for fieldSpec in modelInputSchema(resource.metadata, flBody,
-                                    includePrimaryKey = false):
-    if fieldSpec.name in resource.readOnlyFields:
-      continue
-    let modelField = resource.metadata.field(fieldSpec.name)
-    if modelField.isNone:
-      continue
-    form.fields.add(FormFieldState(name: fieldSpec.name,
-      label: fieldSpec.name, inputType: fieldSpec.inputType,
-      required: fieldSpec.required,
-      value: adminDocumentRawValue(document, modelField.get()),
-      errors: @[]))
+  let form = adminFormState(resource, document)
   let action = resource.prefix & "/" & identifier
   if resource.formLayout != nil:
     return resource.formLayout(AdminFormLayoutContext(
@@ -435,7 +569,7 @@ proc adminEditForm(resource: AdminResource, request: Request, identifier: string
   renderForm(form, request, action = action, httpMethod = "post",
     csrfPolicy = resource.formPolicy)
 
-proc adminDetailHtml(resource: AdminResource, request: Request,
+proc adminDetailHtml(registry: AdminRegistry, resource: AdminResource, request: Request,
                      identifier: string): Response =
   ## Detail pages expose a server-rendered edit/delete surface while the
   ## JSON representation remains available through the first response
@@ -448,26 +582,69 @@ proc adminDetailHtml(resource: AdminResource, request: Request,
     resource.resource.responsePolicy)
   if not serialized.valid:
     return textResponse("Stored resource row failed serialization", Http500)
-  var body = "<!doctype html><html><head><title>" &
-    escapeHtml(resource.name) & "</title></head><body>"
-  body.add("<main data-resource=\"" & escapeHtml(resource.name) &
-    "\" data-id=\"" & escapeHtml(identifier) & "\">")
-  body.add("<a href=\"" & escapeHtml(resource.prefix) &
-    "\">Back</a><h1>" & escapeHtml(resource.name) & "</h1><dl>")
+  if resource.formLayout != nil:
+    ## Preserve the pre-template extension contract: a legacy form layout owns
+    ## the edit fragment, while Admin continues to own authorization, lookup,
+    ## and the surrounding detail/delete workflow.
+    var body = "<!doctype html><html><head><title>" &
+      escapeHtml(resource.name) & "</title></head><body>"
+    body.add("<main data-resource=\"" & escapeHtml(resource.name) &
+      "\" data-id=\"" & escapeHtml(identifier) & "\">")
+    body.add("<a href=\"" & escapeHtml(resource.prefix) &
+      "\">Back</a><h1>" & escapeHtml(resource.name) & "</h1><dl>")
+    for field in resource.metadata.fields:
+      if field.sensitive and resource.resource.responsePolicy.excludeSensitive:
+        continue
+      body.add("<dt>" & escapeHtml(field.name) & "</dt><dd>" &
+        adminDocumentValue(serialized.document, field) & "</dd>")
+    body.add("</dl>")
+    body.add(resource.adminEditForm(request, identifier, serialized.document))
+    body.add("<form action=\"" & escapeHtml(resource.prefix & "/" &
+      identifier & "/delete") & "\" method=\"post\">")
+    body.add("<button type=\"submit\">Delete</button></form>")
+    body.add("</main></body></html>")
+    return htmlResponse(body)
+  var context = newTemplateRenderContext()
+  context.values["title"] = resource.name
+  context.values["resource_name"] = resource.name
+  context.values["identifier"] = identifier
+  context.values["list_url"] = resource.prefix
+  context.values["action"] = resource.prefix & "/" & identifier
+  context.values["delete_url"] = resource.prefix & "/" & identifier & "/delete"
+  context.values["csrf_enabled"] = $resource.formPolicy.csrfEnabled
+  context.values["csrf_field_name"] = resource.formPolicy.csrfHeaderName
+  context.values["csrf_token"] = if request.csrfToken.len > 0:
+    request.csrfToken
+  elif resource.formPolicy.csrfEnabled:
+    csrfToken(resource.formPolicy)
+  else:
+    ""
+  var detailFields: seq[TemplateContext] = @[]
   for field in resource.metadata.fields:
     if field.sensitive and resource.resource.responsePolicy.excludeSensitive:
       continue
-    body.add("<dt>" & escapeHtml(field.name) & "</dt><dd>" &
-      adminDocumentValue(serialized.document, field) & "</dd>")
-  body.add("</dl>")
-  body.add(resource.adminEditForm(request, identifier, serialized.document))
-  body.add("<form action=\"" & escapeHtml(resource.prefix & "/" &
-    identifier & "/delete") & "\" method=\"post\">")
-  body.add("<button type=\"submit\">Delete</button></form>")
-  body.add("</main></body></html>")
-  htmlResponse(body)
+    detailFields.add(newTemplateContext([
+      ("name", field.name),
+      ("value", adminDocumentRawValue(serialized.document, field))]))
+  context.addCollection("detail_fields", detailFields)
+  let form = adminFormState(resource, serialized.document)
+  var formFields: seq[TemplateContext] = @[]
+  var errorsByField = initTable[string, seq[string]]()
+  for field in form.fields:
+    errorsByField[field.name] = field.errors
+    formFields.add(newTemplateContext([
+      ("name", field.name), ("label", field.label),
+      ("input_type", adminInputType(field.inputType)),
+      ("required", $field.required), ("value", field.value)]))
+  context.addCollection("form_fields", formFields)
+  context.addCollectionProjection("field.errors", proc(
+      values: TemplateContext): seq[TemplateContext] =
+    for error in errorsByField.getOrDefault(values.getOrDefault("field.name")):
+      result.add(newTemplateContext([("message", error)])))
+  htmlResponse(registry.renderAdminTemplate(
+    registry.adminTemplateName(resource, "detail"), context))
 
-proc adminFormResponse(resource: AdminResource, request: Request,
+proc adminFormResponse(registry: AdminRegistry, resource: AdminResource, request: Request,
                        action: string, form: FormState): Response =
   ## Both create and edit submissions render validation errors through the
   ## same layout hook. The hook can replace markup without gaining access to
@@ -475,8 +652,30 @@ proc adminFormResponse(resource: AdminResource, request: Request,
   if resource.formLayout != nil:
     return resource.formLayout(AdminFormLayoutContext(
       resourceName: resource.name, action: action, form: form))
-  htmlResponse(renderForm(form, request, action = action,
-    httpMethod = "post", csrfPolicy = resource.formPolicy))
+  htmlResponse(registry.renderAdminTemplate(
+    registry.adminTemplateName(resource, "form"),
+    adminFormTemplateContext(resource, request, action, form)))
+
+proc adminFormForRoute(registry: AdminRegistry, resource: AdminResource,
+                       request: Request): Response {.gcsafe.} =
+  {.cast(gcsafe).}:
+    adminForm(registry, resource, request)
+
+proc adminListForRoute(registry: AdminRegistry, resource: AdminResource,
+                       query: SelectQuery): Response {.gcsafe.} =
+  {.cast(gcsafe).}:
+    adminListHtml(registry, resource, query)
+
+proc adminDetailForRoute(registry: AdminRegistry, resource: AdminResource,
+                         request: Request, identifier: string): Response {.gcsafe.} =
+  {.cast(gcsafe).}:
+    adminDetailHtml(registry, resource, request, identifier)
+
+proc adminFormResponseForRoute(registry: AdminRegistry, resource: AdminResource,
+                               request: Request, action: string,
+                               form: FormState): Response {.gcsafe.} =
+  {.cast(gcsafe).}:
+    adminFormResponse(registry, resource, request, action, form)
 
 proc adminFormJson(resource: AdminResource, request: Request):
     tuple[valid: bool, body: string, form: FormState] =
@@ -667,12 +866,12 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
         parsed.query.columns = current.customColumns
       return responseVariants([
         listResponse(current.resource, parsed.query),
-        adminListHtml(current, parsed.query)]))
+        adminListForRoute(registry, current, parsed.query)]))
   app.get(current.prefix & "/new", "admin." & current.name & ".form",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
         return forbiddenResponse()
-      return adminForm(current, request))
+      return adminFormForRoute(registry, current, request))
   app.post(current.prefix, "admin." & current.name & ".create",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "create", ""):
@@ -682,7 +881,7 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
           "application/x-www-form-urlencoded"):
         let submitted = current.adminFormJson(request)
         if not submitted.valid:
-          return adminFormResponse(current, request, current.prefix,
+          return adminFormResponseForRoute(registry, current, request, current.prefix,
             submitted.form)
         let formResponse = createResponse(current.resource, submitted.body)
         if formResponse.status == Http201:
@@ -743,7 +942,7 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
       let identifier = request.pathParams.getOrDefault("id")
       return responseVariants([
         getResponse(current.resource, identifier),
-        adminDetailHtml(current, request, identifier)]))
+        adminDetailForRoute(registry, current, request, identifier)]))
   app.addRoute("PUT", current.prefix & "/:id",
     "admin." & current.name & ".update",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
@@ -767,7 +966,7 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
         return forbiddenResponse()
       let submitted = current.adminFormJson(request)
       if not submitted.valid:
-        return adminFormResponse(current, request,
+        return adminFormResponseForRoute(registry, current, request,
           current.prefix & "/" & identifier, submitted.form)
       let response = updateResponse(current.resource, identifier,
         current.adminWritableBody(submitted.body))

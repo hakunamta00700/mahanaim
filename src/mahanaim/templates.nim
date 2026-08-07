@@ -162,6 +162,22 @@ proc registerTemplate*(engine: TemplateEngine, name, source: string) =
     raise newException(ValueError, "Duplicate template: " & name)
   engine.templates[name] = source
 
+proc hasTemplate*(engine: TemplateEngine, name: string): bool =
+  ## Let higher-level template registries select an optional override without
+  ## exposing the engine's source table for mutation.
+  not engine.isNil and engine.templates.hasKey(name)
+
+proc replaceTemplate*(engine: TemplateEngine, name, source: string) =
+  ## Replace an explicitly selected template. Unlike `registerTemplate`, this
+  ## is intended for an application-owned override layer (for example, a
+  ## project replacing a framework-provided default layout). Callers must opt
+  ## into this operation; normal registration remains duplicate-safe.
+  if engine.isNil or name.strip().len == 0:
+    raise newException(ValueError, "Template engine and name are required")
+  if source.len == 0:
+    raise newException(ValueError, "Template source cannot be empty")
+  engine.templates[name] = source
+
 proc registerTemplateFile*(engine: TemplateEngine, name, path: string) =
   ## Load one deployment-owned template while preserving the same duplicate
   ## and empty-source policy as programmatic registration. Applications choose
