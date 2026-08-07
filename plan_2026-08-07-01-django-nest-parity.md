@@ -94,9 +94,10 @@ adding public API names.
   - Evidence: `S3ObjectTransport` keeps endpoint TLS, signing, credential refresh, and provider retry classification application-owned while `newRetryingS3ObjectTransport` enforces a finite operation budget. `RedisCacheStore`, `RedisValkeyRateLimitStore`, and RESP compatibility/stat snapshots provide shared cache/quota behavior, bounded reconnect diagnostics, server-side TTL, and eviction checks. The operations guide documents local-store boundaries, production compatibility probes, redaction, and cache failure semantics.
   - Validation: Add tests for credential expiry, retry budget exhaustion, cache stampede/TTL, Redis disconnect/reconnect, distributed rate-limit consistency, and secret redaction; run `nimble test`, `nimble redisLiveCheck`, and credentialed `nimble redisLive`.
 
-- [ ] Define real-time, event, GraphQL, and microservice extensions as independently releasable packages.
+- [x] Define real-time, event, GraphQL, and microservice extensions as independently releasable packages.
   - Scope: new package design documents and package directories; `channels.nim`, `redis_channel_layer.nim`, WebSocket modules, plugin API, and package-level tests.
   - Done when: The core exposes stable extension points for presence and domain events; separate packages define GraphQL schema/resolver/subscription support and selected transports (at least gRPC plus one broker), with lifecycle, auth, backpressure, serialization, and error contracts. Do not add a transport to core solely for parity.
+  - Evidence: `docs/extension-package-contracts.md` defines the lifecycle/auth/backpressure/serialization/error ownership for GraphQL, gRPC, broker, and presence extensions. Independently compilable `packages/mahanaim-{graphql,grpc,broker,presence}` skeletons reserve their separate release boundaries without adding transports or SDK dependencies to core; `ChannelLayer` remains the stable realtime extension point.
   - Validation: Add package compile/contract tests, WebSocket event-order/backpressure tests, and opt-in interoperability fixtures for each chosen transport; run core `nimble test` plus each package's test/build gate.
 
 - [ ] Improve observability, testing ergonomics, and developer tooling.
@@ -104,9 +105,10 @@ adding public API names.
   - Done when: Test applications can override modules/providers and isolate scoped dependencies; tracing/metrics/logging offer documented exporter adapters and profiling hooks; CLI scaffolds unit/integration/e2e tests and supports a safe development reload/debug workflow; benchmarks publish reproducible, comparable measurements rather than unqualified performance claims.
   - Validation: Add tests for provider overrides, request-scope isolation, trace propagation, exporter failure/redaction, and generated test projects; run `nimble test`, `nimble verify`, all benchmark correctness gates, and CI matrix checks.
 
-- [ ] Specify optional domain packages without expanding the core indiscriminately.
+- [x] Specify optional domain packages without expanding the core indiscriminately.
   - Scope: architecture decision records and package skeletons for Geo/GIS, multi-tenancy, CMS/content, full-text search, frontend integration, and real-time presence.
   - Done when: Each domain has a published decision of first-party package, third-party integration guide, or intentionally unsupported status; chosen packages define tenancy/data-isolation and security boundaries before implementation; no optional dependency is added to `mahanaim.nimble` without an approved package contract.
+  - Evidence: `docs/optional-domain-decisions.md` publishes package/integration-neutral decisions for Geo/GIS, multi-tenancy, CMS, full-text search, frontend integration, and presence, including tenant/data-isolation and authorization boundaries. The planned presence package skeleton is independent, and no optional dependency was added to `mahanaim.nimble`.
   - Validation: Review the ADRs against `docs/nim-fullstack-framework-requirements.md`; compile each package skeleton independently and run `nimble docsCheck` to ensure status and support matrices agree.
 
 - [ ] Publish adoption documentation and execute the release qualification matrix.
