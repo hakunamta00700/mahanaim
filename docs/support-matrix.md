@@ -44,27 +44,27 @@
 first-party feature 행은 `tests/test_docs_contract.nim`에서 검증한다.
 새 first-party 기능은 같은 변경에서 이 표와 해당 CI/live gate를 추가해야 한다.
 
-## Feature documentation map
+## 기능 문서 연결표
 
-Every first-party feature has a user-facing entry point below. The maturity in
-the table above remains authoritative; a guide does not promote an
-experimental feature to stable.
+모든 first-party 기능은 아래 사용자 문서 시작점을 가진다. 성숙도는 위 표가
+유일한 기준이며, 가이드가 있다고 experimental 기능이 stable로 승격되는 것은
+아니다.
 
-| feature | user documentation |
+| feature | 사용자 문서 |
 | --- | --- |
-| `application-routing` | [routing](routing.md), [requests and validation](requests-and-validation.md), [responses and negotiation](responses-and-negotiation.md) |
-| `dependency-injection` | [application and modules](application-and-modules.md), [application modules](application-modules.md) |
-| `typed-api-openapi` | [API development](api-development.md), [OpenAPI](openapi.md), [API security](api-security.md) |
-| `sqlite-storage` | [models and metadata](models-and-metadata.md), [migrations](migrations.md), [database connections](database-connections.md) |
-| `postgresql-adapter` | [migrations](migrations.md), [database connections](database-connections.md), [known limitations](known-limitations.md) |
-| `admin-forms` | [Admin](admin.md), [Admin operations](admin-operations.md), [Admin template customization](admin-template-customization.md) |
-| `authentication-security` | [authentication](authentication.md), [authorization](authorization.md), [security](security.md) |
-| `email-notifications` | [email and notifications](email-and-notifications.md), [known limitations](known-limitations.md) |
-| `background-jobs` | [background jobs](background-jobs.md), [external adapters](external-adapters.md) |
-| `http-transport` | [deployment](deployment.md), [testing](testing.md), [known limitations](known-limitations.md) |
-| `storage-cache-rate-limit` | [storage](storage.md), [cache](cache.md), [operations guide](operations-guide.md) |
-| `realtime-events` | [WebSockets](websocket.md), [SSE](sse.md), [channel layers](channel-layers.md) |
-| `observability-testing-cli` | [observability](observability.md), [testing](testing.md), [CLI reference](cli-reference.md) |
+| `application-routing` | [라우팅](routing.md), [요청과 검증](requests-and-validation.md), [응답과 콘텐츠 협상](responses-and-negotiation.md) |
+| `dependency-injection` | [애플리케이션과 모듈](application-and-modules.md), [애플리케이션 모듈](application-modules.md) |
+| `typed-api-openapi` | [API 개발](api-development.md), [OpenAPI](openapi.md), [API 보안](api-security.md) |
+| `sqlite-storage` | [모델 메타데이터](models-and-metadata.md), [migration](migrations.md), [데이터베이스 연결](database-connections.md) |
+| `postgresql-adapter` | [migration](migrations.md), [데이터베이스 연결](database-connections.md), [알려진 제한](known-limitations.md) |
+| `admin-forms` | [Admin](admin.md), [Admin 운영](admin-operations.md), [Admin 템플릿 커스터마이징](admin-template-customization.md) |
+| `authentication-security` | [인증](authentication.md), [권한](authorization.md), [보안](security.md) |
+| `email-notifications` | [알림과 이메일](email-and-notifications.md), [알려진 제한](known-limitations.md) |
+| `background-jobs` | [백그라운드 작업](background-jobs.md), [외부 어댑터](external-adapters.md) |
+| `http-transport` | [배포](deployment.md), [테스트](testing.md), [알려진 제한](known-limitations.md) |
+| `storage-cache-rate-limit` | [저장소](storage.md), [캐시](cache.md), [운영 가이드](operations-guide.md) |
+| `realtime-events` | [WebSocket](websocket.md), [SSE](sse.md), [채널 레이어](channel-layers.md) |
+| `observability-testing-cli` | [관측성](observability.md), [테스트](testing.md), [CLI 레퍼런스](cli-reference.md) |
 
 ## Experimental feature reading map
 
