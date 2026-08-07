@@ -2,13 +2,16 @@
 
 ## Start an SSR/admin application
 
-Begin from `examples/minimal_app.nim`, then compose explicit modules for routes,
-templates, forms, account authentication, and `AdminRegistry`. Run locally with
-the same compiler configuration used in CI, and use the network fixture to
-exercise browser routes before deployment. For an admin deployment, select a
-durable audit store, configure CSRF/HTTPS policy, create the first administrator
-through `mahanaim admin create-user`, and verify that the audit database is in
-the backup/restore runbook.
+Create a complete starter project with `mahanaim new shop ./shop`. Inside that
+project, `mahanaim app catalog` creates `src/catalog.nim` and
+`tests/test_catalog.nim`; it refuses to overwrite an existing module or test.
+Install the generated `catalogModule()` explicitly in the project's composition
+root, then compose templates, forms, account authentication, and `AdminRegistry`.
+Run locally with the same compiler configuration used in CI, and use the network
+fixture to exercise browser routes before deployment. For an admin deployment,
+select a durable audit store, configure CSRF/HTTPS policy, create the first
+administrator through `mahanaim admin create-user`, and verify that the audit
+database is in the backup/restore runbook.
 
 ## Start a versioned API/service
 

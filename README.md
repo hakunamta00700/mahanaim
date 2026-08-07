@@ -23,6 +23,18 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - [실행 가능한 최소 예제](examples/minimal_app.nim)
 - [Adoption 및 release 가이드](docs/adoption-and-release.md)
 
+## 프로젝트와 앱 생성
+
+```text
+mahanaim new shop ./shop
+cd shop
+mahanaim app catalog
+```
+
+`mahanaim app`은 `src/catalog.nim` 모듈과 `tests/test_catalog.nim` 테스트를
+만들며, 앱은 프로젝트의 composition root에서 `catalogModule()`로 명시적으로
+설치한다. 기존 파일은 덮어쓰지 않는다.
+
 요구사항 문서는 Django 6.0, Litestar 2.x, Prologue의 공식 문서를 비교 기준으로 작성했습니다. 현재 저장소에는 framework-neutral core, adapter, contract test와 실행 가능한 최소 수직 슬라이스가 포함되어 있으며, 외부 staging/live 증거는 계획에서 별도로 추적합니다.
 
 ## 로드맵

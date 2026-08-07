@@ -3469,6 +3469,24 @@ suite "Mahanaim core contracts":
     if entryCompileExitCode != 0:
       echo entryCompileOutput
     check entryCompileExitCode == 0
+    generateApp(AppSpec(name: "inventory", root: root))
+    check fileExists(root / "src" / "inventory.nim")
+    check fileExists(root / "tests" / "test_inventory.nim")
+    check readFile(root / "src" / "inventory.nim").contains(
+      "proc inventoryModule*")
+    check readFile(root / "tests" / "test_inventory.nim").contains(
+      "/inventory/health")
+    let appCompileCommand = "nim c --path:src" & dependencyArgs & " --path:" &
+      quoteShell(root / "src") & " -r " & quoteShell(root / "tests" /
+        "test_inventory.nim")
+    let (appCompileOutput, appCompileExitCode) = execCmdEx(appCompileCommand)
+    if appCompileExitCode != 0:
+      echo appCompileOutput
+    check appCompileExitCode == 0
+    expect IOError:
+      generateApp(AppSpec(name: "inventory", root: root))
+    expect ValueError:
+      generateApp(AppSpec(name: "not-valid", root: root))
     expect IOError:
       generateProject(ProjectSpec(name: "sample_app", root: root))
     removeDir(root)

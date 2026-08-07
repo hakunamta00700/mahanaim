@@ -10,6 +10,7 @@ import mahanaim/[application, checks, cli, config, generator]
 proc printUsage() =
   echo "mahanaim <command>"
   echo "  new NAME [PATH]  Generate a new project"
+  echo "  app NAME [PROJECT_ROOT]  Generate an application module"
   echo "  db status|migrate|up|rollback [PATH]  Run application migrations"
   echo "  jobs run [max]|recover  Run or recover durable jobs"
   echo "  openapi [PATH]  Generate an OpenAPI document from registered routes"
@@ -47,6 +48,14 @@ proc main() =
     let root = if paramCount() == 3: paramStr(3) else: name
     generateProject(ProjectSpec(name: name, root: root))
     echo "Generated Mahanaim project: ", root
+  of "app":
+    if paramCount() < 2 or paramCount() > 3:
+      stderr.writeLine("Usage: mahanaim app NAME [PROJECT_ROOT]")
+      quit(1)
+    let name = paramStr(2)
+    let root = if paramCount() == 3: paramStr(3) else: getCurrentDir()
+    generateApp(AppSpec(name: name, root: root))
+    echo "Generated Mahanaim app module: ", name
   of "dev":
     let config = loadConfig()
     let report = checkApplication(newApplication(config))

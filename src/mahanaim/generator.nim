@@ -9,6 +9,13 @@ type ProjectSpec* = object
   name*: string
   root*: string
 
+type AppSpec* = object
+  ## A Django-like app is an explicit Mahanaim module stored inside an existing
+  ## project.  The project root is supplied rather than inferred from cwd so
+  ## the generator never writes outside the caller's intended project.
+  name*: string
+  root*: string
+
 proc validProjectName*(name: string): bool =
   ## Restrict generated Nim identifiers to a predictable safe subset.
   if name.len == 0 or not (name[0].isAlphaAscii or name[0] == '_'):
@@ -23,6 +30,45 @@ proc writeIfMissing(path, content: string) =
   if fileExists(path):
     raise newException(IOError, "refusing to overwrite existing file: " & path)
   writeFile(path, content)
+
+proc generateApp*(spec: AppSpec) =
+  ## Create a small, compilable application module and its isolated contract
+  ## test.  Existing application wiring remains untouched: the developer adds
+  ## `app.installModules([<name>Module()])` deliberately where composition is
+  ## owned, rather than relying on Django-style global discovery.
+  if not validProjectName(spec.name):
+    raise newException(ValueError, "app name must be a valid Nim identifier")
+  if spec.root.strip().len == 0 or not dirExists(spec.root):
+    raise newException(IOError, "app project root must be an existing directory")
+  let sourceDirectory = spec.root / "src"
+  let testDirectory = spec.root / "tests"
+  if not dirExists(sourceDirectory) or not dirExists(testDirectory):
+    raise newException(IOError, "app project root requires src and tests directories")
+  let routeName = spec.name.replace('_', '-')
+  let routePath = "/" & routeName & "/health"
+  let moduleSource = "## Generated Mahanaim application module.\n" &
+    "## Install explicitly: app.installModules([" & spec.name & "Module()])\n\n" &
+    "import std/asyncdispatch\nimport mahanaim\n\n" &
+    "proc " & spec.name & "Health(request: Request): Future[Response] {.async, gcsafe.} =\n" &
+    "  discard request\n" &
+    "  return textResponse(\"" & spec.name & " app is ready\")\n\n" &
+    "proc " & spec.name & "Module*(): ApplicationModule =\n" &
+    "  result = newApplicationModule(\"" & spec.name & "\")\n" &
+    "  result.addModuleRoute(proc(app: Application) {.gcsafe.} =\n" &
+    "    app.get(\"" & routePath & "\", \"" & routeName & "-health\", " &
+      spec.name & "Health))\n"
+  writeIfMissing(sourceDirectory / (spec.name & ".nim"), moduleSource)
+  let testSource = "import std/[asyncdispatch, httpcore, unittest]\n" &
+    "import mahanaim\nimport " & spec.name & "\n\n" &
+    "suite \"generated " & spec.name & " app module\":\n" &
+    "  test \"installs through explicit application composition\":\n" &
+    "    let app = newApplication()\n" &
+    "    app.installModules([" & spec.name & "Module()])\n" &
+    "    let response = waitFor app.dispatch(newRequest(\"GET\", \"" &
+      routePath & "\"))\n" &
+    "    check response.status == Http200\n" &
+    "    check response.body == \"" & spec.name & " app is ready\"\n"
+  writeIfMissing(testDirectory / ("test_" & spec.name & ".nim"), testSource)
 
 proc generateProject*(spec: ProjectSpec) =
   ## Create a deterministic vertical slice rather than an empty placeholder:
