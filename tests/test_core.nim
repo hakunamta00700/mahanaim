@@ -4530,6 +4530,26 @@ suite "Mahanaim core contracts":
         raise newException(ValueError, "transaction failure"))
     check adapter.events == @["begin", "commit", "begin", "rollback"]
 
+  test "raw SQL and database routing keep parameter and role boundaries explicit":
+    let adapter = newSqliteDatabaseAdapter()
+    defer: adapter.close()
+    discard adapter.execute(CompiledQuery(sql:
+      "CREATE TABLE raw_sql_rows (id INTEGER PRIMARY KEY, name TEXT)", parameters: @[]))
+    let router = newDatabaseRouter()
+    router.registerDatabase(databaseWrite, adapter)
+    discard router.executeRaw(databaseWrite,
+      newRawSqlQuery("INSERT INTO raw_sql_rows (name) VALUES (?)", [textValue("bound")]))
+    let read = newRawSqlQuery("SELECT name FROM raw_sql_rows WHERE name = ?",
+      [textValue("bound")])
+    expect ValueError:
+      discard router.executeRaw(databaseRead, read)
+    router.registerDatabase(databaseRead, adapter)
+    let rows = router.executeRaw(databaseRead, read)
+    check rows.rows.len == 1
+    check rows.rows[0][0].text == "bound"
+    expect ValueError:
+      discard newRawSqlQuery("SELECT 1; SELECT 2")
+
   test "QuerySet builder compiles grouped aggregates for both database dialects":
     let base = newQuerySet("orders")
     let grouped = base

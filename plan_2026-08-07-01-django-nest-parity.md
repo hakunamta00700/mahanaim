@@ -52,10 +52,11 @@ adding public API names.
   - Evidence: `addTypedVersionedDocumentedRoute` derives DTO schemas at compile time and shares the existing validation/problem envelope, multi-media OpenAPI projection, nullable/nested DTO, and cycle tests. `apiVersionUrl` and `apiVersionHeader` select URL or `Accept; version=` contracts, reject incompatible versions with `406`/`Vary`, expose deprecation metadata, and emit deterministic version-filtered OpenAPI and TypeScript clients.
   - Validation: Compile-time typed-route coverage and runtime URL/header version, incompatible `Accept`, nullable/nested DTO, cycle, and generated-client regression tests; run `nimble test`, `nimble verify`, and `nimble docsExamples`.
 
-- [ ] Harden database portability, migration workflow, and relational query ergonomics.
+- [x] Harden database portability, migration workflow, and relational query ergonomics.
   - Scope: `src/mahanaim/database*.nim`, `sqlite_adapter.nim`, `postgres_adapter.nim`, `migration_commands.nim`, `model_schema.nim`, `database_repository.nim`, `docs/storage-and-orm-integration.md`, and database tests.
   - Done when: The documented SQLite/PostgreSQL matrix covers transactions, migrations, schema history/diff, relation loading, raw-SQL escape hatch, and request pool lifecycle; multi-database/read-write routing has either a tested first-party contract or an explicitly unsupported diagnostic; additional backend adapters have a stable extension protocol.
-  - Validation: Add migration merge/rollback/data-migration and multi-connection regression fixtures; run `nimble test`, `nimble postgresCheck`, `nimble postgresLiveCheck`, and credentialed `nimble postgresLive` in CI.
+  - Evidence: SQLite/PostgreSQL capability, transaction, schema history/diff, concurrent migration, rollback, and eager/lazy relation contracts are covered by shared and live fixtures. `newRawSqlQuery`/`executeRaw` preserves bound parameters for explicit dialect escape hatches, while `DatabaseRouter` requires configured read/write roles and reports unsupported routing without fallback. Storage/ORM integration documents extension ownership and cross-database transaction limitations.
+  - Validation: Migration, relation, raw SQL/routing, and multi-connection regression fixtures; run `nimble test`, `nimble postgresCheck`, `nimble postgresLiveCheck`, and credentialed `nimble postgresLive` in CI.
 
 - [ ] Productize the admin, forms, and durable audit trail.
   - Scope: `src/mahanaim/admin.nim`, `forms.nim`, `templates.nim`, `authorization.nim`, `resources.nim`, `account_auth.nim`, and HTML/admin tests.

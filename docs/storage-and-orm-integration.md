@@ -114,6 +114,19 @@ repository 경계 안에서 materialize한다.
 - shutdown에서는 새 작업을 받지 않고 in-flight scope를 drain한 뒤 pool/session과
   provider client를 닫는다.
 
+### Raw SQL and multi-database routing
+
+`newRawSqlQuery(sql, parameters)`는 query builder가 표현하지 않는 dialect 기능을
+위한 명시적 escape hatch다. SQL text는 application-owned이며 값은 반드시
+`SqlValue` parameter로 바인딩한다. 문자열 보간 helper나 다중 statement는 제공하지
+않는다. `executeRaw`는 `DatabaseResult` metadata와 affected-row count를 그대로
+반환한다.
+
+read/write 분리는 `DatabaseRouter`에 각 역할을 명시적으로 등록할 때만 사용할 수
+있다. 누락된 role은 default adapter로 fallback하지 않고 `Database routing is
+unsupported` 오류를 반환한다. transaction은 한 adapter connection 안에서만
+수행하며 cross-database transaction은 first-party 지원 범위가 아니다.
+
 ## Adapter contract test matrix
 
 새 adapter는 최소한 다음 테스트를 같은 의미로 공유해야 한다.

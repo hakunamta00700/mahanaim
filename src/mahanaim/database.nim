@@ -4,7 +4,7 @@
 ## transaction lifecycle.  A SQLite/PostgreSQL driver remains an adapter that
 ## executes the compiled statement; raw values are never interpolated into SQL.
 
-import std/[strutils]
+import std/[strutils, tables]
 import ./models
 
 type
@@ -170,6 +170,22 @@ type
     sql*: string
     parameters*: seq[SqlValue]
 
+  RawSqlQuery* = object
+    ## Raw SQL is an explicit application escape hatch. The text remains
+    ## caller-owned, but every value must still cross the adapter as a bound
+    ## `SqlValue`; interpolation helpers are deliberately not provided.
+    sql*: string
+    parameters*: seq[SqlValue]
+
+  DatabaseRole* = enum
+    databaseRead
+    databaseWrite
+
+  DatabaseRouter* = ref object
+    ## Multi-database routing is opt-in. A missing role fails explicitly rather
+    ## than silently sending writes to a read replica or a default connection.
+    adapters: Table[DatabaseRole, DatabaseAdapter]
+
   MigrationOperationKind* = enum
     migrationCreateTable
     migrationAddColumn
@@ -209,6 +225,45 @@ method executeResult*(adapter: DatabaseAdapter,
   ## The base implementation deliberately preserves the old row-only contract
   ## so third-party adapters do not break when the framework adds metadata.
   result.rows = adapter.execute(query)
+
+proc newRawSqlQuery*(sql: string,
+                     parameters: openArray[SqlValue] = []): RawSqlQuery =
+  let normalized = sql.strip()
+  if normalized.len == 0 or normalized.contains({'\0', '\r', '\n'}):
+    raise newException(ValueError, "Raw SQL must be a single non-empty statement")
+  if normalized.count(';') > 1 or (normalized.count(';') == 1 and
+      not normalized.endsWith(";")):
+    raise newException(ValueError, "Raw SQL must contain one statement")
+  result.sql = normalized
+  result.parameters = @parameters
+
+proc executeRaw*(adapter: DatabaseAdapter, query: RawSqlQuery): DatabaseResult =
+  ## Do not offer a string interpolation overload: the explicit `SqlValue`
+  ## list is the only supported channel for untrusted values.
+  if adapter.isNil:
+    raise newException(ValueError, "Database adapter is required for raw SQL")
+  adapter.executeResult(CompiledQuery(sql: query.sql, parameters: query.parameters))
+
+proc newDatabaseRouter*(): DatabaseRouter =
+  DatabaseRouter(adapters: initTable[DatabaseRole, DatabaseAdapter]())
+
+proc registerDatabase*(router: DatabaseRouter, role: DatabaseRole,
+                       adapter: DatabaseAdapter) =
+  if router.isNil or adapter.isNil:
+    raise newException(ValueError, "Database router and adapter are required")
+  if router.adapters.hasKey(role):
+    raise newException(ValueError, "Database role is already configured")
+  router.adapters[role] = adapter
+
+proc databaseFor*(router: DatabaseRouter, role: DatabaseRole): DatabaseAdapter =
+  if router.isNil or not router.adapters.hasKey(role):
+    let name = if role == databaseRead: "read" else: "write"
+    raise newException(ValueError, "Database routing is unsupported for " & name & " role")
+  router.adapters[role]
+
+proc executeRaw*(router: DatabaseRouter, role: DatabaseRole,
+                 query: RawSqlQuery): DatabaseResult =
+  router.databaseFor(role).executeRaw(query)
 
 proc statementKeyword*(sql: string): string =
   ## Keep DML classification in the common contract so adapters agree on
