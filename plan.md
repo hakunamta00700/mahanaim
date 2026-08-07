@@ -535,11 +535,11 @@
 
 ## 5. 템플릿, SSR, 폼, HTMX (P1)
 
-- [ ] `docs/templates.md`: TemplateEngine 등록/파일 로드, variable escaping, filter, tag/helper, include, inheritance, conditional, loop, locale formatter를 설명한다.
-- [ ] `docs/server-rendered-pages.md`: HTML response, template adapter 교체, request-local context, partial rendering의 경계를 설명한다.
-- [ ] `docs/forms.md`: `FormState`, schema/model form binding, validation error, widget registry, formset, CSRF를 설명한다.
-- [ ] `docs/htmx.md`: `htmlJsonResponse`, `HX-Request`, partial/JSON 선택, cache header와 progressive enhancement 예제를 작성한다.
-- [ ] 기존 Admin 템플릿 문서를 템플릿 기본 가이드와 상호 연결하고, 일반 템플릿과 Admin 전용 컨텍스트의 차이를 명시한다.
+- [x] `docs/templates.md`: TemplateEngine 등록/파일 로드, variable escaping, filter, tag/helper, include, inheritance, conditional, loop, locale formatter를 설명한다.
+- [x] `docs/server-rendered-pages.md`: HTML response, template adapter 교체, request-local context, partial rendering의 경계를 설명한다.
+- [x] `docs/forms.md`: `FormState`, schema/model form binding, validation error, widget registry, formset, CSRF를 설명한다.
+- [x] `docs/htmx.md`: `htmlJsonResponse`, `HX-Request`, partial/JSON 선택, cache header와 progressive enhancement 예제를 작성한다.
+- [x] 기존 Admin 템플릿 문서를 템플릿 기본 가이드와 상호 연결하고, 일반 템플릿과 Admin 전용 컨텍스트의 차이를 명시한다.
 
 수용 기준:
 

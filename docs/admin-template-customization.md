@@ -1,5 +1,7 @@
 # Admin 템플릿 커스터마이징
 
+일반 페이지 템플릿의 등록·escaping·include·inheritance·locale 규칙은 [템플릿 가이드](templates.md)를 따릅니다. Admin 템플릿은 같은 엔진을 사용하지만, 아래의 Admin 전용 컨텍스트와 `admin/...` override 탐색 규칙을 추가로 가집니다. 일반 `TemplateRenderContext`를 Admin 화면에 임의로 기대하지 마십시오.
+
 Admin의 기본 HTML은 `src/mahanaim/admin_templates/`에 있는 파일로 작성되며,
 컴파일 시 AdminRegistry에 포함됩니다. 따라서 프레임워크 패키지를 배포한 뒤에도
 프로젝트는 자체 템플릿 디렉터리만으로 화면을 교체할 수 있습니다.
