@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Documentation impact
+
+For every user-visible change, state whether a user guide, executable example,
+migration/deprecation note, support-matrix maturity/evidence update, or security/
+operations document changed. The release reviewer checks this against
+`docs/documentation-maintenance.md` before publishing.
+
 - Docker nginx HTTPS reverse-proxy wire fixture를 재실행하고 redirect, TLS handshake, proxy hop, secure cookie 계약 통과 결과를 계획에 기록했다.
 - PostgreSQL migration에 transaction-scoped advisory lock을 추가해 독립 연결의 동시 실행이 단일 history로 수렴하도록 보장하고, Redis/PostgreSQL disposable live gate 결과를 기록했다.
 - PostgreSQL live fixture에 독립 연결 2개의 concurrent migration과 단일 history 수렴 계약을 추가했다.
