@@ -167,15 +167,21 @@ proc newEnumModelField*(name: string, values: openArray[string],
     maxLength = maxLength, sensitive = sensitive)
   result.enumValues = @values
 
-proc newModelMetadata*(name: string, tableName = ""): ModelMetadata =
-  ## Keep metadata construction explicit so generated and hand-written models
-  ## follow the same contract.
+proc createModelMetadata*(name: string, tableName = ""): ModelMetadata =
+  ## Create a value-based metadata declaration. `create` is intentional here:
+  ## ModelMetadata is not a ref object and this procedure does not allocate a
+  ## heap object through Nim's `new` mechanism.
   result.name = name
   result.tableName = if tableName.len > 0: tableName else: name
   result.fields = @[]
   result.indexes = @[]
   result.constraints = @[]
   result.relations = @[]
+
+proc newModelMetadata*(name: string, tableName = ""): ModelMetadata {.deprecated:
+    "use createModelMetadata instead".} =
+  ## Compatibility alias for applications using the original API.
+  createModelMetadata(name, tableName)
 
 proc initModelRegistry*(): ModelRegistry =
   result.models = initTable[string, ModelMetadata]()

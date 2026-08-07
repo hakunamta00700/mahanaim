@@ -25,6 +25,35 @@ type MacroUser = object
 
 type GreetingController = ref object of Controller
 
+type RouteDslFixture = object
+  label: int
+
+type RouteDslViewHandler = proc(request: Request): Future[mahanaim.Response]
+
+proc routeDslViewAdapter(handler: RouteDslViewHandler): Handler =
+  cast[Handler](handler)
+
+proc routeDslApi(fixture: RouteDslFixture,
+                 request: Request): Future[mahanaim.Response]
+    {.async, gcsafe.} =
+  return textResponse($fixture.label & ":" & request.path)
+
+proc routeDslView(fixture: RouteDslFixture,
+                  request: Request): Future[mahanaim.Response] {.async.} =
+  return textResponse("view:" & $fixture.label & ":" & request.path)
+
+proc routeDslMiddleware(request: Request,
+                        next: Handler): Future[mahanaim.Response]
+    {.async, gcsafe.} =
+  let response = await next(request)
+  result = response
+  result.headers["x-route-dsl"] = "applied"
+
+proc routeDslMounted(request: Request): Future[mahanaim.Response]
+    {.async, gcsafe.} =
+  discard request
+  return textResponse("mounted")
+
 method handle(controller: GreetingController, action: string,
               request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
   if action != "show":
@@ -604,6 +633,43 @@ suite "Mahanaim core contracts":
     check response.status == Http200
     check response.body == "ok"
 
+  test "route DSL expands prefixes adapters middleware and mounts":
+    let app = newApplication()
+    let fixture = RouteDslFixture(label: 42)
+
+    routes(app, namePrefix = "forum"):
+      middleware routeDslMiddleware
+
+      adapt routeDslViewAdapter:
+        get "/", "home", fixture.routeDslView
+
+      group "/api":
+        get "/items/:id", "items.show", fixture.routeDslApi
+        post "/items", "items.create", fixture.routeDslApi
+        route "DELETE", "/items/:id", "items.delete", fixture.routeDslApi
+
+      mount app.get("/mounted", "forum.mounted", routeDslMounted)
+
+    let home = waitFor app.dispatch(newRequest("GET", "/"))
+    check home.body == "view:42:/"
+    check home.header("x-route-dsl").get() == "applied"
+
+    let shown = waitFor app.dispatch(newRequest("GET", "/api/items/42"))
+    check shown.body == "42:/api/items/42"
+    check app.router.findNamed("forum.items.show").get().pattern ==
+      "/api/items/:id"
+
+    let created = waitFor app.dispatch(newRequest("POST", "/api/items"))
+    check created.body == "42:/api/items"
+    check app.router.findNamed("forum.items.create").isSome
+
+    let deleted = waitFor app.dispatch(newRequest("DELETE", "/api/items/42"))
+    check deleted.body == "42:/api/items/42"
+    check app.router.findNamed("forum.items.delete").isSome
+
+    let mounted = waitFor app.dispatch(newRequest("GET", "/mounted"))
+    check mounted.body == "mounted"
+
   test "class-based controller route delegates through an action boundary":
     let app = newApplication()
     let controller = GreetingController()
@@ -647,7 +713,7 @@ suite "Mahanaim core contracts":
       discard request
       await session.send(await session.receive())
 
-    routes app:
+    routes(app, namePrefix = ""):
       getSync "/dsl-sync", "dsl.sync", syncRoute
       putSync "/dsl-put", "dsl.put", syncRoute
       patchSync "/dsl-patch", "dsl.patch", syncRoute

@@ -122,7 +122,7 @@ macro modelMetadata*(modelType: typedesc,
   let generated = genSym(nskVar, "metadata")
   result = newStmtList()
   result.add quote do:
-    var `generated` = newModelMetadata(`resolvedName`, `resolvedTable`)
+    var `generated` = createModelMetadata(`resolvedName`, `resolvedTable`)
   var matchedCustomFields: seq[string] = @[]
   for (name, typeNode) in fields:
     let fieldLiteral = newLit(name)
@@ -162,6 +162,46 @@ macro modelMetadata*(modelType: typedesc,
       error("Custom model field is not declared by the model object: " &
         customName, declaration)
   result.add generated
+
+proc normalizeDjangoDeclaration(declaration: NimNode): NimNode =
+  ## Convert the small Django-like DSL vocabulary to the existing explicit
+  ## metadata constructors. Keeping this as an AST rewrite means the runtime
+  ## metadata contract and all of its validation remain unchanged.
+  if declaration.kind != nnkCall or declaration.len == 0:
+    error("djangoModel declarations must be constructor calls", declaration)
+  result = copyNimTree(declaration)
+  let name = $declaration[0]
+  case name
+  of "index": result[0] = ident("newModelIndex")
+  of "constraint": result[0] = ident("newModelConstraint")
+  of "relation": result[0] = ident("newModelRelation")
+  of "customField": result[0] = ident("newModelCustomField")
+  of "newModelIndex", "newModelConstraint", "newModelRelation",
+     "newModelCustomField": discard
+  else:
+    error("Unsupported djangoModel declaration: " & name, declaration)
+
+macro djangoModel*(modelType: typedesc,
+                   modelName: static[string] = "",
+                   tableName: static[string] = "",
+                   declarations: untyped): untyped =
+  ## Django-like facade for modelMetadata.
+  ##
+  ## Example:
+  ##   let post = djangoModel(Post, "Post", "posts"):
+  ##     index("idx_posts_board_created", ["boardId", "createdAt"])
+  ##     relation("comments", relationOneToMany, "Comment", "id", "postId")
+  ##
+  ## Fields continue to come from the Nim object type. The block is reserved
+  ## for database options, which prevents a second, divergent field schema.
+  var call = newCall(ident("modelMetadata"), modelType,
+    newLit(modelName), newLit(tableName))
+  if declarations.kind == nnkStmtList:
+    for declaration in declarations:
+      call.add(normalizeDjangoDeclaration(declaration))
+  else:
+    call.add(normalizeDjangoDeclaration(declarations))
+  result = call
 
 proc inputFieldConstructor(typeNode: NimNode): NimNode =
   ## Scalars and JSON collections have safe common HTTP representations;

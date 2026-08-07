@@ -81,7 +81,7 @@ proc health(request: Request): Future[Response] {.async, gcsafe.} =
 
 proc sliceMetadata(): ModelMetadata =
   ## One explicit metadata source feeds migration, validation, CRUD, and forms.
-  result = newModelMetadata("Item", "items")
+  result = createModelMetadata("Item", "items")
   result.addField(newModelField("id", modelInteger, primaryKey = true))
   result.addField(newModelField("title", modelString))
 

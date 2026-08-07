@@ -22,7 +22,7 @@ import mahanaim/redis_channels
 import mahanaim/redis_channel_layer
 
 
-export core, router, application, config, http_adapter, generator, security,
+export core, router, application, route_dsl, config, http_adapter, generator, security,
        validation, response_policy, checks, models, serialization, execution,
        prologue_adapter, testing, body_parser, upload_storage, prologue_server,
        websocket_adapter, model_macro, database, openapi, observability,

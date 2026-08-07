@@ -15,6 +15,7 @@ static:
   doAssert compiles(jsonResponse("{}"))
 
   ## Routing, metadata, validation, and serialization families.
+  doAssert declared(routes)
   doAssert compiles(initRouter())
   doAssert compiles(newModelMetadata("Item", "items"))
   doAssert compiles(newModelField("name", modelString))
