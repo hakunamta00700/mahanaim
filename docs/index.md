@@ -34,28 +34,28 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 | 인증·계정 흐름 | [인증](authentication.md), [비밀번호 보안](password-security.md) |
 | 역할·객체 권한 | [권한](authorization.md) |
 | CSRF·CORS·TLS·rate limit | [보안](security.md), [보안 배포 점검표](security-deployment-checklist.md) |
-| CRUD Admin·감사 로그 | Admin·Admin 운영 가이드 (작성 예정) |
+| CRUD Admin·감사 로그 | [Admin](admin.md), [Admin 운영](admin-operations.md) |
 | Admin 화면 변경 | [Admin 템플릿 커스터마이징](admin-template-customization.md) |
 
 ## 비동기·실시간·저장소
 
 | 목표 | 문서 |
 | --- | --- |
-| durable job·재시도·복구 | 백그라운드 작업 가이드 (작성 예정) |
-| WebSocket·SSE | WebSocket·SSE 가이드 (작성 예정) |
-| channel layer·Redis | 채널 레이어 가이드 (작성 예정) |
-| email·flash·RSS/sitemap | 알림·신디케이션 가이드 (작성 예정) |
-| upload/object storage | 저장소 가이드 (작성 예정) |
-| cache·Redis/Valkey | 캐시 가이드 (작성 예정) |
-| static collect | 정적 자산 가이드 (작성 예정) |
+| durable job·재시도·복구 | [백그라운드 작업](background-jobs.md) |
+| WebSocket·SSE | [WebSocket](websocket.md), [SSE](sse.md) |
+| channel layer·Redis | [채널 레이어](channel-layers.md) |
+| email·flash·RSS/sitemap | [알림·신디케이션](email-and-notifications.md) |
+| upload/object storage | [저장소](storage.md), [업로드](uploads.md) |
+| cache·Redis/Valkey | [캐시](cache.md) |
+| static collect | [정적 자산](static-assets.md) |
 
 ## 테스트·운영·릴리스
 
 | 목표 | 문서 |
 | --- | --- |
-| 테스트 client·fixture·live gate | 테스트 가이드 (작성 예정) |
-| log·trace·health·metrics | 관측성 가이드 (작성 예정) |
-| Docker·nginx·systemd 배포 | [배포 레시피](deployment-recipes.md) |
+| 테스트 client·fixture·live gate | [테스트](testing.md) |
+| log·trace·health·metrics | [관측성](observability.md) |
+| Docker·nginx·systemd 배포 | [배포](deployment.md), [배포 레시피](deployment-recipes.md) |
 | 복구·provider 운영 | [운영 가이드](operations-guide.md) |
 | 지원 범위와 릴리스 절차 | [지원 매트릭스](support-matrix.md), [릴리스 지원 정책](support-policy.md) |
 
@@ -63,11 +63,11 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 
 | 목표 | 문서 |
 | --- | --- |
-| plugin·ApplicationModule | 플러그인·애플리케이션 모듈 가이드 (작성 예정) |
-| adapter·확장 패키지 작성 | 확장 작성·외부 어댑터 가이드 (작성 예정) |
-| Django에서 이전 | Django 전환 가이드 (작성 예정) |
-| Litestar에서 이전 | Litestar 전환 가이드 (작성 예정) |
-| 실험 기능·제한 | 지원 매트릭스와 알려진 제한 가이드 (작성 예정) |
+| plugin·ApplicationModule | [플러그인](plugins.md), [애플리케이션 모듈](application-modules.md) |
+| adapter·확장 패키지 작성 | [확장 작성](extension-authoring.md), [외부 어댑터](external-adapters.md) |
+| Django에서 이전 | [Django 전환](django-migration.md) |
+| Litestar에서 이전 | [Litestar 전환](litestar-migration.md) |
+| 실험 기능·제한 | [지원 매트릭스](support-matrix.md), [알려진 제한](known-limitations.md) |
 
 ## 문서 상태
 
