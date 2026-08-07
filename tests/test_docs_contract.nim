@@ -293,6 +293,24 @@ nimble test
     check policy.contains("Evidence promotion policy")
     check policy.contains("release artifact")
 
+  test "every support-matrix feature links to a user guide":
+    ## The matrix is the source of truth for feature maturity; this companion
+    ## map makes its user documentation discoverable and rejects a feature row
+    ## that has evidence but no explanation of how to use its boundary.
+    let matrix = readFile(getCurrentDir() / "docs" / "support-matrix.md")
+    let features = [
+      "application-routing", "dependency-injection", "typed-api-openapi",
+      "sqlite-storage", "postgresql-adapter", "admin-forms",
+      "authentication-security", "email-notifications", "background-jobs",
+      "http-transport", "storage-cache-rate-limit", "realtime-events",
+      "observability-testing-cli"
+    ]
+    for feature in features:
+      let rows = matrix.splitLines.filterIt(it.startsWith("| `" & feature & "` |"))
+      check rows.len == 1
+      if rows.len == 1:
+        check localMarkdownTargets(rows[0]).len > 0
+
   test "minimal documentation example has a compile and run gate":
     ## The smallest public example must exercise the same Application route
     ## and dispatch contract that users see in the documentation.

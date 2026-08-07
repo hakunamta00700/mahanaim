@@ -44,6 +44,28 @@
 first-party feature 행은 `tests/test_docs_contract.nim`에서 검증한다.
 새 first-party 기능은 같은 변경에서 이 표와 해당 CI/live gate를 추가해야 한다.
 
+## Feature documentation map
+
+Every first-party feature has a user-facing entry point below. The maturity in
+the table above remains authoritative; a guide does not promote an
+experimental feature to stable.
+
+| feature | user documentation |
+| --- | --- |
+| `application-routing` | [routing](routing.md), [requests and validation](requests-and-validation.md), [responses and negotiation](responses-and-negotiation.md) |
+| `dependency-injection` | [application and modules](application-and-modules.md), [application modules](application-modules.md) |
+| `typed-api-openapi` | [API development](api-development.md), [OpenAPI](openapi.md), [API security](api-security.md) |
+| `sqlite-storage` | [models and metadata](models-and-metadata.md), [migrations](migrations.md), [database connections](database-connections.md) |
+| `postgresql-adapter` | [migrations](migrations.md), [database connections](database-connections.md), [known limitations](known-limitations.md) |
+| `admin-forms` | [Admin](admin.md), [Admin operations](admin-operations.md), [Admin template customization](admin-template-customization.md) |
+| `authentication-security` | [authentication](authentication.md), [authorization](authorization.md), [security](security.md) |
+| `email-notifications` | [email and notifications](email-and-notifications.md), [known limitations](known-limitations.md) |
+| `background-jobs` | [background jobs](background-jobs.md), [external adapters](external-adapters.md) |
+| `http-transport` | [deployment](deployment.md), [testing](testing.md), [known limitations](known-limitations.md) |
+| `storage-cache-rate-limit` | [storage](storage.md), [cache](cache.md), [operations guide](operations-guide.md) |
+| `realtime-events` | [WebSockets](websocket.md), [SSE](sse.md), [channel layers](channel-layers.md) |
+| `observability-testing-cli` | [observability](observability.md), [testing](testing.md), [CLI reference](cli-reference.md) |
+
 ## Experimental feature reading map
 
 Experimental rows have a local contract but still require the named provider,
