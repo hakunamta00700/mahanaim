@@ -340,6 +340,22 @@ two-process fan-out, reconnect, ordering, backpressure, and bounded eviction
 checks. These local results complement, but do not replace, GitHub runner and
 staging deployment evidence.
 
+## JWT bearer credentials
+
+Use `newJwtTokenAuthBackend` with an ordered keyring, explicit issuer and
+audience, then register it through `SecurityPolicy.addAuthBackend`. The first
+key issues HS256 tokens; all listed keys verify tokens by their `kid`, so key
+rotation is an add-new-key, migrate callers, then remove-retired-key process.
+Never retain a retired key merely as an implicit fallback.
+
+`issueJwt` emits `sub`, `iss`, `aud`, `iat`, `nbf`, `exp`, and `jti` claims.
+Verification rejects malformed signatures, expired or not-yet-valid tokens,
+issuer/audience mismatch, unknown keys, and revoked IDs. Supply a
+`JwtRevocationStore` for logout or emergency credential retirement; an
+unavailable custom revocation backend must fail closed by returning no identity.
+The in-memory store is for a single process only—production deployments should
+provide a shared store that retains each ID through its token expiry.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and

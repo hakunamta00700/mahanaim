@@ -3766,6 +3766,44 @@ suite "Mahanaim core contracts":
 
     check verifySignedValueWithKeyring(@[primary], signedWithLegacy).isNone
 
+  test "JWT bearer authentication validates claims rotation and revocation":
+    let currentKey = newJwtKey("2026-08", "jwt-current-key-that-is-long-enough-for-hs256")
+    let legacyKey = newJwtKey("2026-07", "jwt-legacy-key-that-is-long-enough-for-hs256")
+    let backend = newJwtTokenAuthBackend(@[currentKey, legacyKey],
+      "https://issuer.example.test", "mahanaim-api")
+    let token = issueJwtAt(backend, "user-42", 600, 1_000,
+      tokenId = "token-42")
+    let claims = verifyJwtAt(backend, token, 1_100)
+    check claims.isSome
+    check claims.get().subject == "user-42"
+    check claims.get().keyId == "2026-08"
+    check verifyJwtAt(backend, token, 1_600).isNone
+    check verifyJwtAt(backend, token[0 .. ^2] & "0", 1_100).isNone
+    let future = issueJwtAt(backend, "user-42", 600, 1_000,
+      tokenId = "future-token", notBefore = 1_200)
+    check verifyJwtAt(backend, future, 1_100).isNone
+    let legacyIssuer = newJwtTokenAuthBackend(@[legacyKey],
+      "https://issuer.example.test", "mahanaim-api")
+    let legacyToken = issueJwtAt(legacyIssuer, "user-42", 600, 1_000,
+      tokenId = "legacy-token")
+    check verifyJwtAt(backend, legacyToken, 1_100).isSome
+    let wrongAudience = newJwtTokenAuthBackend(@[currentKey],
+      "https://issuer.example.test", "other-api")
+    check verifyJwtAt(wrongAudience, token, 1_100).isNone
+
+    let revocations = newInMemoryJwtRevocationStore()
+    let liveNow = getTime().toUnix
+    let revocable = newJwtTokenAuthBackend(@[currentKey],
+      "https://issuer.example.test", "mahanaim-api", revocations = revocations)
+    let liveToken = issueJwtAt(revocable, "user-42", 60, liveNow,
+      tokenId = "revoked-token")
+    revocations.revoke("revoked-token", liveNow + 60)
+    check verifyJwtAt(revocable, liveToken, liveNow).isNone
+    var request = newRequest("GET", "/protected")
+    request.headers["authorization"] = "Bearer " & issueJwtAt(backend,
+      "user-42", 60, liveNow, tokenId = "live-token")
+    check backend.authenticate(request).get().subject == "user-42"
+
   test "configuration merges dotenv JSON TOML and environment values":
     let root = getTempDir() / "mahanaim_config_test"
     if dirExists(root):

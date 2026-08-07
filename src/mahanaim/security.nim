@@ -5,7 +5,7 @@
 ## and rate limiting remain separate policies so each concern can be tested and
 ## replaced independently.
 
-import std/[asyncdispatch, httpcore, locks, monotimes, options, strutils, sysrand, tables, times]
+import std/[asyncdispatch, base64, httpcore, json, locks, monotimes, options, strutils, sysrand, tables, times]
 import nimcrypto
 import ./body_parser
 import ./core
@@ -76,6 +76,39 @@ type
     secret*: string
     headerName*: string
     scheme*: string
+
+  JwtKey* = object
+    ## The key id is carried in the JWT header, making retirement explicit.
+    id*: string
+    secret*: string
+
+  JwtClaims* = object
+    subject*: string
+    issuer*: string
+    audience*: string
+    issuedAt*: int64
+    notBefore*: int64
+    expiresAt*: int64
+    tokenId*: string
+    keyId*: string
+
+  JwtRevocationStore* = ref object of RootObj
+    ## Token ids are revocable until their expiry. Backends must fail closed
+    ## when this check cannot be completed.
+
+  InMemoryJwtRevocationStore* = ref object of JwtRevocationStore
+    revoked: Table[string, int64]
+    lock: Lock
+
+  JwtTokenAuthBackend* = ref object of AuthBackend
+    ## A compact HS256 JWT adapter with explicit issuer/audience/key policy.
+    keys*: seq[JwtKey]
+    issuer*: string
+    audience*: string
+    headerName*: string
+    scheme*: string
+    clockSkewSeconds*: int64
+    revocations*: JwtRevocationStore
 
   SignedValueVerification* = object
     ## Keyring verification reports whether a value was signed by a legacy key
@@ -576,6 +609,188 @@ method authenticate*(backend: BearerTokenAuthBackend,
   let subject = verifySignedValue(backend.secret, parts[1])
   if subject.isSome and subject.get().strip().len > 0:
     return some(AuthContext(authenticated: true, subject: subject.get()))
+  none(AuthContext)
+
+method isRevoked*(store: JwtRevocationStore, tokenId: string,
+                  now: int64): bool {.base, gcsafe.} =
+  discard store
+  discard tokenId
+  discard now
+  raise newException(ValueError, "JWT revocation store is not implemented")
+
+method revoke*(store: JwtRevocationStore, tokenId: string,
+               expiresAt: int64) {.base, gcsafe.} =
+  discard store
+  discard tokenId
+  discard expiresAt
+  raise newException(ValueError, "JWT revocation store is not implemented")
+
+proc newInMemoryJwtRevocationStore*(): InMemoryJwtRevocationStore =
+  new(result)
+  result.revoked = initTable[string, int64]()
+  initLock(result.lock)
+
+method isRevoked*(store: InMemoryJwtRevocationStore, tokenId: string,
+                  now: int64): bool {.gcsafe.} =
+  if store.isNil or tokenId.len == 0:
+    return false
+  acquire(store.lock)
+  defer: release(store.lock)
+  var expired: seq[string] = @[]
+  for existing, expiresAt in store.revoked:
+    if expiresAt <= now:
+      expired.add(existing)
+  for existing in expired:
+    store.revoked.del(existing)
+  store.revoked.hasKey(tokenId)
+
+method revoke*(store: InMemoryJwtRevocationStore, tokenId: string,
+               expiresAt: int64) {.gcsafe.} =
+  if store.isNil or tokenId.strip().len == 0 or expiresAt <= getTime().toUnix:
+    raise newException(ValueError, "JWT revocation requires a live token id and expiry")
+  acquire(store.lock)
+  defer: release(store.lock)
+  store.revoked[tokenId] = expiresAt
+
+proc base64UrlEncode(value: string): string =
+  result = encode(value).replace("+", "-").replace("/", "_")
+  while result.endsWith("="):
+    result.setLen(result.len - 1)
+
+proc base64UrlDecode(value: string): Option[string] =
+  if value.len == 0 or value.len mod 4 == 1:
+    return none(string)
+  for character in value:
+    if character notin {'a'..'z', 'A'..'Z', '0'..'9', '-', '_'}:
+      return none(string)
+  var padded = value.replace("-", "+").replace("_", "/")
+  while padded.len mod 4 != 0:
+    padded.add('=')
+  try:
+    some(decode(padded))
+  except CatchableError:
+    none(string)
+
+proc newJwtKey*(id, secret: string): JwtKey =
+  if id.strip().len == 0 or secret.len < 32:
+    raise newException(ValueError, "JWT key requires id and a strong secret")
+  JwtKey(id: id, secret: secret)
+
+proc newJwtTokenAuthBackend*(keys: openArray[JwtKey], issuer, audience: string,
+                             headerName = "authorization", scheme = "Bearer",
+                             clockSkewSeconds: int64 = 0,
+                             revocations: JwtRevocationStore = nil):
+    JwtTokenAuthBackend =
+  if keys.len == 0 or issuer.strip().len == 0 or audience.strip().len == 0 or
+      headerName.strip().len == 0 or scheme.strip().len == 0 or
+      clockSkewSeconds < 0:
+    raise newException(ValueError,
+      "JWT backend requires keys, issuer, audience, header, scheme, and valid skew")
+  new(result)
+  result.keys = @[]
+  for key in keys:
+    discard newJwtKey(key.id, key.secret)
+    for existing in result.keys:
+      if existing.id == key.id:
+        raise newException(ValueError, "Duplicate JWT key id: " & key.id)
+    result.keys.add(key)
+  result.issuer = issuer
+  result.audience = audience
+  result.headerName = headerName
+  result.scheme = scheme
+  result.clockSkewSeconds = clockSkewSeconds
+  result.revocations = revocations
+
+proc jwtKey(backend: JwtTokenAuthBackend, keyId: string): Option[JwtKey] =
+  if backend.isNil:
+    return none(JwtKey)
+  for key in backend.keys:
+    if key.id == keyId:
+      return some(key)
+  none(JwtKey)
+
+proc issueJwtAt*(backend: JwtTokenAuthBackend, subject: string,
+                 ttlSeconds, now: int64, tokenId = "",
+                 notBefore: int64 = -1): string =
+  ## Only the first configured key signs new tokens; older keys verify until
+  ## retired from the explicit keyring.
+  if backend.isNil or subject.strip().len == 0 or ttlSeconds <= 0:
+    raise newException(ValueError, "JWT issuance requires a subject and positive TTL")
+  let effectiveNotBefore = if notBefore < 0: now else: notBefore
+  let effectiveTokenId = if tokenId.len > 0: tokenId else: hexEncode(urandom(16))
+  if effectiveTokenId.contains({' ', '|', '.'}) or effectiveNotBefore > now + ttlSeconds:
+    raise newException(ValueError, "JWT token id or not-before claim is invalid")
+  let header = base64UrlEncode($(%*{"alg": "HS256", "typ": "JWT",
+    "kid": backend.keys[0].id}))
+  let payload = base64UrlEncode($(%*{"sub": subject, "iss": backend.issuer,
+    "aud": backend.audience, "iat": now, "nbf": effectiveNotBefore,
+    "exp": now + ttlSeconds, "jti": effectiveTokenId}))
+  let signingInput = header & "." & payload
+  signingInput & "." & ($sha256.hmac(backend.keys[0].secret,
+    signingInput)).toLowerAscii()
+
+proc issueJwt*(backend: JwtTokenAuthBackend, subject: string,
+               ttlSeconds: int64): string =
+  issueJwtAt(backend, subject, ttlSeconds, getTime().toUnix)
+
+proc verifyJwtAt*(backend: JwtTokenAuthBackend, token: string,
+                  now: int64): Option[JwtClaims] =
+  ## Reject malformed, retired, future, expired, wrong issuer/audience, and
+  ## revoked credentials with one anonymous result.
+  try:
+    let parts = token.split('.')
+    if backend.isNil or parts.len != 3:
+      return none(JwtClaims)
+    let headerRaw = base64UrlDecode(parts[0])
+    let payloadRaw = base64UrlDecode(parts[1])
+    if headerRaw.isNone or payloadRaw.isNone:
+      return none(JwtClaims)
+    let header = parseJson(headerRaw.get())
+    let payload = parseJson(payloadRaw.get())
+    if header.kind != JObject or payload.kind != JObject or
+        not header.hasKey("alg") or header["alg"].getStr() != "HS256" or
+        not header.hasKey("kid") or header["kid"].kind != JString:
+      return none(JwtClaims)
+    let key = backend.jwtKey(header["kid"].getStr())
+    if key.isNone or not constantTimeEquals(parts[2],
+        ($sha256.hmac(key.get().secret, parts[0] & "." & parts[1])).toLowerAscii()):
+      return none(JwtClaims)
+    for required in ["sub", "iss", "aud", "jti"]:
+      if not payload.hasKey(required) or payload[required].kind != JString:
+        return none(JwtClaims)
+    for required in ["iat", "nbf", "exp"]:
+      if not payload.hasKey(required) or payload[required].kind != JInt:
+        return none(JwtClaims)
+    result = some(JwtClaims(subject: payload["sub"].getStr(),
+      issuer: payload["iss"].getStr(), audience: payload["aud"].getStr(),
+      issuedAt: payload["iat"].getInt(), notBefore: payload["nbf"].getInt(),
+      expiresAt: payload["exp"].getInt(), tokenId: payload["jti"].getStr(),
+      keyId: key.get().id))
+    let claims = result.get()
+    if claims.subject.strip().len == 0 or claims.issuer != backend.issuer or
+        claims.audience != backend.audience or claims.issuedAt > now + backend.clockSkewSeconds or
+        claims.notBefore > now + backend.clockSkewSeconds or
+        claims.expiresAt <= now - backend.clockSkewSeconds or
+        claims.expiresAt <= claims.issuedAt or claims.tokenId.len == 0:
+      return none(JwtClaims)
+    if not backend.revocations.isNil and backend.revocations.isRevoked(
+        claims.tokenId, now):
+      return none(JwtClaims)
+    return result
+  except CatchableError:
+    none(JwtClaims)
+
+method authenticate*(backend: JwtTokenAuthBackend,
+                     request: Request): Option[AuthContext] {.gcsafe.} =
+  let header = request.header(backend.headerName)
+  if header.isNone:
+    return none(AuthContext)
+  let parts = header.get().strip().splitWhitespace()
+  if parts.len != 2 or parts[0].toLowerAscii() != backend.scheme.toLowerAscii():
+    return none(AuthContext)
+  let claims = verifyJwtAt(backend, parts[1], getTime().toUnix)
+  if claims.isSome:
+    return some(AuthContext(authenticated: true, subject: claims.get().subject))
   none(AuthContext)
 
 proc bindSession*(request: var Request, policy: SessionPolicy): bool =
