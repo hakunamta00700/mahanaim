@@ -267,3 +267,20 @@ macro addTypedDocumentedRoute*(app, registry, operation, requestType,
       if `resolved`.responseSchema.len == 0:
         `resolved`.responseSchema = responseSchema(`responseType`)
       `app`.addDocumentedRoute(`registry`, `resolved`, `handler`)
+
+macro addTypedVersionedDocumentedRoute*(app, registry, policy, version,
+                                        operation, requestType, responseType,
+                                        handler: typed): untyped =
+  ## Version selection changes routing, not DTO ownership. Reusing the same
+  ## compile-time schema derivation keeps each version's OpenAPI document from
+  ## requiring a second, manually-maintained request/response registry.
+  let resolved = genSym(nskVar, "typedVersionedOperation")
+  result = quote do:
+    block:
+      var `resolved` = `operation`
+      `resolved`.requestSchema = `resolved`.requestSchema &
+        inputSchema(`requestType`)
+      if `resolved`.responseSchema.len == 0:
+        `resolved`.responseSchema = responseSchema(`responseType`)
+      `app`.addVersionedDocumentedRoute(`registry`, `policy`, `version`,
+        `resolved`, `handler`)

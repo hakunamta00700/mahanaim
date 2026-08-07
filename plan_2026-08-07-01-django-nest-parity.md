@@ -46,10 +46,11 @@ adding public API names.
   - Evidence: `ApplicationModule` provides explicit imports, provider/factory declarations, controller and route installers, lifecycle hooks, exports, and guarded provider overrides. Composition validates the complete graph before side effects, rejects duplicate/cyclic modules and non-exported dependencies, and exposes deterministic request/task scope APIs. The generated project creates and installs a named module; its generated app and test compile in the generator contract.
   - Validation: Added module graph, export visibility, override, scope-disposal, controller/route/lifecycle, duplicate/cycle regression coverage; run `nimble test`, `nimble docsExamples`, and `nimble publicApiCheck`.
 
-- [ ] Complete the typed API contract and add first-class API versioning.
+- [x] Complete the typed API contract and add first-class API versioning.
   - Scope: `src/mahanaim/validation.nim`, `serialization.nim`, `openapi.nim`, `model_macro.nim`, `openapi_client.nim`, router/application modules, CLI, and API contract tests.
   - Done when: Typed handlers derive request/response schemas without a second manual registry, document multiple media types and error envelopes, support explicit URL/header version policy with deprecation metadata, and generate a deterministic TypeScript client for each selected API version.
-  - Validation: Add compile-time macro tests and runtime tests for version routing, incompatible `Accept` values, nullable/nested DTOs, cycles, and generated client snapshots; run `nimble test`, `nimble verify`, and `nimble docsExamples`.
+  - Evidence: `addTypedVersionedDocumentedRoute` derives DTO schemas at compile time and shares the existing validation/problem envelope, multi-media OpenAPI projection, nullable/nested DTO, and cycle tests. `apiVersionUrl` and `apiVersionHeader` select URL or `Accept; version=` contracts, reject incompatible versions with `406`/`Vary`, expose deprecation metadata, and emit deterministic version-filtered OpenAPI and TypeScript clients.
+  - Validation: Compile-time typed-route coverage and runtime URL/header version, incompatible `Accept`, nullable/nested DTO, cycle, and generated-client regression tests; run `nimble test`, `nimble verify`, and `nimble docsExamples`.
 
 - [ ] Harden database portability, migration workflow, and relational query ergonomics.
   - Scope: `src/mahanaim/database*.nim`, `sqlite_adapter.nim`, `postgres_adapter.nim`, `migration_commands.nim`, `model_schema.nim`, `database_repository.nim`, `docs/storage-and-orm-integration.md`, and database tests.

@@ -204,3 +204,17 @@ proc typescriptClient*(registry: OpenApiRegistry,
       "JSON.stringify(params.body)" else: "undefined") & " });\n")
     result.add("  }\n\n")
   result.add("}\n")
+
+proc typescriptClientForVersion*(registry: OpenApiRegistry, apiVersion: string,
+                                 clientName = "ApiClient"): string =
+  ## Reuse the deterministic client renderer after projecting exactly one
+  ## version's operations. This prevents a TypeScript artifact from exposing
+  ## endpoints that its negotiated server version will reject.
+  let selected = apiVersion.strip()
+  if selected.len == 0:
+    raise newException(ValueError, "API version is required")
+  let filtered = newOpenApiRegistry(registry.title, registry.version & "-v" & selected)
+  for operation in registry.operations:
+    if operation.apiVersion == selected:
+      filtered.registerOperation(operation)
+  filtered.typescriptClient(clientName)

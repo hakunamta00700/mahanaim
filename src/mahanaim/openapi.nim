@@ -3,13 +3,19 @@
 ## The schema remains the source of truth for coercion and constraints; this
 ## module only publishes a machine-readable description for tooling and docs.
 
-import std/[asyncdispatch, json, strutils]
+import std/[asyncdispatch, httpcore, json, strutils, tables]
 import ./application
 import ./core
 import ./router
 import ./validation
 
 type
+  ApiVersionPolicy* = enum
+    ## URL versions are visible in the path; header versions retain one URL and
+    ## negotiate an explicit `version=` parameter in Accept.
+    apiVersionUrl
+    apiVersionHeader
+
   OpenApiOperation* = object
     ## A route declaration is data first, so adapters and documentation tools
     ## can inspect it without executing request handlers.
@@ -24,6 +30,16 @@ type
     requestContentTypes*: seq[string]
     responseContentTypes*: seq[string]
     successStatus*: int
+    apiVersion*: string
+    deprecated*: bool
+    deprecationMessage*: string
+
+  HeaderVersionedRoute = object
+    httpMethod: string
+    path: string
+    version: string
+    handler: Handler
+    middleware: seq[Middleware]
 
   OpenApiRegistry* = ref object
     ## The registry owns only OpenAPI declarations; Application owns route
@@ -31,6 +47,7 @@ type
     title*: string
     version*: string
     operations*: seq[OpenApiOperation]
+    headerVersionedRoutes: seq[HeaderVersionedRoute]
 
 proc newOpenApiRegistry*(title, version: string): OpenApiRegistry =
   ## Require stable identity metadata so generated documents are publishable.
@@ -40,6 +57,20 @@ proc newOpenApiRegistry*(title, version: string): OpenApiRegistry =
   result.title = title
   result.version = version
   result.operations = @[]
+  result.headerVersionedRoutes = @[]
+
+proc normalizeApiVersion(version: string): string =
+  result = version.strip()
+  if result.len == 0 or result.contains({'/', '\\', '\r', '\n', ' ', '\t', ';', ','}):
+    raise newException(ValueError, "API version is invalid: " & version)
+
+proc versionedPath*(path, version: string): string =
+  ## Preserve the operation's declared path while making URL versioning
+  ## unambiguous and deterministic for clients and generated documents.
+  let normalizedVersion = normalizeApiVersion(version)
+  if path.len == 0 or path[0] != '/':
+    raise newException(ValueError, "Versioned API path must start with '/'")
+  "/v" & normalizedVersion & path
 
 proc normalizeHttpMethod(httpMethod: string): string =
   result = httpMethod.toLowerAscii()
@@ -78,7 +109,7 @@ proc registerOperation*(registry: OpenApiRegistry,
     raise newException(ValueError, "OpenAPI operationId is required")
   for existing in registry.operations:
     if normalizeHttpMethod(existing.httpMethod) == normalizedMethod and
-       existing.path == operation.path:
+       existing.path == operation.path and existing.apiVersion == operation.apiVersion:
       raise newException(ValueError,
         "Duplicate OpenAPI operation: " & normalizedMethod & " " & operation.path)
   var normalized = operation
@@ -89,6 +120,8 @@ proc registerOperation*(registry: OpenApiRegistry,
     operation.responseContentTypes)
   normalized.successStatus = if operation.successStatus > 0:
     operation.successStatus else: 200
+  if normalized.apiVersion.len > 0:
+    normalized.apiVersion = normalizeApiVersion(normalized.apiVersion)
   registry.operations.add(normalized)
 
 proc hasOperation(registry: OpenApiRegistry, httpMethod, path: string): bool =
@@ -185,6 +218,113 @@ proc addDocumentedRoute*(app: Application, registry: OpenApiRegistry,
     registry.operations.setLen(operationCount)
     raise
 
+proc acceptedApiVersion(request: Request): string =
+  ## Accept can contain multiple media ranges. Only a media range with an
+  ## explicit `version=` parameter selects a header-versioned route; malformed
+  ## or incompatible values remain a 406 rather than silently falling back.
+  let accept = request.headers.getOrDefault("accept",
+    request.headers.getOrDefault("Accept", ""))
+  for mediaRange in accept.split(','):
+    for parameter in mediaRange.split(';'):
+      let trimmed = parameter.strip()
+      let equals = trimmed.find('=')
+      if equals > 0 and trimmed[0 ..< equals].strip().toLowerAscii() == "version":
+        return normalizeApiVersion(trimmed[equals + 1 .. ^1].strip(chars = {'"'}))
+
+proc latestHeaderVersion(routes: openArray[HeaderVersionedRoute]): string =
+  ## Declarations preserve a deliberate default: the last non-deprecated route
+  ## is selected when Accept carries no version. Callers that need a frozen
+  ## default can therefore register that version last.
+  for index in countdown(routes.high, 0):
+    result = routes[index].version
+    if result.len > 0:
+      return
+
+proc composeVersioned(middlewares: seq[Middleware], endpoint: Handler): Handler =
+  result = endpoint
+  for index in countdown(middlewares.high, 0):
+    let current = middlewares[index]
+    let next = result
+    result = proc(request: Request): Future[Response] {.gcsafe.} =
+      current(request, next)
+
+proc headerVersionDispatcher(registry: OpenApiRegistry, httpMethod, path: string): Handler =
+  result = proc(request: Request): Future[Response] {.async, gcsafe.} =
+    var candidates: seq[HeaderVersionedRoute] = @[]
+    for route in registry.headerVersionedRoutes:
+      if route.httpMethod == httpMethod and route.path == path:
+        candidates.add(route)
+    let requested = request.acceptedApiVersion()
+    let selectedVersion = if requested.len > 0: requested else:
+      latestHeaderVersion(candidates)
+    for route in candidates:
+      if route.version == selectedVersion:
+        let response = await composeVersioned(route.middleware, route.handler)(request)
+        result = response
+        result.headers["vary"] = "Accept"
+        result.headers["x-api-version"] = selectedVersion
+        return
+    result = textResponse("Unsupported API version", Http406)
+    result.headers["vary"] = "Accept"
+
+proc addVersionedDocumentedRoute*(app: Application, registry: OpenApiRegistry,
+                                  policy: ApiVersionPolicy, version: string,
+                                  operation: OpenApiOperation, handler: Handler,
+                                  middleware: seq[Middleware] = @[]) =
+  ## Register the runtime route and version-qualified OpenAPI declaration in
+  ## one transaction. URL and header policies share DTO schemas, errors, and
+  ## generated client input; only route selection differs.
+  if app.isNil or registry.isNil or handler.isNil:
+    raise newException(ValueError,
+      "Application, OpenAPI registry, and versioned handler are required")
+  let normalizedVersion = normalizeApiVersion(version)
+  var documented = operation
+  documented.apiVersion = normalizedVersion
+  documented.operationId = operation.operationId & "V" & normalizedVersion
+  if policy == apiVersionUrl:
+    documented.path = versionedPath(operation.path, normalizedVersion)
+    registry.registerOperation(documented)
+    try:
+      app.addRoute(documented.httpMethod, documented.path, documented.operationId,
+        handler, middleware)
+    except CatchableError:
+      registry.operations.setLen(registry.operations.len - 1)
+      raise
+    return
+  let httpVerb = normalizeHttpMethod(operation.httpMethod).toUpperAscii()
+  let keyPath = operation.path
+  var alreadyInstalled = false
+  for route in registry.headerVersionedRoutes:
+    if route.httpMethod == httpVerb and route.path == keyPath and
+       route.version == normalizedVersion:
+      raise newException(ValueError, "Duplicate header API version route")
+    if route.httpMethod == httpVerb and route.path == keyPath:
+      alreadyInstalled = true
+  registry.registerOperation(documented)
+  registry.headerVersionedRoutes.add(HeaderVersionedRoute(httpMethod: httpVerb,
+    path: keyPath, version: normalizedVersion, handler: handler,
+    middleware: middleware))
+  if not alreadyInstalled:
+    try:
+      app.addRoute(httpVerb, keyPath, "api.header." & operation.operationId,
+        headerVersionDispatcher(registry, httpVerb, keyPath))
+    except CatchableError:
+      registry.headerVersionedRoutes.setLen(registry.headerVersionedRoutes.len - 1)
+      registry.operations.setLen(registry.operations.len - 1)
+      raise
+
+proc document*(registry: OpenApiRegistry): JsonNode
+
+proc documentForVersion*(registry: OpenApiRegistry, apiVersion: string): JsonNode =
+  ## Emit one deterministic document per selected version. Unversioned entries
+  ## are intentionally excluded so a generated client never mixes contracts.
+  let selected = normalizeApiVersion(apiVersion)
+  let filtered = newOpenApiRegistry(registry.title, registry.version & "-v" & selected)
+  for operation in registry.operations:
+    if operation.apiVersion == selected:
+      filtered.registerOperation(operation)
+  filtered.document()
+
 proc fieldSchema(field: FieldSpec): JsonNode =
   result = newJObject()
   result["type"] = newJString(case field.inputType
@@ -232,6 +372,12 @@ proc operationDocument(operation: OpenApiOperation): JsonNode =
   result["operationId"] = newJString(operation.operationId)
   if operation.summary.strip().len > 0:
     result["summary"] = newJString(operation.summary)
+  if operation.deprecated:
+    result["deprecated"] = newJBool(true)
+  if operation.apiVersion.len > 0:
+    result["x-api-version"] = newJString(operation.apiVersion)
+  if operation.deprecationMessage.strip().len > 0:
+    result["x-deprecation-message"] = newJString(operation.deprecationMessage)
   result["parameters"] = newJArray()
   var bodyFields: seq[FieldSpec] = @[]
   for field in operation.requestSchema:

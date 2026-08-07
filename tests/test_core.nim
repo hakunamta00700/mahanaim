@@ -6241,6 +6241,47 @@ suite "Mahanaim core contracts":
     check profileDocument["responses"]["201"]["content"]["application/json"][
       "schema"]["required"][0].getStr() == "displayName"
 
+  test "versioned API routes negotiate URL and Accept contracts":
+    let app = newApplication()
+    let registry = newOpenApiRegistry("Versioned API", "1.0.0")
+    proc v1(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return jsonResponse("{\"version\":\"1\"}")
+    proc v2(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+      discard request
+      return jsonResponse("{\"version\":\"2\"}")
+    let operation = OpenApiOperation(httpMethod: "GET", path: "/profiles",
+      operationId: "profiles", responseSchema: @[stringField("version", flBody)],
+      responseContentTypes: @["application/json"])
+    addTypedVersionedDocumentedRoute(app, registry, apiVersionUrl, "1", operation,
+      CreateProfileDto, ProfileResponseDto, v1)
+    app.addVersionedDocumentedRoute(registry, apiVersionHeader, "1", operation, v1)
+    app.addVersionedDocumentedRoute(registry, apiVersionHeader, "2",
+      OpenApiOperation(httpMethod: "GET", path: "/profiles-header",
+        operationId: "profilesHeader", deprecated: true,
+        deprecationMessage: "Use version 3", responseSchema: operation.responseSchema,
+        responseContentTypes: operation.responseContentTypes), v2)
+    let urlVersion = waitFor app.dispatch(newRequest("GET", "/v1/profiles"))
+    check urlVersion.status == Http200
+    check urlVersion.body.contains("\"1\"")
+    var accepted = newRequest("GET", "/profiles-header")
+    accepted.headers["accept"] = "application/json; version=2"
+    let headerVersion = waitFor app.dispatch(accepted)
+    check headerVersion.status == Http200
+    check headerVersion.body.contains("\"2\"")
+    check headerVersion.headers["x-api-version"] == "2"
+    var incompatible = newRequest("GET", "/profiles-header")
+    incompatible.headers["accept"] = "application/json; version=9"
+    check (waitFor app.dispatch(incompatible)).status == Http406
+    let v2Document = registry.documentForVersion("2")
+    check v2Document["paths"].hasKey("/profiles-header")
+    check v2Document["paths"]["/profiles-header"]["get"]["deprecated"].getBool()
+    check v2Document["paths"]["/profiles-header"]["get"]["x-api-version"].getStr() == "2"
+    let client = registry.typescriptClientForVersion("2", "ProfilesClient")
+    check client.contains("class ProfilesClient")
+    check client.contains("profilesHeaderV2")
+    check not client.contains("profilesV1")
+
   test "OpenAPI CLI exports collected application routes":
     let app = newApplication()
     proc health(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =

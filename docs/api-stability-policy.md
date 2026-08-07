@@ -50,6 +50,19 @@ TLS credential, signing, rollout 상태를 core API 안정성의 증거로 간�
 label은 함수 이름만으로 추측하지 않고 public API 문서, implementation plan과
 changelog에 같은 이름으로 기록한다.
 
+## API versioning
+
+버전이 공존해야 하는 HTTP API는 `addVersionedDocumentedRoute` 또는
+`addTypedVersionedDocumentedRoute`로 선언한다. `apiVersionUrl`은
+`/v{version}` 경로를 사용하고, `apiVersionHeader`는 `Accept`의
+`version={version}` parameter를 사용한다. 지원하지 않는 header version은
+`406`과 `Vary: Accept`를 반환한다.
+
+각 version은 별도의 `documentForVersion` OpenAPI document와
+`typescriptClientForVersion` artifact를 생성한다. deprecated version은
+operation의 `deprecated` 및 `x-deprecation-message` metadata에 남겨
+클라이언트와 릴리스 노트가 동일한 전환 정보를 사용할 수 있게 한다.
+
 ## Deprecation and migration guide
 
 deprecated API를 추가할 때는 한 변경에 다음 네 가지를 포함한다.
