@@ -652,7 +652,7 @@
 - [x] `docs/django-migration.md`: project/app, URLconf, model/migration, form, admin, management command, auth, template의 대응 예제를 작성한다.
 - [x] `docs/litestar-migration.md`: route, DTO, dependency injection, OpenAPI, middleware, background task의 대응 예제를 작성한다.
 - [x] `docs/known-limitations.md`: 미구현/experimental/provider 의존 기능, 알려진 차이, 우회 방법, 계획되지 않은 범위를 단일 목록으로 제공한다.
-- [ ] support matrix의 각 experimental 행에서 해당 limitation/운영 문서로 링크한다.
+- [x] support matrix의 각 experimental 행에서 해당 limitation/운영 문서로 링크한다.
 
 수용 기준:
 

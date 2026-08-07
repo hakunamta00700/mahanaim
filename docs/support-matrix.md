@@ -44,6 +44,22 @@
 first-party feature 행은 `tests/test_docs_contract.nim`에서 검증한다.
 새 first-party 기능은 같은 변경에서 이 표와 해당 CI/live gate를 추가해야 한다.
 
+## Experimental feature reading map
+
+Experimental rows have a local contract but still require the named provider,
+browser, transport, or live deployment evidence. Read the corresponding guide
+before treating them as production-ready:
+
+- `typed-api-openapi`: [API development](api-development.md), [OpenAPI](openapi.md), and [known limitations](known-limitations.md).
+- `postgresql-adapter`: [migrations](migrations.md), [database connections](database-connections.md), and [known limitations](known-limitations.md).
+- `admin-forms`: [Admin](admin.md), [Admin operations](admin-operations.md), and [Admin template customization](admin-template-customization.md).
+- `authentication-security`: [authentication](authentication.md), [security](security.md), and [security deployment checklist](security-deployment-checklist.md).
+- `email-notifications`: [email and notifications](email-and-notifications.md) and [known limitations](known-limitations.md).
+- `background-jobs`: [background jobs](background-jobs.md) and [external adapters](external-adapters.md).
+- `http-transport`: [deployment](deployment.md), [testing](testing.md), and [known limitations](known-limitations.md).
+- `storage-cache-rate-limit`: [storage](storage.md), [cache](cache.md), and [operations guide](operations-guide.md).
+- `realtime-events`: [WebSockets](websocket.md), [SSE](sse.md), and [channel layers](channel-layers.md).
+
 ## macOS release runner baseline (2026-08-05)
 
 - [x] GitHub Actions cross-platform matrix에 `macos-latest`와 Nim 2.2.4 runner를 선언했다.
