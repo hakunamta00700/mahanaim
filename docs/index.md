@@ -31,9 +31,9 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 
 | 목표 | 문서 |
 | --- | --- |
-| 인증·계정 흐름 | 인증 가이드 (작성 예정) |
-| 역할·객체 권한 | 권한 가이드 (작성 예정) |
-| CSRF·CORS·TLS·rate limit | [보안 배포 점검표](security-deployment-checklist.md), 보안 가이드 (작성 예정) |
+| 인증·계정 흐름 | [인증](authentication.md), [비밀번호 보안](password-security.md) |
+| 역할·객체 권한 | [권한](authorization.md) |
+| CSRF·CORS·TLS·rate limit | [보안](security.md), [보안 배포 점검표](security-deployment-checklist.md) |
 | CRUD Admin·감사 로그 | Admin·Admin 운영 가이드 (작성 예정) |
 | Admin 화면 변경 | [Admin 템플릿 커스터마이징](admin-template-customization.md) |
 

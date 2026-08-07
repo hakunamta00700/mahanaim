@@ -574,11 +574,11 @@
 
 ## 8. 인증, 권한, 보안 (P0)
 
-- [ ] `docs/authentication.md`: auth backend, signed session, bearer/JWT, login/logout, account store, password change/reset의 구성 예제를 작성한다.
-- [ ] `docs/authorization.md`: role/group/object policy, route/admin guard, 최소 권한 설계 예제를 작성한다.
-- [ ] `docs/security.md`: CSRF, CORS, CSP, allowed host, secure cookie, secret redaction, trusted proxy, HTTPS, rate limit, request size/timeout의 기본값과 운영 변경 절차를 설명한다.
-- [ ] `docs/password-security.md`: PBKDF2/Argon2id/bcrypt 선택, rehash, benchmark, production cost 결정과 login throttle을 설명한다.
-- [ ] 보안 배포 점검표를 위 가이드에서 링크하고 각 항목의 자동 검사/수동 증거를 구분한다.
+- [x] `docs/authentication.md`: auth backend, signed session, bearer/JWT, login/logout, account store, password change/reset의 구성 예제를 작성한다.
+- [x] `docs/authorization.md`: role/group/object policy, route/admin guard, 최소 권한 설계 예제를 작성한다.
+- [x] `docs/security.md`: CSRF, CORS, CSP, allowed host, secure cookie, secret redaction, trusted proxy, HTTPS, rate limit, request size/timeout의 기본값과 운영 변경 절차를 설명한다.
+- [x] `docs/password-security.md`: PBKDF2/Argon2id/bcrypt 선택, rehash, benchmark, production cost 결정과 login throttle을 설명한다.
+- [x] 보안 배포 점검표를 위 가이드에서 링크하고 각 항목의 자동 검사/수동 증거를 구분한다.
 
 수용 기준:
 
