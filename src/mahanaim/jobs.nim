@@ -27,6 +27,17 @@ type
     retryPolicy*: JobRetryPolicy
     idempotencyStore*: IdempotencyStore
 
+  ScheduledJob* = object
+    id*: string
+    runAt*: int64
+    job*: BackgroundJob
+
+  JobScheduler* = ref object
+    ## Callers pass time to `runDueAt`, keeping clock ownership and test
+    ## determinism explicit rather than hiding a timer thread in the framework.
+    queue*: BackgroundJobQueue
+    scheduled: seq[ScheduledJob]
+
 proc defaultJobRetryPolicy*(): JobRetryPolicy =
   ## One attempt avoids surprising duplicate side effects by default.
   JobRetryPolicy(maxAttempts: 1, delayMs: 0)
@@ -85,3 +96,29 @@ proc enqueueIdempotent*(queue: BackgroundJobQueue, key: string,
   if key.strip().len == 0:
     raise newException(ValueError, "Idempotency key is required")
   return await queue.enqueueInternal(key, job)
+
+proc newJobScheduler*(queue: BackgroundJobQueue): JobScheduler =
+  if queue.isNil:
+    raise newException(ValueError, "Job scheduler requires a queue")
+  JobScheduler(queue: queue, scheduled: @[])
+
+proc scheduleAt*(scheduler: JobScheduler, id: string, runAt: int64,
+                 job: BackgroundJob) =
+  if scheduler.isNil or id.strip().len == 0 or runAt < 0 or job.isNil:
+    raise newException(ValueError, "Scheduled job requires id, non-negative time, and job")
+  for existing in scheduler.scheduled:
+    if existing.id == id:
+      raise newException(ValueError, "Duplicate scheduled job: " & id)
+  scheduler.scheduled.add(ScheduledJob(id: id, runAt: runAt, job: job))
+
+proc runDueAt*(scheduler: JobScheduler, now: int64):
+    Future[seq[BackgroundJobResult]] {.async.} =
+  if scheduler.isNil or now < 0:
+    raise newException(ValueError, "Job scheduler and non-negative time are required")
+  var pending: seq[ScheduledJob] = @[]
+  for scheduled in scheduler.scheduled:
+    if scheduled.runAt <= now:
+      result.add(await scheduler.queue.enqueue(scheduled.job))
+    else:
+      pending.add(scheduled)
+  scheduler.scheduled = pending

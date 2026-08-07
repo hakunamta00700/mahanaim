@@ -1282,6 +1282,25 @@ suite "Mahanaim core contracts":
       discard newBackgroundJobQueue(app.executor,
         JobRetryPolicy(maxAttempts: 0, delayMs: 0))
 
+  test "job scheduler runs due work once with caller-owned time":
+    let app = newApplication()
+    let scheduler = newJobScheduler(newBackgroundJobQueue(app.executor))
+    var runs: Atomic[int]
+    runs.store(0)
+    scheduler.scheduleAt("daily-report", 100,
+      proc() {.gcsafe.} = discard runs.fetchAdd(1))
+    expect ValueError:
+      scheduler.scheduleAt("daily-report", 101, proc() {.gcsafe.} = discard)
+    check (waitFor scheduler.runDueAt(99)).len == 0
+    check runs.load() == 0
+    let completed = waitFor scheduler.runDueAt(100)
+    check completed.len == 1
+    check completed[0].succeeded
+    check runs.load() == 1
+    check (waitFor scheduler.runDueAt(101)).len == 0
+    expect ValueError:
+      scheduler.scheduleAt("invalid", -1, proc() {.gcsafe.} = discard)
+
   test "background jobs honor idempotency claims and release failed keys":
     let app = newApplication()
     let idempotency = newInMemoryIdempotencyStore()
