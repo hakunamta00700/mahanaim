@@ -4,7 +4,7 @@
 ## required sections and verification commands machine-checkable so a future
 ## edit cannot silently remove the evidence boundary from the framework.
 
-import std/[os, sequtils, strutils, unittest]
+import std/[os, osproc, sequtils, strutils, unittest]
 import mahanaim
 
 proc localMarkdownTargets(contents: string): seq[string] =
@@ -60,6 +60,37 @@ suite "definition of done contracts":
   test "documentation index links every Markdown guide":
     let missing = unindexedDocumentation(getCurrentDir())
     check missing.len == 0
+
+  test "CLI reference follows executable help and exit-code contracts":
+    ## The CLI binary is built by the `docsCheck` task before this contract
+    ## runs. Verify the public help output and a failure path, then require the
+    ## guide to name every advertised command and its status behavior.
+    let root = getCurrentDir()
+    let executable = root / ("mahanaim_cli" &
+      (if ExeExt.len == 0: "" else: "." & ExeExt))
+    let guide = readFile(root / "docs" / "cli-reference.md")
+    check fileExists(executable)
+    let (helpOutput, helpExitCode) = execCmdEx(quoteShell(executable) & " --help")
+    check helpExitCode == 0
+    let (failureOutput, failureExitCode) = execCmdEx(
+      quoteShell(executable) & " definitely-not-a-command")
+    check failureExitCode == 1
+    check failureOutput.contains("Unknown command")
+    for usage in [
+      "new NAME [PATH]", "app NAME [PROJECT_ROOT]",
+      "db status|migrate|up|rollback [PATH]", "jobs run [max]|recover",
+      "openapi [PATH]", "openapi-ts [PATH]",
+      "admin create-user <identifier> [subject]",
+      "static collect <source...> --output <path>", "dev", "test", "check"
+    ]:
+      check helpOutput.contains(usage)
+      if usage == "jobs run [max]|recover":
+        check guide.contains("`jobs run [max]`")
+        check guide.contains("`jobs recover`")
+      else:
+        check guide.contains("`" & usage & "`")
+    check guide.contains("성공은 종료 코드 `0`")
+    check guide.contains("반환한다. `test`는 내부 `nimble test`의 종료 코드를")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

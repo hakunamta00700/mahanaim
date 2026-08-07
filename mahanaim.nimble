@@ -95,6 +95,7 @@ task docsCheck, "Validate the Definition of Done document contract":
   ## Keep checklist structure in the same verification path as source and
   ## dependency contracts; prose may still describe an incomplete item, but
   ## its evidence boundary must remain machine-readable.
+  exec "nimble build"
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r tests/test_docs_contract.nim"
 
