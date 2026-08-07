@@ -37,6 +37,7 @@
 3. **Admin은 metadata 기반이지만 실험 기능:** CRUD, 권한, audit, template override는
    제공하지만 Django admin의 자동 model discovery, package registry, 모든 widget 생태계를
    동일하게 제공하지 않는다.
+   등록·운영·템플릿 override 방법은 [Admin 가이드](admin.md), [운영 가이드](admin-operations.md), [템플릿 가이드](admin-template-customization.md)를 확인한다.
 4. **외부 provider는 프로젝트가 선택:** PostgreSQL, Redis/Valkey, S3-compatible,
    SMTP, broker는 contract/adapter가 있어도 credential·retry·live 운영 증거는 프로젝트가
    소유한다.

@@ -53,3 +53,5 @@ registerAdminRoutes(app, admin)
 생성·수정 폼 조각을 `formLayout`이 렌더링합니다. 전체 화면을 템플릿으로 통일해
 커스터마이즈하려면 해당 리소스에 `formLayout`을 설정하지 않고 위의 `form` 및
 `detail` 템플릿을 사용하세요.
+
+업그레이드 시에는 `adminTemplateNames()`의 기본 이름과 제공 컨텍스트를 기준으로 override를 검토하고, 전역 override와 리소스별 override를 모두 browser smoke test합니다. 리소스별 `list/form/detail`은 같은 전역 화면보다 우선하며, `formLayout`이 설정되면 해당 생성·수정 조각이 템플릿보다 우선합니다. 한 화면을 교체할 때는 이 우선순위를 섞지 말고 하나의 소유 지점을 선택하세요.

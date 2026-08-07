@@ -587,10 +587,10 @@
 
 ## 9. Admin, CLI 관리, 콘텐츠 운영 (P1)
 
-- [ ] `docs/admin.md`: registry/resource 등록, CRUD 화면, 권한, read-only field, columns/query, bulk action, audit store, SQLite audit, inline/formset을 설명한다.
-- [ ] `docs/admin-template-customization.md`에 기본 템플릿의 전체 예제와 업그레이드 호환성·`formLayout` 우선순위 예제를 보강한다.
-- [ ] `docs/admin-operations.md`: 최초 관리자 생성, 비밀번호 환경변수, 감사 로그 백업/복구/조회, 운영 권한 분리를 설명한다.
-- [ ] Admin과 Django admin의 공통점·차이·미구현 기능을 feature map에 명시한다.
+- [x] `docs/admin.md`: registry/resource 등록, CRUD 화면, 권한, read-only field, columns/query, bulk action, audit store, SQLite audit, inline/formset을 설명한다.
+- [x] `docs/admin-template-customization.md`에 기본 템플릿의 전체 예제와 업그레이드 호환성·`formLayout` 우선순위 예제를 보강한다.
+- [x] `docs/admin-operations.md`: 최초 관리자 생성, 비밀번호 환경변수, 감사 로그 백업/복구/조회, 운영 권한 분리를 설명한다.
+- [x] Admin과 Django admin의 공통점·차이·미구현 기능을 feature map에 명시한다.
 
 수용 기준:
 
