@@ -3838,6 +3838,25 @@ suite "Mahanaim core contracts":
     check verifyOAuthCallback(oauth, "code-1", "wrong", "csrf-state",
       "https://app.example.test/callback").isNone
 
+  test "verified OAuth identities require explicit account linking":
+    let store = newInMemoryAccountCredentialStore()
+    let hasher = newPbkdf2PasswordHasher(iterations = 10000)
+    store.addAccount(AccountCredential(subject: "user-42",
+      identifier: "user@example.test", passwordHash: hasher.hashPassword("password"),
+      enabled: true))
+    let identity = OAuthIdentity(provider: "oidc", subject: "provider-42",
+      email: "user@example.test")
+    store.linkOAuthIdentity(identity, "user-42")
+    check store.linkedAccountSubject("oidc", "provider-42").get() == "user-42"
+    store.linkOAuthIdentity(identity, "user-42")
+    expect ValueError:
+      store.linkOAuthIdentity(identity, "missing")
+    store.addAccount(AccountCredential(subject: "user-43",
+      identifier: "other@example.test", passwordHash: hasher.hashPassword("password"),
+      enabled: true))
+    expect ValueError:
+      store.linkOAuthIdentity(identity, "user-43")
+
   test "configuration merges dotenv JSON TOML and environment values":
     let root = getTempDir() / "mahanaim_config_test"
     if dirExists(root):

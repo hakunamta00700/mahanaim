@@ -26,11 +26,17 @@ type
   AccountCredentialStore* = ref object of RootObj
     ## Persistence is deliberately separate from route and security policy.
 
+  ExternalAccountLink* = object
+    provider*: string
+    externalSubject*: string
+    accountSubject*: string
+
   InMemoryAccountCredentialStore* = ref object of AccountCredentialStore
     ## Reference storage is deterministic for tests and local development;
     ## production applications should provide a transactional implementation.
     accounts: Table[string, AccountCredential]
     subjects: Table[string, string]
+    externalLinks: Table[string, string]
     lock: Lock
 
   AccountAuthentication* = ref object
@@ -82,12 +88,26 @@ method createAccount*(store: AccountCredentialStore,
   discard account
   raise newException(ValueError, "Account creation is not implemented")
 
+method linkExternalAccount*(store: AccountCredentialStore,
+                            link: ExternalAccountLink) {.base, gcsafe.} =
+  discard store
+  discard link
+  raise newException(ValueError, "External account linking is not implemented")
+
+method linkedAccountSubject*(store: AccountCredentialStore, provider,
+                             externalSubject: string): Option[string] {.base, gcsafe.} =
+  discard store
+  discard provider
+  discard externalSubject
+  raise newException(ValueError, "External account linking is not implemented")
+
 proc newInMemoryAccountCredentialStore*(): InMemoryAccountCredentialStore =
   ## Initialize isolated maps and a lock; tests must never share account state
   ## through a process-global singleton.
   new(result)
   result.accounts = initTable[string, AccountCredential]()
   result.subjects = initTable[string, string]()
+  result.externalLinks = initTable[string, string]()
   initLock(result.lock)
 
 proc normalizeIdentifier(identifier: string): string =
@@ -153,6 +173,46 @@ method createAccount*(store: InMemoryAccountCredentialStore,
   ## rejects duplicates while holding one lock, matching a transactional
   ## backend's uniqueness boundary.
   store.addAccount(account)
+
+proc externalLinkKey(provider, externalSubject: string): string =
+  provider.strip().toLowerAscii() & "\0" & externalSubject.strip()
+
+method linkExternalAccount*(store: InMemoryAccountCredentialStore,
+                            link: ExternalAccountLink) {.gcsafe.} =
+  let key = externalLinkKey(link.provider, link.externalSubject)
+  if store.isNil or key == "\0" or link.accountSubject.strip().len == 0:
+    raise newException(ValueError, "External account link requires provider, subject, and account")
+  acquire(store.lock)
+  defer: release(store.lock)
+  if not store.subjects.hasKey(link.accountSubject):
+    raise newException(ValueError, "External account link target does not exist")
+  if store.externalLinks.hasKey(key):
+    if store.externalLinks[key] != link.accountSubject:
+      raise newException(ValueError, "External identity is already linked")
+    return
+  store.externalLinks[key] = link.accountSubject
+
+method linkedAccountSubject*(store: InMemoryAccountCredentialStore, provider,
+                             externalSubject: string): Option[string] {.gcsafe.} =
+  if store.isNil:
+    return none(string)
+  acquire(store.lock)
+  defer: release(store.lock)
+  let key = externalLinkKey(provider, externalSubject)
+  if store.externalLinks.hasKey(key): some(store.externalLinks[key]) else: none(string)
+
+proc linkOAuthIdentity*(store: AccountCredentialStore, identity: OAuthIdentity,
+                        accountSubject: string) =
+  ## A verified callback still requires an explicit local account target; the
+  ## framework never creates or auto-links accounts from a provider email.
+  if store.isNil or identity.provider.strip().len == 0 or
+      identity.subject.strip().len == 0 or accountSubject.strip().len == 0:
+    raise newException(ValueError, "Verified OAuth identity and account are required")
+  let account = store.findBySubject(accountSubject)
+  if account.isNone or not account.get().enabled:
+    raise newException(ValueError, "OAuth link target is unavailable")
+  store.linkExternalAccount(ExternalAccountLink(provider: identity.provider,
+    externalSubject: identity.subject, accountSubject: accountSubject))
 
 proc newAdminUserCreator*(store: AccountCredentialStore,
                           hasher: PasswordHasher): AdminUserCreator =
