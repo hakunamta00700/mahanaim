@@ -107,7 +107,25 @@ concurrent wall 1927 ms였다. 이 수치는 호스트별 비교용이며 produc
 시 만료 key를 정리한다. `newInMemoryRateLimitStore(maxKeys)`의 bound를 넘으면
 가장 오래된 active window를 제거하므로 local/test 환경에서도 attacker-controlled
 key cardinality가 메모리를 무한히 늘리지 않는다. Redis/Valkey 운영에서는 별도의
-  `maxmemory`와 eviction policy를 설정하고 live gate에서 확인해야 한다.
+`maxmemory`와 eviction policy를 설정하고 live gate에서 확인해야 한다.
+
+### Object storage and cache providers
+
+`S3CompatibleObjectStorage` is a versioned boundary around an
+application-owned `S3ObjectTransport`. The transport owns endpoint selection,
+TLS, SigV4 signing, credential refresh, and provider-specific retry
+classification; Mahanaim validates bucket/key boundaries and can wrap all
+three operations in `newRetryingS3ObjectTransport(maxAttempts)`. A thrown
+provider error remains a failure after that finite budget and must be logged
+without credentials, authorization headers, or object contents.
+
+`InMemoryCacheStore` is bounded LRU-like test/local storage with monotonic
+TTL expiry. `RedisCacheStore` uses the configured RESP client for GET, SET,
+SETEX, and DEL; disconnect/reconnect counts come from `client.stats()` and a
+transport failure is never converted into a cache hit or a successful write.
+Use an application-level stale-value or single-flight policy if a workload
+requires stampede protection, because cache population itself remains owned by
+the application.
 
 CI 또는 Linux 환경에서는 `MAHANAIM_REDIS_HOST`와 `MAHANAIM_REDIS_PORT`를 설정한 뒤
 `nimble redisLive`를 실행한다. 이 gate는 PING, compatibility probe와 server-side

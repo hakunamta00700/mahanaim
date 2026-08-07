@@ -86,9 +86,10 @@ adding public API names.
   - Evidence: `HttpTransportCapabilities` reports the common HTTP/1.1 contract and explicit gzip/Brotli/HTTP/2/HTTP/3 limitations for the stdlib, Prologue, and httpx adapters. Conditional ETag policy, trusted-proxy and request-timeout handling remain application-owned; single static byte ranges and HEAD semantics are finalized centrally, and the operations guide assigns compression/protocol termination to a configured reverse proxy.
   - Validation: Add wire tests for compression, `Vary`, ETag/range/HEAD semantics, slow client/shutdown, proxy forwarding, and adapter capability reports; run `nimble test`, `nimble httpxTest`, `nimble beastLive`, and `nimble httpsLive`.
 
-- [ ] Formalize cache, object-storage, and distributed rate-limit provider support.
+- [x] Formalize cache, object-storage, and distributed rate-limit provider support.
   - Scope: `src/mahanaim/storage.nim`, `redis_resp.nim`, `security.nim`, plugin/config/check modules, operations documentation, and live tests.
   - Done when: S3-compatible signing/credential/retry policy and Redis/Valkey cache/rate-limit behavior are supplied by versioned adapters, expose metrics, document eviction/failure semantics, and have clear production configuration checks.
+  - Evidence: `S3ObjectTransport` keeps endpoint TLS, signing, credential refresh, and provider retry classification application-owned while `newRetryingS3ObjectTransport` enforces a finite operation budget. `RedisCacheStore`, `RedisValkeyRateLimitStore`, and RESP compatibility/stat snapshots provide shared cache/quota behavior, bounded reconnect diagnostics, server-side TTL, and eviction checks. The operations guide documents local-store boundaries, production compatibility probes, redaction, and cache failure semantics.
   - Validation: Add tests for credential expiry, retry budget exhaustion, cache stampede/TTL, Redis disconnect/reconnect, distributed rate-limit consistency, and secret redaction; run `nimble test`, `nimble redisLiveCheck`, and credentialed `nimble redisLive`.
 
 - [ ] Define real-time, event, GraphQL, and microservice extensions as independently releasable packages.
