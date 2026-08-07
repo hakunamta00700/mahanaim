@@ -4,9 +4,15 @@
 ## deliberately does not own SMTP sockets, credentials, retries, or provider
 ## policy; those concerns belong to an application-owned `EmailTransport`.
 
-import std/[strutils]
+import std/[base64, strutils]
+import nimcrypto
 
 type
+  EmailAttachment* = object
+    filename*: string
+    contentType*: string
+    data*: string
+
   EmailMessage* = object
     ## Mailbox fields contain plain addresses. Display-name encoding and
     ## provider-specific headers can be added by a transport adapter without
@@ -18,6 +24,7 @@ type
     subject*: string
     contentType*: string
     body*: string
+    attachments*: seq[EmailAttachment]
 
   EmailTransport* = ref object of RootObj
     ## A transport is intentionally small: the framework gives it a validated
@@ -38,14 +45,21 @@ type
 
 proc validateHeaderValue(value, fieldName: string) =
   ## Header injection is rejected before any transport sees the message. ASCII
-  ## is intentional here: non-ASCII subjects need RFC 2047 encoded-words, and
-  ## silently emitting invalid raw header bytes would be worse than a clear
-  ## contract error. UTF-8 message bodies remain fully supported.
+  ## Newlines and ASCII controls are never valid in a header. Non-ASCII values
+  ## are encoded as RFC 2047 words by the renderer.
   if value.len == 0 or value.contains({'\r', '\n'}):
-    raise newException(ValueError, fieldName & " must be printable ASCII")
+    raise newException(ValueError, fieldName & " must not contain line breaks")
   for character in value:
-    if ord(character) < 32 or ord(character) > 126:
-      raise newException(ValueError, fieldName & " must be printable ASCII")
+    if ord(character) < 32 or ord(character) == 127:
+      raise newException(ValueError, fieldName & " contains a control character")
+
+proc encodedHeader(value: string): string =
+  var ascii = true
+  for character in value:
+    if ord(character) > 126:
+      ascii = false
+      break
+  if ascii: value else: "=?UTF-8?B?" & encode(value) & "?="
 
 proc validateMailbox(value, fieldName: string) =
   ## This is a deliberately conservative mailbox check, not a full RFC 5322
@@ -88,15 +102,31 @@ proc renderEmail*(message: EmailMessage): string =
     validateMailbox(recipient, "Email bcc recipient " & $index)
   validateHeaderValue(message.subject, "Email subject")
   validateHeaderValue(message.contentType, "Email content type")
+  for attachment in message.attachments:
+    validateHeaderValue(attachment.filename, "Attachment filename")
+    validateHeaderValue(attachment.contentType, "Attachment content type")
   result = "From: " & message.sender & "\r\n"
   if message.recipients.len > 0:
     result.add("To: " & message.recipients.join(", ") & "\r\n")
   if message.cc.len > 0:
     result.add("Cc: " & message.cc.join(", ") & "\r\n")
-  result.add("Subject: " & message.subject & "\r\n")
+  result.add("Subject: " & encodedHeader(message.subject) & "\r\n")
   result.add("MIME-Version: 1.0\r\n")
-  result.add("Content-Type: " & message.contentType & "\r\n\r\n")
-  result.add(normalizeBody(message.body))
+  if message.attachments.len == 0:
+    result.add("Content-Type: " & message.contentType & "\r\n\r\n")
+    result.add(normalizeBody(message.body))
+    return
+  let boundary = "mahanaim-" & ($sha256.hmac(message.sender,
+    message.subject & "|" & message.body)).toLowerAscii()[0 .. 23]
+  result.add("Content-Type: multipart/mixed; boundary=\"" & boundary & "\"\r\n\r\n")
+  result.add("--" & boundary & "\r\nContent-Type: " & message.contentType &
+    "\r\n\r\n" & normalizeBody(message.body))
+  for attachment in message.attachments:
+    result.add("--" & boundary & "\r\nContent-Type: " & attachment.contentType &
+      "\r\nContent-Disposition: attachment; filename=\"" & attachment.filename &
+      "\"\r\nContent-Transfer-Encoding: base64\r\n\r\n" &
+      normalizeBody(encode(attachment.data)))
+  result.add("--" & boundary & "--\r\n")
 
 method send*(transport: EmailTransport, message: EmailMessage) {.base, gcsafe.} =
   ## Keep the base method explicit so an incomplete provider fails loudly

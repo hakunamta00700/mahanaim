@@ -560,6 +560,15 @@ suite "Mahanaim core contracts":
     check wire.contains("To: ada@example.test\r\n")
     check wire.contains("Subject: Welcome & onboarding\r\n")
     check wire.contains("\r\n\r\nHello Ada\r\nYour account is ready.\r\n")
+    let multipart = renderEmail(EmailMessage(sender: "no-reply@example.test",
+      recipients: @["ada@example.test"], subject: "환영합니다",
+      contentType: "text/plain; charset=utf-8", body: "안녕하세요",
+      attachments: @[EmailAttachment(filename: "guide.txt",
+        contentType: "text/plain", data: "attachment payload")]))
+    check multipart.contains("Subject: =?UTF-8?B?")
+    check multipart.contains("Content-Type: multipart/mixed")
+    check multipart.contains("Content-Disposition: attachment; filename=\"guide.txt\"")
+    check multipart.contains("YXR0YWNobWVudCBwYXlsb2Fk")
     let transport = newInMemoryEmailTransport()
     transport.send(message)
     check transport.messages.len == 1
@@ -568,6 +577,12 @@ suite "Mahanaim core contracts":
       discard renderEmail(EmailMessage(sender: "sender@example.test",
         recipients: @["victim@example.test\r\nBcc: injected@example.test"],
         subject: "Unsafe", contentType: "text/plain; charset=utf-8", body: "x"))
+    expect ValueError:
+      discard renderEmail(EmailMessage(sender: "sender@example.test",
+        recipients: @["recipient@example.test"], subject: "safe",
+        contentType: "text/plain", body: "x", attachments: @[
+          EmailAttachment(filename: "safe.txt\r\nBcc: forged@example.test",
+            contentType: "text/plain", data: "x")]))
 
   test "callback email transport owns external wire delivery":
     var deliveries: Atomic[int]
