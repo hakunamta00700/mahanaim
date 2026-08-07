@@ -12,17 +12,28 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - WebSocket, SSE, background task, 캐시와 관측성
 - Prologue의 단순하고 확장 가능한 HTTP 기반
 
+## 5분 시작
+
+```text
+mahanaim new shop ./shop
+cd shop
+mahanaim app catalog
+nimble test
+```
+
+생성된 프로젝트의 composition root에 `catalogModule()`을 설치한 뒤 route와
+provider를 명시적으로 구성한다. 자세한 과정은 [시작 가이드](docs/getting-started.md)를
+따른다.
+
 ## 문서
 
-- [풀스택 Nim 웹 프레임워크 기능 요구사항](docs/nim-fullstack-framework-requirements.md)
-- [요구사항별 구현 계획과 우선순위](docs/nim-fullstack-framework-implementation-plan.md)
-- [API 안정성 및 release 정책](docs/api-stability-policy.md)
+- [문서 안내](docs/index.md) — 목적별 전체 문서 인덱스
+- [시작 가이드](docs/getting-started.md) · [프로젝트 구조](docs/project-layout.md) · [CLI 레퍼런스](docs/cli-reference.md)
+- [기능 매핑](docs/feature-map.md) — Django/Litestar 개념과 현재 지원 상태
 - [지원 범위와 기능 성숙도](docs/support-matrix.md)
-- [릴리스 지원 정책](docs/support-policy.md)
-- [완료 정의](docs/definition-of-done.md)
-- [실행 가능한 최소 예제](examples/minimal_app.nim)
-- [Adoption 및 release 가이드](docs/adoption-and-release.md)
+- [운영 가이드](docs/operations-guide.md) · [배포 레시피](docs/deployment-recipes.md) · [릴리스 지원 정책](docs/support-policy.md)
 - [Admin 템플릿 커스터마이징](docs/admin-template-customization.md)
+- [요구사항](docs/nim-fullstack-framework-requirements.md) · [구현 계획](docs/nim-fullstack-framework-implementation-plan.md) · [API 안정성 정책](docs/api-stability-policy.md)
 
 ## 프로젝트와 앱 생성
 

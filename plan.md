@@ -446,3 +446,244 @@
 - [-] 실제 application entrypoint build, certificate/secret injection과 staging rollout evidence는 application-owned 배포 환경에서 계속한다.
 - [x] `registerCommand`와 `registerAdminExtension`은 application startup 전 등록만 허용하고, startup transition 중에도 late mutation을 거부한다. lifecycle contract 회귀 테스트로 command surface와 admin extension registration의 불변 경계를 검증했다.
 - [ ] 실제 GitHub macOS runner와 staging deployment의 외부 evidence 수집은 배포 환경에서 계속한다.
+
+---
+
+# 전 기능 사용자 문서화 계획
+
+상태: 미착수
+작성일: 2026-08-07
+목표 독자: Nim 경험이 있는 신규 사용자, Django/Litestar에서 이전하는 사용자,
+프레임워크 확장 작성자, 운영 담당자
+
+## 1. 목표와 완료 기준
+
+이 계획의 목표는 지원 매트릭스에 기록된 모든 first-party 기능을 사용자가
+**찾고, 설치하고, 안전하게 적용하고, 검증할 수 있게** 만드는 것이다. 설계 기록이나
+소스 주석만 존재하는 상태는 문서화 완료로 보지 않는다.
+
+### 문서화 원칙
+
+- [ ] 사용자 문서는 한국어를 기본 언어로 작성하고, API·명령어·식별자는 코드 표기를 유지한다.
+- [ ] 각 기능 문서는 목적, 최소 실행 예제, 설정값, 실패·보안 경계, 관련 문서 링크를 포함한다.
+- [ ] 모든 명령과 코드 예제는 `nimble docsExamples` 또는 전용 compile/run 테스트로 검증한다.
+- [ ] `stable`·`experimental`·미지원 기능을 지원 매트릭스와 각 기능 문서에서 같은 용어로 표시한다.
+- [ ] 프레임워크가 소유하는 계약과 프로젝트/외부 provider가 소유하는 설정을 명확히 분리한다.
+- [ ] 새 public API·CLI 명령·first-party 기능을 추가할 때 같은 변경에서 문서 인덱스, 기능 문서, 지원 매트릭스를 갱신한다.
+
+### 완료 정의
+
+- [ ] README에서 설치부터 첫 요청, 기능별 가이드, API/CLI 레퍼런스, 운영 문서로 3회 이내 클릭으로 이동할 수 있다.
+- [ ] 지원 매트릭스의 모든 feature 행에 대응하는 사용자 문서 또는 명시적인 "미지원/계획" 문서 링크가 있다.
+- [ ] 모든 사용자 가이드에 최소 한 개의 실행 가능한 Nim 예제가 있고 CI에서 실행된다.
+- [ ] 링크 검사, 예제 검사, 문서-지원매트릭스 대응 검사, `nimble docsCheck`가 CI에서 통과한다.
+- [ ] 기능 문서의 API·명령·환경변수·기본값이 public API compile test와 CLI 테스트에 의해 검증된다.
+
+## 2. 문서 정보 구조와 공통 기반 (P0)
+
+### 2.1 문서 허브와 탐색
+
+- [x] README를 "5분 시작", "가이드", "레퍼런스", "운영", "확장", "릴리스"로 재구성한다.
+- [x] `docs/index.md`를 만들고 목적별·역할별·기능별 탐색표와 모든 문서의 한 줄 설명을 제공한다.
+- [x] `docs/glossary.md`를 만들고 Application, module, plugin, resource, adapter, provider, store, middleware, route, representation 등의 용어를 고정한다.
+- [x] `docs/feature-map.md`를 만들고 Django/Litestar 개념과 Mahanaim API·문서의 대응 및 미지원 범위를 표시한다.
+- [ ] 모든 문서에 대상 독자, 선행 조건, 안정성 등급, 마지막 검증 명령, 관련 문서 섹션을 둔다.
+
+수용 기준:
+
+- [ ] README의 새 사용자 경로는 설치·프로젝트 생성·실행·테스트·다음 가이드를 한 화면에서 안내한다.
+- [ ] 깨진 내부 Markdown 링크와 문서 인덱스에 없는 사용자 가이드가 없다.
+
+### 2.2 예제와 검증 인프라
+
+- [ ] `examples/`를 기능별 독립 예제로 나누고 각 예제의 목적·실행 명령·기대 결과를 README에 표로 기록한다.
+- [ ] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다.
+- [ ] CLI `--help` 출력과 문서의 명령·인자·종료 코드가 일치하는지 검사한다.
+- [ ] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다.
+- [ ] 외부 서비스가 필요한 예제는 disposable 환경, 필요한 환경변수, 안전한 skip 기준을 문서와 CI에 함께 기록한다.
+
+수용 기준:
+
+- [ ] 깨진 예제·링크·지원 기능의 문서 누락은 PR/CI에서 실패한다.
+- [ ] 외부 credential 없이도 모든 문서 검증 게이트가 명시적 skip 또는 mock으로 끝난다.
+
+## 3. 시작과 애플리케이션 구성 (P0)
+
+- [x] `docs/getting-started.md`: Nim 설치, 의존성 설치, `mahanaim new`, `mahanaim app`, 개발 서버/테스트/검사까지의 10분 튜토리얼을 작성한다.
+- [x] `docs/project-layout.md`: 생성 프로젝트의 `src`, `tests`, migration, template, static, 환경설정 파일과 composition root의 책임을 설명한다.
+- [x] `docs/application-and-modules.md`: `Application`, `ApplicationModule`, lifecycle, provider, controller, route, export 및 명시적 설치 흐름을 설명한다.
+- [x] `docs/configuration.md`: 환경변수, `.env`, JSON/TOML provider, 우선순위, typed 설정, secret redaction, 금지된 로그 출력을 설명한다.
+- [x] `docs/cli-reference.md`: `new`, `app`, `check`, `db`, `openapi`, `openapi-ts`, `static collect`, `admin create-user`, `jobs` 명령의 사용법과 실패 코드를 표로 제공한다.
+
+수용 기준:
+
+- [ ] 빈 디렉터리에서 문서만 따라 생성 프로젝트를 만들고 route 테스트와 `nimble test`를 실행할 수 있다.
+- [ ] 앱 스캐폴드의 생성물과 명시적 `catalogModule()` 설치 예제가 실제 생성기 출력과 일치한다.
+
+## 4. HTTP, 라우팅, 요청/응답 (P0)
+
+- [ ] `docs/routing.md`: 함수형 handler, sync/async 경계, HTTP method, path/typed/wildcard parameter, route group, named URL, middleware 순서를 설명한다.
+- [ ] `docs/requests-and-validation.md`: Request의 query/header/path/body/form/multipart 접근, input schema, coercion, problem JSON 오류를 예제로 설명한다.
+- [ ] `docs/responses-and-negotiation.md`: HTML/JSON/text/file/redirect/stream/SSE/WebSocket response, `Accept`, `Vary`, 406, ETag/304의 선택 규칙을 설명한다.
+- [ ] `docs/errors-and-lifecycle.md`: error handler, startup/shutdown hook, timeout, cancellation, executor queue와 실패 전파를 설명한다.
+- [ ] `docs/uploads.md`: multipart, 파일명·MIME·크기·저장 위치 검증과 공개 URL 분리를 설명한다.
+
+수용 기준:
+
+- [ ] 각 route 형식과 response representation에 성공·실패 예제가 있다.
+- [ ] 콘텐츠 협상과 업로드 보안 예제는 테스트에서 406/검증 오류/차단 경로를 함께 확인한다.
+
+## 5. 템플릿, SSR, 폼, HTMX (P1)
+
+- [ ] `docs/templates.md`: TemplateEngine 등록/파일 로드, variable escaping, filter, tag/helper, include, inheritance, conditional, loop, locale formatter를 설명한다.
+- [ ] `docs/server-rendered-pages.md`: HTML response, template adapter 교체, request-local context, partial rendering의 경계를 설명한다.
+- [ ] `docs/forms.md`: `FormState`, schema/model form binding, validation error, widget registry, formset, CSRF를 설명한다.
+- [ ] `docs/htmx.md`: `htmlJsonResponse`, `HX-Request`, partial/JSON 선택, cache header와 progressive enhancement 예제를 작성한다.
+- [ ] 기존 Admin 템플릿 문서를 템플릿 기본 가이드와 상호 연결하고, 일반 템플릿과 Admin 전용 컨텍스트의 차이를 명시한다.
+
+수용 기준:
+
+- [ ] XSS escaping, 누락 collection, 잘못된 template name, CSRF 오류를 포함한 문제 해결 표가 있다.
+- [ ] 템플릿·폼·HTMX 예제가 단일 애플리케이션에서 실행된다.
+
+## 6. 모델, 직렬화, 데이터베이스 (P1)
+
+- [ ] `docs/models-and-metadata.md`: 모델 metadata/macro, field 종류, custom field, index, constraint, relation, serializer/form/OpenAPI와의 공유 경계를 설명한다.
+- [ ] `docs/serialization.md`: JSON/MessagePack, DTO, rename, sensitive field, enum/date/UUID/file, custom codec와 request/response 분리를 설명한다.
+- [ ] `docs/querying.md`: QuerySet, filter/sort/pagination/cursor, projection, aggregate/annotation, eager/lazy relation, lock mode의 지원 범위를 설명한다.
+- [ ] `docs/migrations.md`: migration 정의, status/up/rollback/seed, schema diff/check, SQLite/PostgreSQL 차이와 안전한 배포 순서를 설명한다.
+- [ ] `docs/database-connections.md`: adapter, pool, session, transaction, savepoint, isolation, repository, request lifecycle과 capability matrix를 설명한다.
+- [ ] storage/ORM 통합 문서를 위 가이드에서 발견 가능하게 연결하고 외부 ORM ownership 예제를 보강한다.
+
+수용 기준:
+
+- [ ] SQLite로 CRUD·migration을 완주하는 튜토리얼과 PostgreSQL의 별도 설정/제한 문서가 있다.
+- [ ] 모델의 민감 필드·관계·transaction·unsupported isolation을 문서대로 테스트할 수 있다.
+
+## 7. API와 OpenAPI (P1)
+
+- [ ] `docs/api-development.md`: documented route, input/output schema, typed DTO, versioning, pagination/filter/sort/field selection, error envelope를 설명한다.
+- [ ] `docs/openapi.md`: OpenAPI 3.1 생성, route collection, Swagger/ReDoc, `openapi`/`openapi-ts`, 생성 TypeScript client의 한계와 배포 방법을 설명한다.
+- [ ] `docs/api-security.md`: session/bearer/JWT/외부 introspection 사용 시 API 인증·권한·rate limit·CORS 설정을 API 관점에서 설명한다.
+- [ ] API 예제를 OpenAPI JSON과 generated TypeScript client까지 실행/검증한다.
+
+수용 기준:
+
+- [ ] 문서의 request/response와 실제 OpenAPI artifact가 구조적으로 일치한다.
+- [ ] versioning과 compatibility/deprecation 정책을 API 가이드에서 바로 찾을 수 있다.
+
+## 8. 인증, 권한, 보안 (P0)
+
+- [ ] `docs/authentication.md`: auth backend, signed session, bearer/JWT, login/logout, account store, password change/reset의 구성 예제를 작성한다.
+- [ ] `docs/authorization.md`: role/group/object policy, route/admin guard, 최소 권한 설계 예제를 작성한다.
+- [ ] `docs/security.md`: CSRF, CORS, CSP, allowed host, secure cookie, secret redaction, trusted proxy, HTTPS, rate limit, request size/timeout의 기본값과 운영 변경 절차를 설명한다.
+- [ ] `docs/password-security.md`: PBKDF2/Argon2id/bcrypt 선택, rehash, benchmark, production cost 결정과 login throttle을 설명한다.
+- [ ] 보안 배포 점검표를 위 가이드에서 링크하고 각 항목의 자동 검사/수동 증거를 구분한다.
+
+수용 기준:
+
+- [ ] 인증된 route와 권한 거부, CSRF 거부, rate-limit 실패를 재현하는 예제가 있다.
+- [ ] 문서는 인증서/secret을 저장소에 넣지 않는 예제를 사용한다.
+
+## 9. Admin, CLI 관리, 콘텐츠 운영 (P1)
+
+- [ ] `docs/admin.md`: registry/resource 등록, CRUD 화면, 권한, read-only field, columns/query, bulk action, audit store, SQLite audit, inline/formset을 설명한다.
+- [ ] `docs/admin-template-customization.md`에 기본 템플릿의 전체 예제와 업그레이드 호환성·`formLayout` 우선순위 예제를 보강한다.
+- [ ] `docs/admin-operations.md`: 최초 관리자 생성, 비밀번호 환경변수, 감사 로그 백업/복구/조회, 운영 권한 분리를 설명한다.
+- [ ] Admin과 Django admin의 공통점·차이·미구현 기능을 feature map에 명시한다.
+
+수용 기준:
+
+- [ ] 새 리소스를 Admin에 등록해 권한 있는 HTML CRUD와 audit event를 확인하는 예제가 있다.
+- [ ] 템플릿 전역/리소스별 오버라이드와 legacy `formLayout`의 결과를 실행 예제로 확인한다.
+
+## 10. 비동기 작업, 실시간 통신, 메시징 (P1)
+
+- [ ] `docs/background-jobs.md`: job 등록, retry, idempotency, durable SQLite store, recovery, `jobs run/recover`, 외부 durable store adapter 경계를 설명한다.
+- [ ] `docs/websocket.md`: route, session, frame, close, channel binding, 인증/권한과 테스트 방법을 설명한다.
+- [ ] `docs/sse.md`: SSE response, event/id/data 규칙, reconnection/HTTP proxy 주의점을 설명한다.
+- [ ] `docs/channel-layers.md`: in-memory/callback/Redis channel layer, subscribe/publish, ordering, backpressure, reconnect, shutdown과 rolling deployment 경계를 설명한다.
+- [ ] `docs/email-and-notifications.md`: EmailMessage, SMTP/callback/retry transport, flash message, sitemap/RSS/Atom 생성 API를 설명한다.
+
+수용 기준:
+
+- [ ] durable 작업 재시도·복구와 WebSocket/SSE/Redis channel의 최소 예제가 각각 존재한다.
+- [ ] 외부 broker/SMTP의 production 보장 범위와 local mock 범위를 명확히 표시한다.
+
+## 11. 저장소, 캐시, 정적 자산 (P1)
+
+- [ ] `docs/storage.md`: upload storage, ObjectStorage, local/in-memory/S3-compatible bridge, key traversal 방지, 오류/재시도 경계를 설명한다.
+- [ ] `docs/cache.md`: CacheStore, memory/Redis/Valkey adapter, TTL, eviction, response cache/ETag의 차이를 설명한다.
+- [ ] `docs/static-assets.md`: `static collect`, source/output 안전 경계, manifest, reverse proxy/CDN 배포를 설명한다.
+- [ ] Redis/Valkey compatibility와 provider live check 조건을 운영 문서와 상호 연결한다.
+
+수용 기준:
+
+- [ ] 파일 업로드·정적 수집·캐시 TTL을 로컬에서 실행하는 예제가 있고, production provider 설정은 별도 예제로 분리된다.
+
+## 12. 관측성, 테스트, 배포, 릴리스 (P0)
+
+- [ ] `docs/observability.md`: request ID, traceparent, structured log redaction, health/readiness, Prometheus metrics/provider를 설명한다.
+- [ ] `docs/testing.md`: unit/contract/in-process client/network fixture, DB fixture, HTTP/SSE/WebSocket 테스트, external live test skip 정책을 설명한다.
+- [ ] `docs/deployment.md`: Docker, nginx/reverse proxy, systemd, graceful shutdown, readiness, migration/rollback 순서를 단일 진입점으로 정리한다.
+- [ ] `docs/release-guide.md`: versioning, changelog, support matrix, lockfile, artifact manifest, CI matrix, release qualification을 설명한다.
+- [ ] 운영 가이드·배포 레시피·Adoption/release 문서의 중복을 정리하고 상호 링크 또는 하나의 canonical section으로 통합한다.
+
+수용 기준:
+
+- [ ] 사용자는 문서만으로 로컬 관측성 endpoint를 확인하고 Docker 또는 systemd 배포를 수행할 수 있다.
+- [ ] release checklist의 모든 명령이 복사 실행 가능하고 실패 시 다음 조치를 안내한다.
+
+## 13. 플러그인, 확장, 외부 통합 (P1)
+
+- [ ] `docs/plugins.md`: PluginManifest, phase, dependency graph, `use`, route/DI/middleware/serializer/storage/auth/command/admin 확장 지점을 설명한다.
+- [ ] `docs/application-modules.md`: plugin과 ApplicationModule의 목적·설치 시점·의존성·export 차이를 설명한다.
+- [ ] `docs/extension-authoring.md`: 확장 패키지 구조, compatibility, 테스트, error/ownership/lifecycle 규칙, 배포 전 점검표를 작성한다.
+- [ ] `docs/external-adapters.md`: template adapter, storage/cache/database/auth/channel/durable job adapter의 공통 adapter 계약과 provider별 책임을 설명한다.
+- [ ] 현재 없는 plugin scaffold/registry/dynamic loading/version solver는 "미구현"으로 명확히 표기한다.
+
+수용 기준:
+
+- [ ] 독립 plugin 예제가 route 하나와 서비스 하나를 등록하고 dependency/duplicate 오류를 검증한다.
+- [ ] extension 문서는 startup 이후 등록 불가와 resource ownership 규칙을 명시한다.
+
+## 14. Django/Litestar 전환과 기능 상태 (P2)
+
+- [ ] `docs/django-migration.md`: project/app, URLconf, model/migration, form, admin, management command, auth, template의 대응 예제를 작성한다.
+- [ ] `docs/litestar-migration.md`: route, DTO, dependency injection, OpenAPI, middleware, background task의 대응 예제를 작성한다.
+- [ ] `docs/known-limitations.md`: 미구현/experimental/provider 의존 기능, 알려진 차이, 우회 방법, 계획되지 않은 범위를 단일 목록으로 제공한다.
+- [ ] support matrix의 각 experimental 행에서 해당 limitation/운영 문서로 링크한다.
+
+수용 기준:
+
+- [ ] Django 사용자가 Admin·앱·명령·템플릿·plugin 기능의 현재 대응 상태를 한 문서에서 판단할 수 있다.
+
+## 15. 문서 레퍼런스와 유지보수 (P0)
+
+- [ ] `docs/api-reference/`에 public module별 API 레퍼런스를 생성하거나 유지하는 방식과 소스 링크를 도입한다.
+- [ ] public API마다 brief, parameter/return, lifecycle/ownership, error, 최소 예제를 제공한다.
+- [ ] `CHANGELOG.md`의 변경 유형을 문서 영향(새 문서/예제/마이그레이션 주의)과 연결한다.
+- [ ] 문서 ownership과 정기 검토 주기(릴리스 전, public API 변경 시, experimental 승격 시)를 정의한다.
+- [ ] 문서 변경 PR 템플릿에 대상 독자, 실행 검증, 지원 등급 변경 여부를 추가한다.
+
+수용 기준:
+
+- [ ] 공개 export가 문서 레퍼런스에 없으면 자동 검사가 실패하거나 명시적인 제외 사유가 필요하다.
+- [ ] 릴리스 전 문서 검토자가 지원 매트릭스·변경 로그·가이드·예제의 정합성을 한 체크리스트로 확인할 수 있다.
+
+## 16. 권장 실행 순서와 의존성
+
+1. [ ] 문서 허브·용어집·예제 검증 기반을 먼저 만든다. 이후의 모든 문서는 이 구조와 게이트를 사용한다.
+2. [ ] 시작·프로젝트·CLI·구성, HTTP·검증·응답, 보안의 P0 가이드를 작성한다.
+3. [ ] 모델·데이터베이스·API·템플릿·폼·Admin의 첫 CRUD 튜토리얼을 하나의 예제로 연결한다.
+4. [ ] 작업·실시간·저장소·캐시·관측성·테스트·배포 문서를 작성하고 외부 provider 범위를 분리한다.
+5. [ ] plugin/adapter 작성자 문서와 Django/Litestar 전환 가이드, API 레퍼런스를 추가한다.
+6. [ ] 지원 매트릭스와 limitation 문서를 최종 대조하고, 링크·예제·명령 검증을 CI 필수 게이트로 승격한다.
+
+## 17. 문서화 완료 판정
+
+- [ ] 2~15절의 모든 체크박스가 완료되었거나, 범위 제외 사유와 대체 문서가 기록되어 있다.
+- [ ] 문서 탐색, 링크, 예제, public API/CLI/지원 매트릭스 정합성 검사가 CI에서 통과한다.
+- [ ] 신규 사용자와 Django/Litestar 경험자가 각각 getting started와 migration 가이드를 따라 독립적으로 최소 애플리케이션을 완성한다.
+- [ ] 운영 담당자가 보안·배포·복구·관측성 문서만으로 staging 배포와 rollback 연습을 수행한다.
+- [ ] 모든 external provider 관련 문서가 필요한 credential, 비용/위험, local 대체 수단, live evidence를 명시한다.
