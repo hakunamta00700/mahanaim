@@ -99,6 +99,36 @@ method delete*(store: DatabaseRepositoryResourceStore,
                id: string): bool {.gcsafe.} =
   store.repository.delete(id)
 
+method mutateAtomically*(store: DatabaseRepositoryResourceStore,
+                         mutations: openArray[ResourceMutation]) {.gcsafe.} =
+  ## Repositories share their adapter's transaction so relation formsets are
+  ## all-or-nothing on both SQLite and PostgreSQL implementations.
+  if store.isNil or store.repository.isNil or store.repository.adapter.isNil:
+    raise newException(ValueError, "Database repository store is not configured")
+  ## This follows `withTransaction`'s begin/commit/rollback rule directly so
+  ## the ResourceStore method remains GC-safe for async HTTP route handlers.
+  store.repository.adapter.begin()
+  try:
+    for mutation in mutations:
+      case mutation.kind
+      of resourceCreate:
+        discard store.repository.create(mutation.row)
+      of resourceUpdate:
+        if store.repository.update(mutation.id, mutation.row).isNone:
+          raise newException(ValueError,
+            "Atomic resource update target does not exist: " & mutation.id)
+      of resourceDelete:
+        if not store.repository.delete(mutation.id):
+          raise newException(ValueError,
+            "Atomic resource delete target does not exist: " & mutation.id)
+    store.repository.adapter.commit()
+  except CatchableError:
+    try:
+      store.repository.adapter.rollback()
+    except CatchableError:
+      discard
+    raise
+
 proc fieldFor(repository: DatabaseRepository, name: string): Option[ModelField] =
   for field in repository.metadata.fields:
     if field.name == name or field.columnName == name or field.jsonName == name:

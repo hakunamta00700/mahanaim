@@ -57,6 +57,15 @@ type
     adapter*: SqliteDatabaseAdapter
     ownsAdapter: bool
 
+  AdminInline* = ref object
+    ## A related child resource that may be edited as one formset beneath a
+    ## parent. The parent field is always assigned by the server.
+    name*: string
+    metadata*: ModelMetadata
+    resource*: CrudResource
+    parentField*: string
+    readOnlyFields*: seq[string]
+
   AdminResource* = ref object
     ## One registered admin resource owns route and form policy while storage
     ## remains behind the existing ResourceStore contract.
@@ -79,6 +88,7 @@ type
     ## Optional presentation hook. Route, authorization, and audit ownership
     ## remain in this module while applications control the final HTML shell.
     formLayout*: AdminFormLayoutRenderer
+    inlines*: seq[AdminInline]
 
   AdminRegistry* = ref object
     ## Registration is application-owned and isolated from global plugin state.
@@ -223,7 +233,62 @@ proc registerAdminResource*(registry: AdminRegistry, name, prefix: string,
     authorize: authorize, authorizationPolicy: authorizationPolicy,
     permissionResource: name, formPolicy: formPolicy,
     queryOptions: queryOptions, readOnlyFields: canonicalReadOnly,
-    customColumns: canonicalColumns, formLayout: formLayout))
+    customColumns: canonicalColumns, formLayout: formLayout, inlines: @[]))
+
+proc adminPrimaryKey(metadata: ModelMetadata): string =
+  for field in metadata.fields:
+    if field.primaryKey:
+      return field.name
+  "id"
+
+proc canonicalAdminFields(metadata: ModelMetadata, names: seq[string],
+                          label: string): seq[string] =
+  for requested in names:
+    var found = false
+    for field in metadata.fields:
+      if field.name == requested or field.jsonName == requested or
+          field.columnName == requested:
+        if field.name in result:
+          raise newException(ValueError, "Duplicate admin " & label & ": " & requested)
+        result.add(field.name)
+        found = true
+        break
+    if not found:
+      raise newException(ValueError, "Unknown admin " & label & ": " & requested)
+
+proc registerAdminInline*(registry: AdminRegistry, resourceName, name: string,
+                          metadata: ModelMetadata, store: ResourceStore,
+                          parentField: string,
+                          readOnlyFields: seq[string] = @[]) =
+  ## Register related children explicitly. No relation is inferred from route
+  ## names, and the server—not the client—owns the foreign-key assignment.
+  if registry.isNil or resourceName.strip().len == 0 or name.strip().len == 0 or
+      name.contains('/') or store.isNil:
+    raise newException(ValueError,
+      "Admin inline requires resource, safe name, metadata, and store")
+  var parent: AdminResource = nil
+  for candidate in registry.resources:
+    if candidate.name == resourceName:
+      parent = candidate
+      break
+  if parent.isNil:
+    raise newException(ValueError, "Unknown admin resource: " & resourceName)
+  var resolvedParentField = ""
+  for field in metadata.fields:
+    if field.name == parentField or field.jsonName == parentField or
+        field.columnName == parentField:
+      resolvedParentField = field.name
+      break
+  if resolvedParentField.len == 0:
+    raise newException(ValueError, "Unknown admin inline parent field: " & parentField)
+  for inline in parent.inlines:
+    if inline.name == name:
+      raise newException(ValueError, "Duplicate admin inline: " & name)
+  let protectedFields = canonicalAdminFields(metadata, readOnlyFields,
+    "inline read-only field")
+  parent.inlines.add(AdminInline(name: name, metadata: metadata,
+    resource: newCrudResource(metadata, store), parentField: resolvedParentField,
+    readOnlyFields: protectedFields))
 
 proc recordAudit(registry: AdminRegistry, resource, action, identifier,
                  actor: string) =
@@ -483,6 +548,107 @@ proc bulkDeleteIds(body: string): Option[seq[string]] =
   except CatchableError:
     none(seq[string])
 
+proc inlineIdentifier(value: JsonNode): Option[string] =
+  case value.kind
+  of JString:
+    if value.getStr().strip().len > 0: some(value.getStr()) else: none(string)
+  of JInt: some($value.getInt())
+  else: none(string)
+
+proc relationMatches(value: JsonNode, parentId: string): bool =
+  ## Model references may be string or integer JSON values; compare their
+  ## stable wire identity without turning the identifier into SQL text.
+  let identifier = inlineIdentifier(value)
+  identifier.isSome and identifier.get() == parentId
+
+proc inlineInputPolicy(): SerializationPolicy =
+  result = defaultSerializationPolicy()
+  result.excludeSensitive = false
+  result.rejectUnknownFields = true
+
+proc inlineMutations(inline: AdminInline, parentId, body: string):
+    Option[seq[ResourceMutation]] =
+  ## Parse and validate every row before passing anything to the atomic store.
+  ## That keeps invalid payloads and cross-parent edits from changing a prior
+  ## formset row even for a store with an expensive transaction boundary.
+  try:
+    let document = parseJson(body)
+    if document.kind != JObject or not document.hasKey("rows") or
+        document["rows"].kind != JArray or document["rows"].len == 0 or
+        document["rows"].len > 100:
+      return none(seq[ResourceMutation])
+    let idField = adminPrimaryKey(inline.metadata)
+    var seenIds: seq[string] = @[]
+    var mutations: seq[ResourceMutation] = @[]
+    for submitted in document["rows"]:
+      if submitted.kind != JObject:
+        return none(seq[ResourceMutation])
+      var id = none(string)
+      if submitted.hasKey(idField):
+        id = inlineIdentifier(submitted[idField])
+      if id.isNone:
+        for field in inline.metadata.fields:
+          if field.primaryKey and field.jsonName != idField and
+              submitted.hasKey(field.jsonName):
+            id = inlineIdentifier(submitted[field.jsonName])
+            break
+      let deleting = submitted.hasKey("_delete") and
+        submitted["_delete"].kind == JBool and submitted["_delete"].getBool()
+      if deleting and id.isNone:
+        return none(seq[ResourceMutation])
+      if id.isSome:
+        if id.get() in seenIds:
+          return none(seq[ResourceMutation])
+        seenIds.add(id.get())
+        let existing = inline.resource.store.find(id.get())
+        if existing.isNone or not existing.get().hasKey(inline.parentField) or
+            not relationMatches(existing.get()[inline.parentField], parentId):
+          return none(seq[ResourceMutation])
+      if deleting:
+        mutations.add(ResourceMutation(kind: resourceDelete, id: id.get()))
+        continue
+
+      var values = initTable[string, JsonNode]()
+      for name, value in submitted:
+        if name == "_delete":
+          continue
+        var resolved = name
+        for field in inline.metadata.fields:
+          if field.name == name or field.jsonName == name:
+            resolved = field.name
+            break
+        if resolved == idField or resolved in inline.readOnlyFields:
+          continue
+        if resolved == inline.parentField:
+          if not relationMatches(value, parentId):
+            return none(seq[ResourceMutation])
+          continue
+        values[resolved] = value
+      ## The relationship is server-managed on both creation and update.
+      values[inline.parentField] = newJString(parentId)
+      if id.isSome:
+        if not serializePatch(inline.metadata, values, inlineInputPolicy()).valid:
+          return none(seq[ResourceMutation])
+        mutations.add(ResourceMutation(kind: resourceUpdate, id: id.get(), row: values))
+      else:
+        var validationValues = values
+        for field in inline.metadata.fields:
+          if field.primaryKey and not validationValues.hasKey(field.name):
+            case field.kind
+            of modelInteger: validationValues[field.name] = newJInt(0)
+            of modelFloat: validationValues[field.name] = newJFloat(0.0)
+            of modelBoolean: validationValues[field.name] = newJBool(false)
+            of modelJson, modelFile: validationValues[field.name] = newJObject()
+            of modelString, modelDateTime, modelUuid, modelReference:
+              validationValues[field.name] = newJString("")
+        if not serializeModel(inline.metadata, validationValues,
+                              inlineInputPolicy()).valid:
+          return none(seq[ResourceMutation])
+        mutations.add(ResourceMutation(kind: resourceCreate, row: values))
+    some(mutations)
+  except CatchableError:
+    none(seq[ResourceMutation])
+
 proc registerResourceRoutes(app: Application, registry: AdminRegistry,
                             resource: AdminResource) =
   ## Route closures capture one immutable definition so loop registration cannot
@@ -545,6 +711,30 @@ proc registerResourceRoutes(app: Application, registry: AdminRegistry,
             request.auth.subject)
       return jsonResponse(%*{"deleted": deleted})
     )
+  for inline in current.inlines:
+    let currentInline = inline
+    app.post(current.prefix & "/:id/inlines/" & currentInline.name,
+      "admin." & current.name & ".inline." & currentInline.name & ".formset",
+      proc(request: Request): Future[Response] {.async, gcsafe.} =
+        let identifier = request.pathParams.getOrDefault("id")
+        if not adminAuthorized(current, request, "update", identifier):
+          return forbiddenResponse()
+        if current.resource.store.find(identifier).isNone:
+          return textResponse("Not Found", Http404)
+        let mutations = inlineMutations(currentInline, identifier, request.body)
+        if mutations.isNone:
+          return textResponse("Invalid inline formset payload", Http400)
+        try:
+          currentInline.resource.store.mutateAtomically(mutations.get())
+          registry.recordAudit(current.name,
+            "inline-formset:" & currentInline.name, identifier,
+            request.auth.subject)
+          return jsonResponse(%*{"applied": mutations.get().len})
+        except CatchableError:
+          ## Do not leak storage details; the atomic store has already rolled
+          ## back its work before surfacing this failed formset.
+          return textResponse("Inline formset was not applied", Http400)
+      )
   app.get(current.prefix & "/:id", "admin." & current.name & ".get",
     proc(request: Request): Future[Response] {.async, gcsafe.} =
       if not adminAuthorized(current, request, "read",

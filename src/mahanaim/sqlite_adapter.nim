@@ -4,7 +4,7 @@
 ## the compiled values and translates driver lifecycle calls. That boundary
 ## keeps PostgreSQL and future drivers interchangeable with the same contract.
 
-import std/[options, strutils]
+import std/[options, os, strutils]
 import pkg/db_connector/[db_sqlite, sqlite3]
 import ./database
 
@@ -208,19 +208,49 @@ proc validateMigrations(migrations: openArray[Migration]) =
       raise newException(ValueError, "Duplicate migration: " & migration.name)
     names.add(migration.name)
 
+proc isTransientMigrationLock(error: ref CatchableError): bool =
+  let message = error.msg.toLowerAscii()
+  message.contains("database is locked") or message.contains("database is busy") or
+    message.contains("database table is locked")
+
+proc withMigrationWriteLock(adapter: SqliteDatabaseAdapter,
+                            operation: TransactionCallback) =
+  ## SQLite permits only one schema writer. Acquire that writer slot before
+  ## checking history, then retry a short bounded period when another startup
+  ## process is finishing its migration. The re-check inside the lock makes a
+  ## concurrent caller a no-op rather than a duplicate DDL/insert attempt.
+  const maxAttempts = 20
+  for attempt in 0 ..< maxAttempts:
+    var began = false
+    try:
+      adapter.execControl("BEGIN IMMEDIATE")
+      began = true
+      operation()
+      adapter.execControl("COMMIT")
+      return
+    except CatchableError as error:
+      if began:
+        try:
+          adapter.execControl("ROLLBACK")
+        except CatchableError:
+          discard
+      if not isTransientMigrationLock(error) or attempt == maxAttempts - 1:
+        raise
+      sleep((attempt + 1) * 5)
+
 proc migrate*(adapter: SqliteDatabaseAdapter,
               migrations: openArray[Migration]): seq[string] =
   ## Apply pending migrations one at a time and record each atomically.
   validateMigrations(migrations)
-  adapter.ensureMigrationTable()
-  let applied = adapter.appliedMigrations()
   for migration in migrations:
     ## Copy the openArray element before capturing it in the transaction
     ## callback; Nim's lent iterator safety rules forbid capturing the view.
     let currentMigration = migration
-    if currentMigration.name in applied:
-      continue
-    adapter.withTransaction(proc() =
+    var applied = false
+    adapter.withMigrationWriteLock(proc() =
+      adapter.ensureMigrationTable()
+      if currentMigration.name in adapter.appliedMigrations():
+        return
       for operation in currentMigration.up:
         adapter.execControl(migrationSql(operation, dialectSqlite))
       let statement = adapter.connection.prepare(
@@ -230,8 +260,10 @@ proc migrate*(adapter: SqliteDatabaseAdapter,
         for _ in adapter.connection.fastRows(statement):
           discard
       finally:
-        db_sqlite.finalize(statement))
-    result.add(currentMigration.name)
+        db_sqlite.finalize(statement)
+      applied = true)
+    if applied:
+      result.add(currentMigration.name)
 
 proc rollbackLatest*(adapter: SqliteDatabaseAdapter,
                      migrations: openArray[Migration]): Option[string] =

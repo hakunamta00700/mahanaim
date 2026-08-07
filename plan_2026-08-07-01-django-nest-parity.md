@@ -58,9 +58,10 @@ adding public API names.
   - Evidence: SQLite/PostgreSQL capability, transaction, schema history/diff, concurrent migration, rollback, and eager/lazy relation contracts are covered by shared and live fixtures. `newRawSqlQuery`/`executeRaw` preserves bound parameters for explicit dialect escape hatches, while `DatabaseRouter` requires configured read/write roles and reports unsupported routing without fallback. Storage/ORM integration documents extension ownership and cross-database transaction limitations.
   - Validation: Migration, relation, raw SQL/routing, and multi-connection regression fixtures; run `nimble test`, `nimble postgresCheck`, `nimble postgresLiveCheck`, and credentialed `nimble postgresLive` in CI.
 
-- [ ] Productize the admin, forms, and durable audit trail.
+- [x] Productize the admin, forms, and durable audit trail.
   - Scope: `src/mahanaim/admin.nim`, `forms.nim`, `templates.nim`, `authorization.nim`, `resources.nim`, `account_auth.nim`, and HTML/admin tests.
   - Done when: Admin resources support durable append-only audit storage, relation-aware inline/formset editing, configurable list filters/actions/layouts, safe field-level permissions, and a documented extension API while preserving the existing authorization boundary.
+  - Evidence: `SqliteAdminAuditStore` provides a path- or adapter-owned append-only audit trail with snapshot reads and explicit shutdown ownership. `registerAdminInline` binds a named child formset to a parent field, forces parent association server-side, filters protected fields, rejects cross-parent rows, and calls the new atomic mutation contract; database repository stores commit/roll back the batch as one transaction. Existing list/query, bulk-action, custom-layout, authorization and CSRF boundaries remain shared with these routes, and `operations-guide.md` documents both extension APIs.
   - Validation: Add authorization-bypass, CSRF, relation-inline rollback, audit persistence, HTML escaping, list-filter/action, and custom-layout regression tests; run `nimble test` and network smoke tests for browser form flows.
 
 - [ ] Add production authentication provider contracts and credential lifecycle controls.

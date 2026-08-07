@@ -23,6 +23,19 @@ type
     rows*: seq[ResourceRow]
     total*: int64
 
+  ResourceMutationKind* = enum
+    ## A formset can create, update, and delete related records as one unit.
+    resourceCreate
+    resourceUpdate
+    resourceDelete
+
+  ResourceMutation* = object
+    ## `id` is required for update/delete and ignored for creates unless the
+    ## backing resource accepts caller-provided primary keys.
+    kind*: ResourceMutationKind
+    id*: string
+    row*: ResourceRow
+
   ResourceStore* = ref object of RootObj
     ## Persistence adapters own query execution and transaction details.
 
@@ -79,6 +92,16 @@ method delete*(store: ResourceStore, id: string): bool {.base, gcsafe.} =
   discard store
   discard id
   raise newException(ValueError, "Resource store does not implement delete")
+
+method mutateAtomically*(store: ResourceStore,
+                         mutations: openArray[ResourceMutation]) {.base, gcsafe.} =
+  ## Relation formsets must never leave a partly-applied batch behind. Stores
+  ## that cannot provide this guarantee fail instead of silently degrading to
+  ## one mutation per request.
+  discard store
+  discard mutations
+  raise newException(ValueError,
+    "Resource store does not implement atomic mutations")
 
 proc primaryKey(metadata: ModelMetadata): string =
   for field in metadata.fields:
@@ -292,6 +315,30 @@ method delete*(store: InMemoryResourceStore, id: string): bool {.gcsafe.} =
       store.rows.delete(index)
       return true
   false
+
+method mutateAtomically*(store: InMemoryResourceStore,
+                         mutations: openArray[ResourceMutation]) {.gcsafe.} =
+  ## The reference store snapshots both data and generated-key state before
+  ## applying a formset, mirroring a database transaction for contract tests.
+  let originalRows = store.rows
+  let originalNextId = store.nextId
+  try:
+    for mutation in mutations:
+      case mutation.kind
+      of resourceCreate:
+        discard store.create(mutation.row)
+      of resourceUpdate:
+        if store.update(mutation.id, mutation.row).isNone:
+          raise newException(ValueError,
+            "Atomic resource update target does not exist: " & mutation.id)
+      of resourceDelete:
+        if not store.delete(mutation.id):
+          raise newException(ValueError,
+            "Atomic resource delete target does not exist: " & mutation.id)
+  except CatchableError:
+    store.rows = originalRows
+    store.nextId = originalNextId
+    raise
 
 proc newCrudResource*(metadata: ModelMetadata, store: ResourceStore,
                       responsePolicy = defaultSerializationPolicy(),

@@ -4366,6 +4366,62 @@ suite "Mahanaim core contracts":
     snapshot[0].action = "tampered"
     check reopened.auditEvents()[0].action == "create"
 
+  test "admin inline formsets enforce relations and roll back as one batch":
+    var parentMetadata = newModelMetadata("Project", "admin_projects")
+    parentMetadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    parentMetadata.addField(newModelField("name", modelString))
+    var childMetadata = newModelMetadata("Task", "admin_tasks")
+    childMetadata.addField(newModelField("id", modelInteger, primaryKey = true))
+    childMetadata.addField(newModelField("project_id", modelReference))
+    childMetadata.addField(newModelField("title", modelString))
+    childMetadata.addField(newModelField("secret", modelString, nullable = true))
+    let parentStore = newInMemoryResourceStore(parentMetadata)
+    let childStore = newInMemoryResourceStore(childMetadata)
+    var firstParent = initTable[string, JsonNode]()
+    firstParent["name"] = %"first"
+    discard parentStore.create(firstParent)
+    var secondParent = initTable[string, JsonNode]()
+    secondParent["name"] = %"second"
+    discard parentStore.create(secondParent)
+    var firstChild = initTable[string, JsonNode]()
+    firstChild["project_id"] = %"1"
+    firstChild["title"] = %"before"
+    discard childStore.create(firstChild)
+    var secondChild = initTable[string, JsonNode]()
+    secondChild["project_id"] = %"2"
+    secondChild["title"] = %"other project"
+    discard childStore.create(secondChild)
+
+    let registry = newAdminRegistry()
+    proc authorize(request: Request): bool {.gcsafe.} =
+      request.headers.getOrDefault("x-admin") == "yes"
+    registry.registerAdminResource("projects", "/admin/projects", parentMetadata,
+      parentStore, authorize)
+    registry.registerAdminInline("projects", "tasks", childMetadata, childStore,
+      "project_id", @["secret"])
+    let app = newApplication()
+    registerAdminRoutes(app, registry)
+    var request = newRequest("POST", "/admin/projects/1/inlines/tasks",
+      "{\"rows\":[{\"id\":1,\"title\":\"updated\",\"secret\":\"forged\"},{\"title\":\"new\"}]}")
+    request.headers["x-admin"] = "yes"
+    request.auth = AuthContext(authenticated: true, subject: "admin-1")
+    let applied = waitFor app.dispatch(request)
+    check applied.status == Http200
+    check parseJson(applied.body)["applied"].getInt() == 2
+    check childStore.find("1").get()["title"].getStr() == "updated"
+    check not childStore.find("1").get().hasKey("secret")
+    check childStore.find("3").get()["project_id"].getStr() == "1"
+    check childStore.find("3").get()["title"].getStr() == "new"
+
+    var rejected = newRequest("POST", "/admin/projects/1/inlines/tasks",
+      "{\"rows\":[{\"id\":1,\"title\":\"must-roll-back\"},{\"id\":2,\"title\":\"cross-parent\"}]}")
+    rejected.headers["x-admin"] = "yes"
+    rejected.auth = request.auth
+    check (waitFor app.dispatch(rejected)).status == Http400
+    check childStore.find("1").get()["title"].getStr() == "updated"
+    check childStore.find("2").get()["title"].getStr() == "other project"
+    check registry.auditEvents()[^1].action == "inline-formset:tasks"
+
   test "query component validates bounded pagination filters sorting and fields":
     var metadata = newModelMetadata("QueryUser", "query_users")
     metadata.addField(newModelField("id", modelInteger, primaryKey = true))

@@ -364,6 +364,21 @@ passes `ownsAdapter = true`. Audit events deliberately contain only action,
 resource, identifier, and actor identity fields; do not put request bodies,
 credentials, or other secrets in an audit event.
 
+### Related admin formsets
+
+Register a child collection explicitly with
+`registerAdminInline(registry, "projects", "tasks", taskMetadata, taskStore,
+"project_id")`. A `POST /admin/projects/:id/inlines/tasks` request accepts a
+JSON object with a bounded `rows` array. A row with an `id` updates the related
+child, a row without one creates a child, and `{"id": "…", "_delete": true}`
+deletes it. The parent field is assigned by the server, read-only inline fields
+are ignored, and a child belonging to another parent is rejected.
+
+All rows are validated before storage and then passed through the store's
+`mutateAtomically` contract. In-memory stores restore their snapshot on failure;
+database repository stores use the adapter transaction. Stores without an
+atomic implementation reject the formset rather than applying a partial batch.
+
 ## Durable job CLI
 
 An application can call `configureDurableJobs(store, registry)` before startup.
