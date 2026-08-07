@@ -356,6 +356,19 @@ unavailable custom revocation backend must fail closed by returning no identity.
 The in-memory store is for a single process only—production deployments should
 provide a shared store that retains each ID through its token expiry.
 
+### OAuth/OIDC and token introspection
+
+`verifyOAuthCallback` accepts an application-owned provider exchange callback
+only after a constant-time state match and a non-empty redirect URI. Its result
+is an `OAuthIdentity`; link it explicitly to an existing enabled local account
+with `linkOAuthIdentity`. The framework does not provision accounts or match
+provider email addresses automatically.
+
+For opaque provider tokens, `newIntrospectionAuthBackend` accepts an
+application-owned introspection callback. It requires an active response with
+matching issuer/audience and a future expiry. Callback timeouts, exceptions,
+malformed responses, inactive tokens, and expiry all fail closed as anonymous.
+
 ## Admin CLI inspector
 
 `runAdminCli(registry, ["resources"])` prints only registered resource names and
