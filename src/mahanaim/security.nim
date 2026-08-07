@@ -110,6 +110,32 @@ type
     clockSkewSeconds*: int64
     revocations*: JwtRevocationStore
 
+  IntrospectionResult* = object
+    active*: bool
+    subject*: string
+    issuer*: string
+    audience*: string
+    expiresAt*: int64
+
+  TokenIntrospector* = proc(token: string): IntrospectionResult {.gcsafe.}
+
+  IntrospectionAuthBackend* = ref object of AuthBackend
+    ## Provider I/O is application-owned; this adapter only validates the
+    ## bounded result and fails closed for exceptions or expired responses.
+    introspect*: TokenIntrospector
+    issuer*: string
+    audience*: string
+    headerName*: string
+    scheme*: string
+
+  OAuthIdentity* = object
+    provider*: string
+    subject*: string
+    email*: string
+
+  OAuthCallbackVerifier* = proc(code, state, redirectUri: string):
+    Option[OAuthIdentity] {.gcsafe.}
+
   SignedValueVerification* = object
     ## Keyring verification reports whether a value was signed by a legacy key
     ## so callers can rotate the cookie on the next successful response.
@@ -792,6 +818,55 @@ method authenticate*(backend: JwtTokenAuthBackend,
   if claims.isSome:
     return some(AuthContext(authenticated: true, subject: claims.get().subject))
   none(AuthContext)
+
+proc newIntrospectionAuthBackend*(introspect: TokenIntrospector, issuer,
+                                  audience: string,
+                                  headerName = "authorization",
+                                  scheme = "Bearer"):
+    IntrospectionAuthBackend =
+  if introspect.isNil or issuer.strip().len == 0 or audience.strip().len == 0 or
+      headerName.strip().len == 0 or scheme.strip().len == 0:
+    raise newException(ValueError,
+      "Introspection auth requires callback, issuer, audience, header, and scheme")
+  IntrospectionAuthBackend(introspect: introspect, issuer: issuer,
+    audience: audience, headerName: headerName, scheme: scheme)
+
+method authenticate*(backend: IntrospectionAuthBackend,
+                     request: Request): Option[AuthContext] {.gcsafe.} =
+  ## Provider unavailability, malformed responses, and expired credentials
+  ## deliberately become anonymous rather than granting a cached identity.
+  try:
+    let header = request.header(backend.headerName)
+    if header.isNone:
+      return none(AuthContext)
+    let parts = header.get().strip().splitWhitespace()
+    if parts.len != 2 or parts[0].toLowerAscii() != backend.scheme.toLowerAscii():
+      return none(AuthContext)
+    let result = backend.introspect(parts[1])
+    if result.active and result.subject.strip().len > 0 and
+        result.issuer == backend.issuer and result.audience == backend.audience and
+        result.expiresAt > getTime().toUnix:
+      return some(AuthContext(authenticated: true, subject: result.subject))
+    none(AuthContext)
+  except CatchableError:
+    none(AuthContext)
+
+proc verifyOAuthCallback*(verifier: OAuthCallbackVerifier, code, state,
+                          expectedState, redirectUri: string): Option[OAuthIdentity] =
+  ## State is checked before provider exchange to prevent CSRF/code swapping;
+  ## the provider callback owns network timeout and token exchange behavior.
+  if verifier.isNil or code.strip().len == 0 or state.len == 0 or
+      expectedState.len == 0 or redirectUri.strip().len == 0 or
+      not constantTimeEquals(state, expectedState):
+    return none(OAuthIdentity)
+  try:
+    let identity = verifier(code, state, redirectUri)
+    if identity.isSome and identity.get().provider.strip().len > 0 and
+        identity.get().subject.strip().len > 0:
+      return identity
+    none(OAuthIdentity)
+  except CatchableError:
+    none(OAuthIdentity)
 
 proc bindSession*(request: var Request, policy: SessionPolicy): bool =
   ## Verify and bind one signed session subject without exposing cookie format

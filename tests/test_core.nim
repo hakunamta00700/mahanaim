@@ -3804,6 +3804,40 @@ suite "Mahanaim core contracts":
       "user-42", 60, liveNow, tokenId = "live-token")
     check backend.authenticate(request).get().subject == "user-42"
 
+  test "external introspection and OAuth callbacks fail closed":
+    let introspector: TokenIntrospector = proc(token: string): IntrospectionResult {.gcsafe.} =
+      if token == "provider-token":
+        return IntrospectionResult(active: true, subject: "provider-user",
+          issuer: "https://issuer.example.test", audience: "mahanaim-api",
+          expiresAt: getTime().toUnix + 60)
+      IntrospectionResult(active: false)
+    let backend = newIntrospectionAuthBackend(introspector,
+      "https://issuer.example.test", "mahanaim-api")
+    var request = newRequest("GET", "/protected")
+    request.headers["authorization"] = "Bearer provider-token"
+    check backend.authenticate(request).get().subject == "provider-user"
+    request.headers["authorization"] = "Bearer inactive-token"
+    check backend.authenticate(request).isNone
+    let timeout: TokenIntrospector = proc(token: string): IntrospectionResult {.gcsafe.} =
+      discard token
+      raise newException(CatchableError, "provider timeout")
+    let unavailable = newIntrospectionAuthBackend(timeout,
+      "https://issuer.example.test", "mahanaim-api")
+    request.headers["authorization"] = "Bearer provider-token"
+    check unavailable.authenticate(request).isNone
+
+    let oauth: OAuthCallbackVerifier = proc(code, state, redirectUri: string):
+        Option[OAuthIdentity] {.gcsafe.} =
+      if code == "code-1" and state == "csrf-state" and
+          redirectUri == "https://app.example.test/callback":
+        return some(OAuthIdentity(provider: "oidc", subject: "provider-user",
+          email: "user@example.test"))
+      none(OAuthIdentity)
+    check verifyOAuthCallback(oauth, "code-1", "csrf-state", "csrf-state",
+      "https://app.example.test/callback").get().subject == "provider-user"
+    check verifyOAuthCallback(oauth, "code-1", "wrong", "csrf-state",
+      "https://app.example.test/callback").isNone
+
   test "configuration merges dotenv JSON TOML and environment values":
     let root = getTempDir() / "mahanaim_config_test"
     if dirExists(root):
