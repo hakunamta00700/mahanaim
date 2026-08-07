@@ -17,6 +17,7 @@
 - [ ] 코드에 책임 분리와 외부 의존성 소유권을 설명하는 주석이 있다.
 - [ ] 사용자 문서, 운영 절차, migration/호환성 주의사항을 갱신했다.
 - [ ] `plan.md`와 상세 implementation plan의 상태가 실제 범위와 일치한다.
+- [ ] first-party 기능의 성숙도·지원 대상·live evidence가 `support-matrix.md`에 기록되어 있다.
 
 ## 검증 게이트
 

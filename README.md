@@ -17,6 +17,9 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - [풀스택 Nim 웹 프레임워크 기능 요구사항](docs/nim-fullstack-framework-requirements.md)
 - [요구사항별 구현 계획과 우선순위](docs/nim-fullstack-framework-implementation-plan.md)
 - [API 안정성 및 release 정책](docs/api-stability-policy.md)
+- [지원 범위와 기능 성숙도](docs/support-matrix.md)
+- [릴리스 지원 정책](docs/support-policy.md)
+- [완료 정의](docs/definition-of-done.md)
 - [실행 가능한 최소 예제](examples/minimal_app.nim)
 
 요구사항 문서는 Django 6.0, Litestar 2.x, Prologue의 공식 문서를 비교 기준으로 작성했습니다. 현재 저장소에는 framework-neutral core, adapter, contract test와 실행 가능한 최소 수직 슬라이스가 포함되어 있으며, 외부 staging/live 증거는 계획에서 별도로 추적합니다.
@@ -32,4 +35,5 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 
 ## 라이선스
 
-아직 라이선스를 결정하지 않았습니다.
+이 프로젝트는 [MIT License](LICENSE)로 배포됩니다. 이 표기는
+`mahanaim.nimble`의 `license = "MIT"` 선언과 같은 설치·배포 계약이다.

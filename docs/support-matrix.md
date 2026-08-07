@@ -14,6 +14,36 @@
 플랫폼별 소켓 ownership이나 C runtime 차이를 공통 unit test의 성공만으로
 추론하지 않는다.
 
+## 기능 성숙도와 릴리스 증거
+
+아래 표는 현재 배포본에 포함되는 모든 first-party 기능의 단일 성숙도
+목록이다. `stable`은 표에 적힌 로컬·CI 증거를 모두 통과한 공개 계약이고,
+`experimental`은 API 또는 실제 provider 운영 증거가 더 필요한 기능이다.
+`deprecated` 기능은 대체 API와 제거 예정 버전을 changelog에 함께 기록한다.
+각 행의 `evidence`는 CI에서 실행할 명령 또는 사람이 보관할 live evidence를
+명시한다. 따라서 문서에 이름만 있고 검증 경계가 없는 기능은 지원으로
+승격할 수 없다.
+
+| feature | maturity | supported targets | evidence |
+| --- | --- | --- | --- |
+| application-routing | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble publicApiCheck` |
+| dependency-injection | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
+| typed-api-openapi | experimental | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
+| sqlite-storage | stable | SQLite; Windows/Linux/macOS | `nimble test` |
+| postgresql-adapter | experimental | PostgreSQL 16; Linux CI, Windows/macOS compile | `nimble postgresCheck`, `nimble postgresLive` |
+| admin-forms | experimental | SQLite; Windows/Linux/macOS | `nimble test`, browser smoke evidence |
+| authentication-security | experimental | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, provider contract fixture |
+| email-notifications | experimental | callback transport; Windows/Linux/macOS | `nimble test`, disposable SMTP wire evidence |
+| background-jobs | experimental | SQLite durable store; Windows/Linux/macOS | `nimble test`, queue provider live evidence |
+| http-transport | experimental | Prologue; httpx/Beast on Linux | `nimble httpxTest`, `nimble beastLive` |
+| storage-cache-rate-limit | experimental | Redis 7.2/Valkey 8.1; S3-compatible callback | `nimble redisLive`, credentialed S3 evidence |
+| realtime-events | experimental | loopback/WebSocket; Redis channel layer | `nimble test`, WebSocket wire evidence |
+| observability-testing-cli | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble verify` |
+
+이 표의 `feature`, `maturity`, `supported targets`, `evidence` 열과 모든
+first-party feature 행은 `tests/test_docs_contract.nim`에서 검증한다.
+새 first-party 기능은 같은 변경에서 이 표와 해당 CI/live gate를 추가해야 한다.
+
 ## macOS release runner baseline (2026-08-05)
 
 - [x] GitHub Actions cross-platform matrix에 `macos-latest`와 Nim 2.2.4 runner를 선언했다.

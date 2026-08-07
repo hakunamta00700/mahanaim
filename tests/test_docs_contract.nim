@@ -180,6 +180,36 @@ nimble test
     check supportMatrix.contains("Nim")
     check supportMatrix.contains("macOS")
 
+  test "support matrix keeps every first-party feature and its evidence machine-checkable":
+    ## The table is deliberately compact enough for this parser: a future
+    ## feature cannot be presented as supported without a maturity label,
+    ## target boundary, and repeatable command or retained live evidence.
+    let readme = readFile(getCurrentDir() / "README.md")
+    let matrix = readFile(getCurrentDir() / "docs" / "support-matrix.md")
+    let policy = readFile(getCurrentDir() / "docs" / "support-policy.md")
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let features = [
+      "application-routing", "dependency-injection", "typed-api-openapi",
+      "sqlite-storage", "postgresql-adapter", "admin-forms",
+      "authentication-security", "email-notifications", "background-jobs",
+      "http-transport", "storage-cache-rate-limit", "realtime-events",
+      "observability-testing-cli"
+    ]
+    check readme.contains("MIT License")
+    check manifest.contains("license       = \"MIT\"")
+    check matrix.contains("| feature | maturity | supported targets | evidence |")
+    for feature in features:
+      let rows = matrix.splitLines.filterIt(it.startsWith("| " & feature & " |"))
+      check rows.len == 1
+      if rows.len == 1:
+        let columns = rows[0].split('|').mapIt(it.strip())
+        check columns.len == 6
+        check columns[2] in ["experimental", "stable", "deprecated"]
+        check columns[3].len > 0
+        check columns[4].len > 0
+    check policy.contains("Evidence promotion policy")
+    check policy.contains("release artifact")
+
   test "minimal documentation example has a compile and run gate":
     ## The smallest public example must exercise the same Application route
     ## and dispatch contract that users see in the documentation.

@@ -34,9 +34,10 @@ adding public API names.
 
 ## Checklist
 
-- [ ] Establish a versioned capability matrix and release-readiness evidence policy.
+- [x] Establish a versioned capability matrix and release-readiness evidence policy.
   - Scope: `README.md`, `docs/support-matrix.md`, `docs/support-policy.md`, `docs/api-stability-policy.md`, `docs/definition-of-done.md`, `.github/workflows/ci.yml`.
   - Done when: Each first-party feature is labelled experimental/stable/deprecated, supported Nim/OS/backend versions and live-evidence requirements are machine-checkable, and the README license statement agrees with `mahanaim.nimble`.
+  - Evidence: `docs/support-matrix.md` now lists every first-party feature with a maturity label, supported targets, and its CI/live evidence; `tests/test_docs_contract.nim` validates that table and the README/manifest MIT agreement. `support-policy.md` defines promotion evidence and CI generates `release-artifacts.manifest` on Linux, Windows, and macOS.
   - Validation: Extend `tests/test_docs_contract.nim`; run `nimble docsCheck`, `nimble lockCheck`, `nimble verify`, and inspect the generated release-artifact manifest on every CI OS.
 
 - [ ] Add an application module/composition boundary above the current DI container.

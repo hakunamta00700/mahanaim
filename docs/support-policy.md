@@ -15,6 +15,24 @@
 - PostgreSQL, Redis/Valkey, Beast/httpx, HTTPS reverse proxy는 별도 live gate가
   통과된 환경에서만 운영 지원으로 승격한다.
 
+## Evidence promotion policy
+
+`docs/support-matrix.md`의 기능별 행은 다음 조건을 만족할 때만
+`experimental`에서 `stable`로 바꾼다.
+
+1. 지원 Nim/OS/backend 조합과 실행할 검증 명령을 같은 행에 기록한다.
+2. 네트워크 provider는 단위 테스트 외에 credentialed 또는 disposable live
+   fixture의 성공 로그·환경 버전을 release artifact에 보관한다.
+3. CI는 모든 지원 OS에서 release artifact manifest를 생성·업로드하고,
+   provider가 필요한 기능은 해당 live gate를 실행하거나 명시적 skip 사유를
+   남긴다.
+4. deprecation은 대체 API, 제거 예정 major, migration 안내를 changelog와
+   API stability policy에 함께 기록한다.
+
+외부 증거가 누락되면 안정성 label을 승격하지 않는다. 예를 들어 로컬 Redis
+fixture의 성공은 S3 credential lifecycle 또는 production queue drain의
+운영 증거를 대신하지 않는다.
+
 ## 릴리스 체크리스트
 
 - [ ] 지원 Nim/OS 조합에서 `test`, `check`, `verify`, `build`가 통과했다.
