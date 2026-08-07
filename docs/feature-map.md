@@ -11,8 +11,8 @@
 | --- | --- | --- | --- | --- |
 | 프로젝트 생성 | `startproject` | app factory | `mahanaim new NAME [PATH]` | [시작 가이드](getting-started.md) |
 | 기능 모듈 생성 | `startapp` | module/package | `mahanaim app NAME [PROJECT_ROOT]`, `ApplicationModule` | [프로젝트 구조](project-layout.md) |
-| URL 등록 | URLconf | route handler | `app.get/post/addRoute`, route DSL | 라우팅 가이드 작성 예정 |
-| 요청 검증 | Form/Serializer | DTO/signature | `FieldSpec`, schema, model metadata | 요청/검증 가이드 작성 예정 |
+| URL 등록 | URLconf | route handler | `app.get/post/addRoute`, route DSL | [라우팅](routing.md) |
+| 요청 검증 | Form/Serializer | DTO/signature | `FieldSpec`, schema, model metadata | [요청과 검증](requests-and-validation.md) |
 | HTML 템플릿 | Django templates | template backend | `TemplateEngine`, `TemplateAdapter` | 템플릿 가이드 작성 예정 |
 | 폼·CSRF | Form/FormSet | plugin/integration | `FormState`, model form/formset, security policy | 폼 가이드 작성 예정 |
 | ORM/쿼리 | Model/QuerySet | SQLAlchemy integration | model metadata, `QuerySet`, `DatabaseRepository` | 모델/쿼리 가이드 작성 예정 |

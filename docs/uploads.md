@@ -1,0 +1,46 @@
+# Uploads and multipart data
+
+**Audience:** application developers accepting user-provided files.
+**Verified with:** `nimble test`
+
+Parse the request body, select the expected multipart part, then validate and
+save it through `UploadPolicy`. Storage must be outside the web/static root:
+`newUploadPolicy` rejects an upload root that overlaps `webRootDirectory`.
+
+```nim
+import std/[asyncdispatch, httpcore]
+import mahanaim
+
+let uploads = newUploadPolicy(
+  rootDirectory = "var/uploads",
+  webRootDirectory = "public",
+  maxBytes = 5 * 1024 * 1024,
+  allowedContentTypes = @["image/png", "image/jpeg"],
+  allowedExtensions = @[".png", ".jpg", ".jpeg"])
+
+proc uploadAvatar(request: Request): Future[Response] {.async, gcsafe.} =
+  let parsed = parseRequestBody(request)
+  if not parsed.valid:
+    return problemResponse(Http400, "Invalid multipart body", parsed.errorMessage)
+  for part in parsed.parts:
+    if part.name == "avatar" and part.filename.len > 0:
+      try:
+        let stored = saveUpload(part, uploads)
+        return jsonResponse("{\"size\":" & $stored.size & "}", Http201)
+      except UploadValidationError:
+        return problemResponse(Http400, "Upload rejected", "The file does not meet this field policy")
+  return problemResponse(Http400, "Upload rejected", "An avatar file is required")
+```
+
+The policy validates before writing: a filename must be one safe leaf name (no
+absolute path, slash, backslash, NUL, `.` or `..`), content length must fit
+`maxBytes`, and configured extension and content-type allowlists must match.
+Existing files are rejected unless `overwriteExisting = true`; do not enable
+overwrites for user-chosen names in a shared store.
+
+Content type is client supplied metadata, not proof of file content. For
+high-risk formats, add an application-level signature/parser check and generate
+a server-side stored name. Store only an opaque identifier in public URLs and
+serve or redirect after authorization; never expose the storage directory as a
+static URL. Apply request-size limits at both the reverse proxy and application
+boundary.

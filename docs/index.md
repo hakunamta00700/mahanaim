@@ -21,8 +21,8 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 | --- | --- |
 | Application·module·DI 구성 | [애플리케이션과 모듈](application-and-modules.md) |
 | 환경 설정과 secret | [설정](configuration.md) |
-| route·middleware·요청 검증 | 라우팅·요청 검증 가이드 (작성 예정) |
-| HTML·JSON·스트림 응답 | 응답과 콘텐츠 협상 가이드 (작성 예정) |
+| route·middleware·요청 검증 | [라우팅](routing.md), [요청과 검증](requests-and-validation.md) |
+| HTML·JSON·스트림 응답 | [응답과 콘텐츠 협상](responses-and-negotiation.md), [업로드](uploads.md) |
 | 템플릿·폼·HTMX | 템플릿·폼·HTMX 가이드 (작성 예정) |
 | 모델·DB·migration | 모델·migration·쿼리 가이드 (작성 예정) |
 | typed API·OpenAPI | API 개발·OpenAPI 가이드 (작성 예정) |

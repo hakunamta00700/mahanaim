@@ -522,11 +522,11 @@
 
 ## 4. HTTP, 라우팅, 요청/응답 (P0)
 
-- [ ] `docs/routing.md`: 함수형 handler, sync/async 경계, HTTP method, path/typed/wildcard parameter, route group, named URL, middleware 순서를 설명한다.
-- [ ] `docs/requests-and-validation.md`: Request의 query/header/path/body/form/multipart 접근, input schema, coercion, problem JSON 오류를 예제로 설명한다.
-- [ ] `docs/responses-and-negotiation.md`: HTML/JSON/text/file/redirect/stream/SSE/WebSocket response, `Accept`, `Vary`, 406, ETag/304의 선택 규칙을 설명한다.
-- [ ] `docs/errors-and-lifecycle.md`: error handler, startup/shutdown hook, timeout, cancellation, executor queue와 실패 전파를 설명한다.
-- [ ] `docs/uploads.md`: multipart, 파일명·MIME·크기·저장 위치 검증과 공개 URL 분리를 설명한다.
+- [x] `docs/routing.md`: 함수형 handler, sync/async 경계, HTTP method, path/typed/wildcard parameter, route group, named URL, middleware 순서를 설명한다.
+- [x] `docs/requests-and-validation.md`: Request의 query/header/path/body/form/multipart 접근, input schema, coercion, problem JSON 오류를 예제로 설명한다.
+- [x] `docs/responses-and-negotiation.md`: HTML/JSON/text/file/redirect/stream/SSE/WebSocket response, `Accept`, `Vary`, 406, ETag/304의 선택 규칙을 설명한다.
+- [x] `docs/errors-and-lifecycle.md`: error handler, startup/shutdown hook, timeout, cancellation, executor queue와 실패 전파를 설명한다.
+- [x] `docs/uploads.md`: multipart, 파일명·MIME·크기·저장 위치 검증과 공개 URL 분리를 설명한다.
 
 수용 기준:
 
