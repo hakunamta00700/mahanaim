@@ -1301,6 +1301,17 @@ suite "Mahanaim core contracts":
     expect ValueError:
       scheduler.scheduleAt("invalid", -1, proc() {.gcsafe.} = discard)
 
+    scheduler.scheduleEvery("heartbeat", 10, 5,
+      proc() {.gcsafe.} = discard runs.fetchAdd(1))
+    check (waitFor scheduler.runDueAt(10)).len == 1
+    check (waitFor scheduler.runDueAt(14)).len == 0
+    check (waitFor scheduler.runDueAt(15)).len == 1
+    ## A scheduler restart at 31 advances to 35 rather than replaying 20/25/30.
+    check (waitFor scheduler.runDueAt(31)).len == 1
+    check (waitFor scheduler.runDueAt(34)).len == 0
+    expect ValueError:
+      scheduler.scheduleEvery("invalid-repeat", 1, 0, proc() {.gcsafe.} = discard)
+
   test "background jobs honor idempotency claims and release failed keys":
     let app = newApplication()
     let idempotency = newInMemoryIdempotencyStore()

@@ -30,6 +30,7 @@ type
   ScheduledJob* = object
     id*: string
     runAt*: int64
+    intervalSeconds*: int64
     job*: BackgroundJob
 
   JobScheduler* = ref object
@@ -109,7 +110,15 @@ proc scheduleAt*(scheduler: JobScheduler, id: string, runAt: int64,
   for existing in scheduler.scheduled:
     if existing.id == id:
       raise newException(ValueError, "Duplicate scheduled job: " & id)
-  scheduler.scheduled.add(ScheduledJob(id: id, runAt: runAt, job: job))
+  scheduler.scheduled.add(ScheduledJob(id: id, runAt: runAt,
+    intervalSeconds: 0, job: job))
+
+proc scheduleEvery*(scheduler: JobScheduler, id: string, firstRunAt,
+                    intervalSeconds: int64, job: BackgroundJob) =
+  if intervalSeconds <= 0:
+    raise newException(ValueError, "Recurring scheduled job requires a positive interval")
+  scheduler.scheduleAt(id, firstRunAt, job)
+  scheduler.scheduled[^1].intervalSeconds = intervalSeconds
 
 proc runDueAt*(scheduler: JobScheduler, now: int64):
     Future[seq[BackgroundJobResult]] {.async.} =
@@ -119,6 +128,14 @@ proc runDueAt*(scheduler: JobScheduler, now: int64):
   for scheduled in scheduler.scheduled:
     if scheduled.runAt <= now:
       result.add(await scheduler.queue.enqueue(scheduled.job))
+      if scheduled.intervalSeconds > 0:
+        var recurring = scheduled
+        ## Advance past a long downtime without replaying every missed period;
+        ## applications can choose a catch-up policy explicitly if required.
+        let elapsed = now - recurring.runAt
+        recurring.runAt += (elapsed div recurring.intervalSeconds + 1) *
+          recurring.intervalSeconds
+        pending.add(recurring)
     else:
       pending.add(scheduled)
   scheduler.scheduled = pending
