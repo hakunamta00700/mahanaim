@@ -580,6 +580,8 @@ nimble test
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
     check workflow.contains("run: nimble verify")
     check workflow.contains("run: nimble docsCheck")
+    check workflow.contains("Trust the container workspace for Nimble VCS metadata")
+    check workflow.contains("git config --global --add safe.directory")
     check manifest.contains("task docsExamples")
     check manifest.contains("exec \"nimble docsCheck\"")
     check manifest.contains("exec \"nimble docsExamples\"")

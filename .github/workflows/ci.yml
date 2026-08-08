@@ -47,6 +47,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Trust the container workspace for Nimble VCS metadata
+        ## The checkout action configures Git safety on the host. Nimble runs
+        ## inside this job's container and calls `git ls-files`, so repeat the
+        ## narrow workspace-only exception in the container before install.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install PostgreSQL client runtime
         run: apt-get update && apt-get install -y --no-install-recommends libpq5
 
