@@ -298,6 +298,26 @@ suite "definition of done contracts":
     check uploads.contains("UploadValidationError")
     check uploads.contains("problemResponse(Http400, \"Upload rejected\"")
     check coreTests.contains("response negotiation honors Accept quality and q zero")
+
+  test "routing and response guides cover every public form with a rejection path":
+    let routing = readFile(getCurrentDir() / "docs" / "routing.md")
+    let responses = readFile(getCurrentDir() / "docs" /
+      "responses-and-negotiation.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    for contract in [
+      "Route success and failure contracts", "typed `/products/:id<int>`",
+      "wildcard `/files/*path`", "returns `405`", "WebSocket `app.websocket`",
+      "Representation success and failure contracts", "unsupported `Accept` returns `406 Not Acceptable`",
+      "SSE event and id fields reject line injection", "`rrWebSocket` metadata"
+    ]:
+      check routing.contains(contract) or responses.contains(contract)
+    for evidence in [
+      "router dispatches the correct method when paths are shared",
+      "response policy selects an accepted representation",
+      "SSE event and id fields reject line injection",
+      "WebSocket core contract preserves frame kinds and adapter boundary"
+    ]:
+      check coreTests.contains(evidence)
     check coreTests.contains("upload storage validates and saves multipart files safely")
     check coreTests.contains("malformed multipart body returns a body-scoped validation issue")
   test "repository checklist contains the required evidence sections":

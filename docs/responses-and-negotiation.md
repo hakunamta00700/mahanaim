@@ -37,6 +37,23 @@ responses add `Vary: Accept`. A 204 or redirect with no body remains valid even
 when an `Accept` value names no body representation. Keep all variants
 semantically equivalent and test the accepted and rejected media types.
 
+## Representation success and failure contracts
+
+The table separates a response constructor's local preconditions from
+negotiation failures that happen later in `Application.dispatch`.
+
+| Representation | Success case | Failure or safety boundary | Verification |
+| --- | --- | --- | --- |
+| text, HTML, JSON | matching `Accept` selects the corresponding `200` variant | unsupported `Accept` returns `406 Not Acceptable` | `response policy selects an accepted representation` |
+| file | an authorized existing regular file produces the declared content type | empty, missing, or non-regular paths are rejected before transport access | `response constructors expose file representation safely` |
+| stream | an adapter writes a chunked stream representation | callers must supply an adapter-supported media type and cannot rely on buffered cache semantics | `network adapter writes stream responses with chunked transfer framing` |
+| SSE | `SseEvent` becomes `text/event-stream` with no-cache headers | newlines in `event` or `id` are rejected to prevent framing injection | `SSE event and id fields reject line injection` |
+| WebSocket | an accepted upgrade exposes `rrWebSocket` metadata | use `app.websocket`; a normal HTTP body is not a WebSocket session | `WebSocket core contract preserves frame kinds and adapter boundary` |
+| HTML/HTMX/JSON | full HTML, fragment, or JSON is selected with `Vary: Accept, HX-Request` | an unacceptable media type returns `406`, even for the helper | `HTML JSON response helper selects HTMX partials and JSON` |
+
+For every API response, record the status code and content type alongside both
+the success body and the validation, authentication, or negotiation failure.
+
 ## Browser, HTMX, and JSON from one endpoint
 
 `htmlJsonResponse(request, fullHtml, partialHtml, jsonBody)` chooses a partial

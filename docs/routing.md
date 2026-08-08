@@ -37,6 +37,24 @@ other HTTP method. `getSync`, `postSync`, `putSync`, `patchSync`, and
 executor only when synchronous handlers are allowed. Prefer async handlers for
 network and database work.
 
+## Route success and failure contracts
+
+Use the route form that describes the input shape, and test the matching
+success plus its rejection path. A route miss never invokes the handler.
+
+| Route form | Success example | Failure result | Verification |
+| --- | --- | --- | --- |
+| static `GET /health` | `GET /health` returns the handler's `200` response | an unknown path returns `404` | `router dispatches exact routes` |
+| typed `/products/:id<int>` | `/products/42` sets `pathParams["id"]` | `/products/not-a-number` is a route miss (`404`) | `router supports typed parameters, wildcard paths, groups, and URL building` |
+| wildcard `/files/*path` | `/files/a/report.txt` binds the remaining path | an empty or nonmatching prefix returns `404` | `router supports typed parameters, wildcard paths, groups, and URL building` |
+| same path, different method | `DELETE /products/42` reaches the explicit `addRoute` handler | `POST /products/42` returns `405` when no POST route exists | `router dispatches the correct method when paths are shared` |
+| named URL | `urlFor("products.detail", {"id": "42"})` yields `/products/42` | missing or invalid parameters raise `ValueError` before a link is emitted | `router supports typed parameters, wildcard paths, groups, and URL building` |
+| WebSocket `app.websocket` | a valid upgrade enters the session handler | HTTP and WebSocket registries are separate; a missing WebSocket path is not an HTTP route | `WebSocket routes use a separate registry and preserve path precedence` |
+
+Do not hide authorization or validation failures in route matching. Register the
+route first, then use the security and validation policies to return their
+documented `401`/`403` or problem-response failures.
+
 ## Paths and parameters
 
 | Pattern | Meaning |

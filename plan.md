@@ -530,7 +530,7 @@
 
 수용 기준:
 
-- [ ] 각 route 형식과 response representation에 성공·실패 예제가 있다.
+- [x] 각 route 형식과 response representation에 성공·실패 예제가 있다. routing/response guide의 contract table이 static·typed·wildcard·method·WebSocket 및 text/HTML/JSON/file/stream/SSE/WebSocket/HTMX의 성공·거부 경계와 `test_core.nim` evidence를 연결한다. (`nimble docsCheck`)
 - [x] 콘텐츠 협상과 업로드 보안 예제는 테스트에서 406/검증 오류/차단 경로를 함께 확인한다. (`nimble docsCheck`)
 
 ## 5. 템플릿, SSR, 폼, HTMX (P1)
