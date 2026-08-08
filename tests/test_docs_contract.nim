@@ -561,6 +561,26 @@ nimble test
     check policy.contains("Evidence promotion policy")
     check policy.contains("release artifact")
 
+  test "external evidence remains experimental until live proof is retained":
+    ## A local contract is useful, but it cannot turn a provider, macOS, or
+    ## staging-only path into a stable release claim. Keep those limits visible
+    ## in the matrix and the operator-facing documents.
+    let matrix = readFile(getCurrentDir() / "docs" / "support-matrix.md")
+    let limitations = readFile(getCurrentDir() / "docs" /
+      "known-limitations.md")
+    let testing = readFile(getCurrentDir() / "docs" / "testing.md")
+    let release = readFile(getCurrentDir() / "docs" / "release-guide.md")
+    for feature in ["postgresql-adapter", "admin-forms",
+                    "authentication-security", "email-notifications",
+                    "background-jobs", "http-transport",
+                    "storage-cache-rate-limit", "realtime-events"]:
+      check matrix.contains("| " & feature & " | experimental |")
+    check matrix.contains("실제 GitHub macOS runner")
+    check matrix.contains("외부 CI 실행에서 수집")
+    check limitations.contains("experimental")
+    check testing.contains("may skip without credentials")
+    check release.contains("대체하지")
+
   test "every support-matrix feature links to a user guide":
     ## The matrix is the source of truth for feature maturity; this companion
     ## map makes its user documentation discoverable and rejects a feature row
