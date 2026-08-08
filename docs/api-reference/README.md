@@ -10,6 +10,7 @@ application example.
 | application and HTTP | [core API](core.md) | `src/mahanaim/core.nim`, `application.nim`, `router.nim` |
 | validation and response | [core API](core.md) | `validation.nim`, `response_policy.nim` |
 | extension points | [extension guide](../extension-authoring.md) | public Application plugin/module APIs |
+| every umbrella export | [public module map](public-modules.md) | `src/mahanaim.nim` |
 
 New public exports require a brief, parameter/return contract, ownership and
 lifecycle notes, error behavior, and a minimum example here or in its feature

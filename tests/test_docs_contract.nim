@@ -52,6 +52,31 @@ proc unindexedDocumentation(root: string): seq[string] =
     if relative notin indexed:
       result.add(relative)
 
+proc publicEntryPointModules(root: string): seq[string] =
+  ## Keep the umbrella package honest: every `export` declaration in
+  ## `src/mahanaim.nim` is a public module boundary, including optional
+  ## PostgreSQL support. Continuation lines are comma-separated just like the
+  ## Nim source declaration.
+  var collecting = false
+  for rawLine in readFile(root / "src" / "mahanaim.nim").splitLines:
+    let line = rawLine.strip()
+    if line.startsWith("export "):
+      collecting = true
+      let fragment = line["export ".len .. ^1]
+      for name in fragment.split(','):
+        let moduleName = name.strip()
+        if moduleName.len > 0 and moduleName notin result:
+          result.add(moduleName)
+      if not line.endsWith(","):
+        collecting = false
+    elif collecting:
+      for name in line.split(','):
+        let moduleName = name.strip()
+        if moduleName.len > 0 and moduleName notin result:
+          result.add(moduleName)
+      if not line.endsWith(","):
+        collecting = false
+
 suite "definition of done contracts":
   test "internal Markdown links resolve to repository documentation":
     let issues = markdownLinkIssues(getCurrentDir())
@@ -686,6 +711,26 @@ nimble test
     check manifest.contains("task publicApiCheck")
     check manifest.contains("test_public_api_compile.nim")
     check manifest.contains("exec \"nimble publicApiCheck\"")
+
+  test "every umbrella export has one support-matrix and guide mapping":
+    ## Re-exporting a module makes its `*` symbols public to `import mahanaim`.
+    ## A future module must therefore name both its maturity owner and a
+    ## canonical guide, rather than silently expanding the public surface.
+    let root = getCurrentDir()
+    let mapping = readFile(root / "docs" / "api-reference" /
+      "public-modules.md")
+    let matrix = readFile(root / "docs" / "support-matrix.md")
+    for moduleName in publicEntryPointModules(root):
+      let rows = mapping.splitLines.filterIt(
+        it.startsWith("| `" & moduleName & "` | `"))
+      check rows.len == 1
+      if rows.len == 1:
+        let columns = rows[0].split('|').mapIt(it.strip())
+        check columns.len == 6
+        if columns.len == 6:
+          let feature = columns[2].strip(chars = {'`'})
+          check matrix.contains("| " & feature & " |")
+          check localMarkdownTargets(rows[0]).len == 1
 
   test "database adapter contract is shared by SQLite and PostgreSQL fixtures":
     ## Keep backend-neutral semantics in one helper while each fixture owns

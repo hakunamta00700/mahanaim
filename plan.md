@@ -499,7 +499,7 @@
 - [x] `examples/`를 기능별 독립 예제로 나누고 각 예제의 목적·실행 명령·기대 결과를 README에 표로 기록한다. (`nimble docsExamples`, `nimble docsCheck`)
 - [ ] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다.
 - [x] CLI `--help` 출력과 문서의 명령·인자·종료 코드가 일치하는지 검사한다. (`nimble docsCheck`)
-- [ ] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다.
+- [x] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다. `docs/api-reference/public-modules.md`가 umbrella export별 support feature와 canonical guide를 기록하고 `nimble docsCheck`가 누락·중복 매핑을 실패 처리한다.
 - [x] 외부 서비스가 필요한 예제는 disposable 환경, 필요한 환경변수, 안전한 skip 기준을 문서와 CI에 함께 기록한다. PostgreSQL·Redis live fixture의 env/disposable/skip 경계와 CI service 설정을 `docsCheck` 계약으로 고정했다. (`nimble docsCheck`)
 
 수용 기준:
@@ -668,7 +668,7 @@
 
 수용 기준:
 
-- [ ] 공개 export가 문서 레퍼런스에 없으면 자동 검사가 실패하거나 명시적인 제외 사유가 필요하다.
+- [x] 공개 export가 문서 레퍼런스에 없으면 자동 검사가 실패하거나 명시적인 제외 사유가 필요하다. `src/mahanaim.nim`의 모든 export를 API module map과 대조해 누락 또는 중복 행을 `nimble docsCheck`에서 실패 처리한다.
 - [x] 릴리스 전 문서 검토자가 지원 매트릭스·변경 로그·가이드·예제의 정합성을 한 체크리스트로 확인할 수 있다. (`nimble docsCheck`)
 
 ## 16. 권장 실행 순서와 의존성

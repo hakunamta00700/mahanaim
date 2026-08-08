@@ -73,7 +73,7 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 
 | 목표 | 문서 |
 | --- | --- |
-| 핵심 public API | [API 레퍼런스](api-reference/README.md), [Core API](api-reference/core.md) |
+| 핵심 public API | [API 레퍼런스](api-reference/README.md), [Core API](api-reference/core.md), [public module map](api-reference/public-modules.md) |
 | 오류·timeout·취소 경계 | [오류와 lifecycle](errors-and-lifecycle.md) |
 | 업로드 multipart 처리 | [업로드](uploads.md) |
 | HTML·JSON·HTMX 단일 route | [HTMX 예제](htmx-example.md) |
