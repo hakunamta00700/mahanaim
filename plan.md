@@ -500,7 +500,7 @@
 - [ ] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다.
 - [x] CLI `--help` 출력과 문서의 명령·인자·종료 코드가 일치하는지 검사한다. (`nimble docsCheck`)
 - [ ] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다.
-- [ ] 외부 서비스가 필요한 예제는 disposable 환경, 필요한 환경변수, 안전한 skip 기준을 문서와 CI에 함께 기록한다.
+- [x] 외부 서비스가 필요한 예제는 disposable 환경, 필요한 환경변수, 안전한 skip 기준을 문서와 CI에 함께 기록한다. PostgreSQL·Redis live fixture의 env/disposable/skip 경계와 CI service 설정을 `docsCheck` 계약으로 고정했다. (`nimble docsCheck`)
 
 수용 기준:
 

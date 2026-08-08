@@ -530,6 +530,25 @@ nimble test
                  "HTTPS live test skipped: MAHANAIM_HTTPS_URL is not configured"]:
       check manifest.contains(skip)
 
+  test "external provider examples document disposable settings and safe skips":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
+      "ci.yml")
+    let postgres = readFile(getCurrentDir() / "docs" / "postgresql.md")
+    let operations = readFile(getCurrentDir() / "docs" / "operations-guide.md")
+    for variable in ["MAHANAIM_POSTGRES_USER", "MAHANAIM_POSTGRES_PASSWORD",
+                     "MAHANAIM_POSTGRES_DATABASE"]:
+      check postgres.contains(variable)
+    check postgres.contains("disposable test database")
+    check postgres.contains("명시적인 skip")
+    for detail in ["MAHANAIM_REDIS_HOST", "MAHANAIM_REDIS_PORT",
+                   "disposable or staging Redis/Valkey service",
+                   "nimble redisLive"]:
+      check operations.contains(detail)
+    check manifest.contains("PostgreSQL live test skipped")
+    check manifest.contains("Redis/Valkey live test skipped")
+    check workflow.contains("MAHANAIM_POSTGRES_DATABASE")
+
   test "README catalogs every executable example with its expected result":
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",
