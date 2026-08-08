@@ -138,6 +138,16 @@ suite "definition of done contracts":
     check deployment.contains("service environment files outside the repository")
     check checklist.contains("secret을 소스, 설정 파일, 로그, 오류 응답에 저장하지 않는다")
     check checklist.contains("TLS 인증서 만료·갱신 자동화")
+
+  test "extension guides state startup and resource ownership boundaries":
+    let extension = readFile(getCurrentDir() / "docs" / "extension-authoring.md")
+    let plugins = readFile(getCurrentDir() / "docs" / "plugins.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    check extension.contains("application owns process lifecycle")
+    check extension.contains("Never register a route, provider, plugin, or adapter after startup begins")
+    check plugins.contains("registration after startup is rejected")
+    check plugins.contains("must not mutate global registries")
+    check coreTests.contains("plugin registration is closed during and after application startup")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
