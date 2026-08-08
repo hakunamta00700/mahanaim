@@ -68,7 +68,7 @@ provider를 명시적으로 구성한다. 자세한 과정은 [시작 가이드]
 ## 문서
 
 - [문서 안내](docs/index.md) — 목적별 전체 문서 인덱스
-- [시작 가이드](docs/getting-started.md) · [프로젝트 구조](docs/project-layout.md) · [CLI 레퍼런스](docs/cli-reference.md)
+- [시작 가이드](docs/getting-started.md) · [프로젝트 구조](docs/project-layout.md) · [CLI 레퍼런스](docs/cli-reference.md) · [API 레퍼런스](docs/api-reference/README.md)
 - [기능 매핑](docs/feature-map.md) — Django/Litestar 개념과 현재 지원 상태
 - [지원 범위와 기능 성숙도](docs/support-matrix.md)
 - [운영 가이드](docs/operations-guide.md) · [배포 레시피](docs/deployment-recipes.md) · [릴리스 지원 정책](docs/support-policy.md)

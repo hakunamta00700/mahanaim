@@ -497,6 +497,13 @@ nimble test
                   "docs/operations-guide.md"]:
       check readme.contains("](" & guide & ")")
 
+  test "README reaches first request feature API CLI and operations guides directly":
+    let readme = readFile(getCurrentDir() / "README.md")
+    check readme.contains("examples/minimal_app.nim")
+    for guide in ["docs/feature-map.md", "docs/api-reference/README.md",
+                  "docs/cli-reference.md", "docs/operations-guide.md"]:
+      check readme.contains("](" & guide & ")")
+
   test "README catalogs every executable example with its expected result":
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",
