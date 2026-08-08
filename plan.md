@@ -607,7 +607,7 @@
 
 수용 기준:
 
-- [ ] durable 작업 재시도·복구와 WebSocket/SSE/Redis channel의 최소 예제가 각각 존재한다.
+- [x] durable 작업 재시도·복구와 WebSocket/SSE/Redis channel의 최소 예제가 각각 존재한다. `examples/jobs_realtime_channels.nim`이 SQLite durable job handler, SSE framing, WebSocket echo/close, in-memory channel publish를 실행하며 Redis는 credential-free 구성 경계와 `redisLive` provider gate를 분리한다. (`nimble docsExamples`, `nimble docsCheck`)
 - [x] 외부 broker/SMTP의 production 보장 범위와 local mock 범위를 명확히 표시한다. (`nimble docsCheck`)
 
 ## 11. 저장소, 캐시, 정적 자산 (P1)

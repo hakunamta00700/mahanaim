@@ -11,3 +11,9 @@ Use an event ID and bounded replay/reconnect policy owned by the application.
 Deploy proxies that do not buffer SSE responses and whose idle/read/write timeout
 fits the event heartbeat policy. Authorize the initial HTTP request and do not
 put bearer secrets in an EventSource URL query string.
+## 실행 예제
+
+[`examples/jobs_realtime_channels.nim`](../examples/jobs_realtime_channels.nim)은
+`/events`에서 `ready` SSE event를 반환하고 `getSseEvents`로 event/id/data framing을
+검증한다. `nimble docsExamples`에서 `jobs-realtime-channels-ok`이 출력되어도 실제
+proxy buffering과 reconnect 정책은 운영 환경에서 검증해야 한다.

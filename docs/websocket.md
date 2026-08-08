@@ -13,3 +13,10 @@ transport, TLS upgrade, proxy timeouts, and disconnect behavior are adapter and
 deployment concerns; test them against the deployed reverse proxy, not only the
 in-process route contract. Use channel layers for cross-session fan-out rather
 than sharing mutable application state.
+## 실행 예제
+
+[`examples/jobs_realtime_channels.nim`](../examples/jobs_realtime_channels.nim)은
+`newTestClient`로 `/rooms/42` WebSocket route에 text frame을 보내고 echo와 정상 close를
+검증한다. `nimble docsExamples`의 `jobs-realtime-channels-ok`은 in-process framing과
+route 계약의 증거다. 실제 TLS upgrade, proxy timeout, disconnect, Redis fan-out은
+deployment/provider live gate에서 별도로 검증해야 한다.

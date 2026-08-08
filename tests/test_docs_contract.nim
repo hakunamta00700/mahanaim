@@ -490,12 +490,30 @@ nimble test
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",
                     "plugin_extension", "admin_audit", "admin_templates",
-                    "template_form_htmx", "sqlite_crud_migration"]:
+                    "template_form_htmx", "sqlite_crud_migration",
+                    "jobs_realtime_channels"]:
       check readme.contains("examples/" & example & ".nim")
     for result in ["minimal-app-ok", "local-storage-ok", "api-artifacts-ok",
                    "plugin-extension-ok", "admin-audit-ok", "admin-templates-ok",
-                   "template-form-htmx-ok", "sqlite-crud-migration-ok"]:
+                   "template-form-htmx-ok", "sqlite-crud-migration-ok",
+                   "jobs-realtime-channels-ok"]:
       check readme.contains(result)
+
+  test "jobs realtime and channel guides link one credential-free example":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" /
+      "jobs_realtime_channels.nim")
+    check manifest.contains("examples/jobs_realtime_channels.nim")
+    check example.contains("jobs-realtime-channels-ok")
+    check example.contains("newSqliteDurableJobStore")
+    check example.contains("getSseEvents")
+    check example.contains("connectWebSocket")
+    check example.contains("newInMemoryChannelLayer")
+    check example.contains("newRedisChannelLayer")
+    for guide in ["background-jobs.md", "websocket.md", "sse.md",
+                  "channel-layers.md"]:
+      check readFile(getCurrentDir() / "docs" / guide).contains(
+        "examples/jobs_realtime_channels.nim")
 
   test "SQLite CRUD migration tutorial and PostgreSQL limits are discoverable":
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
