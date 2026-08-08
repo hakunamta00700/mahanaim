@@ -185,6 +185,17 @@ suite "definition of done contracts":
     check recipes.contains("[adoption and release guide](adoption-and-release.md)")
     check adoption.contains("[배포 레시피](deployment-recipes.md)")
     check adoption.contains("[운영 가이드](operations-guide.md)")
+
+  test "operators can follow observability and deployment verification steps":
+    let observability = readFile(getCurrentDir() / "docs" / "observability.md")
+    let recipes = readFile(getCurrentDir() / "docs" / "deployment-recipes.md")
+    for command in ["curl --fail http://127.0.0.1:8000/health",
+                    "curl --fail http://127.0.0.1:8000/ready",
+                    "curl --fail http://127.0.0.1:8000/metrics"]:
+      check observability.contains(command)
+    check observability.contains("[배포 레시피](deployment-recipes.md)")
+    check recipes.contains("docker compose -f deploy/docker-compose.yml up -d")
+    check recipes.contains("sudo systemctl enable --now mahanaim.service")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

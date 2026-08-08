@@ -13,3 +13,21 @@ Expose application-owned routes for `healthResponse`, `readinessResponse`, and
 admission and must become false before draining. Prometheus text metrics contain
 aggregate counters/gauges, not request IDs, trace IDs, secrets, cache keys, or
 payloads. Attach vendor exporters through the existing sinks.
+
+## 로컬 확인 절차
+
+composition root에서 `/health`, `/ready`, `/metrics`처럼 프로젝트가 선택한 route에
+각 response를 연결한다. 아래 경로는 예시이며, public deployment에서는 proxy와
+network policy에 맞춰 노출 범위를 제한한다.
+
+```text
+curl --fail http://127.0.0.1:8000/health
+curl --fail http://127.0.0.1:8000/ready
+curl --fail http://127.0.0.1:8000/metrics
+```
+
+첫 명령은 process reachability, 두 번째는 traffic admission, 세 번째는 Prometheus
+text 형식의 aggregate metric을 확인한다. shutdown/drain 연습에서는 `/ready`가
+먼저 실패하는지 확인하고, request ID나 secret이 `/metrics` 또는 log에 나타나지
+않는지 검사한다. Docker와 systemd 실행 절차는 [배포 레시피](deployment-recipes.md)를
+따른다.
