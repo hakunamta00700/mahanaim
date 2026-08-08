@@ -24,3 +24,8 @@ error handling, authentication hooks, and versioning before publishing it.
 Generate the document in CI, compare it to the approved API compatibility
 policy, and publish the exact revision alongside the server release. Do not hand
 edit generated artifacts; change the route/schema declaration and regenerate.
+
+로컬 artifact 생성·검증은 [`examples/api_artifacts.nim`](../examples/api_artifacts.nim)을
+`nimble docsExamples`로 실행한다. 이 예제는 임시 경로의 `openapi.json`과 `client.ts`를
+검사하며, TypeScript compiler/registry publish/authentication hook의 production 검증은
+애플리케이션 CI가 별도로 소유한다.

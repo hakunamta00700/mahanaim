@@ -497,6 +497,18 @@ nimble test
     check staticGuide.contains("examples/local_storage.nim")
     check uploadsGuide.contains("examples/local_storage.nim")
 
+  test "OpenAPI JSON and TypeScript artifacts have an executable example":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "api_artifacts.nim")
+    let apiGuide = readFile(getCurrentDir() / "docs" / "api-development.md")
+    let openApiGuide = readFile(getCurrentDir() / "docs" / "openapi.md")
+    check manifest.contains("examples/api_artifacts.nim")
+    check example.contains("api-artifacts-ok")
+    check example.contains("app.runCli([\"openapi\"")
+    check example.contains("app.runCli([\"openapi-ts\"")
+    check apiGuide.contains("examples/api_artifacts.nim")
+    check openApiGuide.contains("examples/api_artifacts.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.
