@@ -809,6 +809,18 @@ nimble test
     check reference.contains("build/api-reference/theindex.html")
     check reference.contains("MAHANAIM_API_DOCS_DIR")
 
+  test "detailed documentation plan sections are complete or explicitly excluded":
+    ## Sections 2 through 15 are the execution inventory behind the master
+    ## plan. Keep their completion definition mechanically true instead of
+    ## allowing a summary checkbox to hide a newly added open subtask.
+    let plan = readFile(getCurrentDir() / "plan.md")
+    let start = plan.find("## 2. 문서 정보 구조와 공통 기반")
+    let finish = plan.find("## 16. 권장 실행 순서", start)
+    check start >= 0
+    check finish > start
+    if start >= 0 and finish > start:
+      check not plan[start ..< finish].contains("- [ ]")
+
   test "every umbrella export has one support-matrix and guide mapping":
     ## Re-exporting a module makes its `*` symbols public to `import mahanaim`.
     ## A future module must therefore name both its maturity owner and a
