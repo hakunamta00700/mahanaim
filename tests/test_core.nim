@@ -347,6 +347,27 @@ proc runRedisPubSubBackpressureFixture(
   client.close()
   server.close()
 
+proc waitForAtomicAtLeast(counter: ptr Atomic[int], expected: int,
+                          attempts = 500, intervalMs = 1): Future[bool] {.async.} =
+  ## Socket fixtures run on another thread, so wait for a bounded observable
+  ## state instead of assuming a fixed scheduler delay is enough on every CI
+  ## runner.
+  for _ in 0 ..< attempts:
+    if counter[].load() >= expected:
+      return true
+    await sleepAsync(intervalMs)
+  counter[].load() >= expected
+
+proc waitForRedisMessages(client: RedisPubSubClient, expected: int,
+                          attempts = 500, intervalMs = 1): Future[bool] {.async.} =
+  ## A received-message boundary proves that the reader has consumed each
+  ## coalesced frame before a backpressure assertion observes the queue.
+  for _ in 0 ..< attempts:
+    if client.deliverySnapshot().receivedMessages >= expected:
+      return true
+    await sleepAsync(intervalMs)
+  client.deliverySnapshot().receivedMessages >= expected
+
 proc runRedisChannelLayerReconnectFixture(
     state: ptr RedisChannelLayerReconnectFixtureState) {.thread, gcsafe.} =
   let server = newSocket()
@@ -6193,10 +6214,9 @@ suite "Mahanaim core contracts":
         doAssert channel == "room:42"
         doAssert payload in ["one", "two"]
         discard delivered.fetchAdd(1))
-    waitFor sleepAsync(10)
-    check delivered.load() == 1
+    check waitFor waitForAtomicAtLeast(addr delivered, 1)
     waitFor client.reconnect()
-    check delivered.load() == 2
+    check waitFor waitForAtomicAtLeast(addr delivered, 2)
     let snapshot = client.deliverySnapshot()
     check snapshot.reconnectAttempts == 1
     check snapshot.reconnectSuccesses == 1
@@ -6350,16 +6370,23 @@ suite "Mahanaim core contracts":
       sleep(1)
     var delivered: Atomic[int]
     delivered.store(0)
+    var releaseFirst: Atomic[bool]
+    releaseFirst.store(false)
     let client = newRedisPubSubClient(port = Port(state.port.load()),
       maxPendingMessages = 1, backpressurePolicy = rbpDropNewest)
     let subscription = waitFor client.subscribe("room:42",
       proc(channel, payload: string): Future[void] {.async, gcsafe.} =
         doAssert channel == "room:42"
         if payload == "one":
-          await sleepAsync(30)
+          ## Hold the active delivery until the reader has consumed all three
+          ## coalesced frames. This makes the queue-overflow boundary explicit
+          ## instead of relying on a particular event-loop timeslice.
+          while not releaseFirst.load():
+            await sleepAsync(1)
         discard delivered.fetchAdd(1))
-    waitFor sleepAsync(80)
-    check delivered.load() == 1
+    check waitFor waitForRedisMessages(client, 3)
+    releaseFirst.store(true)
+    check waitFor waitForAtomicAtLeast(addr delivered, 1)
     check client.droppedMessages == 2
     let snapshot = client.deliverySnapshot()
     check snapshot.receivedMessages == 3
