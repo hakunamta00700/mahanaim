@@ -124,14 +124,13 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Nim 2.2.4 publishes a separate macOS x86_64 archive. Keep this
-          # bootstrap step platform-specific instead of reusing the Linux
-          # archive merely because both runners are Unix-like.
+          # Historic macOS archives are not retained for every Nim patch
+          # release. The Nim-maintained chooser resolves the requested
+          # version and installs its matching platform artifact.
+          export CHOOSENIM_CHOOSE_VERSION="${{ matrix.nim }}"
           curl --fail --location --silent --show-error \
-            "https://nim-lang.org/download/nim-${{ matrix.nim }}-macosx_x64.tar.xz" \
-            --output nim.tar.xz
-          tar -xJf nim.tar.xz
-          echo "$PWD/nim-${{ matrix.nim }}/bin" >> "$GITHUB_PATH"
+            https://nim-lang.org/choosenim/init.sh | sh -s -- -y
+          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
 
       - name: Install Nim (Windows)
         if: runner.os == 'Windows'
@@ -142,10 +141,11 @@ jobs:
           Expand-Archive -Path $archive -DestinationPath . -Force
           "${{ github.workspace }}\nim-${{ matrix.nim }}\bin" | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Install Nimble
-        uses: nim-lang/setup-nimble-action@v1
-        with:
-          nimble-version: latest
+      - name: Verify bundled Nimble
+        shell: bash
+        run: |
+          nim --version
+          nimble --version
 
       - name: Install PostgreSQL client runtime (Windows)
         if: runner.os == 'Windows'

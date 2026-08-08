@@ -1080,9 +1080,10 @@ nimble test
     check workflow.contains("name: Report implementation plan status")
     check workflow.contains("run: nimble planStatus")
 
-  test "release matrix installs a platform-matching Nim archive":
+  test "release matrix installs a platform-matching Nim toolchain":
     ## A Unix-only condition is not sufficient for a release matrix: Linux
-    ## and macOS use different Nim archives. Keeping this invariant in the
+    ## retains the published archive while macOS resolves historical releases
+    ## through Nim's official chooser. Keeping this invariant in the
     ## repository contract prevents a green workflow edit from masking a
     ## platform-specific bootstrap failure on the first macOS runner.
     let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
@@ -1091,7 +1092,10 @@ nimble test
     check workflow.contains("if: runner.os == 'Linux'")
     check workflow.contains("name: Install Nim (macOS)")
     check workflow.contains("if: runner.os == 'macOS'")
-    check workflow.contains("nim-${{ matrix.nim }}-macosx_x64.tar.xz")
+    check workflow.contains("CHOOSENIM_CHOOSE_VERSION=\"${{ matrix.nim }}\"")
+    check workflow.contains("https://nim-lang.org/choosenim/init.sh")
+    check workflow.contains("name: Verify bundled Nimble")
+    check not workflow.contains("nim-lang/setup-nimble-action")
     check not workflow.contains("name: Install Nim (Unix)")
 
   test "release manifest runner uses the shared checksum boundary":
