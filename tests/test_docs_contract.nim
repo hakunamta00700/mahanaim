@@ -175,6 +175,16 @@ suite "definition of done contracts":
                  "실행 예제", "nimble docsCheck", "provider·배포 제한"]:
       check guide.contains(item)
 
+  test "release guide makes every qualification command and recovery actionable":
+    let guide = readFile(getCurrentDir() / "docs" / "release-guide.md")
+    for command in ["nimble check", "nimble test", "nimble verify",
+                    "nimble planStatus", "git diff --check",
+                    "nimble releaseManifest"]:
+      check guide.contains(command)
+    for detail in ["MAHANAIM_RELEASE_MANIFEST", "MAHANAIM_RELEASE_ARTIFACTS",
+                   "명시적 skip", "실패하면 qualification을 중단"]:
+      check guide.contains(detail)
+
   test "operations deployment and adoption guides name their canonical scopes":
     let operations = readFile(getCurrentDir() / "docs" / "operations-guide.md")
     let recipes = readFile(getCurrentDir() / "docs" / "deployment-recipes.md")

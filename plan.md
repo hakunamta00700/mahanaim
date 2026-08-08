@@ -632,7 +632,7 @@
 수용 기준:
 
 - [x] 사용자는 문서만으로 로컬 관측성 endpoint를 확인하고 Docker 또는 systemd 배포를 수행할 수 있다. (`nimble docsCheck`)
-- [ ] release checklist의 모든 명령이 복사 실행 가능하고 실패 시 다음 조치를 안내한다.
+- [x] release checklist의 모든 명령이 복사 실행 가능하고 실패 시 다음 조치를 안내한다. (`nimble docsCheck`)
 
 ## 13. 플러그인, 확장, 외부 통합 (P1)
 
