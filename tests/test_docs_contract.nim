@@ -127,6 +127,17 @@ suite "definition of done contracts":
     check guide.contains("unsupported versions return 406")
     check guide.contains("deprecated operations")
     check guide.contains("[API stability policy](api-stability-policy.md)")
+
+  test "security documentation keeps certificates and secrets out of examples":
+    let configuration = readFile(getCurrentDir() / "docs" / "configuration.md")
+    let deployment = readFile(getCurrentDir() / "docs" / "deployment.md")
+    let checklist = readFile(getCurrentDir() / "docs" /
+      "security-deployment-checklist.md")
+    check configuration.contains("`.env.example`처럼 값이 없는 예시")
+    check configuration.contains("source와 CLI\n  argument에 넣지 않는다")
+    check deployment.contains("service environment files outside the repository")
+    check checklist.contains("secret을 소스, 설정 파일, 로그, 오류 응답에 저장하지 않는다")
+    check checklist.contains("TLS 인증서 만료·갱신 자동화")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
