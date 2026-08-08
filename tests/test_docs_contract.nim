@@ -82,7 +82,7 @@ proc documentationMetadataIssues(root: string): seq[string] =
   ## fields near the title so a user can judge scope and verification before
   ## following a command or changing an application.
   let requiredFields = [
-    "**대상 독자:**", "**선행 조건:**", "**기능 상태:**",
+    "**대상 독자:**", "**책임 경계:**", "**선행 조건:**", "**기능 상태:**",
     "**지원 버전/플랫폼:**", "**안정성 기준:**", "**마지막 검증:**",
     "**관련 문서:**"
   ]

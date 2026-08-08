@@ -1,5 +1,7 @@
 # Password security
 
+**책임 경계:** 프레임워크는 문서화된 API 계약을 제공하며, 프로젝트는 조립·설정·권한을, 외부 provider는 credential·비용·가용성을 소유한다.
+
 **기능 상태:** [지원 매트릭스](support-matrix.md)의 해당 feature 상태를 따른다.
 **지원 버전/플랫폼:** Nim `>= 2.2.0`; Windows/Linux/macOS 범위는 [지원 매트릭스](support-matrix.md)를 따른다.
 
