@@ -196,6 +196,18 @@ suite "definition of done contracts":
     check observability.contains("[배포 레시피](deployment-recipes.md)")
     check recipes.contains("docker compose -f deploy/docker-compose.yml up -d")
     check recipes.contains("sudo systemctl enable --now mahanaim.service")
+
+  test "model documentation names sensitive relation transaction and isolation evidence":
+    let models = readFile(getCurrentDir() / "docs" / "models-and-metadata.md")
+    let database = readFile(getCurrentDir() / "docs" / "database-connections.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    check models.contains("sensitive fields must stay excluded")
+    check models.contains("choose relation loading")
+    check database.contains("transaction\nrollback")
+    check database.contains("지원하지 않는 isolation")
+    check coreTests.contains("metadata serializer renames fields and excludes sensitive values")
+    check coreTests.contains("database repository eager-loads one-hop nested relations")
+    check coreTests.contains("session.setIsolationLevel(isolationSerializable)")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

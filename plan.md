@@ -558,7 +558,7 @@
 수용 기준:
 
 - [ ] SQLite로 CRUD·migration을 완주하는 튜토리얼과 PostgreSQL의 별도 설정/제한 문서가 있다.
-- [ ] 모델의 민감 필드·관계·transaction·unsupported isolation을 문서대로 테스트할 수 있다.
+- [x] 모델의 민감 필드·관계·transaction·unsupported isolation을 문서대로 테스트할 수 있다. (`nimble docsCheck`)
 
 ## 7. API와 OpenAPI (P1)
 

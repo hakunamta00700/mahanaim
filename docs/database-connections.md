@@ -17,3 +17,15 @@ The pool owns admission and lifetime; adapters own queries, transactions,
 savepoints, and backend capabilities. Pass a current request/session adapter to
 repositories instead of opening hidden global connections. Keep transactions
 short and avoid network calls inside them.
+
+## 민감 데이터·관계·isolation 검증
+
+모델의 `sensitive` field는 일반 serializer response에서 제외하고, relation은
+endpoint가 eager/lazy loading을 명시적으로 선택한다. 이 두 규칙과 transaction
+rollback은 `nimble test`의 metadata serializer·relation repository·database session
+contract로 검증한다. `isolationSerializable`처럼 isolation level을 요청할 때는
+현재 adapter capability를 먼저 확인한다. 지원하지 않는 isolation은 조용히
+fallback하지 않으며, provider 문서와 live contract에서 별도로 검증한다.
+
+관련 문서: [모델과 메타데이터](models-and-metadata.md), [직렬화](serialization.md),
+[migration](migrations.md), [데이터베이스 연결](database-connections.md).
