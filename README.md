@@ -19,6 +19,12 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 
 | 예제 | 목적 | 실행 명령 | 기대 결과 |
 | --- | --- | --- | --- |
+| [`local_storage.nim`](examples/local_storage.nim) | 안전한 local upload·정적 수집·TTL cache | `nimble docsExamples` | `local-storage-ok` |
+| [`api_artifacts.nim`](examples/api_artifacts.nim) | OpenAPI JSON·TypeScript client artifact 생성 | `nimble docsExamples` | `api-artifacts-ok` |
+| [`plugin_extension.nim`](examples/plugin_extension.nim) | plugin route·service와 manifest 오류 | `nimble docsExamples` | `plugin-extension-ok` |
+| [`admin_audit.nim`](examples/admin_audit.nim) | 권한 HTML CRUD와 audit event | `nimble docsExamples` | `admin-audit-ok` |
+| [`admin_templates.nim`](examples/admin_templates.nim) | Admin template override와 `formLayout` 우선순위 | `nimble docsExamples` | `admin-templates-ok` |
+| [`template_form_htmx.nim`](examples/template_form_htmx.nim) | template·form·HTMX/JSON representation | `nimble docsExamples` | `template-form-htmx-ok` |
 | [`minimal_app.nim`](examples/minimal_app.nim) | `Application`에 HTML·JSON route를 등록하고 in-process request를 검증 | `nimble docsExamples` | `minimal-app-ok` 출력, 종료 코드 `0` |
 
 ## 5분 시작

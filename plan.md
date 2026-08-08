@@ -496,7 +496,7 @@
 
 ### 2.2 예제와 검증 인프라
 
-- [ ] `examples/`를 기능별 독립 예제로 나누고 각 예제의 목적·실행 명령·기대 결과를 README에 표로 기록한다.
+- [x] `examples/`를 기능별 독립 예제로 나누고 각 예제의 목적·실행 명령·기대 결과를 README에 표로 기록한다. (`nimble docsExamples`, `nimble docsCheck`)
 - [ ] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다.
 - [x] CLI `--help` 출력과 문서의 명령·인자·종료 코드가 일치하는지 검사한다. (`nimble docsCheck`)
 - [ ] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다.

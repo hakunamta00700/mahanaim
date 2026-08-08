@@ -486,6 +486,17 @@ nimble test
     check readme.contains("`nimble docsExamples`")
     check readme.contains("`minimal-app-ok`")
 
+  test "README catalogs every executable example with its expected result":
+    let readme = readFile(getCurrentDir() / "README.md")
+    for example in ["minimal_app", "local_storage", "api_artifacts",
+                    "plugin_extension", "admin_audit", "admin_templates",
+                    "template_form_htmx"]:
+      check readme.contains("examples/" & example & ".nim")
+    for result in ["minimal-app-ok", "local-storage-ok", "api-artifacts-ok",
+                   "plugin-extension-ok", "admin-audit-ok", "admin-templates-ok",
+                   "template-form-htmx-ok"]:
+      check readme.contains(result)
+
   test "local storage example is executable without provider credentials":
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
     let example = readFile(getCurrentDir() / "examples" / "local_storage.nim")
