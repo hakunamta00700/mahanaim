@@ -208,6 +208,17 @@ suite "definition of done contracts":
     check coreTests.contains("metadata serializer renames fields and excludes sensitive values")
     check coreTests.contains("database repository eager-loads one-hop nested relations")
     check coreTests.contains("session.setIsolationLevel(isolationSerializable)")
+
+  test "security guide maps denial examples to executable contracts":
+    let guide = readFile(getCurrentDir() / "docs" / "security.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    for contract in ["authorization policy composes roles groups object checks and route guards",
+                     "security policy issues and validates signed CSRF tokens",
+                     "security policy applies an application-wide fixed-window rate limit"]:
+      check guide.contains(contract)
+      check coreTests.contains(contract)
+    check guide.contains("`403`")
+    check guide.contains("`429`")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

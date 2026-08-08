@@ -582,7 +582,7 @@
 
 수용 기준:
 
-- [ ] 인증된 route와 권한 거부, CSRF 거부, rate-limit 실패를 재현하는 예제가 있다.
+- [x] 인증된 route와 권한 거부, CSRF 거부, rate-limit 실패를 재현하는 예제가 있다. (`nimble docsCheck`)
 - [x] 문서는 인증서/secret을 저장소에 넣지 않는 예제를 사용한다. (`nimble docsCheck`)
 
 ## 9. Admin, CLI 관리, 콘텐츠 운영 (P1)

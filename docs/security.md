@@ -19,3 +19,18 @@ Configuration checks are automated, while TLS certificate, proxy forwarding,
 DNS, and real browser headers require staging evidence. Follow the
 [security deployment checklist](security-deployment-checklist.md) before every
 public release; it explicitly separates local checks from manual/live proof.
+
+## 거부 경로 재현
+
+다음 경로는 application test에서 반드시 재현한다. framework repository에서는
+`nimble test`가 같은 상태·응답 코드를 contract로 검증한다.
+
+| 상황 | 기대 응답 | 확인할 계약 |
+| --- | --- | --- |
+| 익명 또는 역할 없는 보호 route 요청 | `403` | `authorization policy composes roles groups object checks and route guards` |
+| CSRF token 누락·위조 POST | `403` | `security policy issues and validates signed CSRF tokens` |
+| fixed-window 제한을 초과한 요청 | `429` | `security policy applies an application-wide fixed-window rate limit` |
+
+인증이 통과한 요청이라도 route guard와 object policy는 별도로 적용한다. 실제
+application test에서는 anonymous, wrong-role, wrong-object, missing/forged CSRF,
+limit 초과를 모두 만들고 error body·audit log에 credential이 없는지 확인한다.
