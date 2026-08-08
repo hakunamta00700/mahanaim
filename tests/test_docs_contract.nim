@@ -536,6 +536,18 @@ nimble test
     check example.contains("events[0].actor == \"admin-1\"")
     check guide.contains("examples/admin_audit.nim")
 
+  test "Admin template override and legacy layout example is executable":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "admin_templates.nim")
+    let guide = readFile(getCurrentDir() / "docs" /
+      "admin-template-customization.md")
+    check manifest.contains("examples/admin_templates.nim")
+    check example.contains("admin-templates-ok")
+    check example.contains("resource-list")
+    check example.contains("global-list")
+    check example.contains("legacy-layout")
+    check guide.contains("examples/admin_templates.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.

@@ -55,3 +55,9 @@ registerAdminRoutes(app, admin)
 `detail` 템플릿을 사용하세요.
 
 업그레이드 시에는 `adminTemplateNames()`의 기본 이름과 제공 컨텍스트를 기준으로 override를 검토하고, 전역 override와 리소스별 override를 모두 browser smoke test합니다. 리소스별 `list/form/detail`은 같은 전역 화면보다 우선하며, `formLayout`이 설정되면 해당 생성·수정 조각이 템플릿보다 우선합니다. 한 화면을 교체할 때는 이 우선순위를 섞지 말고 하나의 소유 지점을 선택하세요.
+
+전역 list, 리소스별 list, legacy `formLayout`의 우선순위는
+[`examples/admin_templates.nim`](../examples/admin_templates.nim)에서 실행한다.
+`nimble docsExamples`는 리소스별 `resource-list`가 전역 `global-list`를
+대체하는 것과 legacy form이 `legacy-layout`을 렌더링하는 것을 검증하고
+`admin-templates-ok`를 출력한다.
