@@ -570,7 +570,7 @@
 수용 기준:
 
 - [ ] 문서의 request/response와 실제 OpenAPI artifact가 구조적으로 일치한다.
-- [ ] versioning과 compatibility/deprecation 정책을 API 가이드에서 바로 찾을 수 있다.
+- [x] versioning과 compatibility/deprecation 정책을 API 가이드에서 바로 찾을 수 있다. (`nimble docsCheck`)
 
 ## 8. 인증, 권한, 보안 (P0)
 

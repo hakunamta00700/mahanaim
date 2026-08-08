@@ -120,6 +120,13 @@ suite "definition of done contracts":
     for concern in ["XSS", "collection", "template을 찾을 수 없음", "CSRF"]:
       check guide.contains(concern)
     check guide.contains("csrfHiddenInput(request, policy)")
+
+  test "API guide links versioning and deprecation policy":
+    let guide = readFile(getCurrentDir() / "docs" / "api-development.md")
+    check guide.contains("addVersionedDocumentedRoute")
+    check guide.contains("unsupported versions return 406")
+    check guide.contains("deprecated operations")
+    check guide.contains("[API stability policy](api-stability-policy.md)")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

@@ -27,4 +27,6 @@ Use `problemResponse` for a stable error envelope. API versioning supports URL
 versions (`/v1/...`) or `Accept` `version=` negotiation through
 `addVersionedDocumentedRoute`. Header version selection sets `Vary: Accept` and
 `X-API-Version`; unsupported versions return 406. Mark deprecated operations and
-provide a replacement before removal.
+provide a replacement before removal. Version artifact generation, compatibility
+labels, deprecation period, and migration-note requirements are defined in the
+[API stability policy](api-stability-policy.md).
