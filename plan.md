@@ -720,109 +720,109 @@
 
 ### 문서 정보 구조와 탐색
 
-- [ ] `README.md`를 설치·첫 route·예제·문서 인덱스·지원 상태로 연결되는 짧은 입구로 유지한다.
-- [ ] `docs/index.md`에서 사용자 목표별(처음 시작, SSR/Admin, API, 운영, 확장, 이관)로 모든 문서를 한 번씩 찾을 수 있게 한다.
-- [ ] `docs/feature-map.md`에서 Django/Litestar 개념과 Mahanaim API, 지원 상태, 대체 경로를 양방향으로 연결한다.
-- [ ] `docs/glossary.md`와 `docs/known-limitations.md`를 용어·제한의 단일 기준으로 유지한다.
+- [x] `README.md`를 설치·첫 route·예제·문서 인덱스·지원 상태로 연결되는 짧은 입구로 유지한다. (`nimble docsCheck`)
+- [x] `docs/index.md`에서 사용자 목표별(처음 시작, SSR/Admin, API, 운영, 확장, 이관)로 모든 문서를 한 번씩 찾을 수 있게 한다. (`nimble docsCheck`)
+- [x] `docs/feature-map.md`에서 Django/Litestar 개념과 Mahanaim API, 지원 상태, 대체 경로를 양방향으로 연결한다. (`nimble docsCheck`)
+- [x] `docs/glossary.md`와 `docs/known-limitations.md`를 용어·제한의 단일 기준으로 유지한다. (`nimble docsCheck`)
 - [ ] 중복된 설명은 한 문서를 canonical source로 정하고, 나머지는 짧은 요약과 링크만 둔다.
 
 ### A. 시작, 프로젝트, CLI, 구성 (P0)
 
-- [ ] `getting-started.md`: 빈 디렉터리에서 설치, `mahanaim new`, 첫 route, 개발 실행, route test, `nimble test`까지의 단일 경로를 검증한다.
-- [ ] `project-layout.md`: 생성 파일, composition root, source/test/static/template/migration 위치와 수정 책임을 설명한다.
-- [ ] `cli-reference.md`: 모든 공개 명령의 문법, 입력/출력, 종료 코드, 실패 처리, 실제 예제를 기록한다.
-- [ ] `configuration.md`: 설정 소스 우선순위, 기본값, 환경 변수, secret redaction, 환경별 설정과 검증 명령을 기록한다.
-- [ ] `developer-workflow.md`: build/test/check/verify, reload/debug, 의존성 lock, 변경 전후의 개발 흐름을 작성한다.
+- [x] `getting-started.md`: 빈 디렉터리에서 설치, `mahanaim new`, 첫 route, 개발 실행, route test, `nimble test`까지의 단일 경로를 검증한다. (`nimble test`, `nimble docsCheck`)
+- [x] `project-layout.md`: 생성 파일, composition root, source/test/static/template/migration 위치와 수정 책임을 설명한다. (`nimble docsCheck`)
+- [x] `cli-reference.md`: 모든 공개 명령의 문법, 입력/출력, 종료 코드, 실패 처리, 실제 예제를 기록한다. (`nimble docsCheck`)
+- [x] `configuration.md`: 설정 소스 우선순위, 기본값, 환경 변수, secret redaction, 환경별 설정과 검증 명령을 기록한다. (`nimble docsCheck`)
+- [x] `developer-workflow.md`: build/test/check/verify, reload/debug, 의존성 lock, 변경 전후의 개발 흐름을 작성한다. (`nimble docsCheck`)
 
 ### B. 애플리케이션 런타임과 HTTP (P0)
 
-- [ ] `application-and-modules.md`, `application-modules.md`: Application, lifecycle, DI scope, module/plugin의 차이와 resource ownership을 예제로 설명한다.
-- [ ] `routing.md`: route 선언, path parameter, method/404/405, URL 생성, middleware 순서, route 충돌 실패를 다룬다.
-- [ ] `requests-and-validation.md`: JSON/form/multipart 입력, DTO/validation, 오류 표현과 민감 필드 경계를 다룬다.
-- [ ] `responses-and-negotiation.md`: HTML/JSON/text/stream, Accept negotiation, 406, Vary, cache와 transport 제한을 다룬다.
-- [ ] `errors-and-lifecycle.md`: error policy, timeout, cancellation, startup/shutdown, cleanup 순서와 관찰 방법을 다룬다.
-- [ ] `uploads.md`: 업로드 크기/MIME/확장자/경로 검증, 격리 저장, 실패 정리와 object storage 연결을 다룬다.
+- [x] `application-and-modules.md`, `application-modules.md`: Application, lifecycle, DI scope, module/plugin의 차이와 resource ownership을 예제로 설명한다. (`nimble docsCheck`)
+- [x] `routing.md`: route 선언, path parameter, method/404/405, URL 생성, middleware 순서, route 충돌 실패를 다룬다. (`nimble docsCheck`)
+- [x] `requests-and-validation.md`: JSON/form/multipart 입력, DTO/validation, 오류 표현과 민감 필드 경계를 다룬다. (`nimble docsCheck`)
+- [x] `responses-and-negotiation.md`: HTML/JSON/text/stream, Accept negotiation, 406, Vary, cache와 transport 제한을 다룬다. (`nimble docsCheck`)
+- [x] `errors-and-lifecycle.md`: error policy, timeout, cancellation, startup/shutdown, cleanup 순서와 관찰 방법을 다룬다. (`nimble docsCheck`)
+- [x] `uploads.md`: 업로드 크기/MIME/확장자/경로 검증, 격리 저장, 실패 정리와 object storage 연결을 다룬다. (`nimble docsCheck`)
 
 ### C. SSR, 템플릿, 폼, HTMX (P1)
 
-- [ ] `templates.md`, `server-rendered-pages.md`: template 탐색·상속·include·escape·helper·collection rendering과 XSS 경계를 설명한다.
-- [ ] `forms.md`: 폼 선언, validation, CSRF, error rendering, formset/관계 편집과 atomic failure를 설명한다.
-- [ ] `htmx.md`, `htmx-example.md`: partial 응답, HTML/JSON 협상, progressive enhancement, 오류·재시도·접근성 경계를 실행 예제로 설명한다.
-- [ ] 템플릿·폼·HTMX 예제는 생성 프로젝트에서 실행되는 한 흐름으로 연결하고 스냅샷이나 contract test로 검증한다.
+- [x] `templates.md`, `server-rendered-pages.md`: template 탐색·상속·include·escape·helper·collection rendering과 XSS 경계를 설명한다. (`nimble docsCheck`)
+- [x] `forms.md`: 폼 선언, validation, CSRF, error rendering, formset/관계 편집과 atomic failure를 설명한다. (`nimble docsCheck`)
+- [x] `htmx.md`, `htmx-example.md`: partial 응답, HTML/JSON 협상, progressive enhancement, 오류·재시도·접근성 경계를 실행 예제로 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] 템플릿·폼·HTMX 예제는 생성 프로젝트에서 실행되는 한 흐름으로 연결하고 스냅샷이나 contract test로 검증한다. (`nimble docsExamples`, `nimble docsCheck`)
 
 ### D. 데이터, 모델, 마이그레이션 (P0)
 
-- [ ] `models-and-metadata.md`, `serialization.md`: 모델 metadata, custom field, request/response DTO, 직렬화 제외와 wire type을 설명한다.
-- [ ] `querying.md`: repository/query, bound parameter, relation, aggregate, locking, raw SQL escape hatch와 N+1/트랜잭션 주의를 설명한다.
-- [ ] `database-connections.md`: SQLite/PostgreSQL capability, pool/session, read/write routing, transaction ownership과 종료를 설명한다.
-- [ ] `migrations.md`, `sqlite-crud-migration-tutorial.md`, `postgresql.md`: create/status/up/down/rollback, history, idempotency, backup와 provider별 live 검증 조건을 설명한다.
-- [ ] 데이터 변경 문서에는 데이터 손실 위험, 운영 전 backup, rollback 불가 상황과 사전 점검 명령을 반드시 쓴다.
+- [x] `models-and-metadata.md`, `serialization.md`: 모델 metadata, custom field, request/response DTO, 직렬화 제외와 wire type을 설명한다. (`nimble docsCheck`)
+- [x] `querying.md`: repository/query, bound parameter, relation, aggregate, locking, raw SQL escape hatch와 N+1/트랜잭션 주의를 설명한다. (`nimble docsCheck`)
+- [x] `database-connections.md`: SQLite/PostgreSQL capability, pool/session, read/write routing, transaction ownership과 종료를 설명한다. (`nimble docsCheck`)
+- [x] `migrations.md`, `sqlite-crud-migration-tutorial.md`, `postgresql.md`: create/status/up/down/rollback, history, idempotency, backup와 provider별 live 검증 조건을 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] 데이터 변경 문서에는 데이터 손실 위험, 운영 전 backup, rollback 불가 상황과 사전 점검 명령을 반드시 쓴다. (`nimble docsCheck`)
 
 ### E. API와 OpenAPI (P0)
 
-- [ ] `api-development.md`: versioned route, DTO, representation, pagination/filtering, error schema, test client를 설명한다.
-- [ ] `openapi.md`: schema 수집, artifact 생성, UI/client 사용 범위, 생성 실패와 compatibility 확인을 설명한다.
-- [ ] `api-security.md`, `api-stability-policy.md`: bearer/session 경계, rate limit, CORS/CSRF 구분, deprecation/version policy를 설명한다.
-- [ ] API 예제마다 request, success response, validation/auth/error response, 상태 코드와 content type을 제공한다.
+- [x] `api-development.md`: versioned route, DTO, representation, pagination/filtering, error schema, test client를 설명한다. (`nimble docsCheck`)
+- [x] `openapi.md`: schema 수집, artifact 생성, UI/client 사용 범위, 생성 실패와 compatibility 확인을 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] `api-security.md`, `api-stability-policy.md`: bearer/session 경계, rate limit, CORS/CSRF 구분, deprecation/version policy를 설명한다. (`nimble docsCheck`)
+- [x] API 예제마다 request, success response, validation/auth/error response, 상태 코드와 content type을 제공한다. (`nimble docsCheck`)
 
 ### F. 인증, 인가, 보안 (P0)
 
-- [ ] `authentication.md`, `password-security.md`: 계정 lifecycle, password hash/reset, session/JWT/OAuth/OIDC provider boundary와 fail-closed 정책을 설명한다.
-- [ ] `authorization.md`: role/object/field permission, policy 조합, admin/API 적용 순서와 우회 방지 예제를 제공한다.
-- [ ] `security.md`, `security-deployment-checklist.md`: CSRF, CORS, HTTPS/proxy, host/cookie/header, secret, rate limiting, 감사·incident 대응을 체크리스트화한다.
-- [ ] 각 외부 identity provider 문서에는 credential 발급 위치, 비용/위험, mock/local 대체, timeout/retry, credentialed live gate를 명시한다.
+- [x] `authentication.md`, `password-security.md`: 계정 lifecycle, password hash/reset, session/JWT/OAuth/OIDC provider boundary와 fail-closed 정책을 설명한다. (`nimble docsCheck`)
+- [x] `authorization.md`: role/object/field permission, policy 조합, admin/API 적용 순서와 우회 방지 예제를 제공한다. (`nimble docsCheck`)
+- [x] `security.md`, `security-deployment-checklist.md`: CSRF, CORS, HTTPS/proxy, host/cookie/header, secret, rate limiting, 감사·incident 대응을 체크리스트화한다. (`nimble docsCheck`)
+- [x] 각 외부 identity provider 문서에는 credential 발급 위치, 비용/위험, mock/local 대체, timeout/retry, credentialed live gate를 명시한다. (`nimble docsCheck`)
 
 ### G. Admin과 감사 (P1)
 
-- [ ] `admin.md`: resource 등록, CRUD, 관계/inline, list/filter/action, permission/CSRF, audit를 최소 예제로 설명한다.
-- [ ] `admin-operations.md`: audit 보존/조회, 운영 권한, 데이터 정정, 장애 분석과 rollback 절차를 설명한다.
-- [ ] `admin-template-customization.md`: 기본 template 위치, override 탐색 순서, form layout 우선순위, 안전한 customization·upgrade 경계를 설명한다.
-- [ ] Admin 문서는 UI template이 사용자 변경 가능하다는 사실과 기본 UI에 의존하지 않아야 할 private 영역을 분명히 구분한다.
+- [x] `admin.md`: resource 등록, CRUD, 관계/inline, list/filter/action, permission/CSRF, audit를 최소 예제로 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] `admin-operations.md`: audit 보존/조회, 운영 권한, 데이터 정정, 장애 분석과 rollback 절차를 설명한다. (`nimble docsCheck`)
+- [x] `admin-template-customization.md`: 기본 template 위치, override 탐색 순서, form layout 우선순위, 안전한 customization·upgrade 경계를 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] Admin 문서는 UI template이 사용자 변경 가능하다는 사실과 기본 UI에 의존하지 않아야 할 private 영역을 분명히 구분한다. (`nimble docsCheck`)
 
 ### H. 비동기, 실시간, 통지 (P1)
 
-- [ ] `background-jobs.md`: durable job, claim/ack/retry/backoff/dead-letter, scheduler, idempotency, graceful drain과 복구를 설명한다.
-- [ ] `websocket.md`, `sse.md`, `channel-layers.md`: 연결 lifecycle, auth, ordering/backpressure, reconnect, close/error, local layer와 Redis provider 차이를 설명한다.
-- [ ] `email-and-notifications.md`: email/flash/RSS/sitemap, SMTP/provider callback, encoding/attachment, retry/redaction과 test-only transport를 설명한다.
-- [ ] provider가 필요한 실시간·email 예제는 기본 local 실행과 credentialed live 실행을 분리한다.
+- [x] `background-jobs.md`: durable job, claim/ack/retry/backoff/dead-letter, scheduler, idempotency, graceful drain과 복구를 설명한다. (`nimble docsCheck`)
+- [x] `websocket.md`, `sse.md`, `channel-layers.md`: 연결 lifecycle, auth, ordering/backpressure, reconnect, close/error, local layer와 Redis provider 차이를 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] `email-and-notifications.md`: email/flash/RSS/sitemap, SMTP/provider callback, encoding/attachment, retry/redaction과 test-only transport를 설명한다. (`nimble docsCheck`)
+- [x] provider가 필요한 실시간·email 예제는 기본 local 실행과 credentialed live 실행을 분리한다. (`nimble docsCheck`)
 
 ### I. 저장소, 캐시, 정적 자산 (P1)
 
-- [ ] `storage.md`, `storage-and-orm-integration.md`: local/in-memory/S3-compatible storage, key validation, signing/retry, ownership 및 ORM 통합 한계를 설명한다.
-- [ ] `cache.md`: memory/Redis/Valkey cache, TTL/eviction, response cache/ETag 차이, failure semantics와 cache stampede 주의를 설명한다.
-- [ ] `static-assets.md`: collect, manifest, source/output 경계, cache header, CDN/reverse proxy, invalidation·rollback을 설명한다.
-- [ ] 외부 storage/cache 문서마다 비용, egress/보존 위험, local 대체, 안전한 dev/test 설정, live 증거 요구사항을 기록한다.
+- [x] `storage.md`, `storage-and-orm-integration.md`: local/in-memory/S3-compatible storage, key validation, signing/retry, ownership 및 ORM 통합 한계를 설명한다. (`nimble docsCheck`)
+- [x] `cache.md`: memory/Redis/Valkey cache, TTL/eviction, response cache/ETag 차이, failure semantics와 cache stampede 주의를 설명한다. (`nimble docsCheck`)
+- [x] `static-assets.md`: collect, manifest, source/output 경계, cache header, CDN/reverse proxy, invalidation·rollback을 설명한다. (`nimble docsCheck`)
+- [x] 외부 storage/cache 문서마다 비용, egress/보존 위험, local 대체, 안전한 dev/test 설정, live 증거 요구사항을 기록한다. (`nimble docsCheck`)
 
 ### J. 관찰성, 테스트, 배포, 릴리스 (P0)
 
-- [ ] `observability.md`: request ID, trace propagation, structured log/redaction, metric, health/readiness, exporter 실패의 degraded 동작을 설명한다.
-- [ ] `testing.md`: unit/contract/network fixture, fixture isolation, SQLite/PostgreSQL/Redis gate, skip 조건과 CI 재현 방법을 설명한다.
-- [ ] `deployment.md`, `deployment-recipes.md`: Docker, nginx/reverse proxy, systemd, TLS, readiness, graceful shutdown, migration 순서, rollout/rollback을 작성한다.
-- [ ] `operations-guide.md`: incident triage, backup/restore, migration rollback, queue drain, provider 장애, runbook 소유자를 작성한다.
-- [ ] `release-guide.md`, `adoption-and-release.md`, `support-policy.md`, `support-matrix.md`: 버전·artifact·지원 등급·CI matrix·release evidence와 미검증 항목을 일치시킨다.
+- [x] `observability.md`: request ID, trace propagation, structured log/redaction, metric, health/readiness, exporter 실패의 degraded 동작을 설명한다. (`nimble docsCheck`)
+- [x] `testing.md`: unit/contract/network fixture, fixture isolation, SQLite/PostgreSQL/Redis gate, skip 조건과 CI 재현 방법을 설명한다. (`nimble docsCheck`)
+- [x] `deployment.md`, `deployment-recipes.md`: Docker, nginx/reverse proxy, systemd, TLS, readiness, graceful shutdown, migration 순서, rollout/rollback을 작성한다. (`nimble docsCheck`)
+- [x] `operations-guide.md`: incident triage, backup/restore, migration rollback, queue drain, provider 장애, runbook 소유자를 작성한다. (`nimble docsCheck`)
+- [x] `release-guide.md`, `adoption-and-release.md`, `support-policy.md`, `support-matrix.md`: 버전·artifact·지원 등급·CI matrix·release evidence와 미검증 항목을 일치시킨다. (`nimble docsCheck`)
 
 ### K. 플러그인, 외부 adapter, 선택 패키지 (P1)
 
-- [ ] `plugins.md`: plugin manifest, phase/dependency, route/DI/middleware/command/admin 확장, duplicate·ordering error를 설명한다.
-- [ ] `extension-authoring.md`: 패키지 구조, compatibility, lifecycle, resource ownership, test/release 경계를 설명한다.
-- [ ] `external-adapters.md`: database/storage/cache/auth/channel/job adapter 공통 계약, timeout/retry/redaction, provider 책임을 표준 형식으로 작성한다.
-- [ ] `extension-package-contracts.md`, `optional-domain-decisions.md`: GraphQL/gRPC/broker/presence 및 선택 도메인의 지원/비지원 결정과 core 분리 이유를 기록한다.
-- [ ] 확장 문서에는 scaffold/registry/dynamic loading/version solver처럼 미구현인 기능을 명확히 unsupported로 표시한다.
+- [x] `plugins.md`: plugin manifest, phase/dependency, route/DI/middleware/command/admin 확장, duplicate·ordering error를 설명한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] `extension-authoring.md`: 패키지 구조, compatibility, lifecycle, resource ownership, test/release 경계를 설명한다. (`nimble docsCheck`)
+- [x] `external-adapters.md`: database/storage/cache/auth/channel/job adapter 공통 계약, timeout/retry/redaction, provider 책임을 표준 형식으로 작성한다. (`nimble docsCheck`)
+- [x] `extension-package-contracts.md`, `optional-domain-decisions.md`: GraphQL/gRPC/broker/presence 및 선택 도메인의 지원/비지원 결정과 core 분리 이유를 기록한다. (`nimble docsCheck`)
+- [x] 확장 문서에는 scaffold/registry/dynamic loading/version solver처럼 미구현인 기능을 명확히 unsupported로 표시한다. (`nimble docsCheck`)
 
 ### L. 이관, 레퍼런스, 유지보수 (P1)
 
-- [ ] `django-migration.md`: project/app, URLconf, model/migration, form, admin, command, template, auth의 대응표와 차이를 완성한다.
-- [ ] `litestar-migration.md`: route, DTO, DI, middleware, OpenAPI, background task의 대응표와 차이를 완성한다.
+- [x] `django-migration.md`: project/app, URLconf, model/migration, form, admin, command, template, auth의 대응표와 차이를 완성한다. (`nimble docsCheck`)
+- [x] `litestar-migration.md`: route, DTO, DI, middleware, OpenAPI, background task의 대응표와 차이를 완성한다. (`nimble docsCheck`)
 - [x] `docs/api-reference/`: public module/API마다 brief, parameter/return, lifecycle/ownership, error, 최소 실행 예제를 제공한다. `nimble apiDocs`의 generated symbol reference와 `public-modules.md`의 canonical guide map을 함께 검증한다.
-- [ ] `documentation-maintenance.md`, `definition-of-done.md`, `CHANGELOG.md`: 문서 소유자, 갱신 trigger, 변경 유형별 문서 영향, release review를 정의한다.
+- [x] `documentation-maintenance.md`, `definition-of-done.md`, `CHANGELOG.md`: 문서 소유자, 갱신 trigger, 변경 유형별 문서 영향, release review를 정의한다. (`nimble docsCheck`)
 
 ### 문서 품질 게이트와 추적성
 
 - [ ] 각 공개 API·CLI·환경 변수·기능은 API reference 또는 기능 문서, support matrix, 실행 예제/테스트로 연결되는 추적 표를 갖는다.
-- [ ] `nimble docsCheck`가 링크, 필수 문서, 지원 상태, provider 경계, CLI/API 문서 계약을 검증한다.
+- [x] `nimble docsCheck`가 링크, 필수 문서, 지원 상태, provider 경계, CLI/API 문서 계약을 검증한다. (`nimble docsCheck`)
 - [ ] `nimble docsExamples`가 모든 credential-free 예제를 컴파일·실행하고, 예상 성공 표식을 검증한다.
 - [ ] 예제가 credential, 유료 계정, 외부 네트워크를 요구하면 기본 CI에서는 명시적으로 skip하고, disposable live gate의 환경 변수·비용·증거 위치를 문서화한다.
-- [ ] `nimble test`, `nimble verify`, `nimble check`, `nimble docsCheck`, `nimble docsExamples`, `git diff --check`를 문서 변경의 기본 완료 게이트로 사용한다.
+- [x] `nimble test`, `nimble verify`, `nimble check`, `nimble docsCheck`, `nimble docsExamples`, `git diff --check`를 문서 변경의 기본 완료 게이트로 사용한다. (`nimble verify`, `nimble docsCheck`, `nimble docsExamples`, `git diff --check`)
 - [ ] CI에서 macOS, staging TLS/renewal, credentialed provider처럼 외부 증거가 필요한 항목은 성공 로그/manifest를 첨부하기 전까지 experimental 또는 pending으로 남긴다.
 
 ### 작업 순서와 완료 정의
