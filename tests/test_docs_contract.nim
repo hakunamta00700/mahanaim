@@ -219,6 +219,15 @@ suite "definition of done contracts":
       check coreTests.contains(contract)
     check guide.contains("`403`")
     check guide.contains("`429`")
+
+  test "API guide request and response schema map to OpenAPI contracts":
+    let guide = readFile(getCurrentDir() / "docs" / "api-development.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    check guide.contains("requestSchema: @[integerField(\"id\", flPath)]")
+    check guide.contains("responseSchema: @[stringField(\"name\", flBody)]")
+    check guide.contains("app.addDocumentedRoute(registry, operation, getProduct)")
+    check coreTests.contains("OpenAPI document projects a typed response schema")
+    check coreTests.contains("documented route registration keeps router and OpenAPI registry aligned")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
