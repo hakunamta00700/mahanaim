@@ -1,4 +1,4 @@
-# Core application API
+# Core 애플리케이션 API
 
 **책임 경계:** 프레임워크는 문서화된 API 계약을 제공하며, 프로젝트는 조립·설정·권한을, 외부 provider는 credential·비용·가용성을 소유한다.
 
@@ -13,14 +13,14 @@
 **안정성 기준:** 기능별 상태는 [지원 매트릭스](../support-matrix.md)를 따른다.
 **마지막 검증:** `nimble docsCheck`
 
-**Source:** `src/mahanaim/core.nim`, `application.nim`, `router.nim`.
-**Verification:** `nimble publicApiCheck`, `nimble docsExamples`, `nimble test`.
+**소스:** `src/mahanaim/core.nim`, `application.nim`, `router.nim`.
+**검증:** `nimble publicApiCheck`, `nimble docsExamples`, `nimble test`.
 
 ## `newApplication`
 
-Creates an isolated `Application` from config, security, and execution policies.
-The caller owns all route/module/plugin registration and must complete it before
-`startup`; late registration raises `ValueError`.
+config, security, execution policy로 독립된 `Application`을 만듭니다. 호출자가
+route/module/plugin 등록을 소유하며 `startup` 전에 마쳐야 합니다. 시작 뒤의
+등록은 `ValueError`를 발생시킵니다.
 
 ```nim
 let app = newApplication()
@@ -29,22 +29,23 @@ app.get("/health", "health", healthHandler)
 
 ## `get`, `post`, `addRoute`, and `websocket`
 
-Register an async HTTP handler or WebSocket session handler. A route name is
-unique and `addRoute` accepts non-GET/POST methods. Path grammar, middleware
-order, error handling, and URL generation are documented in [routing](../routing.md).
-Duplicate names or post-startup registration raise `ValueError`.
+비동기 HTTP handler 또는 WebSocket session handler를 등록합니다. route 이름은
+유일해야 하고 `addRoute`는 GET/POST 외 method도 받습니다. path 문법, middleware
+순서, 오류 처리, URL 생성은 [라우팅](../routing.md)을 보세요. 중복 이름 또는
+시작 뒤 등록은 `ValueError`를 발생시킵니다.
 
 ## `Request` and `Response`
 
-`Request` is an adapter-neutral input snapshot with path/query/header/cookie/body
-data and `pathParams`. `Response` carries status, headers, body, representation,
-and optional negotiated variants. Use `textResponse`, `htmlResponse`,
-`jsonResponse`, `fileResponse`, `streamResponse`, or `sseResponse` rather than
-constructing unsafe content metadata manually. See [responses](../responses-and-negotiation.md).
+`Request`는 path/query/header/cookie/body 데이터와 `pathParams`를 담는
+adapter-neutral 입력 snapshot입니다. `Response`는 status, headers, body,
+representation, 선택된 협상 variant를 가집니다. 안전하지 않은 content metadata를
+직접 만들지 말고 `textResponse`, `htmlResponse`, `jsonResponse`, `fileResponse`,
+`streamResponse`, `sseResponse`를 사용하세요. [응답과 협상](../responses-and-negotiation.md)을
+참조하세요.
 
 ## `FieldSpec` and `validate`
 
-Declare input fields with `stringField`, `integerField`, `floatField`,
-`booleanField`, or `jsonField`, then call `request.validate`. It returns every
-issue and `validationResponse` renders a standard problem response. See
-[requests and validation](../requests-and-validation.md).
+`stringField`, `integerField`, `floatField`, `booleanField`, `jsonField`로 입력
+field를 선언한 뒤 `request.validate`를 호출합니다. 모든 검증 issue를 반환하고
+`validationResponse`는 표준 problem response를 렌더링합니다. 자세한 내용은
+[요청과 검증](../requests-and-validation.md)을 보세요.

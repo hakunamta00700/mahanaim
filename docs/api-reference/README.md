@@ -1,4 +1,4 @@
-# Public API reference
+# 공개 API 레퍼런스
 
 **책임 경계:** 프레임워크는 문서화된 API 계약을 제공하며, 프로젝트는 조립·설정·권한을, 외부 provider는 credential·비용·가용성을 소유한다.
 
@@ -13,22 +13,22 @@
 **안정성 기준:** 기능별 상태는 [지원 매트릭스](../support-matrix.md)를 따른다.
 **마지막 검증:** `nimble docsCheck`
 
-This reference is maintained from public `*` exports in `src/mahanaim` and the
-compile contract in `tests/test_public_api_compile.nim`. `nimble publicApiCheck`
-is the compatibility gate; `nimble docsExamples` verifies the minimal public
-application example.
+이 레퍼런스는 `src/mahanaim`의 공개 `*` export와
+`tests/test_public_api_compile.nim`의 컴파일 계약을 기준으로 유지합니다.
+`nimble publicApiCheck`는 호환성 게이트이고, `nimble docsExamples`는 공개
+최소 애플리케이션 예제를 검증합니다.
 
-| Area | Reference | Source boundary |
+| 영역 | 레퍼런스 | 소스 경계 |
 | --- | --- | --- |
-| application and HTTP | [core API](core.md) | `src/mahanaim/core.nim`, `application.nim`, `router.nim` |
-| validation and response | [core API](core.md) | `validation.nim`, `response_policy.nim` |
-| extension points | [extension guide](../extension-authoring.md) | public Application plugin/module APIs |
-| every umbrella export | [public module map](public-modules.md) | `src/mahanaim.nim` |
+| 애플리케이션과 HTTP | [Core API](core.md) | `src/mahanaim/core.nim`, `application.nim`, `router.nim` |
+| 검증과 응답 | [Core API](core.md) | `validation.nim`, `response_policy.nim` |
+| 확장 지점 | [확장 작성 가이드](../extension-authoring.md) | 공개 Application plugin/module API |
+| 모든 umbrella export | [공개 모듈 지도](public-modules.md) | `src/mahanaim.nim` |
 
-New public exports require a brief, parameter/return contract, ownership and
-lifecycle notes, error behavior, and a minimum example here or in its feature
-guide. Deliberately excluded internal helpers must remain unexported; a public
-export with no documented surface is a documentation defect.
+새 공개 export는 이 문서 또는 기능 가이드에 간단한 설명, parameter/return
+계약, ownership과 lifecycle 주의, 오류 동작, 최소 예제를 함께 제공해야 합니다.
+의도적으로 제외한 내부 helper는 export하지 않아야 하며, 문서화된 surface가
+없는 공개 export는 문서 결함입니다.
 
 ## 전체 심볼 레퍼런스 생성
 

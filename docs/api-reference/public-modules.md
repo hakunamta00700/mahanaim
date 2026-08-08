@@ -1,4 +1,4 @@
-# Public module map
+# 공개 모듈 지도
 
 **책임 경계:** 프레임워크는 문서화된 API 계약을 제공하며, 프로젝트는 조립·설정·권한을, 외부 provider는 credential·비용·가용성을 소유한다.
 
@@ -13,19 +13,19 @@
 **안정성 기준:** 기능별 상태는 [지원 매트릭스](../support-matrix.md)를 따른다.
 **마지막 검증:** `nimble docsCheck`
 
-**Audience:** application and extension authors choosing APIs from `import mahanaim`.
-**Stability:** follow the feature maturity in the [support matrix](../support-matrix.md).
-**Verification:** `nimble docsCheck` reads `src/mahanaim.nim` and fails when an
-exported module has no row in this table. `nimble publicApiCheck` protects the
-representative compile contract.
+**대상 독자:** `import mahanaim`에서 API를 선택하는 애플리케이션·확장 작성자.
+**안정성:** 기능 성숙도는 [지원 매트릭스](../support-matrix.md)를 따른다.
+**검증:** `nimble docsCheck`는 `src/mahanaim.nim`을 읽어 export된 모듈에 이
+표의 행이 없으면 실패한다. `nimble publicApiCheck`는 대표 컴파일 계약을
+보호한다.
 
-The umbrella package re-exports the modules below. The feature column is the
-support-matrix row that owns its maturity and evidence; the guide column is the
-canonical user-facing contract. Module-level mapping is deliberately separate
-from the detailed API pages: a public symbol must still be described in its
-linked guide with its parameters, ownership, failures, and runnable example.
+umbrella package는 아래 모듈을 re-export한다. 기능 열은 성숙도와 증거를
+소유하는 지원 매트릭스 행이고, 가이드 열은 사용자용 canonical 계약이다.
+모듈 수준 지도와 상세 API 페이지는 의도적으로 분리한다. 공개 symbol은
+연결된 가이드에서 parameter, ownership, 실패, 실행 가능한 예제까지 설명해야
+한다.
 
-| Public module | Support feature | Canonical guide | Ownership boundary |
+| 공개 모듈 | 지원 기능 | Canonical 가이드 | 책임 경계 |
 | --- | --- | --- | --- |
 | `core` | `application-routing` | [Core API](core.md) | Request/response value contracts |
 | `router` | `application-routing` | [Routing](../routing.md) | Route matching and URL building |
