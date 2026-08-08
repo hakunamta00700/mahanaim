@@ -156,6 +156,16 @@ suite "definition of done contracts":
       check featureMap.contains("](" & guide & ")")
     check featureMap.contains("자동 발견보다 명시적 설치")
     check featureMap.contains("Admin은 metadata 기반이지만 실험 기능")
+
+  test "broker and SMTP guides separate local tests from provider guarantees":
+    let jobs = readFile(getCurrentDir() / "docs" / "background-jobs.md")
+    let email = readFile(getCurrentDir() / "docs" / "email-and-notifications.md")
+    let adapters = readFile(getCurrentDir() / "docs" / "external-adapters.md")
+    check jobs.contains("SQLite is local\ndurability, not a distributed broker")
+    check jobs.contains("Do not\nclaim provider delivery guarantees")
+    check email.contains("disposable\nwire endpoint before production")
+    check email.contains("callback transport is a local/test boundary")
+    check adapters.contains("local callback/in-memory adapter is not proof")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

@@ -608,7 +608,7 @@
 수용 기준:
 
 - [ ] durable 작업 재시도·복구와 WebSocket/SSE/Redis channel의 최소 예제가 각각 존재한다.
-- [ ] 외부 broker/SMTP의 production 보장 범위와 local mock 범위를 명확히 표시한다.
+- [x] 외부 broker/SMTP의 production 보장 범위와 local mock 범위를 명확히 표시한다. (`nimble docsCheck`)
 
 ## 11. 저장소, 캐시, 정적 자산 (P1)
 
