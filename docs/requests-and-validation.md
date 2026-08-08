@@ -1,4 +1,4 @@
-# Requests and validation
+# 요청과 검증
 
 **책임 경계:** 프레임워크는 문서화된 API 계약을 제공하며, 프로젝트는 조립·설정·권한을, 외부 provider는 credential·비용·가용성을 소유한다.
 

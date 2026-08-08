@@ -4,7 +4,7 @@
 ## required sections and verification commands machine-checkable so a future
 ## edit cannot silently remove the evidence boundary from the framework.
 
-import std/[os, osproc, sequtils, strutils, unittest]
+import std/[os, osproc, sequtils, strutils, unicode, unittest]
 import mahanaim
 
 proc localMarkdownTargets(contents: string): seq[string] =
@@ -106,6 +106,24 @@ proc documentationOwnershipBoundaryIssues(root: string): seq[string] =
       if not contents.contains(owner):
         result.add(relativePath(path, root) & " -> " & owner)
 
+proc containsHangul(value: string): bool =
+  for rune in value.runes:
+    let codePoint = int(rune)
+    if codePoint >= 0xAC00 and codePoint <= 0xD7A3:
+      return true
+
+proc documentationTitleLanguageIssues(root: string): seq[string] =
+  ## Korean is the default user-facing language. API identifiers remain in
+  ## code notation, but every guide title needs Korean context at first glance.
+  for path in walkDirRec(root / "docs"):
+    if splitFile(path).ext.toLowerAscii() != ".md":
+      continue
+    for line in readFile(path).splitLines:
+      if line.startsWith("# "):
+        if not containsHangul(line):
+          result.add(relativePath(path, root) & " -> " & line)
+        break
+
 suite "definition of done contracts":
   test "internal Markdown links resolve to repository documentation":
     let issues = markdownLinkIssues(getCurrentDir())
@@ -121,6 +139,10 @@ suite "definition of done contracts":
 
   test "every guide separates framework project and provider ownership":
     let issues = documentationOwnershipBoundaryIssues(getCurrentDir())
+    check issues.len == 0
+
+  test "user guides use Korean titles by default":
+    let issues = documentationTitleLanguageIssues(getCurrentDir())
     check issues.len == 0
 
   test "CLI reference follows executable help and exit-code contracts":
