@@ -92,3 +92,8 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 provider 운영 검증이 더 필요할 수 있으며, 각 문서와 지원 매트릭스에서 그
 제한을 함께 확인해야 한다. 문서가 코드·CLI·지원 매트릭스와 어긋나면 이슈 또는
 변경 PR에서 함께 고친다.
+## SQLite와 PostgreSQL
+
+| 목표 | 문서 |
+| --- | --- |
+| SQLite CRUD와 migration 완주 | [SQLite CRUD와 migration 튜토리얼](sqlite-crud-migration-tutorial.md), [PostgreSQL 설정과 제한](postgresql.md) |

@@ -490,12 +490,31 @@ nimble test
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",
                     "plugin_extension", "admin_audit", "admin_templates",
-                    "template_form_htmx"]:
+                    "template_form_htmx", "sqlite_crud_migration"]:
       check readme.contains("examples/" & example & ".nim")
     for result in ["minimal-app-ok", "local-storage-ok", "api-artifacts-ok",
                    "plugin-extension-ok", "admin-audit-ok", "admin-templates-ok",
-                   "template-form-htmx-ok"]:
+                   "template-form-htmx-ok", "sqlite-crud-migration-ok"]:
       check readme.contains(result)
+
+  test "SQLite CRUD migration tutorial and PostgreSQL limits are discoverable":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let tutorial = readFile(getCurrentDir() / "docs" /
+      "sqlite-crud-migration-tutorial.md")
+    let postgres = readFile(getCurrentDir() / "docs" / "postgresql.md")
+    let migrations = readFile(getCurrentDir() / "docs" / "migrations.md")
+    let example = readFile(getCurrentDir() / "examples" /
+      "sqlite_crud_migration.nim")
+    check manifest.contains("examples/sqlite_crud_migration.nim")
+    check example.contains("sqlite-crud-migration-ok")
+    check tutorial.contains("metadata를 선언하고 migration을 적용")
+    check tutorial.contains("newDatabaseRepository")
+    check tutorial.contains("rollback")
+    check postgres.contains("MAHANAIM_POSTGRES_USER")
+    check postgres.contains("nimble postgresLive")
+    check postgres.contains("experimental")
+    check migrations.contains("sqlite-crud-migration-tutorial.md")
+    check migrations.contains("postgresql.md")
 
   test "local storage example is executable without provider credentials":
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")

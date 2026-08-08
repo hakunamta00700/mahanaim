@@ -25,6 +25,7 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 | [`admin_audit.nim`](examples/admin_audit.nim) | 권한 HTML CRUD와 audit event | `nimble docsExamples` | `admin-audit-ok` |
 | [`admin_templates.nim`](examples/admin_templates.nim) | Admin template override와 `formLayout` 우선순위 | `nimble docsExamples` | `admin-templates-ok` |
 | [`template_form_htmx.nim`](examples/template_form_htmx.nim) | template·form·HTMX/JSON representation | `nimble docsExamples` | `template-form-htmx-ok` |
+| [`sqlite_crud_migration.nim`](examples/sqlite_crud_migration.nim) | SQLite metadata·migration·repository CRUD·rollback | `nimble docsExamples` | `sqlite-crud-migration-ok` |
 | [`minimal_app.nim`](examples/minimal_app.nim) | `Application`에 HTML·JSON route를 등록하고 in-process request를 검증 | `nimble docsExamples` | `minimal-app-ok` 출력, 종료 코드 `0` |
 
 ## 5분 시작

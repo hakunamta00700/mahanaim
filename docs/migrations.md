@@ -16,3 +16,8 @@ remove old data later.
 SQLite is the stable local target. PostgreSQL support is experimental and requires
 the optional adapter/live contract; verify dialect SQL, transactions, locking, and
 credentials separately. A passing SQLite migration is not production proof.
+
+For a complete, executable SQLite path from metadata through CRUD and rollback,
+follow the [SQLite CRUD and migration tutorial](sqlite-crud-migration-tutorial.md).
+For PostgreSQL configuration, optional live gates, and provider limits, see
+[PostgreSQL configuration and limits](postgresql.md).
