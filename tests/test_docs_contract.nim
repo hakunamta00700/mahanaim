@@ -94,6 +94,18 @@ proc documentationMetadataIssues(root: string): seq[string] =
       if not contents.contains(field):
         result.add(relativePath(path, root) & " -> " & field)
 
+proc documentationOwnershipBoundaryIssues(root: string): seq[string] =
+  ## Each guide must distinguish the framework contract from application
+  ## composition and external provider credentials/costs. This keeps a copied
+  ## framework example from looking like a production provider guarantee.
+  for path in walkDirRec(root / "docs"):
+    if splitFile(path).ext.toLowerAscii() != ".md":
+      continue
+    let contents = readFile(path)
+    for owner in ["프레임워크", "프로젝트", "provider"]:
+      if not contents.contains(owner):
+        result.add(relativePath(path, root) & " -> " & owner)
+
 suite "definition of done contracts":
   test "internal Markdown links resolve to repository documentation":
     let issues = markdownLinkIssues(getCurrentDir())
@@ -105,6 +117,10 @@ suite "definition of done contracts":
 
   test "every guide declares reader prerequisites stability verification and links":
     let issues = documentationMetadataIssues(getCurrentDir())
+    check issues.len == 0
+
+  test "every guide separates framework project and provider ownership":
+    let issues = documentationOwnershipBoundaryIssues(getCurrentDir())
     check issues.len == 0
 
   test "CLI reference follows executable help and exit-code contracts":
@@ -591,7 +607,7 @@ nimble test
   test "documentation gates do not require external provider credentials":
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
     let examplesStart = manifest.find("task docsExamples")
-    let examplesEnd = manifest.find("task publicApiCheck", examplesStart)
+    let examplesEnd = manifest.find("task apiDocs", examplesStart)
     check examplesStart >= 0
     check examplesEnd > examplesStart
     let examplesTask = manifest[examplesStart ..< examplesEnd]
