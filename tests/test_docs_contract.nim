@@ -238,6 +238,19 @@ suite "definition of done contracts":
     check guide.contains("app.addDocumentedRoute(registry, operation, getProduct)")
     check coreTests.contains("OpenAPI document projects a typed response schema")
     check coreTests.contains("documented route registration keeps router and OpenAPI registry aligned")
+
+  test "negotiation and upload guides map rejection paths to executable contracts":
+    let responses = readFile(getCurrentDir() / "docs" /
+      "responses-and-negotiation.md")
+    let uploads = readFile(getCurrentDir() / "docs" / "uploads.md")
+    let coreTests = readFile(getCurrentDir() / "tests" / "test_core.nim")
+    check responses.contains("406 `Not Acceptable`")
+    check responses.contains("Vary: Accept")
+    check uploads.contains("UploadValidationError")
+    check uploads.contains("problemResponse(Http400, \"Upload rejected\"")
+    check coreTests.contains("response negotiation honors Accept quality and q zero")
+    check coreTests.contains("upload storage validates and saves multipart files safely")
+    check coreTests.contains("malformed multipart body returns a body-scoped validation issue")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
