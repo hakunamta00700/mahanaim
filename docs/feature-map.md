@@ -10,22 +10,22 @@
 | 필요 | Django | Litestar | Mahanaim | 상태·문서 |
 | --- | --- | --- | --- | --- |
 | 프로젝트 생성 | `startproject` | app factory | `mahanaim new NAME [PATH]` | [시작 가이드](getting-started.md) |
-| 기능 모듈 생성 | `startapp` | module/package | `mahanaim app NAME [PROJECT_ROOT]`, `ApplicationModule` | [프로젝트 구조](project-layout.md) |
+| 기능 모듈 생성 | `startapp` | module/package | `mahanaim app NAME [PROJECT_ROOT]`, `ApplicationModule` | [프로젝트 구조](project-layout.md), [애플리케이션 모듈](application-modules.md) |
 | URL 등록 | URLconf | route handler | `app.get/post/addRoute`, route DSL | [라우팅](routing.md) |
 | 요청 검증 | Form/Serializer | DTO/signature | `FieldSpec`, schema, model metadata | [요청과 검증](requests-and-validation.md) |
-| HTML 템플릿 | Django templates | template backend | `TemplateEngine`, `TemplateAdapter` | 템플릿 가이드 작성 예정 |
-| 폼·CSRF | Form/FormSet | plugin/integration | `FormState`, model form/formset, security policy | 폼 가이드 작성 예정 |
-| ORM/쿼리 | Model/QuerySet | SQLAlchemy integration | model metadata, `QuerySet`, `DatabaseRepository` | 모델/쿼리 가이드 작성 예정 |
-| migration | `makemigrations`/`migrate` | Alembic integration | migration registry, `mahanaim db status|up|rollback|seed` | migration 가이드 작성 예정 |
-| Admin | `ModelAdmin` | third-party | explicit `AdminRegistry`/resource/authorization/audit | Admin 가이드 작성 예정 — experimental |
+| HTML 템플릿 | Django templates | template backend | `TemplateEngine`, `TemplateAdapter` | [템플릿](templates.md), [서버 렌더링](server-rendered-pages.md) |
+| 폼·CSRF | Form/FormSet | plugin/integration | `FormState`, model form/formset, security policy | [폼](forms.md), [보안](security.md) |
+| ORM/쿼리 | Model/QuerySet | SQLAlchemy integration | model metadata, `QuerySet`, `DatabaseRepository` | [모델](models-and-metadata.md), [쿼리](querying.md) |
+| migration | `makemigrations`/`migrate` | Alembic integration | migration registry, `mahanaim db status|up|rollback|seed` | [migration](migrations.md) |
+| Admin | `ModelAdmin` | third-party | explicit `AdminRegistry`/resource/authorization/audit | [Admin](admin.md), [Admin 운영](admin-operations.md) — experimental |
 | Admin UI 변경 | template override | custom UI | `templates/admin/...`, `formLayout` | [Admin 템플릿](admin-template-customization.md) |
 | 관리 명령 | `manage.py` commands | CLI plugins | app-owned command registry, framework CLI | [CLI](cli-reference.md) |
-| 인증 | auth backends | guards | session/bearer/JWT/auth backend contracts | 인증 가이드 작성 예정 |
-| 권한 | permissions | guards | `AuthorizationPolicy` role/group/object rules | 권한 가이드 작성 예정 |
-| API 문서 | DRF schema | built-in OpenAPI | OpenAPI registry, UI, TypeScript client | OpenAPI 가이드 작성 예정 — experimental |
-| 백그라운드 작업 | Celery/RQ | task plugin | queue, retry, idempotency, durable job store | background job 가이드 작성 예정 — experimental |
-| WebSocket/SSE | Channels/streaming | socket/SSE | WebSocket/SSE routes, channel layer | 실시간 가이드 작성 예정 — experimental |
-| 플러그인 | Django app package | plugin | explicit manifest/phase/dependency plugin | 플러그인 가이드 작성 예정 |
+| 인증 | auth backends | guards | session/bearer/JWT/auth backend contracts | [인증](authentication.md) |
+| 권한 | permissions | guards | `AuthorizationPolicy` role/group/object rules | [권한](authorization.md) |
+| API 문서 | DRF schema | built-in OpenAPI | OpenAPI registry, UI, TypeScript client | [OpenAPI](openapi.md), [API 개발](api-development.md) — experimental |
+| 백그라운드 작업 | Celery/RQ | task plugin | queue, retry, idempotency, durable job store | [백그라운드 작업](background-jobs.md) — experimental |
+| WebSocket/SSE | Channels/streaming | socket/SSE | WebSocket/SSE routes, channel layer | [WebSocket](websocket.md), [SSE](sse.md), [채널 레이어](channel-layers.md) — experimental |
+| 플러그인 | Django app package | plugin | explicit manifest/phase/dependency plugin | [플러그인](plugins.md), [확장 작성](extension-authoring.md) |
 
 ## 중요한 차이
 

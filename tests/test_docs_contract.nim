@@ -148,6 +148,14 @@ suite "definition of done contracts":
     check plugins.contains("registration after startup is rejected")
     check plugins.contains("must not mutate global registries")
     check coreTests.contains("plugin registration is closed during and after application startup")
+
+  test "Django feature map links the current admin app command template and plugin boundaries":
+    let featureMap = readFile(getCurrentDir() / "docs" / "feature-map.md")
+    for guide in ["admin.md", "application-modules.md", "cli-reference.md",
+                  "templates.md", "plugins.md"]:
+      check featureMap.contains("](" & guide & ")")
+    check featureMap.contains("자동 발견보다 명시적 설치")
+    check featureMap.contains("Admin은 metadata 기반이지만 실험 기능")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
