@@ -1,5 +1,8 @@
 # Optional domain decisions
 
+**기능 상태:** [지원 매트릭스](support-matrix.md)의 해당 feature 상태를 따른다.
+**지원 버전/플랫폼:** Nim `>= 2.2.0`; Windows/Linux/macOS 범위는 [지원 매트릭스](support-matrix.md)를 따른다.
+
 **선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
 
 **관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)

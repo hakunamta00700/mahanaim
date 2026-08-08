@@ -1,5 +1,8 @@
 # 도입과 릴리스 가이드
 
+**기능 상태:** [지원 매트릭스](support-matrix.md)의 해당 feature 상태를 따른다.
+**지원 버전/플랫폼:** Nim `>= 2.2.0`; Windows/Linux/macOS 범위는 [지원 매트릭스](support-matrix.md)를 따른다.
+
 **마지막 검증:** `nimble docsCheck`
 
 **관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)

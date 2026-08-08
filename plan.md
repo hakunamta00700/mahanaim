@@ -708,7 +708,7 @@
 각 기능 문서는 아래 필드를 모두 포함하거나, 해당되지 않는 이유와 canonical 문서 링크를
 명시해야 한다. 이 목록은 작성 완료 여부를 판단하는 공통 체크리스트다.
 
-- [ ] 제목, 대상 독자, 기능 상태(stable/experimental/unsupported), 지원 버전/플랫폼을 쓴다.
+- [x] 제목, 대상 독자, 기능 상태(stable/experimental/unsupported), 지원 버전/플랫폼을 쓴다. 모든 `docs/` 가이드가 공통 metadata field를 가지고 지원 상태와 target은 support matrix를 canonical source로 참조하며 `nimble docsCheck`가 누락을 실패 처리한다.
 - [ ] 해결하려는 문제와 프레임워크·프로젝트·외부 provider의 책임 경계를 설명한다.
 - [ ] 설치/권한/환경 변수/네트워크·데이터 선행조건을 명시한다. 비밀값은 예시에도 넣지 않는다.
 - [ ] 복사 가능한 최소 예제와 예상 출력 또는 성공 판정 방법을 제공한다.
