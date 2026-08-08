@@ -465,11 +465,11 @@
 ### 문서화 원칙
 
 - [x] 사용자 문서는 한국어를 기본 언어로 작성하고, API·명령어·식별자는 코드 표기를 유지한다. 모든 `docs/` 가이드 제목은 한국어 문맥을 포함하도록 `nimble docsCheck`가 검사하며 API·명령·식별자는 코드 표기를 유지한다.
-- [ ] 각 기능 문서는 목적, 최소 실행 예제, 설정값, 실패·보안 경계, 관련 문서 링크를 포함한다.
-- [ ] 모든 명령과 코드 예제는 `nimble docsExamples` 또는 전용 compile/run 테스트로 검증한다.
-- [ ] `stable`·`experimental`·미지원 기능을 지원 매트릭스와 각 기능 문서에서 같은 용어로 표시한다.
+- [x] 각 기능 문서는 목적, 최소 실행 예제, 설정값, 실패·보안 경계, 관련 문서 링크를 포함한다. 공통 metadata·ownership 검사와 기능별 문서 계약을 `nimble docsCheck`가, API/CLI/설정/예제 연결은 `documentation-traceability.md`가 검증한다.
+- [x] 모든 명령과 코드 예제는 `nimble docsExamples` 또는 전용 compile/run 테스트로 검증한다. `docsCheck`가 checked-in credential-free 예제 전체와 README 카탈로그·성공 표식을 대조한다.
+- [x] `stable`·`experimental`·미지원 기능을 지원 매트릭스와 각 기능 문서에서 같은 용어로 표시한다. 지원 매트릭스 feature 행과 experimental external-evidence 경계를 `nimble docsCheck`가 검증한다.
 - [x] 프레임워크가 소유하는 계약과 프로젝트/외부 provider가 소유하는 설정을 명확히 분리한다. 모든 가이드의 `책임 경계` metadata가 세 ownership을 선언하며 `nimble docsCheck`가 누락을 실패 처리한다.
-- [ ] 새 public API·CLI 명령·first-party 기능을 추가할 때 같은 변경에서 문서 인덱스, 기능 문서, 지원 매트릭스를 갱신한다.
+- [x] 새 public API·CLI 명령·first-party 기능을 추가할 때 같은 변경에서 문서 인덱스, 기능 문서, 지원 매트릭스를 갱신한다. public module map·traceability table·support matrix를 `nimble docsCheck`가 함께 검사한다.
 
 ### 완료 정의
 
@@ -477,7 +477,7 @@
 - [x] 지원 매트릭스의 모든 feature 행에 대응하는 사용자 문서 또는 명시적인 "미지원/계획" 문서 링크가 있다. (`nimble docsCheck`)
 - [ ] 모든 사용자 가이드에 최소 한 개의 실행 가능한 Nim 예제가 있고 CI에서 실행된다.
 - [x] 링크 검사, 예제 검사, 문서-지원매트릭스 대응 검사, `nimble docsCheck`가 CI에서 통과한다. CI의 `nimble verify`가 `docsCheck`와 `docsExamples`를 실행하고, workflow가 `docsCheck`를 명시적으로 다시 실행한다. (`nimble docsCheck`)
-- [ ] 기능 문서의 API·명령·환경변수·기본값이 public API compile test와 CLI 테스트에 의해 검증된다.
+- [x] 기능 문서의 API·명령·환경변수·기본값이 public API compile test와 CLI 테스트에 의해 검증된다. traceability table이 canonical 문서와 `nimble publicApiCheck`/CLI·예제 gate를 연결하고 `nimble docsCheck`가 feature별 행을 검사한다.
 
 ## 2. 문서 정보 구조와 공통 기반 (P0)
 
@@ -710,13 +710,13 @@
 
 - [x] 제목, 대상 독자, 기능 상태(stable/experimental/unsupported), 지원 버전/플랫폼을 쓴다. 모든 `docs/` 가이드가 공통 metadata field를 가지고 지원 상태와 target은 support matrix를 canonical source로 참조하며 `nimble docsCheck`가 누락을 실패 처리한다.
 - [x] 해결하려는 문제와 프레임워크·프로젝트·외부 provider의 책임 경계를 설명한다. 모든 `docs/` 가이드의 공통 metadata가 framework contract, project composition/configuration, provider credential/cost/availability의 책임 분리를 선언하고 `nimble docsCheck`가 누락을 실패 처리한다.
-- [ ] 설치/권한/환경 변수/네트워크·데이터 선행조건을 명시한다. 비밀값은 예시에도 넣지 않는다.
-- [ ] 복사 가능한 최소 예제와 예상 출력 또는 성공 판정 방법을 제공한다.
-- [ ] 설정 표에는 이름, 기본값, 허용값, 보안 영향, 적용 시점을 적는다.
-- [ ] 정상 흐름 외에 대표 실패, 오류 원인, 복구·rollback·안전한 재시도 방법을 쓴다.
-- [ ] 운영 영향(로그, metric, health check, 비용, 데이터 보존, 성능/동시성)을 설명한다.
-- [ ] 관련 API·CLI·예제·지원 매트릭스·제한 사항·다음 문서로 연결한다.
-- [ ] 코드/명령 예제의 실행 범위(local, CI, credentialed live)를 구분하고 실제 검증 경로를 적는다.
+- [x] 설치/권한/환경 변수/네트워크·데이터 선행조건을 명시한다. 비밀값은 예시에도 넣지 않는다. (`nimble docsCheck`)
+- [x] 복사 가능한 최소 예제와 예상 출력 또는 성공 판정 방법을 제공한다. (`nimble docsExamples`, `nimble docsCheck`)
+- [x] 설정 표에는 이름, 기본값, 허용값, 보안 영향, 적용 시점을 적는다. (`configuration.md`, `nimble docsCheck`)
+- [x] 정상 흐름 외에 대표 실패, 오류 원인, 복구·rollback·안전한 재시도 방법을 쓴다. (`nimble docsCheck`)
+- [x] 운영 영향(로그, metric, health check, 비용, 데이터 보존, 성능/동시성)을 설명한다. (`nimble docsCheck`)
+- [x] 관련 API·CLI·예제·지원 매트릭스·제한 사항·다음 문서로 연결한다. (`documentation-traceability.md`, `nimble docsCheck`)
+- [x] 코드/명령 예제의 실행 범위(local, CI, credentialed live)를 구분하고 실제 검증 경로를 적는다. (`documentation-traceability.md`, `nimble docsCheck`)
 
 ### 문서 정보 구조와 탐색
 
@@ -724,7 +724,7 @@
 - [x] `docs/index.md`에서 사용자 목표별(처음 시작, SSR/Admin, API, 운영, 확장, 이관)로 모든 문서를 한 번씩 찾을 수 있게 한다. (`nimble docsCheck`)
 - [x] `docs/feature-map.md`에서 Django/Litestar 개념과 Mahanaim API, 지원 상태, 대체 경로를 양방향으로 연결한다. (`nimble docsCheck`)
 - [x] `docs/glossary.md`와 `docs/known-limitations.md`를 용어·제한의 단일 기준으로 유지한다. (`nimble docsCheck`)
-- [ ] 중복된 설명은 한 문서를 canonical source로 정하고, 나머지는 짧은 요약과 링크만 둔다.
+- [x] 중복된 설명은 한 문서를 canonical source로 정하고, 나머지는 짧은 요약과 링크만 둔다. `documentation-traceability.md`와 public module map이 기능·API·CLI·설정의 canonical entrypoint를 고정한다.
 
 ### A. 시작, 프로젝트, CLI, 구성 (P0)
 
@@ -818,7 +818,7 @@
 
 ### 문서 품질 게이트와 추적성
 
-- [ ] 각 공개 API·CLI·환경 변수·기능은 API reference 또는 기능 문서, support matrix, 실행 예제/테스트로 연결되는 추적 표를 갖는다.
+- [x] 각 공개 API·CLI·환경 변수·기능은 API reference 또는 기능 문서, support matrix, 실행 예제/테스트로 연결되는 추적 표를 갖는다. `docs/documentation-traceability.md`의 모든 first-party feature 행을 `nimble docsCheck`가 검사한다.
 - [x] `nimble docsCheck`가 링크, 필수 문서, 지원 상태, provider 경계, CLI/API 문서 계약을 검증한다. (`nimble docsCheck`)
 - [x] `nimble docsExamples`가 모든 credential-free 예제를 컴파일·실행하고, 예상 성공 표식을 검증한다. `docsCheck`가 `examples/*.nim` 전체를 `docsExamples` task·README 카탈로그·성공 표식과 대조한다.
 - [x] 예제가 credential, 유료 계정, 외부 네트워크를 요구하면 기본 CI에서는 명시적으로 skip하고, disposable live gate의 환경 변수·비용·증거 위치를 문서화한다. (`nimble docsCheck`)
@@ -838,5 +838,5 @@
 - [x] 해당 영역의 모든 문서가 공통 필수 작성 필드를 충족한다. `nimble docsCheck`가 모든 Markdown 가이드의 대상 독자·책임 경계·선행 조건·기능 상태·지원 범위·안정성·검증·관련 문서 field를 검사한다.
 - [ ] 독립된 신규 사용자, Django 사용자, Litestar 사용자가 각 시작 경로를 따라 최소 애플리케이션과 테스트를 완성할 수 있다.
 - [ ] 운영자가 문서만으로 staging 배포, health 확인, migration, rollback 연습을 수행할 수 있다.
-- [ ] public API/CLI/config/support matrix/example의 추적성과 자동 게이트가 통과한다.
+- [x] public API/CLI/config/support matrix/example의 추적성과 자동 게이트가 통과한다. (`nimble docsCheck`, `nimble docsExamples`, `nimble publicApiCheck`)
 - [x] 외부 provider 및 플랫폼별 미검증 범위는 증거를 추가하거나 명시적 제한 상태로 남겨 과장된 안정성 표기를 하지 않는다. (`nimble docsCheck`)

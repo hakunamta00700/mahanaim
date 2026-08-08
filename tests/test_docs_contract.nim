@@ -599,6 +599,28 @@ nimble test
       if rows.len == 1:
         check localMarkdownTargets(rows[0]).len > 0
 
+  test "traceability table connects every feature to docs and executable evidence":
+    let root = getCurrentDir()
+    let traceability = readFile(root / "docs" / "documentation-traceability.md")
+    let index = readFile(root / "docs" / "index.md")
+    let features = [
+      "application-routing", "dependency-injection", "typed-api-openapi",
+      "sqlite-storage", "postgresql-adapter", "admin-forms",
+      "authentication-security", "email-notifications", "background-jobs",
+      "http-transport", "storage-cache-rate-limit", "realtime-events",
+      "observability-testing-cli"
+    ]
+    check index.contains("documentation-traceability.md")
+    check traceability.contains("| API/CLI·설정 기준 | 사용자 가이드 |")
+    check traceability.contains("`nimble docsExamples`")
+    check traceability.contains("credentialed live")
+    for feature in features:
+      let rows = traceability.splitLines.filterIt(
+        it.startsWith("| `" & feature & "` |"))
+      check rows.len == 1
+      if rows.len == 1:
+        check localMarkdownTargets(rows[0]).len > 0
+
   test "minimal documentation example has a compile and run gate":
     ## The smallest public example must exercise the same Application route
     ## and dispatch contract that users see in the documentation.
