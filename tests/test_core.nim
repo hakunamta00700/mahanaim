@@ -3046,48 +3046,55 @@ suite "Mahanaim core contracts":
     client.close()
     network.close()
 
-  test "Prologue adapter maps request context and response headers":
-    var nativeHeaders = newHttpHeaders()
-    nativeHeaders["Host"] = "example.test"
-    var cookies = initCookieJar()
-    cookies["session"] = "abc"
-    var prologueRequestValue = request.initMockingRequest(
-      HttpGet, nativeHeaders, parseUri("/search?q=nim"), cookies = cookies)
-
-    let frameworkRequest = toFrameworkRequest(prologueRequestValue)
-    check frameworkRequest.httpMethod == "GET"
-    check frameworkRequest.path == "/search"
-    check frameworkRequest.query["q"] == "nim"
-    check frameworkRequest.header("host").get() == "example.test"
-    check frameworkRequest.cookies["session"] == "abc"
-
+  test "Prologue adapter maps response headers":
+    ## This conversion never reads a native request and is therefore safe for
+    ## both Prologue backends.
     var frameworkResponse = jsonResponse("{\"ok\":true}")
     frameworkResponse.headers["x-adapter"] = "prologue"
     let prologueHeaders = toPrologueHeaders(frameworkResponse)
     check prologueHeaders["x-adapter", 0] == "prologue"
 
-  test "Prologue server bridge delegates mocking requests and lifecycle":
-    let app = newApplication()
-    proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
-      discard request
-      return textResponse("hello from bridge")
-    app.get("/bridge", "bridge-hello", hello)
-    let adapter = newPrologueServer(app)
-    adapter.server.mockApp()
-    adapter.startup()
-    adapter.startup()
-    check app.started
+  when defined(windows):
+    test "Prologue adapter maps stdlib request context":
+      ## Prologue's Windows mocking backend uses a complete stdlib request
+      ## snapshot. Beast/httpx mocks deliberately do not own a socket/selector,
+      ## so their request body must be verified by the Linux wire fixture.
+      var nativeHeaders = newHttpHeaders()
+      nativeHeaders["Host"] = "example.test"
+      var cookies = initCookieJar()
+      cookies["session"] = "abc"
+      var prologueRequestValue = request.initMockingRequest(
+        HttpGet, nativeHeaders, parseUri("/search?q=nim"), cookies = cookies)
 
-    let nativeHeaders = newHttpHeaders()
-    let nativeRequest = request.initMockingRequest(
-      HttpGet, nativeHeaders, parseUri("/bridge"))
-    let context = adapter.server.runOnce(nativeRequest)
-    check context.response.code == Http200
-    check context.response.body == "hello from bridge"
+      let frameworkRequest = toFrameworkRequest(prologueRequestValue)
+      check frameworkRequest.httpMethod == "GET"
+      check frameworkRequest.path == "/search"
+      check frameworkRequest.query["q"] == "nim"
+      check frameworkRequest.header("host").get() == "example.test"
+      check frameworkRequest.cookies["session"] == "abc"
 
-    adapter.shutdown()
-    adapter.shutdown()
-    check not app.started
+    test "Prologue server bridge delegates stdlib mocking requests and lifecycle":
+      let app = newApplication()
+      proc hello(request: Request): Future[mahanaim.Response] {.async, gcsafe.} =
+        discard request
+        return textResponse("hello from bridge")
+      app.get("/bridge", "bridge-hello", hello)
+      let adapter = newPrologueServer(app)
+      adapter.server.mockApp()
+      adapter.startup()
+      adapter.startup()
+      check app.started
+
+      let nativeHeaders = newHttpHeaders()
+      let nativeRequest = request.initMockingRequest(
+        HttpGet, nativeHeaders, parseUri("/bridge"))
+      let context = adapter.server.runOnce(nativeRequest)
+      check context.response.code == Http200
+      check context.response.body == "hello from bridge"
+
+      adapter.shutdown()
+      adapter.shutdown()
+      check not app.started
 
   when defined(windows):
     test "Prologue adapter owns a live socket and closes it gracefully":
