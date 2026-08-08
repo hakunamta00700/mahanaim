@@ -594,7 +594,7 @@
 
 수용 기준:
 
-- [ ] 새 리소스를 Admin에 등록해 권한 있는 HTML CRUD와 audit event를 확인하는 예제가 있다.
+- [x] 새 리소스를 Admin에 등록해 권한 있는 HTML CRUD와 audit event를 확인하는 예제가 있다. (`nimble docsExamples`, `nimble docsCheck`)
 - [ ] 템플릿 전역/리소스별 오버라이드와 legacy `formLayout`의 결과를 실행 예제로 확인한다.
 
 ## 10. 비동기 작업, 실시간 통신, 메시징 (P1)

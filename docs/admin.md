@@ -25,3 +25,11 @@ Successful mutations append an `AdminAuditEvent` containing action, resource,
 identifier, and actor—not request bodies or credentials. Use SQLite audit storage
 or implement `AdminAuditStore` for another append-only sink. See
 [Admin operations](admin-operations.md) and [template customization](admin-template-customization.md).
+
+## 권한·CRUD·audit 실행 예제
+
+[`examples/admin_audit.nim`](../examples/admin_audit.nim)은 인증되지 않은 list 요청이
+403인지, `admin-1`이 JSON resource를 생성·조회할 수 있는지, 그리고 audit event가
+`create`/`items`/`admin-1`만 기록하는지를 검증한다. `nimble docsExamples`로 실행하면
+`admin-audit-ok`를 출력한다. 이 예제의 in-memory store는 local contract 전용이며,
+production audit retention/backup은 [Admin operations](admin-operations.md)이 소유한다.

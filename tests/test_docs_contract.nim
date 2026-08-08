@@ -522,6 +522,20 @@ nimble test
     check pluginsGuide.contains("examples/plugin_extension.nim")
     check extensionGuide.contains("examples/plugin_extension.nim")
 
+  test "Admin example verifies authorization CRUD and audit events":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "admin_audit.nim")
+    let guide = readFile(getCurrentDir() / "docs" / "admin.md")
+    check manifest.contains("examples/admin_audit.nim")
+    check example.contains("admin-audit-ok")
+    check example.contains("denied.status == Http403")
+    check example.contains("created.status == Http201")
+    check example.contains("formUpdate")
+    check example.contains("formDelete")
+    check example.contains("Http302")
+    check example.contains("events[0].actor == \"admin-1\"")
+    check guide.contains("examples/admin_audit.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.
