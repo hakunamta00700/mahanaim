@@ -517,7 +517,7 @@
 
 수용 기준:
 
-- [ ] 빈 디렉터리에서 문서만 따라 생성 프로젝트를 만들고 route 테스트와 `nimble test`를 실행할 수 있다.
+- [x] 빈 디렉터리에서 문서만 따라 생성 프로젝트를 만들고 route 테스트와 `nimble test`를 실행할 수 있다. 생성기는 Nimble 2.2의 VCS metadata 요구사항을 위해 초기 Git repository와 baseline commit을 만들며, 생성 프로젝트의 실제 `nimble test`를 `tests/test_core.nim`에서 실행한다. (`nimble test`, `nimble docsCheck`)
 - [x] 앱 스캐폴드의 생성물과 명시적 `catalogModule()` 설치 예제가 실제 생성기 출력과 일치한다. (`nimble docsCheck`)
 
 ## 4. HTTP, 라우팅, 요청/응답 (P0)

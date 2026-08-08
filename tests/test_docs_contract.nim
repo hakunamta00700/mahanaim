@@ -108,11 +108,15 @@ suite "definition of done contracts":
       check guide.contains("src/catalog.nim")
       check guide.contains("tests/test_catalog.nim")
       check guide.contains("catalogModule()")
+    check gettingStarted.contains("nimble install")
+    check gettingStarted.contains("Initial Mahanaim project")
+    check projectLayout.contains("baseline commit")
     check generator.contains("src/catalog.nim") == false
     check generator.contains("spec.name & \".nim\"")
     check generator.contains("test_\" & spec.name & \".nim\"")
     check generator.contains("proc \" & spec.name & \"Module*")
     check generator.contains("routePath = \"/\" & routeName & \"/health\"")
+    check generator.contains("initializeGeneratedRepository(spec.root)")
 
   test "template guide documents the common safe failure paths":
     let guide = readFile(getCurrentDir() / "docs" / "templates.md")

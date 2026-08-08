@@ -27,7 +27,13 @@ nimble test
 ```text
 mahanaim new shop ./shop
 cd shop
+nimble install
 ```
+
+> **Git 요구 사항:** Nimble 2.2는 `nimble test` 전에 VCS metadata를 읽는다.
+> 따라서 `mahanaim new`는 Git repository와 `Initial Mahanaim project` baseline commit을
+> 만들며, 기존 Git identity 설정은 바꾸지 않는다. 작성자를 바꾸려면 identity를 설정한 뒤
+> `git commit --amend --reset-author --no-edit`를 실행한다.
 
 `new`는 대상이 비어 있지 않거나 프로젝트 이름이 유효한 Nim 식별자가 아니면
 실패한다. 기존 파일을 덮어쓰지 않는다.

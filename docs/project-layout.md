@@ -10,6 +10,7 @@ route, plugin, Admin resource가 자동 등록되지는 않는다.
 
 ```text
 shop/
+├── .git/              Nimble 2.2 test metadata를 위한 baseline commit
 ├── .env.example       개발 환경 변수 예시
 ├── .gitignore         secret, nimcache, 실행 파일 제외
 ├── shop.nimble        Nimble 패키지와 binary 정의

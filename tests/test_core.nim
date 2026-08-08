@@ -3429,12 +3429,17 @@ suite "Mahanaim core contracts":
     check fileExists(root / "sample_app.nimble")
     check fileExists(root / ".env.example")
     check fileExists(root / ".gitignore")
+    check dirExists(root / ".git")
     check fileExists(root / "src" / "sample_app.nim")
     check fileExists(root / "tests" / "test_app.nim")
     let manifest = readFile(root / "sample_app.nimble")
     check manifest.contains("author = \"sample_app contributors\"")
     check manifest.contains("description = \"sample_app application built with Mahanaim\"")
     check manifest.contains("license = \"MIT\"")
+    check manifest.contains("task test, \"Run the generated application tests\"")
+    check manifest.contains("nimble path mahanaim")
+    check manifest.contains("frameworkSource")
+    check manifest.contains("nim c --path:src\" & dependencyPathArgs()")
     check readFile(root / ".env.example").contains("MAHANAIM_PORT=8000")
     check readFile(root / "src" / "sample_app.nim").contains("proc createApp*")
     check readFile(root / "src" / "sample_app.nim").contains("migrationFromMetadata")
@@ -3451,6 +3456,11 @@ suite "Mahanaim core contracts":
     check readFile(root / "tests" / "test_app.nim").contains("/health")
     check readFile(root / "tests" / "test_app.nim").contains("/admin/items/new")
     check readFile(root / "tests" / "test_app.nim").contains("/items")
+    let (gitHeadOutput, gitHeadExitCode) = execCmdEx(
+      "git -C " & quoteShell(root) & " rev-parse --verify HEAD")
+    if gitHeadExitCode != 0:
+      echo gitHeadOutput
+    check gitHeadExitCode == 0
     let (dependencyOutput, dependencyExitCode) = execCmdEx(
       "nimble path nimcrypto parsetoml prologue taskpools db_connector " &
       "argon2 checksums timezones cookiejar httpx ioselectors wepoll logue " &
@@ -3473,6 +3483,16 @@ suite "Mahanaim core contracts":
     if entryCompileExitCode != 0:
       echo entryCompileOutput
     check entryCompileExitCode == 0
+    ## Test the generated command against this checkout without changing the
+    ## global Nimble package registry. Released projects use the installed
+    ## package path after `nimble install`.
+    putEnv("MAHANAIM_FRAMEWORK_ROOT", getCurrentDir())
+    defer: delEnv("MAHANAIM_FRAMEWORK_ROOT")
+    let (nimbleTestOutput, nimbleTestExitCode) = execCmdEx("nimble test",
+      workingDir = root)
+    if nimbleTestExitCode != 0:
+      echo nimbleTestOutput
+    check nimbleTestExitCode == 0
     generateApp(AppSpec(name: "inventory", root: root))
     check fileExists(root / "src" / "inventory.nim")
     check fileExists(root / "tests" / "test_inventory.nim")

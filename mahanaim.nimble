@@ -8,6 +8,9 @@ author        = "Mahanaim contributors"
 description   = "A low-magic full-stack web framework for Nim"
 license       = "MIT"
 srcDir        = "src"
+## `srcDir` changes Nimble's installation root to `src`; whitelist that root
+## itself so downstream projects receive every public source module.
+installDirs   = @["."]
 bin           = @[
   "mahanaim_cli"
 ]
