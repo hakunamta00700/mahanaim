@@ -17,4 +17,6 @@ descriptions, not implicit eager loads: choose relation loading in every endpoin
 Custom fields require an explicit wire/storage mapping. Verify each custom type
 in validation, serialization, OpenAPI, and its selected database adapter before
 claiming portability. See [serialization](serialization.md) and
-[database connections](database-connections.md).
+[database connections](database-connections.md). For repository boundaries,
+storage adapters, and external ORM session ownership, see
+[Storage/ORM integration](storage-and-orm-integration.md).

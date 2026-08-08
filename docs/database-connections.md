@@ -18,6 +18,10 @@ savepoints, and backend capabilities. Pass a current request/session adapter to
 repositories instead of opening hidden global connections. Keep transactions
 short and avoid network calls inside them.
 
+For the repository boundary and an external ORM bridge that keeps session and
+unit-of-work ownership in the application, read
+[Storage/ORM integration](storage-and-orm-integration.md).
+
 ## 민감 데이터·관계·isolation 검증
 
 모델의 `sensitive` field는 일반 serializer response에서 제외하고, relation은

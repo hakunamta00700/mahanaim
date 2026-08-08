@@ -98,6 +98,12 @@ type ExternalOrmBridge = ref object
   closeSession: proc() {.gcsafe.}
 ```
 
+`ExternalOrmBridge`는 애플리케이션 composition root가 생성하고 request/task scope가
+닫는다. route는 bridge가 제공한 repository 결과만 받아 HTTP 응답으로 변환하며 session,
+entity lazy-load, credential을 직접 만들거나 저장하지 않는다. shutdown에서는 새 scope를
+받지 않은 뒤 남은 bridge의 `closeSession()`을 호출한다. 이 예시는 framework API가 아닌
+application-owned 외부 ORM adapter의 형태를 설명한다.
+
 대신 실제 ORM의 session과 query를 감싸는 별도 module에서 bridge를 만들고,
 application startup에서 명시적으로 등록한다. entity lazy loading은 response
 serialization 이후에도 session이 살아 있다고 가정하지 말고, 필요한 projection을

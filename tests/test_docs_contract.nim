@@ -690,6 +690,18 @@ nimble test
       "- [x] Redis/Valkey/file/memory store")
     check implementationPlan.contains("docs/storage-and-orm-integration.md")
 
+  test "model database and query guides link the storage ORM ownership boundary":
+    let models = readFile(getCurrentDir() / "docs" / "models-and-metadata.md")
+    let database = readFile(getCurrentDir() / "docs" / "database-connections.md")
+    let querying = readFile(getCurrentDir() / "docs" / "querying.md")
+    let integration = readFile(getCurrentDir() / "docs" /
+      "storage-and-orm-integration.md")
+    for guide in [models, database, querying]:
+      check guide.contains("storage-and-orm-integration.md")
+    check integration.contains("ExternalOrmBridge")
+    check integration.contains("closeSession")
+    check integration.contains("application-owned 외부 ORM adapter")
+
   test "foundation checklist records the implemented core boundaries":
     ## These are repository-owned contracts, so their status must follow the
     ## public modules and repeatable tests rather than remain a stale roadmap

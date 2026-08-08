@@ -553,7 +553,7 @@
 - [x] `docs/querying.md`: QuerySet, filter/sort/pagination/cursor, projection, aggregate/annotation, eager/lazy relation, lock mode의 지원 범위를 설명한다.
 - [x] `docs/migrations.md`: migration 정의, status/up/rollback/seed, schema diff/check, SQLite/PostgreSQL 차이와 안전한 배포 순서를 설명한다.
 - [x] `docs/database-connections.md`: adapter, pool, session, transaction, savepoint, isolation, repository, request lifecycle과 capability matrix를 설명한다.
-- [ ] storage/ORM 통합 문서를 위 가이드에서 발견 가능하게 연결하고 외부 ORM ownership 예제를 보강한다.
+- [x] storage/ORM 통합 문서를 위 가이드에서 발견 가능하게 연결하고 외부 ORM ownership 예제를 보강한다. (`nimble docsCheck`)
 
 수용 기준:
 

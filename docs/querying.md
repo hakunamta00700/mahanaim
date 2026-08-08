@@ -24,3 +24,8 @@ and must include a stable sort key.
 `DatabaseRepository` maps metadata-owned names to storage and provides CRUD plus
 relation loading helpers. Eager/lazy relation choice remains explicit; measure
 query count and memory rather than assuming a relation is loaded.
+
+When a project uses another ORM, keep its entity/session lifecycle in an
+application-owned bridge rather than putting it in a route or the framework
+core. The ownership and transaction boundary is documented in
+[Storage/ORM integration](storage-and-orm-integration.md).
