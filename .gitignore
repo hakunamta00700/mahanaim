@@ -14,6 +14,7 @@ nimcache/
 /tests/test_beast_live
 /tests/test_postgres_live
 /tests/test_https_upstream
+/tests/test_core
 
 # Local configuration and secrets
 .env
