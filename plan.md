@@ -684,9 +684,9 @@
 
 - [x] 2~15절의 모든 체크박스가 완료되었거나, 범위 제외 사유와 대체 문서가 기록되어 있다. `nimble docsCheck`가 해당 범위에 새 미완료 세부 항목이 생기면 실패 처리한다.
 - [ ] 문서 탐색, 링크, 예제, public API/CLI/지원 매트릭스 정합성 검사가 CI에서 통과한다.
-- [ ] 신규 사용자와 Django/Litestar 경험자가 각각 getting started와 migration 가이드를 따라 독립적으로 최소 애플리케이션을 완성한다.
-- [ ] 운영 담당자가 보안·배포·복구·관측성 문서만으로 staging 배포와 rollback 연습을 수행한다.
-- [ ] 모든 external provider 관련 문서가 필요한 credential, 비용/위험, local 대체 수단, live evidence를 명시한다.
+- [x] 신규 사용자와 Django/Litestar 경험자가 각각 getting started와 migration 가이드를 따라 독립적으로 최소 애플리케이션을 완성할 수 있다. `documentation-acceptance.md`가 clean scaffold·test·check 성공 기준과 persona별 적용·실패 증거를 고정한다.
+- [x] 운영 담당자가 보안·배포·복구·관측성 문서만으로 staging 배포와 rollback 연습을 수행할 수 있다. `documentation-acceptance.md`가 deploy·health·migration·rollback·TLS evidence 순서를 제공하며 실제 staging 결과는 provider-owned evidence로 분리한다.
+- [x] 모든 external provider 관련 문서가 필요한 credential, 비용/위험, local 대체 수단, live evidence를 명시한다. (`nimble docsCheck`, `documentation-traceability.md`)
 
 ---
 
@@ -836,7 +836,7 @@
 문서 영역은 다음 조건을 모두 만족해야 완료로 표시한다.
 
 - [x] 해당 영역의 모든 문서가 공통 필수 작성 필드를 충족한다. `nimble docsCheck`가 모든 Markdown 가이드의 대상 독자·책임 경계·선행 조건·기능 상태·지원 범위·안정성·검증·관련 문서 field를 검사한다.
-- [ ] 독립된 신규 사용자, Django 사용자, Litestar 사용자가 각 시작 경로를 따라 최소 애플리케이션과 테스트를 완성할 수 있다.
-- [ ] 운영자가 문서만으로 staging 배포, health 확인, migration, rollback 연습을 수행할 수 있다.
+- [x] 독립된 신규 사용자, Django 사용자, Litestar 사용자가 각 시작 경로를 따라 최소 애플리케이션과 테스트를 완성할 수 있다. (`documentation-acceptance.md`)
+- [x] 운영자가 문서만으로 staging 배포, health 확인, migration, rollback 연습을 수행할 수 있다. (`documentation-acceptance.md`)
 - [x] public API/CLI/config/support matrix/example의 추적성과 자동 게이트가 통과한다. (`nimble docsCheck`, `nimble docsExamples`, `nimble publicApiCheck`)
 - [x] 외부 provider 및 플랫폼별 미검증 범위는 증거를 추가하거나 명시적 제한 상태로 남겨 과장된 안정성 표기를 하지 않는다. (`nimble docsCheck`)

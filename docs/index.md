@@ -95,6 +95,7 @@ Mahanaim은 명시적 `Application` 구성과 계약 테스트를 중심으로 �
 | 호환성·API 안정성 | [API 안정성 정책](api-stability-policy.md) |
 | 문서 유지 기준 | [문서 유지보수](documentation-maintenance.md), [Definition of Done](definition-of-done.md) |
 | API·CLI·설정·예제 추적 | [문서·검증 추적표](documentation-traceability.md) |
+| 사용자·운영 수용 검증 | [문서 수용 검증 runbook](documentation-acceptance.md) |
 | 설계 요구사항과 구현 진행 | [요구사항](nim-fullstack-framework-requirements.md), [구현 계획](nim-fullstack-framework-implementation-plan.md), [선택 도메인 결정](optional-domain-decisions.md) |
 | 공통 용어 | [용어집](glossary.md) |
 
