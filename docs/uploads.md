@@ -44,3 +44,8 @@ a server-side stored name. Store only an opaque identifier in public URLs and
 serve or redirect after authorization; never expose the storage directory as a
 static URL. Apply request-size limits at both the reverse proxy and application
 boundary.
+
+로컬에서 `UploadPolicy`, 정적 수집 경계, cache TTL을 함께 확인하려면
+[`examples/local_storage.nim`](../examples/local_storage.nim)을
+`nimble docsExamples`로 실행한다. 이 예제는 임시 디렉터리만 쓰며 S3/CDN/Redis
+credential이나 production provider 설정을 요구하지 않는다.

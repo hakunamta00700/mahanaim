@@ -619,7 +619,7 @@
 
 수용 기준:
 
-- [ ] 파일 업로드·정적 수집·캐시 TTL을 로컬에서 실행하는 예제가 있고, production provider 설정은 별도 예제로 분리된다.
+- [x] 파일 업로드·정적 수집·캐시 TTL을 로컬에서 실행하는 예제가 있고, production provider 설정은 별도 예제로 분리된다. (`nimble docsExamples`, `nimble docsCheck`)
 
 ## 12. 관측성, 테스트, 배포, 릴리스 (P0)
 

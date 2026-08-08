@@ -70,10 +70,12 @@ task httpDispatchBenchmark, "Run the deterministic HTTP dispatch benchmark":
     " -r benchmarks/http_dispatch_benchmark.nim"
 
 task docsExamples, "Compile and run executable documentation examples":
-  ## Documentation drift is a release defect. Compile and execute the minimal
-  ## example through the public package entry point on every local/CI gate.
+  ## Documentation drift is a release defect. Compile and execute the examples
+  ## through the public package entry point on every local/CI gate.
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r examples/minimal_app.nim"
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r examples/local_storage.nim"
 
 task publicApiCheck, "Compile the public package API contract":
   ## Compile-only catches removed exports and signature drift without hiding

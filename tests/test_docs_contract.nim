@@ -486,6 +486,17 @@ nimble test
     check readme.contains("`nimble docsExamples`")
     check readme.contains("`minimal-app-ok`")
 
+  test "local storage example is executable without provider credentials":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "local_storage.nim")
+    let staticGuide = readFile(getCurrentDir() / "docs" / "static-assets.md")
+    let uploadsGuide = readFile(getCurrentDir() / "docs" / "uploads.md")
+    check manifest.contains("examples/local_storage.nim")
+    check example.contains("local-storage-ok")
+    check example.contains("ttlSeconds = 60")
+    check staticGuide.contains("examples/local_storage.nim")
+    check uploadsGuide.contains("examples/local_storage.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.

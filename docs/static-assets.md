@@ -17,3 +17,17 @@ the collected output root.
 Keep static artifact collection in CI/release steps and deploy the exact generated
 directory or manifest with the application revision. Use a staging smoke test for
 cache headers, Range/ETag behavior, and CDN invalidation.
+
+## 로컬 실행 예제
+
+[`examples/local_storage.nim`](../examples/local_storage.nim)은 임시 디렉터리에서
+업로드 root와 정적 output을 분리하고, CSS 파일을 수집한 뒤 cache TTL 값을 설정한다.
+다음 명령으로 실행한다.
+
+```text
+nimble docsExamples
+```
+
+`local-storage-ok`가 출력되면 local filesystem·in-memory cache 계약이 검증된
+것이다. 이 예제는 S3 signing, CDN header/invalidation, Redis의 cross-process TTL을
+검증하지 않는다. 그런 provider 증거는 별도 credential/staging live gate로 관리한다.

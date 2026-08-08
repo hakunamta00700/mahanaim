@@ -154,3 +154,8 @@ git diff --check
 이 문서의 예제는 core contract와 adapter ownership을 설명하기 위한 것이다.
 provider SDK나 외부 ORM의 구체적인 설정은 지원 버전과 application deployment
 문서에서 별도로 고정한다.
+
+로컬 storage/static/cache의 최소 실행은
+[`examples/local_storage.nim`](../examples/local_storage.nim)과
+`nimble docsExamples`에 포함되어 있다. 이 예제의 `ttlSeconds = 60`은 local cache
+계약만 보여 주며 provider의 eviction·cross-process 일관성은 보장하지 않는다.
