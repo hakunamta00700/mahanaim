@@ -497,7 +497,7 @@
 ### 2.2 예제와 검증 인프라
 
 - [x] `examples/`를 기능별 독립 예제로 나누고 각 예제의 목적·실행 명령·기대 결과를 README에 표로 기록한다. (`nimble docsExamples`, `nimble docsCheck`)
-- [ ] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다.
+- [x] `docs/examples/` 또는 `examples/`의 코드 블록을 컴파일/실행하는 문서 예제 테스트 도구를 만든다. `nimble docsExamples`가 credential-free 예제를 공개 패키지 경로에서 컴파일·실행하고, `nimble verify` 및 CI가 이를 실행한다.
 - [x] CLI `--help` 출력과 문서의 명령·인자·종료 코드가 일치하는지 검사한다. (`nimble docsCheck`)
 - [x] public export 목록, 지원 매트릭스 행, 기능 문서 링크의 대응을 자동 검사한다. `docs/api-reference/public-modules.md`가 umbrella export별 support feature와 canonical guide를 기록하고 `nimble docsCheck`가 누락·중복 매핑을 실패 처리한다.
 - [x] 외부 서비스가 필요한 예제는 disposable 환경, 필요한 환경변수, 안전한 skip 기준을 문서와 CI에 함께 기록한다. PostgreSQL·Redis live fixture의 env/disposable/skip 경계와 CI service 설정을 `docsCheck` 계약으로 고정했다. (`nimble docsCheck`)
