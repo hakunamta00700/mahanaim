@@ -1,5 +1,11 @@
 # Mahanaim 시작 가이드
 
+**마지막 검증:** `nimble docsCheck`
+
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
 **대상 독자:** Mahanaim을 처음 사용하는 Nim 개발자
 **안정성 기준:** project generator와 core routing은 stable 범위다.
 **검증:** `nimble docsExamples`, `nimble test`, `nimble check`

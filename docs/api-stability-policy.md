@@ -1,5 +1,13 @@
 # API stability and release policy
 
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+**마지막 검증:** `nimble docsCheck`
+
 이 문서는 Mahanaim core의 공개 API와 adapter 경계에 적용하는 호환성
 정책이다. 설치 가능한 버전과 최소 dependency는 [`mahanaim.nimble`](../mahanaim.nimble)에
 있고, OS·Nim·database 지원 범위는 [`support-matrix.md`](support-matrix.md)에

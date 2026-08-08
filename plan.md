@@ -487,7 +487,7 @@
 - [x] `docs/index.md`를 만들고 목적별·역할별·기능별 탐색표와 모든 문서의 한 줄 설명을 제공한다.
 - [x] `docs/glossary.md`를 만들고 Application, module, plugin, resource, adapter, provider, store, middleware, route, representation 등의 용어를 고정한다.
 - [x] `docs/feature-map.md`를 만들고 Django/Litestar 개념과 Mahanaim API·문서의 대응 및 미지원 범위를 표시한다.
-- [ ] 모든 문서에 대상 독자, 선행 조건, 안정성 등급, 마지막 검증 명령, 관련 문서 섹션을 둔다.
+- [x] 모든 문서에 대상 독자, 선행 조건, 안정성 등급, 마지막 검증 명령, 관련 문서 섹션을 둔다. `nimble docsCheck`가 `docs/` 전체의 공통 metadata field 누락을 실패 처리한다.
 
 수용 기준:
 

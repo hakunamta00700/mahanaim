@@ -1,5 +1,14 @@
 # PostgreSQL 설정과 제한
 
+**마지막 검증:** `nimble docsCheck`
+
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+
 **대상:** Mahanaim의 선택적 PostgreSQL adapter를 평가하거나 운영 환경에 연결하는 개발자.
 **성숙도:** experimental. SQLite가 기본 stable backend다.
 **검증:** `nimble postgresCheck`, `nimble postgresLiveCheck`, credential 환경의 `nimble postgresLive`

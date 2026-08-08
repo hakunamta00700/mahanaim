@@ -1,5 +1,13 @@
 # Admin 템플릿 커스터마이징
 
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+**마지막 검증:** `nimble docsCheck`
+
 일반 페이지 템플릿의 등록·escaping·include·inheritance·locale 규칙은 [템플릿 가이드](templates.md)를 따릅니다. Admin 템플릿은 같은 엔진을 사용하지만, 아래의 Admin 전용 컨텍스트와 `admin/...` override 탐색 규칙을 추가로 가집니다. 일반 `TemplateRenderContext`를 Admin 화면에 임의로 기대하지 마십시오.
 
 Admin의 기본 HTML은 `src/mahanaim/admin_templates/`에 있는 파일로 작성되며,

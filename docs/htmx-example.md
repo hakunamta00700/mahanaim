@@ -1,5 +1,13 @@
 # HTML·JSON·HTMX 같은 route 예제
 
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+**마지막 검증:** `nimble docsCheck`
+
 `htmlJsonResponse`는 route의 도메인 조회 결과를 한 번만 계산한 뒤, 요청의
 `Accept`와 `HX-Request`에 따라 표현만 선택한다. HTML 요청은 전체 문서를,
 HTMX 요청은 partial을, JSON 요청은 API 문서를 반환한다.

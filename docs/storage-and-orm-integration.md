@@ -1,5 +1,13 @@
 # Storage and ORM integration patterns
 
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+**마지막 검증:** `nimble docsCheck`
+
 이 문서는 저장소와 ORM을 애플리케이션에 연결할 때 지켜야 하는
 framework-neutral 경계를 설명한다. Mahanaim core는 파일 시스템, Redis/Valkey,
 S3 SDK 또는 특정 외부 ORM을 직접 소유하지 않는다. 애플리케이션은 core 계약을

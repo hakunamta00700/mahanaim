@@ -1,5 +1,9 @@
 # 도입과 릴리스 가이드
 
+**마지막 검증:** `nimble docsCheck`
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
 **대상 독자:** Mahanaim을 도입하거나 릴리스를 준비하는 기술 책임자·운영자
 **선행 조건:** [시작 가이드](getting-started.md), [지원 매트릭스](support-matrix.md)
 **안정성 기준:** provider·staging 증거가 필요한 기능은 experimental로 유지한다.

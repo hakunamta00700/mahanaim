@@ -1,5 +1,11 @@
 # Mahanaim 기능 매핑
 
+**마지막 검증:** `nimble docsCheck`
+
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
 **대상 독자:** Django 또는 Litestar에서 Mahanaim으로 이전하는 개발자
 **안정성 기준:** 지원 여부는 [지원 매트릭스](support-matrix.md)가 기준이다.
 **검증:** `nimble docsCheck`

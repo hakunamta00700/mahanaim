@@ -1,5 +1,13 @@
 # Nim 풀스택 웹 프레임워크 구현 계획
 
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
+**대상 독자:** Mahanaim 사용자와 유지보수자
+**안정성 기준:** 기능별 상태는 [지원 매트릭스](support-matrix.md)를 따른다.
+**마지막 검증:** `nimble docsCheck`
+
 ### 2026-08-06 — Redis live evidence reconciliation
 
 - [x] Disposable Redis 7.2.15 live evidence revalidated `INFO`/command compatibility, bounded eviction, server-side TTL, two independent subscription sockets, publisher fan-out, and two OS worker processes through `nimble redisLive`.

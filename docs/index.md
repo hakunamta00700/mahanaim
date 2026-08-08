@@ -1,5 +1,11 @@
 # Mahanaim 문서 안내
 
+**마지막 검증:** `nimble docsCheck`
+
+**선행 조건:** Nim `>= 2.2.0`과 이 저장소 또는 설치된 Mahanaim 패키지
+
+**관련 문서:** [문서 인덱스](index.md) · [지원 매트릭스](support-matrix.md)
+
 **대상 독자:** Mahanaim을 처음 사용하는 Nim 개발자, Django/Litestar에서 이전하는 팀,
 운영·확장 담당자
 **안정성 기준:** 기능별 등급은 [지원 매트릭스](support-matrix.md)가 기준이다.

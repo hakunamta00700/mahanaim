@@ -77,6 +77,22 @@ proc publicEntryPointModules(root: string): seq[string] =
       if not line.endsWith(","):
         collecting = false
 
+proc documentationMetadataIssues(root: string): seq[string] =
+  ## Every guide starts with the same reader-facing contract fields.  Keep the
+  ## fields near the title so a user can judge scope and verification before
+  ## following a command or changing an application.
+  let requiredFields = [
+    "**대상 독자:**", "**선행 조건:**", "**안정성 기준:**",
+    "**마지막 검증:**", "**관련 문서:**"
+  ]
+  for path in walkDirRec(root / "docs"):
+    if splitFile(path).ext.toLowerAscii() != ".md":
+      continue
+    let contents = readFile(path)
+    for field in requiredFields:
+      if not contents.contains(field):
+        result.add(relativePath(path, root) & " -> " & field)
+
 suite "definition of done contracts":
   test "internal Markdown links resolve to repository documentation":
     let issues = markdownLinkIssues(getCurrentDir())
@@ -85,6 +101,10 @@ suite "definition of done contracts":
   test "documentation index links every Markdown guide":
     let missing = unindexedDocumentation(getCurrentDir())
     check missing.len == 0
+
+  test "every guide declares reader prerequisites stability verification and links":
+    let issues = documentationMetadataIssues(getCurrentDir())
+    check issues.len == 0
 
   test "CLI reference follows executable help and exit-code contracts":
     ## The CLI binary is built by the `docsCheck` task before this contract
