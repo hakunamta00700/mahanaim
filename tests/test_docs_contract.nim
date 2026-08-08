@@ -755,6 +755,21 @@ nimble test
     check manifest.contains("test_public_api_compile.nim")
     check manifest.contains("exec \"nimble publicApiCheck\"")
 
+  test "full public API reference is generated from the exported source surface":
+    ## The hand-written module map gives users a feature-oriented entry point;
+    ## Nim's documentation generator supplies the complete parameter and
+    ## return signature reference for every exported symbol.
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let reference = readFile(getCurrentDir() / "docs" / "api-reference" /
+      "README.md")
+    check manifest.contains("task apiDocs")
+    check manifest.contains("nim doc --project --docCmd:skip --index:on")
+    check manifest.contains("MAHANAIM_API_DOCS_DIR")
+    check manifest.contains("exec \"nimble apiDocs\"")
+    check reference.contains("nimble apiDocs")
+    check reference.contains("build/api-reference/theindex.html")
+    check reference.contains("MAHANAIM_API_DOCS_DIR")
+
   test "every umbrella export has one support-matrix and guide mapping":
     ## Re-exporting a module makes its `*` symbols public to `import mahanaim`.
     ## A future module must therefore name both its maturity owner and a

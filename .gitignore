@@ -3,6 +3,7 @@
 
 # Nim build artifacts
 nimcache/
+/build/
 *.exe
 *.dll
 *.so

@@ -94,6 +94,19 @@ task docsExamples, "Compile and run executable documentation examples":
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r examples/jobs_realtime_channels.nim"
 
+task apiDocs, "Generate the complete public API reference":
+  ## Source comments and exported signatures are the authoritative detailed
+  ## API reference. Generate all public modules together so additions cannot
+  ## quietly remain documented only in a hand-maintained index.
+  let outputDir = absolutePath(getEnv("MAHANAIM_API_DOCS_DIR",
+    getCurrentDir() / "build" / "api-reference"))
+  let sourceRoot = getCurrentDir() / "src"
+  exec "nim doc --project --docCmd:skip --index:on --outdir:" &
+    quoteShell(outputDir) & " --docRoot:" & quoteShell(sourceRoot) &
+    " --path:src" & dependencyPathArgs() & " src/mahanaim.nim"
+  if not fileExists(outputDir / "theindex.html"):
+    quit "API documentation index was not generated", QuitFailure
+
 task publicApiCheck, "Compile the public package API contract":
   ## Compile-only catches removed exports and signature drift without hiding
   ## runtime semantics inside a static contract test.
@@ -107,6 +120,7 @@ task verify, "Compile the CLI and validate package contracts":
   exec "nimble build"
   exec "nimble lockCheck"
   exec "nimble docsCheck"
+  exec "nimble apiDocs"
   exec "nimble docsExamples"
   exec "nimble publicApiCheck"
 

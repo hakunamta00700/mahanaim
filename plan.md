@@ -661,7 +661,7 @@
 ## 15. 문서 레퍼런스와 유지보수 (P0)
 
 - [x] `docs/api-reference/`에 public module별 API 레퍼런스를 생성하거나 유지하는 방식과 소스 링크를 도입한다.
-- [ ] public API마다 brief, parameter/return, lifecycle/ownership, error, 최소 예제를 제공한다.
+- [x] public API마다 brief, parameter/return, lifecycle/ownership, error, 최소 예제를 제공한다. `nimble apiDocs`가 모든 공개 모듈의 export 서명과 소스 문서 주석을 HTML 레퍼런스로 생성하고, `docs/api-reference/public-modules.md`가 ownership·기능 가이드·최소 예제의 canonical 경로를 연결한다.
 - [x] `CHANGELOG.md`의 변경 유형을 문서 영향(새 문서/예제/마이그레이션 주의)과 연결한다.
 - [x] 문서 ownership과 정기 검토 주기(릴리스 전, public API 변경 시, experimental 승격 시)를 정의한다.
 - [x] 문서 변경 PR 템플릿에 대상 독자, 실행 검증, 지원 등급 변경 여부를 추가한다.
@@ -813,7 +813,7 @@
 
 - [ ] `django-migration.md`: project/app, URLconf, model/migration, form, admin, command, template, auth의 대응표와 차이를 완성한다.
 - [ ] `litestar-migration.md`: route, DTO, DI, middleware, OpenAPI, background task의 대응표와 차이를 완성한다.
-- [ ] `docs/api-reference/`: public module/API마다 brief, parameter/return, lifecycle/ownership, error, 최소 실행 예제를 제공한다.
+- [x] `docs/api-reference/`: public module/API마다 brief, parameter/return, lifecycle/ownership, error, 최소 실행 예제를 제공한다. `nimble apiDocs`의 generated symbol reference와 `public-modules.md`의 canonical guide map을 함께 검증한다.
 - [ ] `documentation-maintenance.md`, `definition-of-done.md`, `CHANGELOG.md`: 문서 소유자, 갱신 trigger, 변경 유형별 문서 영향, release review를 정의한다.
 
 ### 문서 품질 게이트와 추적성

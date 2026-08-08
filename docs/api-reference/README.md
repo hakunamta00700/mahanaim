@@ -29,3 +29,19 @@ New public exports require a brief, parameter/return contract, ownership and
 lifecycle notes, error behavior, and a minimum example here or in its feature
 guide. Deliberately excluded internal helpers must remain unexported; a public
 export with no documented surface is a documentation defect.
+
+## 전체 심볼 레퍼런스 생성
+
+모듈별 `*` 공개 심볼의 서명과 소스 문서 주석은 Nim 문서 생성기가 단일 HTML
+레퍼런스로 만듭니다. 저장소 루트에서 다음을 실행하세요.
+
+```sh
+nimble apiDocs
+```
+
+기본 출력은 `build/api-reference/theindex.html`입니다. 출력 위치를 바꾸려면
+`MAHANAIM_API_DOCS_DIR`을 설정합니다. 이 생성물은 `nimble verify`에서도
+만들어지므로, 잠긴 의존성과 현재 공개 API로 문서가 실제 생성되는지 항상
+확인합니다. 작업 흐름, ownership, 오류 경계, 최소 실행 예제는 이 문서의
+[public module map](public-modules.md)이 연결하는 canonical guide에서 함께
+확인하세요.
