@@ -1,7 +1,7 @@
 # PostgreSQL 설정과 제한
 
-**대상:** Mahanaim의 선택적 PostgreSQL adapter를 평가하거나 운영 환경에 연결하는 개발자.  
-**성숙도:** experimental. SQLite가 기본 stable backend다.  
+**대상:** Mahanaim의 선택적 PostgreSQL adapter를 평가하거나 운영 환경에 연결하는 개발자.
+**성숙도:** experimental. SQLite가 기본 stable backend다.
 **검증:** `nimble postgresCheck`, `nimble postgresLiveCheck`, credential 환경의 `nimble postgresLive`
 
 PostgreSQL adapter는 SQLite와 같은 metadata, migration, repository 계약을 사용하지만

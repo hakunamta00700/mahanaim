@@ -1,7 +1,7 @@
 # SQLite CRUD와 migration 튜토리얼
 
-**대상:** Mahanaim에서 로컬 SQLite 모델을 처음 만드는 개발자.  
-**성숙도:** SQLite는 stable이며, PostgreSQL 전환은 [PostgreSQL 설정과 제한](postgresql.md)을 별도로 확인한다.  
+**대상:** Mahanaim에서 로컬 SQLite 모델을 처음 만드는 개발자.
+**성숙도:** SQLite는 stable이며, PostgreSQL 전환은 [PostgreSQL 설정과 제한](postgresql.md)을 별도로 확인한다.
 **실행 검증:** `nimble docsExamples` (`examples/sqlite_crud_migration.nim`)
 
 이 튜토리얼은 빈 SQLite 데이터베이스에서 metadata를 선언하고 migration을 적용한
