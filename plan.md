@@ -820,7 +820,7 @@
 
 - [ ] 각 공개 API·CLI·환경 변수·기능은 API reference 또는 기능 문서, support matrix, 실행 예제/테스트로 연결되는 추적 표를 갖는다.
 - [x] `nimble docsCheck`가 링크, 필수 문서, 지원 상태, provider 경계, CLI/API 문서 계약을 검증한다. (`nimble docsCheck`)
-- [ ] `nimble docsExamples`가 모든 credential-free 예제를 컴파일·실행하고, 예상 성공 표식을 검증한다.
+- [x] `nimble docsExamples`가 모든 credential-free 예제를 컴파일·실행하고, 예상 성공 표식을 검증한다. `docsCheck`가 `examples/*.nim` 전체를 `docsExamples` task·README 카탈로그·성공 표식과 대조한다.
 - [ ] 예제가 credential, 유료 계정, 외부 네트워크를 요구하면 기본 CI에서는 명시적으로 skip하고, disposable live gate의 환경 변수·비용·증거 위치를 문서화한다.
 - [x] `nimble test`, `nimble verify`, `nimble check`, `nimble docsCheck`, `nimble docsExamples`, `git diff --check`를 문서 변경의 기본 완료 게이트로 사용한다. (`nimble verify`, `nimble docsCheck`, `nimble docsExamples`, `git diff --check`)
 - [ ] CI에서 macOS, staging TLS/renewal, credentialed provider처럼 외부 증거가 필요한 항목은 성공 로그/manifest를 첨부하기 전까지 experimental 또는 pending으로 남긴다.

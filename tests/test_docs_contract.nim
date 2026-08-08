@@ -634,6 +634,29 @@ nimble test
                    "jobs-realtime-channels-ok"]:
       check readme.contains(result)
 
+  test "every checked-in credential-free example is run and cataloged":
+    ## A newly added example must not become a documentation-only snippet.
+    ## Keep the runnable source directory, the docsExamples task, and the
+    ## README catalogue in one contract so CI fails until its execution path
+    ## and success marker are recorded.
+    let root = getCurrentDir()
+    let manifest = readFile(root / "mahanaim.nimble")
+    let readme = readFile(root / "README.md")
+    let taskStart = manifest.find("task docsExamples")
+    let taskEnd = manifest.find("task apiDocs", taskStart)
+    check taskStart >= 0
+    check taskEnd > taskStart
+    let examplesTask = manifest[taskStart ..< taskEnd]
+    var count = 0
+    for path in walkFiles(root / "examples" / "*.nim"):
+      inc count
+      let relative = relativePath(path, root).replace('\\', '/')
+      let source = readFile(path)
+      check examplesTask.contains(relative)
+      check readme.contains(relative)
+      check source.contains("-ok")
+    check count > 0
+
   test "jobs realtime and channel guides link one credential-free example":
     let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
     let example = readFile(getCurrentDir() / "examples" /
