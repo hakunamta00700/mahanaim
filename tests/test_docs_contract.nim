@@ -486,6 +486,17 @@ nimble test
     check readme.contains("`nimble docsExamples`")
     check readme.contains("`minimal-app-ok`")
 
+  test "README gives a new user one-screen install scaffold test and next path":
+    let readme = readFile(getCurrentDir() / "README.md")
+    for command in ["nimble install", "nimble build",
+                    ".\\mahanaim_cli.exe new shop ./shop", "nimble test",
+                    "nimble run -- dev"]:
+      check readme.contains(command)
+    for guide in ["docs/getting-started.md", "docs/project-layout.md",
+                  "docs/cli-reference.md", "docs/feature-map.md",
+                  "docs/operations-guide.md"]:
+      check readme.contains("](" & guide & ")")
+
   test "README catalogs every executable example with its expected result":
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",

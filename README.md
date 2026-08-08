@@ -12,6 +12,29 @@ Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프�
 - WebSocket, SSE, background task, 캐시와 관측성
 - Prologue의 단순하고 확장 가능한 HTTP 기반
 
+## 새 사용자 빠른 시작
+
+Nim `>= 2.2.0`과 Nimble이 PATH에 있다고 가정한다. 저장소에서 CLI를 빌드한 뒤
+새 프로젝트를 만들고, 생성 프로젝트 안에서 dependency 설치·test·pre-flight 실행을
+순서대로 수행한다.
+
+```powershell
+nimble install
+nimble build
+.\mahanaim_cli.exe new shop ./shop
+cd shop
+nimble install
+nimble test
+nimble run -- dev
+```
+
+Unix에서는 `./mahanaim_cli`를 사용한다. `dev`는 설정과 route/model/security
+pre-flight를 실행하며, 실패하면 종료 코드 `1`로 원인을 출력한다. 다음에는
+`mahanaim app catalog`로 모듈을 추가하고 [시작 가이드](docs/getting-started.md),
+[프로젝트 구조](docs/project-layout.md), [CLI 레퍼런스](docs/cli-reference.md),
+[기능 매핑](docs/feature-map.md), [운영 가이드](docs/operations-guide.md)에서
+각 경로를 이어간다.
+
 ## 실행 예제
 
 저장소를 복제한 개발자는 아래 예제로 public API의 최소 route·dispatch·lifecycle
