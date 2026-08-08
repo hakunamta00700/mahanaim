@@ -113,6 +113,13 @@ suite "definition of done contracts":
     check generator.contains("test_\" & spec.name & \".nim\"")
     check generator.contains("proc \" & spec.name & \"Module*")
     check generator.contains("routePath = \"/\" & routeName & \"/health\"")
+
+  test "template guide documents the common safe failure paths":
+    let guide = readFile(getCurrentDir() / "docs" / "templates.md")
+    check guide.contains("## 문제 해결")
+    for concern in ["XSS", "collection", "template을 찾을 수 없음", "CSRF"]:
+      check guide.contains(concern)
+    check guide.contains("csrfHiddenInput(request, policy)")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
