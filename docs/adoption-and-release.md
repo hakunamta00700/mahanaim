@@ -5,6 +5,11 @@
 **안정성 기준:** provider·staging 증거가 필요한 기능은 experimental로 유지한다.
 **검증:** `nimble test`, `nimble verify`, `nimble docsCheck`
 
+Docker/nginx/systemd 파일과 명령은 [배포 레시피](deployment-recipes.md),
+health·drain·provider 복구 정책은 [운영 가이드](operations-guide.md)가 각각
+canonical source다. 이 문서는 도입 순서, release qualification, rollback 판단을
+정리한다.
+
 ## SSR/Admin 애플리케이션 시작
 
 `mahanaim new shop ./shop`으로 완전한 starter project를 만든다. 이 프로젝트에서

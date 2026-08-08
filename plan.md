@@ -627,7 +627,7 @@
 - [x] `docs/testing.md`: unit/contract/in-process client/network fixture, DB fixture, HTTP/SSE/WebSocket 테스트, external live test skip 정책을 설명한다.
 - [x] `docs/deployment.md`: Docker, nginx/reverse proxy, systemd, graceful shutdown, readiness, migration/rollback 순서를 단일 진입점으로 정리한다.
 - [x] `docs/release-guide.md`: versioning, changelog, support matrix, lockfile, artifact manifest, CI matrix, release qualification을 설명한다.
-- [ ] 운영 가이드·배포 레시피·Adoption/release 문서의 중복을 정리하고 상호 링크 또는 하나의 canonical section으로 통합한다.
+- [x] 운영 가이드·배포 레시피·Adoption/release 문서의 중복을 정리하고 상호 링크 또는 하나의 canonical section으로 통합한다. (`nimble docsCheck`)
 
 수용 기준:
 

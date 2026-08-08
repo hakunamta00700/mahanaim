@@ -4,6 +4,11 @@ These files are deployment templates, not an application generator. The
 application owns its entry module, credentials, migration policy, TLS renewal,
 and route-level readiness behavior.
 
+This guide is the canonical source for Docker/nginx/systemd commands and files.
+For runtime health, drain, and provider recovery policy read the
+[operations guide](operations-guide.md); for release gates and rollback
+decisions read the [adoption and release guide](adoption-and-release.md).
+
 ## Docker and reverse proxy
 
 Set `MAHANAIM_APP_MAIN` to the generated application entrypoint and review the

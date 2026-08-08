@@ -4,6 +4,11 @@
 필요한 기능의 책임 범위를 고정한다. 운영 환경에서는 정책을 코드의 기본값에
 의존하지 말고 `AppConfig`, `ExecutionPolicy`, `SecurityPolicy`로 명시한다.
 
+Docker/nginx/systemd 명령과 파일은 [배포 레시피](deployment-recipes.md)가
+canonical source이며, 도입 순서·릴리스 gate·rollback 의사결정은
+[도입과 릴리스](adoption-and-release.md)를 따른다. 이 문서는 health, readiness,
+drain, provider 복구 같은 런타임 운영 정책을 소유한다.
+
 ## 요청 추적과 health
 
 - 모든 dispatch 요청은 유효한 `X-Request-ID`를 보존하고, 없거나 안전하지 않은

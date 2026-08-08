@@ -174,6 +174,17 @@ suite "definition of done contracts":
     for item in ["지원 매트릭스", "CHANGELOG.md", "문서 인덱스",
                  "실행 예제", "nimble docsCheck", "provider·배포 제한"]:
       check guide.contains(item)
+
+  test "operations deployment and adoption guides name their canonical scopes":
+    let operations = readFile(getCurrentDir() / "docs" / "operations-guide.md")
+    let recipes = readFile(getCurrentDir() / "docs" / "deployment-recipes.md")
+    let adoption = readFile(getCurrentDir() / "docs" / "adoption-and-release.md")
+    check operations.contains("[배포 레시피](deployment-recipes.md)")
+    check operations.contains("[도입과 릴리스](adoption-and-release.md)")
+    check recipes.contains("[operations guide](operations-guide.md)")
+    check recipes.contains("[adoption and release guide](adoption-and-release.md)")
+    check adoption.contains("[배포 레시피](deployment-recipes.md)")
+    check adoption.contains("[운영 가이드](operations-guide.md)")
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")
