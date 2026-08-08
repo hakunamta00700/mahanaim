@@ -644,7 +644,7 @@
 
 수용 기준:
 
-- [ ] 독립 plugin 예제가 route 하나와 서비스 하나를 등록하고 dependency/duplicate 오류를 검증한다.
+- [x] 독립 plugin 예제가 route 하나와 서비스 하나를 등록하고 dependency/duplicate 오류를 검증한다. (`nimble docsExamples`, `nimble docsCheck`)
 - [x] extension 문서는 startup 이후 등록 불가와 resource ownership 규칙을 명시한다. (`nimble docsCheck`)
 
 ## 14. Django/Litestar 전환과 기능 상태 (P2)

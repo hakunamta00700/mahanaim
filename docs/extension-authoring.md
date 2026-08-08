@@ -16,3 +16,8 @@ Never register a route, provider, plugin, or adapter after startup begins.
 Before release, test successful install, duplicate/dependency failure, startup/
 shutdown cleanup, error redaction, resource disposal, and a consumer's minimal
 route/service integration. Document any external service/live-test requirements.
+
+로컬 plugin의 route/service 및 duplicate/dependency 실패 경로는
+[`examples/plugin_extension.nim`](../examples/plugin_extension.nim)에서
+`nimble docsExamples`로 실행한다. 외부 provider client의 credential, lifecycle,
+live evidence는 extension 소비 애플리케이션이 별도 test/staging 환경에서 소유한다.

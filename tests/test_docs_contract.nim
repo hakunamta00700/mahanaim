@@ -509,6 +509,19 @@ nimble test
     check apiGuide.contains("examples/api_artifacts.nim")
     check openApiGuide.contains("examples/api_artifacts.nim")
 
+  test "plugin extension example covers route service and manifest failures":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "plugin_extension.nim")
+    let pluginsGuide = readFile(getCurrentDir() / "docs" / "plugins.md")
+    let extensionGuide = readFile(getCurrentDir() / "docs" / "extension-authoring.md")
+    check manifest.contains("examples/plugin_extension.nim")
+    check example.contains("plugin-extension-ok")
+    check example.contains("app.provide(\"example.greeting\"")
+    check example.contains("app.get(\"/plugin-greeting\"")
+    check example.contains("resolvePluginManifests")
+    check pluginsGuide.contains("examples/plugin_extension.nim")
+    check extensionGuide.contains("examples/plugin_extension.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.
