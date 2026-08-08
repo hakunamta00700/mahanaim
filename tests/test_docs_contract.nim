@@ -166,6 +166,14 @@ suite "definition of done contracts":
     check email.contains("disposable\nwire endpoint before production")
     check email.contains("callback transport is a local/test boundary")
     check adapters.contains("local callback/in-memory adapter is not proof")
+
+  test "release reviewer has one documentation consistency checklist":
+    let guide = readFile(getCurrentDir() / "docs" /
+      "documentation-maintenance.md")
+    check guide.contains("## 릴리스 전 문서 검토 체크리스트")
+    for item in ["지원 매트릭스", "CHANGELOG.md", "문서 인덱스",
+                 "실행 예제", "nimble docsCheck", "provider·배포 제한"]:
+      check guide.contains(item)
   test "repository checklist contains the required evidence sections":
     let issues = validateDefinitionOfDone(getCurrentDir() / "docs" /
       "definition-of-done.md")

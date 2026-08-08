@@ -12,3 +12,16 @@ Before merge, run `nimble docsCheck`, `nimble docsExamples`, and
 `nimble publicApiCheck`; run required live gates or state their credentialed
 environment evidence explicitly. Before release, reconcile support matrix,
 changelog, API reference, guides, examples, and deployment limitations.
+
+## 릴리스 전 문서 검토 체크리스트
+
+- [ ] [지원 매트릭스](support-matrix.md)의 maturity·target·evidence가 이번
+  release의 실제 gate와 일치한다.
+- [ ] `CHANGELOG.md`에 사용자 영향, migration/deprecation, security 조치가
+  기록돼 있다.
+- [ ] 변경된 public API·CLI·기능의 가이드와 [문서 인덱스](index.md)가 갱신돼
+  있으며, 실행 예제와 기대 결과가 남아 있다.
+- [ ] `nimble docsCheck`, `nimble docsExamples`, `nimble publicApiCheck`와
+  필요한 live gate의 결과 또는 명시적 credential skip 증거를 검토한다.
+- [ ] provider·배포 제한, 비용·위험, rollback/운영 조치가 문서에 남아 있으며
+  experimental 기능을 증거 없이 stable로 올리지 않는다.
