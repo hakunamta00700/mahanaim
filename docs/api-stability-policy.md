@@ -39,7 +39,7 @@ core와 adapter의 책임을 분리한다.
 
 | 영역 | 기준 | release evidence |
 | --- | --- | --- |
-| Nim/compiler | manifest의 최소 Nim과 CI matrix의 baseline `2.2.4` | `nimble check`, OS/Nim matrix |
+| Nim/compiler | manifest의 최소 Nim과 CI matrix의 baseline `2.2.10` | `nimble check`, OS/Nim matrix |
 | package dependency | `mahanaim.nimble`의 minimum version과 `nimble.lock` checksum | `nimble lockCheck`, clean install |
 | HTTP adapter | core contract와 Prologue `0.6.8` compatibility boundary | compile/contract/live adapter gate |
 | database | SQLite 기본 backend와 PostgreSQL adapter capability | unit contract 및 PostgreSQL live gate |

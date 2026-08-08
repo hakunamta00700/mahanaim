@@ -17,7 +17,7 @@
 
 | 축 | 기준 | 검증 방법 |
 | --- | --- | --- |
-| Nim | `>= 2.2.0` (개발·CI 기준 `2.2.4`) | `validateRuntimeSupport`와 manifest |
+| Nim | `>= 2.2.0` (개발·CI 기준 `2.2.10`) | `validateRuntimeSupport`와 manifest |
 | Windows | stdlib HTTP/Prologue transport | Windows native socket smoke test |
 | Linux | stdlib HTTP와 Beast/httpx adapter 경계 | Linux CI와 optional live fixture |
 | macOS | backend-neutral core 및 stdlib adapter 목표 | release matrix에서 별도 실행 |
@@ -39,19 +39,19 @@
 
 | feature | maturity | supported targets | evidence |
 | --- | --- | --- | --- |
-| application-routing | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble publicApiCheck` |
-| dependency-injection | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
-| typed-api-openapi | experimental | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
+| application-routing | stable | Nim 2.2.10; Windows/Linux/macOS | `nimble test`, `nimble publicApiCheck` |
+| dependency-injection | stable | Nim 2.2.10; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
+| typed-api-openapi | experimental | Nim 2.2.10; Windows/Linux/macOS | `nimble test`, `nimble docsExamples` |
 | sqlite-storage | stable | SQLite; Windows/Linux/macOS | `nimble test` |
 | postgresql-adapter | experimental | PostgreSQL 16; Linux CI, Windows/macOS compile | `nimble postgresCheck`, `nimble postgresLive` |
 | admin-forms | experimental | SQLite; Windows/Linux/macOS | `nimble test`, browser smoke evidence |
-| authentication-security | experimental | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, provider contract fixture |
+| authentication-security | experimental | Nim 2.2.10; Windows/Linux/macOS | `nimble test`, provider contract fixture |
 | email-notifications | experimental | callback transport; Windows/Linux/macOS | `nimble test`, disposable SMTP wire evidence |
 | background-jobs | experimental | SQLite durable store; Windows/Linux/macOS | `nimble test`, queue provider live evidence |
 | http-transport | experimental | Prologue; httpx/Beast on Linux | `nimble httpxTest`, `nimble beastLive` |
 | storage-cache-rate-limit | experimental | Redis 7.2/Valkey 8.1; S3-compatible callback | `nimble redisLive`, credentialed S3 evidence |
 | realtime-events | experimental | loopback/WebSocket; Redis channel layer | `nimble test`, WebSocket wire evidence |
-| observability-testing-cli | stable | Nim 2.2.4; Windows/Linux/macOS | `nimble test`, `nimble verify` |
+| observability-testing-cli | stable | Nim 2.2.10; Windows/Linux/macOS | `nimble test`, `nimble verify` |
 
 이 표의 `feature`, `maturity`, `supported targets`, `evidence` 열과 모든
 first-party feature 행은 `tests/test_docs_contract.nim`에서 검증한다.
@@ -97,7 +97,7 @@ before treating them as production-ready:
 
 ## macOS release runner baseline (2026-08-05)
 
-- [x] GitHub Actions cross-platform matrix에 `macos-latest`와 Nim 2.2.4 runner를 선언했다.
+- [x] GitHub Actions cross-platform matrix에 `macos-latest`와 Nim 2.2.10 runner를 선언했다.
 - [x] macOS는 Homebrew `libpq` runtime을 별도 설치하고 `shasum -a 256`으로 release candidate checksum을 생성·검증한다.
 - [ ] 실제 GitHub macOS runner의 test·verify·check·build 성공 로그와 artifact 업로드 증거는 외부 CI 실행에서 수집한다.
 

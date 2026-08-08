@@ -105,7 +105,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        nim: ["2.2.4"]
+        # Keep all three hosted runners on a currently published patch release.
+        # Older macOS archives are not retained indefinitely by nim-lang.org.
+        nim: ["2.2.10"]
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -124,13 +126,19 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Historic macOS archives are not retained for every Nim patch
-          # release. The Nim-maintained chooser resolves the requested
-          # version and installs its matching platform artifact.
-          export CHOOSENIM_CHOOSE_VERSION="${{ matrix.nim }}"
+          # Use the matching published macOS archive rather than a Linux
+          # archive or an unpinned package manager. GitHub may rotate the
+          # hosted image between Intel and Apple Silicon.
+          case "$(uname -m)" in
+            arm64) archive_arch=arm64 ;;
+            x86_64) archive_arch=x64 ;;
+            *) echo "Unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
           curl --fail --location --silent --show-error \
-            https://nim-lang.org/choosenim/init.sh | sh -s -- -y
-          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
+            "https://nim-lang.org/download/nim-${{ matrix.nim }}-macosx_${archive_arch}.tar.xz" \
+            --output nim.tar.xz
+          tar -xJf nim.tar.xz
+          echo "$PWD/nim-${{ matrix.nim }}/bin" >> "$GITHUB_PATH"
 
       - name: Install Nim (Windows)
         if: runner.os == 'Windows'

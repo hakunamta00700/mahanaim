@@ -18,7 +18,7 @@
 
 ## 현재 기준
 
-- Nim 최소 버전: `2.2.4` 기준으로 검증한다.
+- Nim 최소 버전: `2.2.0` 이상을 지원하고, CI baseline은 `2.2.10`이다.
 - 기본 CI OS: Linux와 Windows.
 - 기본 HTTP 의존성: Prologue `0.6.8` 및 lockfile에 기록된 의존성 집합.
 - 기본 데이터 backend: SQLite.
