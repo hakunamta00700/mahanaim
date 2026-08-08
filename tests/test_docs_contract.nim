@@ -504,6 +504,18 @@ nimble test
                   "docs/cli-reference.md", "docs/operations-guide.md"]:
       check readme.contains("](" & guide & ")")
 
+  test "CI fails pull requests when documentation contracts or examples drift":
+    let workflow = readFile(getCurrentDir() / ".github" / "workflows" /
+      "ci.yml")
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    check workflow.contains("run: nimble verify")
+    check workflow.contains("run: nimble docsCheck")
+    check manifest.contains("task docsExamples")
+    check manifest.contains("exec \"nimble docsCheck\"")
+    check manifest.contains("exec \"nimble docsExamples\"")
+    check readFile(getCurrentDir() / "docs" / "support-matrix.md").contains(
+      "## 기능 문서 연결")
+
   test "README catalogs every executable example with its expected result":
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",

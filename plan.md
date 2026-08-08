@@ -476,7 +476,7 @@
 - [x] README에서 설치부터 첫 요청, 기능별 가이드, API/CLI 레퍼런스, 운영 문서로 3회 이내 클릭으로 이동할 수 있다. 설치·생성은 빠른 시작에, 첫 요청은 실행 예제에, feature/API/CLI/운영 문서는 직접 링크에 고정했다. (`nimble docsCheck`)
 - [x] 지원 매트릭스의 모든 feature 행에 대응하는 사용자 문서 또는 명시적인 "미지원/계획" 문서 링크가 있다. (`nimble docsCheck`)
 - [ ] 모든 사용자 가이드에 최소 한 개의 실행 가능한 Nim 예제가 있고 CI에서 실행된다.
-- [ ] 링크 검사, 예제 검사, 문서-지원매트릭스 대응 검사, `nimble docsCheck`가 CI에서 통과한다.
+- [x] 링크 검사, 예제 검사, 문서-지원매트릭스 대응 검사, `nimble docsCheck`가 CI에서 통과한다. CI의 `nimble verify`가 `docsCheck`와 `docsExamples`를 실행하고, workflow가 `docsCheck`를 명시적으로 다시 실행한다. (`nimble docsCheck`)
 - [ ] 기능 문서의 API·명령·환경변수·기본값이 public API compile test와 CLI 테스트에 의해 검증된다.
 
 ## 2. 문서 정보 구조와 공통 기반 (P0)
