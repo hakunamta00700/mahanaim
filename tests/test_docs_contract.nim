@@ -516,6 +516,20 @@ nimble test
     check readFile(getCurrentDir() / "docs" / "support-matrix.md").contains(
       "## 기능 문서 연결")
 
+  test "documentation gates do not require external provider credentials":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let examplesStart = manifest.find("task docsExamples")
+    let examplesEnd = manifest.find("task publicApiCheck", examplesStart)
+    check examplesStart >= 0
+    check examplesEnd > examplesStart
+    let examplesTask = manifest[examplesStart ..< examplesEnd]
+    for externalName in ["postgres", "redis", "https", "releaseManifest"]:
+      check not examplesTask.toLowerAscii().contains(externalName.toLowerAscii())
+    for skip in ["PostgreSQL live test skipped: credentials are not configured",
+                 "Redis/Valkey live test skipped: connection settings are not configured",
+                 "HTTPS live test skipped: MAHANAIM_HTTPS_URL is not configured"]:
+      check manifest.contains(skip)
+
   test "README catalogs every executable example with its expected result":
     let readme = readFile(getCurrentDir() / "README.md")
     for example in ["minimal_app", "local_storage", "api_artifacts",
