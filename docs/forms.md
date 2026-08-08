@@ -26,3 +26,8 @@ CSRF token across all rows.
 Use `WidgetRegistry.registerWidget` to replace a field widget. The callback must
 escape inserted values and must not trust raw request input. Keep business rules
 in `FieldSpec` or model metadata, not the widget.
+
+템플릿과 HTMX representation을 결합한 실제 route는
+[`examples/template_form_htmx.nim`](../examples/template_form_htmx.nim)을 참고한다.
+이 예제는 과도한 길이의 `email` form input이 escaped validation error로 렌더링되는지도
+`nimble docsExamples`에서 검증한다.

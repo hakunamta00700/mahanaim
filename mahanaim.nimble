@@ -84,6 +84,8 @@ task docsExamples, "Compile and run executable documentation examples":
     " -r examples/admin_audit.nim"
   exec "nim c --path:src" & dependencyPathArgs() &
     " -r examples/admin_templates.nim"
+  exec "nim c --path:src" & dependencyPathArgs() &
+    " -r examples/template_form_htmx.nim"
 
 task publicApiCheck, "Compile the public package API contract":
   ## Compile-only catches removed exports and signature drift without hiding

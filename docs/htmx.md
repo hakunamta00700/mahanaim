@@ -24,3 +24,7 @@ Make the ordinary link or form work without HTMX, then add `hx-*` as an
 enhancement. Preserve the same authorization and data policy for every
 representation. See [responses and negotiation](responses-and-negotiation.md)
 and [the compact example](htmx-example.md).
+
+[`examples/template_form_htmx.nim`](../examples/template_form_htmx.nim)은 동일한
+Application에서 full HTML, `HX-Request` partial, JSON, form 오류를 dispatch해
+검증하는 실행 예제다. `nimble docsExamples`로 실행한다.

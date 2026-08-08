@@ -548,6 +548,19 @@ nimble test
     check example.contains("legacy-layout")
     check guide.contains("examples/admin_templates.nim")
 
+  test "template form and HTMX example runs through one application":
+    let manifest = readFile(getCurrentDir() / "mahanaim.nimble")
+    let example = readFile(getCurrentDir() / "examples" / "template_form_htmx.nim")
+    let formsGuide = readFile(getCurrentDir() / "docs" / "forms.md")
+    let htmxGuide = readFile(getCurrentDir() / "docs" / "htmx.md")
+    check manifest.contains("examples/template_form_htmx.nim")
+    check example.contains("template-form-htmx-ok")
+    check example.contains("htmlJsonResponse")
+    check example.contains("bindForm")
+    check example.contains("HX-Request")
+    check formsGuide.contains("examples/template_form_htmx.nim")
+    check htmxGuide.contains("examples/template_form_htmx.nim")
+
   test "public API compile contract is wired into verify":
     ## The root package export surface needs an explicit compile gate in
     ## addition to the large runtime contract suite.

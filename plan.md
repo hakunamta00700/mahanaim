@@ -544,7 +544,7 @@
 수용 기준:
 
 - [x] XSS escaping, 누락 collection, 잘못된 template name, CSRF 오류를 포함한 문제 해결 표가 있다. (`nimble docsCheck`)
-- [ ] 템플릿·폼·HTMX 예제가 단일 애플리케이션에서 실행된다.
+- [x] 템플릿·폼·HTMX 예제가 단일 애플리케이션에서 실행된다. (`nimble docsExamples`, `nimble docsCheck`)
 
 ## 6. 모델, 직렬화, 데이터베이스 (P1)
 
