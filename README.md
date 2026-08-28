@@ -1,16 +1,39 @@
 # Mahanaim
 
-Mahanaim은 Nim으로 Django와 Litestar에 견줄 수 있는 풀스택 웹 프레임워크를 설계·구현하기 위한 프로젝트입니다.
+Mahanaim은 **낮은 마법(low-magic)**, 명시적인 adapter 경계, 재현 가능한 검증을
+중심으로 설계한 Nim 풀스택 웹 프레임워크입니다. Django와 Litestar가 제공하는
+개발 경험을 참고하되, HTTP·데이터베이스·메시지 브로커·배포 환경의 소유권을
+애플리케이션 코드에서 숨기지 않는 것을 우선합니다.
 
-## 목표
+> **개발 상태:** `0.1.0` 개발 프리뷰입니다. 공개 API 안정성 등급과 변경 정책은
+> [API 안정성 정책](docs/api-stability-policy.md)을 따르며, 기능별 production
+> 준비 상태는 [지원 매트릭스](docs/support-matrix.md)의 증거를 기준으로 판단합니다.
 
-하나의 Nim 애플리케이션에서 다음을 함께 제공하는 것을 목표로 합니다.
+## 현재 제공 범위
 
-- 서버 사이드 렌더링, 템플릿, 폼, 관리자 화면
-- 타입 안전한 API, 입력 검증, DTO, 자동 OpenAPI 문서
-- ORM, migration, transaction, 인증·권한
-- WebSocket, SSE, background task, 캐시와 관측성
-- Prologue의 단순하고 확장 가능한 HTTP 기반
+| 영역 | 제공 기능 |
+| --- | --- |
+| 애플리케이션 코어 | 격리된 `Application`, lifecycle hook, middleware, plugin·module·DI 경계, 오류 정책 |
+| HTTP·라우팅 | async/sync handler, route group, 이름 있는 route, Prologue·stdlib·httpx adapter |
+| 응답·입력 | HTML·JSON·MessagePack, body parser, multipart upload, validation, idempotency |
+| 데이터 | model metadata·macro, SQLite, 선택적 PostgreSQL, migration, transaction, repository, query component |
+| 화면·관리 | template·form·HTMX 표현, localization, static asset, admin resource·template·audit 경계 |
+| 인증·보안 | account auth, authorization, CSRF·보안 header, Argon2id·bcrypt, throttling, secret redaction |
+| API·실시간 | OpenAPI·TypeScript client, WebSocket, SSE, channel layer, Redis/Valkey 연동 경계 |
+| 작업·저장소 | background/durable job, SQLite durable store, object storage·S3 signing, email·syndication 경계 |
+| 운영 | request ID, health/readiness, metrics, tracing, bounded executor, graceful shutdown, release checksum |
+
+각 기능이 모든 backend와 운영 환경에서 같은 성숙도라는 뜻은 아닙니다. 현재
+`application-routing`, `dependency-injection`, `sqlite-storage`,
+`observability-testing-cli`는 stable이며, 외부 provider나 live 증거가 더 필요한
+기능은 experimental로 구분됩니다.
+
+## 요구 사항
+
+- Nim `>= 2.2.0`
+- Nimble
+- 현재 개발·CI 기준 버전: Nim `2.2.10`
+- 선택 기능에 따라 SQLite, PostgreSQL/libpq, Redis 또는 Valkey 등의 외부 runtime
 
 ## 새 사용자 빠른 시작
 
@@ -87,16 +110,57 @@ mahanaim app catalog
 만들며, 앱은 프로젝트의 composition root에서 `catalogModule()`로 명시적으로
 설치한다. 기존 파일은 덮어쓰지 않는다.
 
-요구사항 문서는 Django 6.0, Litestar 2.x, Prologue의 공식 문서를 비교 기준으로 작성했습니다. 현재 저장소에는 framework-neutral core, adapter, contract test와 실행 가능한 최소 수직 슬라이스가 포함되어 있으며, 외부 staging/live 증거는 계획에서 별도로 추적합니다.
+## 검증
 
-## 로드맵
+```text
+nimble test
+nimble check
+nimble verify
+nimble docsCheck
+git diff --check
+```
 
-1. HTTP 서버·라우팅·middleware·lifecycle 기반
-2. Prologue 호환 자산과 확장 API
-3. 모델·ORM·migration·transaction
-4. template·form·auth·permission·admin
-5. typed API·DTO·OpenAPI·WebSocket·SSE
-6. 테스트 도구·보안 기본값·운영 관측성
+`nimble verify`는 CLI build, lockfile, 문서 계약, 전체 public API reference,
+실행 가능한 예제와 공개 API compile 계약을 확인합니다. PostgreSQL, Redis/Valkey,
+Beast/httpx, HTTPS처럼 외부 서비스나 특정 OS가 필요한 기능은 해당 live gate가
+별도로 필요하며, 환경 부재로 skip된 결과를 integration 통과로 간주하지 않습니다.
+
+## 저장소 구조
+
+```text
+src/mahanaim.nim       공개 package entry point
+src/mahanaim/          framework-neutral core와 adapter
+src/mahanaim_cli.nim   CLI frontend
+examples/              실행 가능한 공개 API 예제
+tests/                 unit·contract·compile·live fixture
+benchmarks/            deterministic benchmark workload
+docs/                  사용자·API·지원·운영·배포 문서
+deploy/                Docker, nginx, systemd 배포 템플릿
+tools/                 계획 상태와 release manifest 도구
+```
+
+## 현재 제약
+
+- `0.1.0` 개발 프리뷰이며 experimental API는 변경될 수 있습니다.
+- PostgreSQL은 명시적 adapter opt-in이 필요하며 SQLite-only 애플리케이션은
+  libpq를 로드하지 않습니다.
+- Redis/Valkey, PostgreSQL, S3, SMTP, HTTPS reverse proxy, Beast/httpx의 운영
+  보장은 각 provider·platform live gate의 실제 증거가 필요합니다.
+- TLS 인증서 발급·갱신은 reverse proxy 또는 ingress의 책임입니다.
+- Admin, 인증, background job, realtime 기능은 애플리케이션별 권한·persistence·
+  provider 구성을 대신하지 않습니다.
+
+## 로드맵과 진행 상황
+
+Canonical 상태는 [`plan.md`](plan.md)에 있습니다. 현재 체크리스트는 다음 명령으로
+저장소에서 직접 집계합니다.
+
+```text
+nimble planStatus
+```
+
+상세 요구사항과 외부 staging 증거는 구현 계획과 지원 매트릭스에서 별도로
+추적합니다.
 
 ## 라이선스
 
